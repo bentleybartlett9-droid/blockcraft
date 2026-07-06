@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd \"C:/Users/Bentley/.claude/projects/C--Users-Bentley-claude-game/memory\")",
+      "Bash(cat MEMORY.md)",
+      "Bash(awk '{o+=gsub\\(/{/,\"{\"\\); c+=gsub\\(/}/,\"}\"\\)} END{print \"open=\"o\" close=\"c}' Bootstrap/GameBootstrap.cs)",
+      "Bash(awk '{o+=gsub\\(/{/,\"{\"\\); c+=gsub\\(/}/,\"}\"\\)} END{print \"GameBootstrap braces: open=\"o\" close=\"c}' Bootstrap/GameBootstrap.cs)",
+      "Bash(awk '{o+=gsub\\(/{/,\"{\"\\); c+=gsub\\(/}/,\"}\"\\)} END{print \"SpeciesFactory: \"o\"/\"c}' Characters/SpeciesFactory.cs)",
+      "PowerShell($c = @\\('node','npx','python','py'\\); foreach\\($n in $c\\){ $cmd = Get-Command $n -ErrorAction SilentlyContinue; if\\($cmd\\){ \"$n -> $\\($cmd.Source\\)\" } else { \"$n -> not found\" } })",
+      "PowerShell(python --version)",
+      "mcp__Claude_Preview__preview_start",
+      "PowerShell(Start-Process \"C:\\\\Users\\\\Bentley\\\\claude game\\\\index.html\")",
+      "PowerShell($desktop = [Environment]::GetFolderPath\\('Desktop'\\); $ws = New-Object -ComObject WScript.Shell; $sc = $ws.CreateShortcut\\(\"$desktop\\\\Blockcraft.lnk\"\\); $sc.TargetPath = \"C:\\\\Users\\\\Bentley\\\\claude game\\\\index.html\"; $sc.Description = \"Blockcraft voxel game\"; $sc.Save\\(\\); \"Shortcut created at $desktop\\\\Blockcraft.lnk\")",
+      "Bash(git --version)",
+      "Bash(gh --version)",
+      "mcp__claude-in-chrome__list_connected_browsers"
+    ]
+  }
+}
