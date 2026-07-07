@@ -50,11 +50,12 @@
   .ctrl b{color:#fff;display:inline-block;min-width:96px}
   #death{background:rgba(95,0,0,.62);z-index:20}
   #death h1{font-size:56px;letter-spacing:4px;margin:0 0 18px;text-shadow:3px 3px 0 rgba(0,0,0,.5)}
-  #craft,#trade{background:rgba(10,10,14,.5)}
-  #craftpanel,#tradepanel{background:#c6c6c6;border:3px solid #2e2e2e;border-radius:4px;padding:14px 18px;min-width:470px;
+  #craft,#trade,#chestui{background:rgba(10,10,14,.5)}
+  #craftpanel,#tradepanel,#chestpanel{background:#c6c6c6;border:3px solid #2e2e2e;border-radius:4px;padding:14px 18px;min-width:470px;
               box-shadow:inset 2px 2px 0 rgba(255,255,255,.55),inset -2px -2px 0 rgba(0,0,0,.3),0 12px 34px rgba(0,0,0,.65)}
-  #craftpanel h2,#tradepanel h2{margin:2px 0 8px;color:#3b3b3b;text-shadow:1px 1px 0 #e6e6e6;font-size:20px;letter-spacing:1px}
-  #tradepanel>.mcbtn{margin:10px auto 0}
+  #craftpanel h2,#tradepanel h2,#chestpanel h2{margin:2px 0 8px;color:#3b3b3b;text-shadow:1px 1px 0 #e6e6e6;font-size:20px;letter-spacing:1px}
+  #tradepanel>.mcbtn,#chestpanel>.mcbtn{margin:10px auto 0}
+  .cgrid{display:grid;grid-template-columns:repeat(9,40px);gap:3px;justify-content:center;margin:4px 0 8px}
   #invgrid{display:grid;grid-template-columns:repeat(9,40px);gap:3px;justify-content:center;margin:4px 0 10px}
   .islot{width:40px;height:40px;border:2px solid #565656;border-radius:3px;background:#8b8b8b;position:relative;
          cursor:pointer;display:flex;align-items:center;justify-content:center;box-sizing:border-box}
@@ -154,6 +155,17 @@
     <h2>Trading</h2>
     <div id="tradelist"></div>
     <button class="mcbtn small" id="btnTradeDone">Done</button>
+  </div>
+</div>
+
+<div id="chestui" class="menu">
+  <div id="chestpanel">
+    <h2>Chest</h2>
+    <div class="rsec">Chest — click items to take them</div>
+    <div id="chestgrid" class="cgrid"></div>
+    <div class="rsec">Your inventory — click items to store them</div>
+    <div id="chestinv" class="cgrid"></div>
+    <button class="mcbtn small" id="btnChestDone">Done</button>
   </div>
 </div>
 
@@ -363,15 +375,16 @@ const AIR=0, GRASS=1, DIRT=2, STONE=3, SAND=4, LOG=5, LEAVES=6, PLANK=7, GLASS=8
       TORCH=21, CRAFTT=22, FURN=23, IRONB=24, GOLDB=25, SBRICK=26, WOOL=27, BED=28,
       CACTUS=29, DEADBUSH=30, BIRCHLOG=31, SPRUCELOG=32, SPRUCELEAVES=33,
       JUNGLELOG=34, MUSHROOMR=35, MUSHROOMB=36, SAVGRASS=37, EMERO=38,
-      BPLANK=39, SPLANK=40, JPLANK=41;
+      BPLANK=39, SPLANK=40, JPLANK=41, TNT=42, CHEST=43;
 const ANY_PLANK = [7, 39, 40, 41];   // oak, birch, spruce, jungle planks (recipe group)
 const T = {GRASS_TOP:0,GRASS_SIDE:1,DIRT:2,STONE:3,SAND:4,LOG_SIDE:5,LOG_TOP:6,LEAVES:7,PLANK:8,BRICK:9,SNOW:10,GLASS:11,WATER:12,
            GLOW:13,COAL:14,IRON:15,GOLD:16,DIAMOND:17,TGRASS:18,POPPY:19,DANDELION:20,DIAMB:21,
            TORCH_T:22,CRAFT_TOP:23,CRAFT_SIDE:24,FURN_FRONT:25,FURN_SIDE:26,IRONB_T:27,GOLDB_T:28,SBRICK_T:29,WOOL_T:30,BED_TOP:31,
            CACTUS_SIDE:32,CACTUS_TOP:33,DEADBUSH_T:34,BIRCH_SIDE:35,SPRUCE_SIDE:36,SPRUCE_LEAVES_T:37,
            JUNGLE_SIDE:38,MUSH_R:39,MUSH_B:40,SAV_TOP:41,SAV_SIDE:42,EMER_T:43,
-           BPLANK_T:44,SPLANK_T:45,JPLANK_T:46};
-const ATLAS_COLS = 8, ATLAS_W = 128, ATLAS_H = 96;
+           BPLANK_T:44,SPLANK_T:45,JPLANK_T:46,
+           TNT_SIDE:47,TNT_TOP:48,CHEST_FRONT:49,CHEST_SIDE:50,CHEST_TOP:51};
+const ATLAS_COLS = 8, ATLAS_W = 128, ATLAS_H = 112;
 const BLOCKS = {
   [GRASS]:{name:'Grass',  top:T.GRASS_TOP, bottom:T.DIRT, side:T.GRASS_SIDE},
   [DIRT] :{name:'Dirt',   all:T.DIRT},
@@ -414,12 +427,15 @@ const BLOCKS = {
   [BPLANK]:{name:'Birch Planks', all:T.BPLANK_T},
   [SPLANK]:{name:'Spruce Planks', all:T.SPLANK_T},
   [JPLANK]:{name:'Jungle Planks', all:T.JPLANK_T},
+  [TNT]:{name:'TNT', top:T.TNT_TOP, bottom:T.TNT_TOP, side:T.TNT_SIDE},
+  [CHEST]:{name:'Chest', top:T.CHEST_TOP, bottom:T.CHEST_TOP, side:T.CHEST_FRONT},
 };
 /* items (id >= 100) */
 const STICK=100, COALI=101, IRONI=102, GOLDI=103, DIAMI=104, PORK=105, PORKC=106, MUTTON=107, MUTTONC=108,
       EMERALD=109,
       WPICK=110, SPICK=111, IPICK=112, DPICK=113, WAXE=114, SAXE=115, IAXE=116, DAXE=117,
-      WSHOV=118, SSHOV=119, ISHOV=120, DSHOV=121, WSWORD=122, SSWORD=123, ISWORD=124, DSWORD=125;
+      WSHOV=118, SSHOV=119, ISHOV=120, DSHOV=121, WSWORD=122, SSWORD=123, ISWORD=124, DSWORD=125,
+      GUNPOWDER=126, BEEF=127, BEEFC=128, CHICKENM=129, CHICKENC=130, FEATHER=131, LEATHER=132;
 const TIER_SPEED = [3.5, 6, 9, 14];
 const TIER_DUR   = [60, 132, 250, 1000];
 const ITEMS = {
@@ -433,6 +449,13 @@ const ITEMS = {
   [MUTTON]:{name:'Raw Mutton', icon:7, food:3},
   [MUTTONC]:{name:'Cooked Mutton', icon:8, food:6},
   [EMERALD]:{name:'Emerald', icon:25},
+  [GUNPOWDER]:{name:'Gunpowder', icon:26},
+  [FEATHER]:{name:'Feather', icon:27},
+  [LEATHER]:{name:'Leather', icon:28},
+  [BEEF]:{name:'Raw Beef', icon:29, food:3},
+  [BEEFC]:{name:'Steak', icon:30, food:8},
+  [CHICKENM]:{name:'Raw Chicken', icon:31, food:2},
+  [CHICKENC]:{name:'Cooked Chicken', icon:32, food:6},
 };
 const foodOf = id => (ITEMS[id] && ITEMS[id].food) || (id === MUSHROOMR || id === MUSHROOMB ? 2 : 0);
 {
@@ -463,7 +486,7 @@ function faceVisible(b, n){
 const dropOf = id => id === GRASS || id === SAVGRASS ? DIRT : id === COALO ? COALI : id === DIAMO ? DIAMI :
                      id === EMERO ? EMERALD : id === DEADBUSH ? STICK : id;
 function toolClassOf(id){
-  if(id === LOG || id === BIRCHLOG || id === SPRUCELOG || id === JUNGLELOG || ANY_PLANK.includes(id) || id === CRAFTT || id === BED) return 'axe';
+  if(id === LOG || id === BIRCHLOG || id === SPRUCELOG || id === JUNGLELOG || ANY_PLANK.includes(id) || id === CRAFTT || id === BED || id === CHEST) return 'axe';
   if(id === GRASS || id === SAVGRASS || id === DIRT || id === SAND || id === SNOW) return 'shovel';
   if(id === STONE || id === BRICK || id === SBRICK || id === GLOWB || id === FURN || id === IRONB ||
      id === GOLDB || id === DIAMB || id === COALO || id === IRONO || id === GOLDO || id === DIAMO || id === EMERO) return 'pick';
@@ -472,11 +495,11 @@ function toolClassOf(id){
 function handTime(id){
   if(isCross(id)) return 0.05;
   if(id === LEAVES || id === SPRUCELEAVES) return 0.35;
-  if(id === GLASS || id === CACTUS) return 0.5;
+  if(id === GLASS || id === CACTUS || id === TNT) return 0.5;
   if(id === GRASS || id === SAVGRASS || id === DIRT || id === SAND || id === SNOW) return 0.75;
   if(id === WOOL) return 1.0;
   if(id === GLOWB) return 2.0;
-  if(id === LOG || id === BIRCHLOG || id === SPRUCELOG || id === JUNGLELOG || ANY_PLANK.includes(id) || id === CRAFTT || id === BED) return 3.0;
+  if(id === LOG || id === BIRCHLOG || id === SPRUCELOG || id === JUNGLELOG || ANY_PLANK.includes(id) || id === CRAFTT || id === BED || id === CHEST) return 3.0;
   if(id === DIAMO || id === IRONB || id === GOLDB || id === DIAMB) return 5.0;
   if(id === COALO || id === IRONO || id === GOLDO || id === EMERO) return 4.5;
   return 4.0;
@@ -514,11 +537,15 @@ const RECIPES = [
   { out: [DIAMB, 1],  in: [[DIAMI, 9]], st: 'table' },
   { out: [GLOWB, 4],  in: [[GOLDI, 1], [COALI, 1]], st: 'table' },
   { out: [BED, 1],    in: [[WOOL, 3], [ANY_PLANK, 3]], st: 'table' },
+  { out: [CHEST, 1],  in: [[ANY_PLANK, 8]], st: 'table' },
+  { out: [TNT, 1],    in: [[GUNPOWDER, 5], [SAND, 4]], st: 'table' },
   { out: [IRONI, 1],  in: [[IRONO, 1], [COALI, 1]], st: 'furnace' },
   { out: [GOLDI, 1],  in: [[GOLDO, 1], [COALI, 1]], st: 'furnace' },
   { out: [GLASS, 2],  in: [[SAND, 2], [COALI, 1]], st: 'furnace' },
   { out: [PORKC, 1],  in: [[PORK, 1], [COALI, 1]], st: 'furnace' },
   { out: [MUTTONC, 1],in: [[MUTTON, 1], [COALI, 1]], st: 'furnace' },
+  { out: [BEEFC, 1],  in: [[BEEF, 1], [COALI, 1]], st: 'furnace' },
+  { out: [CHICKENC, 1], in: [[CHICKENM, 1], [COALI, 1]], st: 'furnace' },
 ];
 
 /* ========================= texture atlases ========================== */
@@ -531,7 +558,7 @@ function mulberry32(a){
 const atlas = document.createElement('canvas');
 atlas.width = ATLAS_W; atlas.height = ATLAS_H;
 const itemAtlas = document.createElement('canvas');
-itemAtlas.width = 128; itemAtlas.height = 64;
+itemAtlas.width = 128; itemAtlas.height = 96;
 {
   const tn = (x, y, s, salt) => vnoise(x * s + 37.7, y * s + 11.3, 5000 + salt);
   const pick = (v, shades) => shades[Math.max(0, Math.min(shades.length - 1, Math.floor(v * shades.length)))];
@@ -795,6 +822,36 @@ itemAtlas.width = 128; itemAtlas.height = 64;
   put(T.BPLANK_T, plankVar([[199,181,135],[209,191,145],[219,201,155]], [140,124,88], [158,142,102], 930));
   put(T.SPLANK_T, plankVar([[94,70,42],[103,78,48],[113,87,54]], [56,40,24], [72,54,32], 932));
   put(T.JPLANK_T, plankVar([[152,105,75],[162,113,81],[174,123,89]], [98,63,45], [118,79,57], 934));
+  const TNT_TXT = ['.XXX..X..X.XXX..', '..X...XX.X..X...', '..X...X.XX..X...'];
+  put(T.TNT_SIDE, (x,y,r) => {
+    if(y >= 6 && y <= 9){
+      if(y >= 6 && y <= 8 && TNT_TXT[y-6][x] === 'X') return [34,24,20];
+      const k = Math.floor((r()-0.5)*10);
+      return [230+k, 222+k, 212+k];
+    }
+    const k = Math.floor((r()-0.5)*14);
+    return r() < 0.2 ? [166+k, 44, 38] : [199+k, 58, 50];
+  });
+  put(T.TNT_TOP, (x,y,r) => {
+    if(x <= 1 || y <= 1 || x >= 14 || y >= 14){ const k = Math.floor((r()-0.5)*12); return [196+k, 56, 48]; }
+    const k = Math.floor((r()-0.5)*12);
+    return Math.hypot(x-7.5, y-7.5) < 2 ? [120+k, 96+k, 70+k] : [214+k, 188+k, 148+k];
+  });
+  const chestPx = (latch) => (x,y,r) => {
+    if(x === 0 || y === 0 || x === 15 || y === 15) return [64,43,24];
+    if(latch && x >= 7 && x <= 8 && y >= 6 && y <= 9)
+      return (x === 7 && y >= 7 && y <= 8) ? [188,188,192] : [126,126,132];
+    if(y === 6) return [96,66,36];
+    const k = Math.floor((r()-0.5)*14);
+    return [168+k, 120+k, 64+Math.floor(k*0.7)];
+  };
+  put(T.CHEST_FRONT, chestPx(true));
+  put(T.CHEST_SIDE, chestPx(false));
+  put(T.CHEST_TOP, (x,y,r) => {
+    if(x === 0 || y === 0 || x === 15 || y === 15) return [64,43,24];
+    const k = Math.floor((r()-0.5)*12);
+    return [178+k, 130+k, 72+Math.floor(k*0.7)];
+  });
   /* ---------- item icons ---------- */
   const TOOLPAL = [[168,122,68],[138,138,138],[224,224,226],[96,226,218]];
   const HANDLE = [116,86,52];
@@ -843,6 +900,26 @@ itemAtlas.width = 128; itemAtlas.height = 64;
     if(md <= 5) return [36,140,74,1];
     return [0,0,0,0];
   });
+  puti(26, (x,y,r) => {  // gunpowder pile
+    const d = Math.hypot((x-8)/4.8, (y-10)/3);
+    if(d < 1 && y > 5){ const g = 84 + Math.floor(r()*44); return [g, g, g+4, 1]; }
+    if(y <= 6 && r() < 0.05 && Math.abs(x-8) < 4) return [110,110,116,1];
+    return [0,0,0,0];
+  });
+  puti(27, (x,y,r) => {  // feather
+    const t = (15 - y) - x;
+    if(x >= 3 && x <= 12 && y >= 3 && y <= 12){
+      if(Math.abs(t) <= 0.5) return [168,168,172,1];      // spine
+      if(Math.abs(t) <= 2.4) return [242,242,246,1];
+    }
+    return [0,0,0,0];
+  });
+  puti(28, (x,y,r) => {  // leather
+    const d = Math.hypot((x-8)/4.6, (y-8)/4);
+    if(d < 0.8){ const k = Math.floor((r()-0.5)*16); return [152+k, 98+k, 54+k, 1]; }
+    if(d < 1) return [112,70,38,1];
+    return [0,0,0,0];
+  });
   const meat = (main, light, boneAt) => (x,y,r) => {
     const dx = (x-7)/4.6, dy = (y-8)/3.2;
     if(boneAt && x >= 12 && Math.abs(y-8) <= 1.5) return [235,230,215,1];
@@ -853,6 +930,10 @@ itemAtlas.width = 128; itemAtlas.height = 64;
   puti(6, meat([194,120,70],[215,152,96], false));
   puti(7, meat([200,82,72],[222,120,105], true));
   puti(8, meat([170,105,60],[195,135,85], true));
+  puti(29, meat([198,62,56],[228,120,116], false));   // raw beef
+  puti(30, meat([148,86,48],[178,116,72], false));    // steak
+  puti(31, meat([224,182,164],[238,206,190], true));  // raw chicken
+  puti(32, meat([198,134,62],[220,164,92], true));    // cooked chicken
   const typesArr = [['pick',9],['axe',13],['shovel',17],['sword',21]];
   for(const [type, base] of typesArr)
     for(let i = 0; i < 4; i++)
@@ -861,7 +942,7 @@ itemAtlas.width = 128; itemAtlas.height = 64;
 const tileAvg = [];
 {
   const ctx = atlas.getContext('2d');
-  for(let ti = 0; ti <= 46; ti++){
+  for(let ti = 0; ti <= 51; ti++){
     const d = ctx.getImageData((ti % ATLAS_COLS) * 16, ((ti / ATLAS_COLS) | 0) * 16, 16, 16).data;
     let r = 0, g = 0, b = 0, n = 0;
     for(let i = 0; i < d.length; i += 4) if(d[i+3] > 40){ r += d[i]; g += d[i+1]; b += d[i+2]; n++; }
@@ -943,8 +1024,11 @@ const FACES = [
 const chunks = new Map();
 const SAVE_KEY = 'blockcraft-save-' + SEED;
 const INV_KEY = SAVE_KEY + '-inv';
-let edits = {}, editsDirty = false, invDirty = false;
+const CHEST_KEY = SAVE_KEY + '-chests';
+let edits = {}, editsDirty = false, invDirty = false, chestsDirty = false;
+let chests = {};
 try { edits = JSON.parse(localStorage.getItem(SAVE_KEY)) || {}; } catch(e){ edits = {}; }
+try { chests = JSON.parse(localStorage.getItem(CHEST_KEY)) || {}; } catch(e){ chests = {}; }
 let survInv;
 try { survInv = (JSON.parse(localStorage.getItem(INV_KEY)) || []).map(s => ({ id: s[0] | 0, count: s[1] | 0, dur: s[2] | 0 })); } catch(e){}
 if(!survInv || (survInv.length !== 9 && survInv.length !== 36)) survInv = [];
@@ -952,14 +1036,16 @@ while(survInv.length < 36) survInv.push({ id: 0, count: 0, dur: 0 });   // 9 hot
 document.getElementById('resetBtn').addEventListener('click', () => {
   localStorage.removeItem(SAVE_KEY);
   localStorage.removeItem(INV_KEY);
+  localStorage.removeItem(CHEST_KEY);
   location.reload();
 });
 function saveNow(){
   try {
     localStorage.setItem(SAVE_KEY, JSON.stringify(edits));
     localStorage.setItem(INV_KEY, JSON.stringify(survInv.map(s => [s.id, s.count, s.dur])));
+    localStorage.setItem(CHEST_KEY, JSON.stringify(chests));
   } catch(e){}
-  editsDirty = invDirty = false;
+  editsDirty = invDirty = chestsDirty = false;
 }
 
 function chunkAt(cx, cz){
@@ -1412,7 +1498,7 @@ function physics(dt){
 }
 
 /* ========================= game state / menus ======================= */
-let mode = 'creative', inGame = false, locked = false, craftOpen = false, worldsOpen = false, createOpen = false, tradeOpen = false, mpOpen = false;
+let mode = 'creative', inGame = false, locked = false, craftOpen = false, worldsOpen = false, createOpen = false, tradeOpen = false, mpOpen = false, chestOpen = false;
 const titleEl = document.getElementById('overlay');
 const pauseEl = document.getElementById('pause');
 const deathEl = document.getElementById('death');
@@ -1439,11 +1525,12 @@ function startGame(m){
 }
 function quitToTitle(){
   uiClick(); saveNow();
-  inGame = false; craftOpen = false; tradeOpen = false;
+  inGame = false; craftOpen = false; tradeOpen = false; chestOpen = false;
   pauseEl.style.display = 'none';
   deathEl.style.display = 'none';
   craftEl.style.display = 'none';
   document.getElementById('trade').style.display = 'none';
+  document.getElementById('chestui').style.display = 'none';
   titleEl.style.display = 'flex';
 }
 document.getElementById('btnSurvival').addEventListener('click', () => startGame('survival'));
@@ -1464,6 +1551,7 @@ document.addEventListener('pointerlockchange', () => {
   } else {
     keys.clear(); mouseHeld.fill(false); resetMine();
     if(dead) deathEl.style.display = 'flex';
+    else if(chestOpen) document.getElementById('chestui').style.display = 'flex';
     else if(tradeOpen) document.getElementById('trade').style.display = 'flex';
     else if(craftOpen) craftEl.style.display = 'flex';
     else if(inGame) pauseEl.style.display = 'flex';
@@ -1707,6 +1795,8 @@ function removeEnt(list, i){
 const animals = [];
 const pigMats = { body: entMat(0xe89aa4), head: entMat(0xeba6b0), snout: entMat(0xd97f8c), leg: entMat(0xd9848f) };
 const sheepMats = { body: entMat(0xe9e9e2), head: entMat(0xcabfae), leg: entMat(0xcfc5b6) };
+const cowMats = { body: entMat(0x5a4030), head: entMat(0x6b4c39), leg: entMat(0x4a352a), horn: entMat(0xd8d0be) };
+const chickMats = { body: entMat(0xf2f2ee), beak: entMat(0xd9a028), leg: entMat(0xd9a028) };
 function spawnAnimal(type, x, y, z){
   const g = new THREE.Group();
   const legs = [];
@@ -1716,17 +1806,32 @@ function spawnAnimal(type, x, y, z){
     box(0.24, 0.16, 0.08, pigMats.snout, 0, 0.58, -0.98, g);
     for(const [lx, lz] of [[-0.24,-0.34],[0.24,-0.34],[-0.24,0.34],[0.24,0.34]])
       legs.push(box(0.2, 0.4, 0.2, pigMats.leg, lx, 0.2, lz, g));
-  } else {
+  } else if(type === 'sheep'){
     box(0.9, 0.65, 1.25, sheepMats.body, 0, 0.82, 0, g);
     box(0.42, 0.42, 0.45, sheepMats.head, 0, 0.95, -0.78, g);
     for(const [lx, lz] of [[-0.26,-0.4],[0.26,-0.4],[-0.26,0.4],[0.26,0.4]])
       legs.push(box(0.18, 0.5, 0.18, sheepMats.leg, lx, 0.25, lz, g));
+  } else if(type === 'cow'){
+    box(0.9, 0.7, 1.35, cowMats.body, 0, 0.95, 0, g);
+    box(0.45, 0.42, 0.45, cowMats.head, 0, 1.12, -0.84, g);
+    box(0.1, 0.12, 0.1, cowMats.horn, -0.22, 1.32, -0.8, g);
+    box(0.1, 0.12, 0.1, cowMats.horn, 0.22, 1.32, -0.8, g);
+    for(const [lx, lz] of [[-0.26,-0.42],[0.26,-0.42],[-0.26,0.42],[0.26,0.42]])
+      legs.push(box(0.2, 0.6, 0.2, cowMats.leg, lx, 0.3, lz, g));
+  } else {  // chicken
+    box(0.4, 0.4, 0.55, chickMats.body, 0, 0.45, 0, g);
+    box(0.24, 0.28, 0.24, chickMats.body, 0, 0.72, -0.3, g);
+    box(0.1, 0.08, 0.14, chickMats.beak, 0, 0.7, -0.48, g);
+    for(const lx of [-0.09, 0.09])
+      legs.push(box(0.06, 0.26, 0.06, chickMats.leg, lx, 0.13, 0, g));
   }
   scene.add(g);
   animals.push({
-    kind: 'animal', type, group: g, legs, hp: 10,
+    kind: 'animal', type, group: g, legs,
+    hp: type === 'chicken' ? 4 : 10,
     pos: new THREE.Vector3(x, y, z), vel: new THREE.Vector3(),
-    w: 0.4, h: type === 'pig' ? 0.95 : 1.2,
+    w: type === 'chicken' ? 0.25 : 0.4,
+    h: type === 'pig' ? 0.95 : type === 'sheep' ? 1.2 : type === 'cow' ? 1.4 : 0.75,
     yaw: Math.random() * Math.PI * 2, speed: 0, t: 1 + Math.random() * 2,
     flee: 0, onGround: false, anim: Math.random() * 9,
   });
@@ -1744,7 +1849,7 @@ function updateAnimalSpawns(dt){
   if(ground !== GRASS && ground !== SAVGRASS) return;
   const above = getBlock(x, h + 1, z);
   if(above !== AIR && !isCross(above)) return;
-  spawnAnimal(Math.random() < 0.5 ? 'pig' : 'sheep', x + 0.5, h + 1.05, z + 0.5);
+  spawnAnimal(['pig', 'sheep', 'cow', 'chicken'][Math.floor(Math.random() * 4)], x + 0.5, h + 1.05, z + 0.5);
 }
 function updateAnimals(dt){
   for(let i = animals.length - 1; i >= 0; i--){
@@ -1817,7 +1922,7 @@ function updateZombieSpawns(dt, daylight){
   zSpawnT -= dt;
   if(zSpawnT > 0) return;
   zSpawnT = 1.2;
-  if(daylight > 0.35 || zombies.length + skeletons.length >= 8) return;
+  if(daylight > 0.35 || zombies.length + skeletons.length + creepers.length >= 8) return;
   const a = Math.random() * Math.PI * 2, d = 24 + Math.random() * 32;
   const x = Math.floor(player.pos.x + Math.cos(a) * d), z = Math.floor(player.pos.z + Math.sin(a) * d);
   const h = terrainHeight(x, z);
@@ -1825,9 +1930,12 @@ function updateZombieSpawns(dt, daylight){
   if(!isSolid(getBlock(x, h, z))) return;
   const above = getBlock(x, h + 1, z);
   if(above !== AIR && !isCross(above)) return;
-  if(Math.random() < 0.35){
+  const roll = Math.random();
+  if(roll < 0.3){
     spawnSkeleton(x + 0.5, h + 1.05, z + 0.5);
     if(Math.hypot(x - player.pos.x, z - player.pos.z) < 40) boneRattle(0.1);
+  } else if(roll < 0.55){
+    spawnCreeper(x + 0.5, h + 1.05, z + 0.5);   // creepers arrive in silence
   } else {
     spawnZombie(x + 0.5, h + 1.05, z + 0.5);
     if(Math.hypot(x - player.pos.x, z - player.pos.z) < 40) zombieGroan(0.12);
@@ -2065,6 +2173,171 @@ function updateArrows(dt){
   }
 }
 
+/* ===================== explosions, TNT, creepers ==================== */
+function boomSfx(dist = 0){
+  const v = Math.max(0.12, 1 - dist / 45);
+  playN({ f: 140, type: 'lowpass', dur: 0.6, vol: 0.55 * v, slide: -80 });
+  playN({ f: 900, type: 'lowpass', dur: 0.25, vol: 0.3 * v, slide: -600 });
+  tone(70, 28, 0.55, 'sine', 0.4 * v);
+}
+function explode(x, y, z, radius, dmgMax, fromNet){
+  const r = Math.ceil(radius);
+  const touched = new Set();
+  for(let dx = -r; dx <= r; dx++) for(let dy = -r; dy <= r; dy++) for(let dz = -r; dz <= r; dz++){
+    const d = Math.sqrt(dx*dx + dy*dy + dz*dz);
+    const bx = Math.round(x + dx), by = Math.round(y + dy), bz = Math.round(z + dz);
+    if(by <= 0 || by >= HEIGHT) continue;
+    if(d > radius - 0.3 + hash3(bx, by, bz, 777) * 0.9) continue;   // deterministic ragged crater
+    const b = getBlock(bx, by, bz);
+    if(b === AIR || b === WATER) continue;
+    const ccx = bx >> 4, ccz = bz >> 4;
+    const c = chunkAt(ccx, ccz); ensureData(c);
+    c.data[(by << 8) | ((bz & 15) << 4) | (bx & 15)] = AIR;
+    const ck = ccx + ',' + ccz;
+    (edits[ck] = edits[ck] || {})[(bx & 15) + ',' + by + ',' + (bz & 15)] = AIR;
+    touched.add(ck);
+    if(b === TNT){ if(!fromNet) igniteTNT(bx, by, bz, 0.3 + Math.random() * 0.6, true); }
+    else if(b === CHEST){
+      const key = bx + ',' + by + ',' + bz;
+      if(chests[key]){
+        for(const s of chests[key]) if(s.id && s.count > 0) spawnDropAt(bx + 0.5, by + 0.5, bz + 0.5, s.id, s.count);
+        delete chests[key];
+        chestsDirty = true;
+      }
+    }
+    else if(mode === 'survival' && !fromNet && Math.random() < 0.3) spawnDrop(bx, by, bz, dropOf(b));
+  }
+  editsDirty = true;
+  const rebuildSet = new Set(touched);
+  for(const ck of touched){
+    const [ccx, ccz] = ck.split(',').map(Number);
+    rebuildSet.add((ccx + 1) + ',' + ccz).add((ccx - 1) + ',' + ccz).add(ccx + ',' + (ccz + 1)).add(ccx + ',' + (ccz - 1));
+  }
+  for(const ck of rebuildSet){
+    const c = chunks.get(ck);
+    if(c && c.built) buildChunk(c);
+  }
+  // damage + knockback: each client applies to its own player
+  const pd = Math.hypot(player.pos.x - x, player.pos.y + 0.9 - y, player.pos.z - z);
+  if(pd < radius + 2.5){
+    damage(Math.round(dmgMax * Math.max(0, 1 - pd / (radius + 2.5))));
+    const l = pd || 1;
+    player.vel.x += (player.pos.x - x) / l * 12;
+    player.vel.z += (player.pos.z - z) / l * 12;
+    player.vel.y += 6;
+  }
+  const at = new THREE.Vector3(x, y, z);
+  for(const list of [zombies, skeletons, creepers]){
+    for(const e of list){
+      const d = e.pos.distanceTo(at);
+      if(d < radius + 2) e.hp -= dmgMax * Math.max(0, 1 - d / (radius + 2));
+    }
+  }
+  burstRGB(x, y, z, 0.35, 0.33, 0.3, 40, radius * 1.6);
+  burstRGB(x, y, z, 1, 0.55, 0.12, 20, radius);
+  boomSfx(Math.hypot(player.pos.x - x, player.pos.z - z));
+  if(!fromNet && conns.length) mpBroadcast({ t: 'boom', x, y, z, r: radius, d: dmgMax });
+}
+/* primed TNT */
+const primed = [];
+function igniteTNT(x, y, z, fuse = 3, skipRemove = false){
+  if(!skipRemove){
+    if(getBlock(x, y, z) !== TNT) return;
+    setBlock(x, y, z, AIR);
+  }
+  const mesh = new THREE.Mesh(dropGeo(TNT), matO);
+  mesh.scale.set(4, 4, 4);
+  scene.add(mesh);
+  primed.push({ mesh, pos: new THREE.Vector3(x + 0.5, y, z + 0.5), vel: new THREE.Vector3(),
+                w: 0.49, h: 0.98, onGround: false, fuse, flash: 0 });
+  playN({ f: 3200, type: 'highpass', dur: Math.min(1.2, fuse), vol: 0.18 });
+}
+function updateTNT(dt){
+  for(let i = primed.length - 1; i >= 0; i--){
+    const p = primed[i];
+    p.fuse -= dt;
+    p.vel.y -= 22 * dt;
+    stepEntity(p, dt);
+    p.flash += dt * 9;
+    const s = 4 * (1 + Math.sin(p.flash) * 0.06);
+    p.mesh.scale.set(s, s, s);
+    p.mesh.position.set(p.pos.x, p.pos.y + 0.5, p.pos.z);
+    if(p.fuse <= 0){
+      scene.remove(p.mesh);
+      primed.splice(i, 1);
+      explode(p.pos.x, p.pos.y + 0.5, p.pos.z, 3.4, 18);
+    }
+  }
+}
+/* creepers */
+const creepers = [];
+const creepMats = { skin: entMat(0x54b04a), dark: entMat(0x3d8a36), foot: entMat(0x3a6e34) };
+function spawnCreeper(x, y, z){
+  const g = new THREE.Group();
+  const legs = [];
+  box(0.5, 0.5, 0.5, creepMats.skin, 0, 1.45, 0, g);
+  box(0.42, 0.85, 0.28, creepMats.dark, 0, 0.82, 0, g);
+  for(const [lx, lz] of [[-0.13, -0.2], [0.13, -0.2], [-0.13, 0.2], [0.13, 0.2]])
+    legs.push(box(0.2, 0.34, 0.24, creepMats.foot, lx, 0.17, lz, g));
+  scene.add(g);
+  creepers.push({
+    kind: 'creeper', group: g, legs,
+    pos: new THREE.Vector3(x, y, z), vel: new THREE.Vector3(),
+    w: 0.3, h: 1.7, hp: 20,
+    yaw: Math.random() * Math.PI * 2, speed: 0, t: 0.5,
+    onGround: false, anim: Math.random() * 9, fuse: -1,
+  });
+}
+function killCreeper(i, exploded){
+  const c = creepers[i];
+  burstRGB(c.pos.x, c.pos.y + 1, c.pos.z, 0.4, 0.7, 0.35, 12);
+  if(!exploded){
+    tone(220 * jr(0.15), 60, 0.4, 'square', 0.14);
+    if(mode === 'survival') spawnDropAt(c.pos.x, c.pos.y + 0.5, c.pos.z, GUNPOWDER, 1 + (Math.random() < 0.5 ? 1 : 0));
+  }
+  removeEnt(creepers, i);
+}
+function updateCreepers(dt){
+  for(let i = creepers.length - 1; i >= 0; i--){
+    const c = creepers[i];
+    if(c.pos.distanceToSquared(player.pos) > 110 * 110){ removeEnt(creepers, i); continue; }
+    if(c.hp <= 0){ killCreeper(i); continue; }
+    const dx = player.pos.x - c.pos.x, dz = player.pos.z - c.pos.z;
+    const distP = Math.hypot(dx, dz);
+    const hunting = mode === 'survival' && !dead;
+    if(c.fuse >= 0){
+      c.speed = 0;
+      c.fuse -= dt;
+      const sw = 1 + (1.5 - Math.max(0, Math.min(1.5, c.fuse))) * 0.16 * (1 + Math.sin(c.fuse * 25) * 0.3);
+      c.group.scale.set(sw, sw, sw);
+      if(distP > 4.5){ c.fuse = -1; c.group.scale.set(1, 1, 1); }
+      else if(c.fuse <= 0){
+        const ex = c.pos.clone();
+        killCreeper(i, true);
+        explode(ex.x, ex.y + 0.8, ex.z, 3, 14);
+        continue;
+      }
+    } else if(hunting && distP < 16){
+      const l = distP || 1;
+      c.yaw = Math.atan2(-dx / l, -dz / l);
+      c.speed = 2.4;
+      if(distP < 2.5 && Math.abs(player.pos.y - c.pos.y) < 2){
+        c.fuse = 1.5;
+        playN({ f: 2800, type: 'highpass', dur: 1.4, vol: 0.3 });
+      }
+    } else {
+      c.t -= dt;
+      if(c.t <= 0){
+        c.t = 1.5 + Math.random() * 3;
+        if(Math.random() < 0.5) c.speed = 0;
+        else { c.speed = 0.8; c.yaw = Math.random() * Math.PI * 2; }
+      }
+    }
+    if(c.fuse < 0) stepMob(c, dt, 26);
+    animMob(c, dt);
+  }
+}
+
 /* =========================== villagers ============================== */
 const villagers = [];
 const villagerSpawned = new Set();
@@ -2101,6 +2374,8 @@ const TRADE_POOL = [
   { in: [[EMERALD, 3]], out: [IPICK, 1] },
   { in: [[EMERALD, 3]], out: [ISWORD, 1] },
   { in: [[EMERALD, 5]], out: [DIAMI, 1] },
+  { in: [[LEATHER, 3]], out: [EMERALD, 1] },
+  { in: [[EMERALD, 1]], out: [BEEFC, 3] },
 ];
 function pickTrades(){
   const pool = [...TRADE_POOL], picks = [];
@@ -2166,6 +2441,74 @@ function closeTrade(){
   renderer.domElement.requestPointerLock();
 }
 document.getElementById('btnTradeDone').addEventListener('click', () => closeTrade());
+
+/* chests */
+let chestPos = null;
+function chestSlots(key){
+  if(!chests[key]) chests[key] = Array.from({ length: 27 }, () => ({ id: 0, count: 0, dur: 0 }));
+  return chests[key];
+}
+function moveStack(from, i, to){
+  const s = from[i];
+  if(!s.id || s.count <= 0) return;
+  const tool = ITEMS[s.id] && ITEMS[s.id].tool;
+  if(!tool){
+    for(const t of to){
+      if(t.id === s.id && t.count > 0 && t.count < 64){
+        const mv = Math.min(64 - t.count, s.count);
+        t.count += mv; s.count -= mv;
+        if(s.count <= 0){ s.id = 0; s.dur = 0; break; }
+      }
+    }
+  }
+  if(s.count > 0){
+    const empty = to.find(t => !t.id || t.count === 0);
+    if(empty){ empty.id = s.id; empty.count = s.count; empty.dur = s.dur; s.id = 0; s.count = 0; s.dur = 0; }
+  }
+  chestsDirty = true; invDirty = true;
+}
+function renderChestUI(){
+  if(!chestPos) return;
+  const slots27 = chestSlots(chestPos);
+  const mk = (container, arr, other) => {
+    container.innerHTML = '';
+    arr.forEach((s, i) => {
+      const cell = document.createElement('div');
+      cell.className = 'islot';
+      const cv = document.createElement('canvas');
+      cv.width = 16; cv.height = 16;
+      drawIcon(cv.getContext('2d'), s.count > 0 ? s.id : 0);
+      const cnt = document.createElement('span');
+      const tool = s.count > 0 && ITEMS[s.id] && ITEMS[s.id].tool;
+      cnt.textContent = !tool && s.count > 0 ? s.count : '';
+      cell.append(cv, cnt);
+      cell.addEventListener('click', () => {
+        moveStack(arr, i, other);
+        uiClick();
+        renderChestUI();
+        renderHotbar();
+      });
+      container.appendChild(cell);
+    });
+  };
+  mk(document.getElementById('chestgrid'), slots27, survInv);
+  mk(document.getElementById('chestinv'), survInv, slots27);
+}
+function openChest(x, y, z){
+  chestOpen = true;
+  chestPos = x + ',' + y + ',' + z;
+  renderChestUI();
+  blockSfx(CHEST, 'place');
+  document.exitPointerLock();
+}
+function closeChest(){
+  chestOpen = false;
+  chestPos = null;
+  document.getElementById('chestui').style.display = 'none';
+  uiClick();
+  renderer.domElement.requestPointerLock();
+}
+document.getElementById('btnChestDone').addEventListener('click', () => closeChest());
 let villagerCheckT = 0;
 function updateVillagerSpawns(dt){
   villagerCheckT -= dt;
@@ -2250,6 +2593,7 @@ function rayEntity(o, d, max){
   for(const e of animals) check(e);
   for(const e of zombies) check(e);
   for(const e of skeletons) check(e);
+  for(const e of creepers) check(e);
   for(const e of villagers) check(e);
   return best && bt <= max ? { e: best, t: bt } : null;
 }
@@ -2303,6 +2647,15 @@ function punchEntity(e){
       const i = skeletons.indexOf(e);
       if(i >= 0) killSkeleton(i);
     }
+  } else if(e.kind === 'creeper'){
+    e.hp -= dmg;
+    e.fuse = -1;
+    e.group.scale.set(1, 1, 1);          // knockback interrupts the fuse
+    burstRGB(e.pos.x, e.pos.y + 1, e.pos.z, 0.4, 0.7, 0.35, 5, 0.3);
+    if(e.hp <= 0){
+      const i = creepers.indexOf(e);
+      if(i >= 0) killCreeper(i);
+    } else tone(240 * jr(0.2), 90, 0.15, 'square', 0.12);
   } else if(e.kind === 'villager'){
     e.hp -= dmg;
     e.flee = 2.5;
@@ -2319,21 +2672,29 @@ function punchEntity(e){
     e.hp -= dmg;
     if(e.hp <= 0){
       burstRGB(e.pos.x, e.pos.y + 0.6, e.pos.z, 0.8, 0.25, 0.2, 10, 0.5);
-      tone((e.type === 'pig' ? 600 : 440) * jr(0.1), 120, 0.25, 'sawtooth', 0.15);
+      const deathF = { pig: 600, sheep: 440, cow: 280, chicken: 900 }[e.type] || 500;
+      tone(deathF * jr(0.1), 120, 0.25, 'sawtooth', 0.15);
       if(mode === 'survival'){
+        const p = e.pos;
         if(e.type === 'pig'){
-          spawnDropAt(e.pos.x, e.pos.y + 0.5, e.pos.z, PORK);
-          if(Math.random() < 0.5) spawnDropAt(e.pos.x + 0.2, e.pos.y + 0.5, e.pos.z, PORK);
+          spawnDropAt(p.x, p.y + 0.5, p.z, PORK, 1 + (Math.random() < 0.5 ? 1 : 0));
+        } else if(e.type === 'sheep'){
+          spawnDropAt(p.x, p.y + 0.5, p.z, MUTTON);
+          spawnDropAt(p.x + 0.2, p.y + 0.5, p.z, WOOL);
+        } else if(e.type === 'cow'){
+          spawnDropAt(p.x, p.y + 0.5, p.z, BEEF, 1 + (Math.random() < 0.5 ? 1 : 0));
+          spawnDropAt(p.x + 0.2, p.y + 0.5, p.z, LEATHER);
         } else {
-          spawnDropAt(e.pos.x, e.pos.y + 0.5, e.pos.z, MUTTON);
-          spawnDropAt(e.pos.x + 0.2, e.pos.y + 0.5, e.pos.z, WOOL);
+          spawnDropAt(p.x, p.y + 0.4, p.z, CHICKENM);
+          spawnDropAt(p.x + 0.2, p.y + 0.4, p.z, FEATHER);
         }
       }
       const i = animals.indexOf(e);
       if(i >= 0) removeEnt(animals, i);
     } else {
       e.flee = 2.5;
-      tone((e.type === 'pig' ? 650 : 480) * jr(0.1), 220, 0.13, 'sawtooth', 0.12);
+      const hurtF = { pig: 650, sheep: 480, cow: 300, chicken: 950 }[e.type] || 500;
+      tone(hurtF * jr(0.1), 220, 0.13, 'sawtooth', 0.12);
     }
   }
 }
@@ -2349,7 +2710,7 @@ function dropGeo(id){
     const ic = ITEMS[id].icon, ix = (ic % 8) * 16, iy = ((ic / 8) | 0) * 16;
     const uv = g.attributes.uv;
     for(let i = 0; i < uv.count; i++)
-      uv.setXY(i, (ix + 0.3 + uv.getX(i) * 15.4) / 128, 1 - (iy + 0.3 + (1 - uv.getY(i)) * 15.4) / 64);
+      uv.setXY(i, (ix + 0.3 + uv.getX(i) * 15.4) / 128, 1 - (iy + 0.3 + (1 - uv.getY(i)) * 15.4) / 96);
   } else {
     const B = {pos:[],uv:[],col:[],idx:[]};
     if(isCross(id)) pushCross(B, 0, 0, 0, tileFor(id, 0));
@@ -2365,13 +2726,13 @@ function dropGeo(id){
   dropGeos.set(id, g);
   return g;
 }
-function spawnDropAt(x, y, z, id){
+function spawnDropAt(x, y, z, id, n = 1){
   if(drops.length >= 80){ scene.remove(drops[0].mesh); drops.shift(); }
   const mat = id >= 100 ? matItem : isCross(id) ? (id === TORCH ? matGC : matC) : matO;
   const mesh = new THREE.Mesh(dropGeo(id), mat);
   scene.add(mesh);
   drops.push({
-    id, mesh,
+    id, n, mesh,
     pos: new THREE.Vector3(x, y, z),
     vel: new THREE.Vector3((Math.random() - 0.5) * 2, 2.5, (Math.random() - 0.5) * 2),
     w: 0.13, h: 0.26, onGround: false, age: Math.random(),
@@ -2416,10 +2777,13 @@ function updateDrops(dt){
       d.vel.x += dx * a; d.vel.y += dy * a; d.vel.z += dz * a;
     }
     stepEntity(d, dt);
-    if(wants && dist < 1.1 && addItem(d.id)){
+    if(wants && dist < 1.1 && addItem(d.id, true)){
+      let got = 1;
+      while(got < (d.n || 1) && addItem(d.id, true)) got++;
+      renderHotbar();
       tone(430 * jr(0.1), 880, 0.07, 'sine', 0.14);
       tone(660 * jr(0.1), 1320, 0.07, 'sine', 0.1, 0.05);
-      flashName('+ ' + nameOf(d.id));
+      flashName('+ ' + (got > 1 ? got + ' ' : '') + nameOf(d.id));
       scene.remove(d.mesh);
       drops.splice(i, 1);
       continue;
@@ -2543,10 +2907,10 @@ function playN(o = {}){
 }
 function matClass(id){
   if(id === GLASS) return 'glass';
-  if(id === LOG || id === BIRCHLOG || id === SPRUCELOG || id === JUNGLELOG || ANY_PLANK.includes(id) || id === CRAFTT || id === TORCH) return 'wood';
+  if(id === LOG || id === BIRCHLOG || id === SPRUCELOG || id === JUNGLELOG || ANY_PLANK.includes(id) || id === CRAFTT || id === TORCH || id === CHEST) return 'wood';
   if(id === SNOW) return 'snow';
   if(id === SAND) return 'sand';
-  if(id === GRASS || id === SAVGRASS || id === DIRT) return 'dirt';
+  if(id === GRASS || id === SAVGRASS || id === DIRT || id === TNT) return 'dirt';
   if(id === WOOL || id === BED || id === CACTUS) return 'cloth';
   if(isPlant(id) || id === LEAVES || id === SPRUCELEAVES) return 'plant';
   return 'stone';
@@ -2774,6 +3138,9 @@ function onNet(c, m){
   } else if(m.t === 'pos'){
     if(m.tag !== MYTAG) updateAvatar(m);
     if(isHost) mpBroadcast(m, c);
+  } else if(m.t === 'boom'){
+    explode(m.x, m.y, m.z, m.r, m.d, true);
+    if(isHost) mpBroadcast(m, c);
   }
 }
 function updateAvatar(m){
@@ -2819,6 +3186,7 @@ document.addEventListener('keydown', e => {
   if(e.repeat) return;
   keys.add(e.code);
   if(e.code === 'KeyE' || e.code === 'Escape'){
+    if(chestOpen){ closeChest(); return; }
     if(tradeOpen){ closeTrade(); return; }
     if(craftOpen){ closeCraft(); return; }
     if(e.code === 'KeyE' && locked && inGame && mode === 'survival'){ openCraft(); return; }
@@ -2886,6 +3254,15 @@ function breakBlock(x, y, z, id){
   setBlock(x, y, z, AIR);
   burst(x, y, z, tileFor(id, 0));
   blockSfx(id, 'break');
+  if(id === CHEST){
+    const key = x + ',' + y + ',' + z;
+    const sl = chests[key];
+    if(sl){
+      for(const s of sl) if(s.id && s.count > 0) spawnDropAt(x + 0.5, y + 0.6, z + 0.5, s.id, s.count);
+      delete chests[key];
+      chestsDirty = true;
+    }
+  }
   if(mode === 'survival'){
     if(harvestOk(id)) spawnDrop(x, y, z, dropOf(id));
     damageTool();
@@ -2905,6 +3282,8 @@ function doPlace(){
   // interactions first (bed, crafting table, furnace)
   if(hit){
     if(hit.id === BED){ trySleep(); return; }
+    if(hit.id === CHEST){ openChest(hit.x, hit.y, hit.z); return; }
+    if(hit.id === TNT){ igniteTNT(hit.x, hit.y, hit.z); return; }
     if((hit.id === CRAFTT || hit.id === FURN) && mode === 'survival'){ openCraft(); return; }
   }
   // eating
@@ -3059,6 +3438,8 @@ function animate(){
     updateZombies(dt, daylight);
     updateSkeletons(dt, daylight);
     updateArrows(dt);
+    updateCreepers(dt);
+    updateTNT(dt);
     updateVillagerSpawns(dt);
     updateVillagers(dt);
     updateDrops(dt);
@@ -3135,10 +3516,11 @@ function animate(){
         `${biomeAt(Math.floor(p.x), Math.floor(p.z))} · ${mode}` +
         (player.fly ? ' · FLY' : '') + (zombies.length ? ` · ${zombies.length} 🧟` : '') +
         (skeletons.length ? ` · ${skeletons.length} 💀` : '') +
+        (creepers.length ? ` · ${creepers.length} 💥` : '') +
         (mpActive() ? ` · ${conns.length + 1}👥` : '')
       : '';
   }
-  if((editsDirty || invDirty) && now - saveT > 3){ saveT = now; saveNow(); }
+  if((editsDirty || invDirty || chestsDirty) && now - saveT > 3){ saveT = now; saveNow(); }
   renderer.render(scene, camera);
 }
 renderHearts();
@@ -3292,6 +3674,10 @@ window.__bc = {
   skeletons, arrows, spawnSkeleton,
   stepSkeletons: (dt, dl) => { updateSkeletons(dt, dl); updateArrows(dt); },
   openTrade, doTrade: i => doTrade(i), tradeInfo: () => tradeVillager ? tradeVillager.trades : null,
+  creepers, spawnCreeper, igniteTNT, explode,
+  stepCreepers: dt => updateCreepers(dt),
+  stepTNT: dt => updateTNT(dt),
+  openChest, closeChest, chestAt: k => chestSlots(k), moveStack,
   spawnAnimal, spawnZombie, damage, punchEntity, addItem, invCount, eatHeld, trySleep, nearStation,
   selectSlot: i => selectSlot(i, true),
   calcMineTime, harvestOk: id => harvestOk(id),
