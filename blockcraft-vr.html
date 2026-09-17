@@ -2332,6 +2332,7 @@ function setBlock(x, y, z, id){
   const cx = x >> 4, cz = z >> 4, lx = x & 15, lz = z & 15;
   const c = chunkAt(cx, cz); ensureData(c);
   c.data[(y << 8) | (lz << 4) | lx] = id;
+  c.emitters = null;
   const ck = cx + ',' + cz;
   (edits[ck] = edits[ck] || {})[lx + ',' + y + ',' + lz] = id;
   editsDirty = true;
@@ -2366,6 +2367,49 @@ function emitLevel(id){
 function blocksLight(id){ return isOpaque(id) && id !== LEAVES; }
 // How much light a block costs to pass through (leaves cost extra).
 function lightCost(id){ return id === LEAVES ? 2 : 1; }
+function blockLightForChunk(c){
+  const width=44,stride=width*width,margin=14;
+  const values=new Uint8Array(stride*HEIGHT),queue=[];
+  const index=(x,y,z)=>(x+margin)+(z+margin)*width+y*stride;
+  for(let dz=-1;dz<=1;dz++)for(let dx=-1;dx<=1;dx++){
+    const near=chunkAt(c.cx+dx,c.cz+dz);ensureData(near);
+    if(!near.emitters){
+      near.emitters=[];
+      for(let i=0;i<near.data.length;i++){const e=emitLevel(near.data[i]);if(e)near.emitters.push([i&15,i>>8,(i>>4)&15,e]);}
+    }
+    for(const [lx,y,lz,e] of near.emitters){
+      const x=dx*16+lx,z=dz*16+lz;
+      if(x < -14 || x >29 || z < -14 || z>29)continue;
+      const i=index(x,y,z);values[i]=e;queue.push([x,y,z,e]);
+    }
+  }
+  const dirs=[[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
+  for(let head=0;head<queue.length;head++){
+    const [x,y,z,e]=queue[head];if(e<=1)continue;
+    for(const [dx,dy,dz] of dirs){
+      const nx=x+dx,ny=y+dy,nz=z+dz;
+      if(nx < -14 || nx >29 || nz < -14 || nz>29 || ny<0 || ny>=HEIGHT)continue;
+      const i=index(nx,ny,nz);if(values[i]>=e-1)continue;
+      const b=getBlock(c.cx*16+nx,ny,c.cz*16+nz);if(blocksLight(b))continue;
+      const level=e-lightCost(b);if(level>values[i]){values[i]=level;queue.push([nx,ny,nz,level]);}
+    }
+  }
+  const local=new Uint8Array(LSTRIDE*HEIGHT);
+  for(let z=-1;z<=16;z++)for(let x=-1;x<=16;x++)for(let y=0;y<HEIGHT;y++)local[(x+1)+(z+1)*LW+y*LSTRIDE]=values[index(x,y,z)];
+  return local;
+}
+function installBlockLighting(mat){
+  mat.onBeforeCompile=shader=>{
+    shader.vertexShader='attribute float blockFloor; varying float vBlockFloor;\n'+shader.vertexShader;
+    shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvBlockFloor=blockFloor;');
+    shader.fragmentShader='varying float vBlockFloor;\n'+shader.fragmentShader;
+    shader.fragmentShader=shader.fragmentShader.replace('#include <color_fragment>',
+      '#ifdef USE_COLOR\ndiffuseColor.rgb *= max(vColor, vec3(vBlockFloor) / max(diffuse, vec3(0.001)));\n#endif');
+  };
+  mat.customProgramCacheKey=()=> 'blockcraft-block-light-v1';
+}
+[matO,matT,matC].forEach(installBlockLighting);
+
 function computeLight(c, gb){
   const light = new Uint8Array(LSTRIDE * HEIGHT);
   const idx = (lx, y, lz) => (lx + 1) + (lz + 1) * LW + y * LSTRIDE;
@@ -2408,7 +2452,7 @@ function computeLight(c, gb){
       if(nl > light[ni]){ light[ni] = nl; queue.push([nx, ny, nz, nl]); }
     }
   }
-  return { light, idx };
+  return { light, idx, block:blockLightForChunk(c) };
 }
 // sample light at a world-neighbor cell (the air block a face looks into)
 function sampleLight(lightObj, lx, y, lz){
@@ -2600,6 +2644,17 @@ function addMesh(c, B, mat){
   g.setAttribute('position', new THREE.Float32BufferAttribute(B.pos, 3));
   g.setAttribute('uv',       new THREE.Float32BufferAttribute(B.uv, 2));
   g.setAttribute('color',    new THREE.Float32BufferAttribute(B.col, 3));
+  const floors=[];
+  for(let i=0;i<B.pos.length;i+=3){
+    let level=0;
+    const x=B.pos[i],y=B.pos[i+1],z=B.pos[i+2];
+    if(c.light?.block)for(const dx of [-0.02,0.02])for(const dy of [-0.02,0.02])for(const dz of [-0.02,0.02]){
+      const lx=Math.floor(x+dx),ly=Math.floor(y+dy),lz=Math.floor(z+dz);
+      if(lx>=-1&&lx<=16&&lz>=-1&&lz<=16&&ly>=0&&ly<HEIGHT)level=Math.max(level,c.light.block[c.light.idx(lx,ly,lz)]);
+    }
+    floors.push(level ? (level/15)*0.85 : 0);
+  }
+  g.setAttribute('blockFloor',new THREE.Float32BufferAttribute(floors,1));
   g.setIndex(B.idx);
   const m = new THREE.Mesh(g, mat);
   m.position.set(c.cx * 16, 0, c.cz * 16);
@@ -2673,7 +2728,8 @@ function moveAxis(ent, axis, amt){
   const y0 = Math.floor(p.y + e),     y1 = Math.floor(p.y + h - e);
   const z0 = Math.floor(p.z - w + e), z1 = Math.floor(p.z + w - e);
   for(let y = y0; y <= y1; y++) for(let z = z0; z <= z1; z++) for(let x = x0; x <= x1; x++){
-    if(!isSolid(getBlock(x, y, z))) continue;
+    const block=getBlock(x,y,z);
+    if(!isSolid(block) && !(isDoor(block) && !getDoorInfo(x,y,z).open)) continue;
     if(axis === 0){ p.x = amt > 0 ? x - w - 2*e : x + 1 + w + 2*e; ent.vel.x = 0; }
     else if(axis === 1){
       if(amt > 0) p.y = y - h - 2*e;
@@ -5515,6 +5571,30 @@ function getDoorInfo(x, y, z){
   const ly = getDoorLowerY(x, y, z);
   return doorState.get(doorKey(x, ly, z)) || { facing: 0, open: false };
 }
+function placeDoor(x,y,z){
+  if(y<1 || y+1>=HEIGHT || !isSolid(getBlock(x,y-1,z))) return false;
+  if(![AIR,WATER].includes(getBlock(x,y,z)) && !isCross(getBlock(x,y,z))) return false;
+  if(getBlock(x,y+1,z)!==AIR || aabbHitsCell(x,y,z) || aabbHitsCell(x,y+1,z)) return false;
+  const fx=-Math.sin(player.yaw),fz=-Math.cos(player.yaw);
+  const facing=Math.abs(fx)>Math.abs(fz)?(fx>0?3:2):(fz>0?1:0);
+  doorState.set(doorKey(x,y,z),{facing,open:false});
+  setBlock(x,y,z,DOOR);setBlock(x,y+1,z,DOORTOP);
+  blockSfx(PLANK,'place');triggerViewSwing();consumePlacedItem();return true;
+}
+function consumePlacedItem(){
+  if(mode!=='survival')return;
+  const item=survInv[sel];item.count--;
+  if(item.count<=0){item.id=0;item.count=0;item.dur=0;}
+  invDirty=true;renderHotbar();
+}
+function torchSupported(x,y,z){
+  return [[0,-1,0],[1,0,0],[-1,0,0],[0,0,1],[0,0,-1]].some(([dx,dy,dz])=>isSolid(getBlock(x+dx,y+dy,z+dz)));
+}
+function placeTorch(x,y,z){
+  if(!torchSupported(x,y,z))return false;
+  setBlock(x,y,z,TORCH);blockSfx(TORCH,'place');triggerViewSwing();consumePlacedItem();return true;
+}
+
 function toggleDoor(x, y, z){
   const ly = getDoorLowerY(x, y, z);
   const k = doorKey(x, ly, z);
@@ -5949,28 +6029,8 @@ function doPlace(){
   if(cur !== AIR && cur !== WATER && !isCross(cur)) return;
   if(aabbHitsCell(x, y, z)) return;
   if(!held || held >= 100) return;                 // only blocks are placeable
-  // door: two-tall, needs air here and above; facing from player yaw
-  if(held === DOOR){
-    if(getBlock(x, y + 1, z) !== AIR) return;      // need room for the top half
-    // facing: which way the player looks -> door sits on the near wall
-    const yaw = player.yaw;
-    const fx = -Math.sin(yaw), fz = -Math.cos(yaw);
-    let facing;
-    if(Math.abs(fx) > Math.abs(fz)) facing = fx > 0 ? 3 : 2;   // east/west
-    else facing = fz > 0 ? 1 : 0;                              // south/north
-    triggerViewSwing();
-    setBlock(x, y, z, DOOR);
-    setBlock(x, y + 1, z, DOORTOP);
-    doorState.set(doorKey(x, y, z), { facing, open: false });
-    rebuild(chunkAt(x >> 4, z >> 4));
-    blockSfx(PLANK, 'place');
-    if(mode === 'survival'){
-      const s = survInv[sel]; s.count--;
-      if(s.count <= 0){ s.id = 0; s.count = 0; s.dur = 0; }
-      invDirty = true; renderHotbar();
-    }
-    return;
-  }
+  if(held===DOOR){placeDoor(x,y,z);return;}
+  if(held===TORCH){placeTorch(x,y,z);return;}
   triggerViewSwing();
   setBlock(x, y, z, held);
   blockSfx(held, 'place');
@@ -6550,6 +6610,8 @@ function vrTryPlace(){
   const cur = getBlock(x, y, z);
   if(cur !== AIR && cur !== WATER && !isCross(cur)) return;
   if(aabbHitsCell(x, y, z)) return;
+  if(held===DOOR){placeDoor(x,y,z);return;}
+  if(held===TORCH){placeTorch(x,y,z);return;}
   triggerViewSwing();
   setBlock(x, y, z, held);
   blockSfx(held, 'place');
