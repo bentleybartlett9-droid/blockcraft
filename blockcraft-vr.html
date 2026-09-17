@@ -163,7 +163,7 @@
   <button class="mcbtn small" id="resetBtn">Reset This World</button>
   <button class="mcbtn small" id="fsBtn">Fullscreen</button>
   <p id="vrnote" style="display:none;color:#ffcf6b;font-size:12px;margin:6px 0 0">VR headset not detected — open this build in a WebXR headset browser (e.g. Meta Quest Browser) over https.</p>
-  <p style="max-width:580px;font-size:13px;line-height:1.6">VR controls: Left stick: move · Right stick: turn / up-down selects items<br>Right trigger: hold to mine / attack · Right grip: place / use<br>A: jump / fly up · B: fly down · Right stick click: creative flight<br>X: crafting · Y: crouch</p>
+  <p style="max-width:580px;font-size:13px;line-height:1.6">VR controls: Left stick: move · Right stick: turn / up-down selects items<br>Right trigger: hold to mine / attack · Right grip: place / use<br>A: jump / fly up · B: fly down · Right stick click: creative flight<br>X: inventory / crafting / equip · Y: crouch</p>
   <p class="meta">seed <span id="seedLabel"></span> · <span id="buildLabel"></span>world &amp; inventory auto-save in this browser</p>
 </div>
 
@@ -6230,91 +6230,196 @@ const wristSelMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
   wristPanel.visible = false;
   leftCtrl.add(wristPanel);
 }
-// ---- VR crafting panel: a floating 3D menu of recipes you point at & craft ----
+// Quest controller inventory, palette and recipe book rendered inside the 3D scene.
 const craftPanel = new THREE.Group();
 craftPanel.visible = false;
 scene.add(craftPanel);
 let vrCraftOpen = false;
-const craftTiles = [];       // { mesh, frame, recipeIndex }
-const craftTileGeo = new THREE.PlaneGeometry(0.14, 0.14);
-const craftFrameOK = new THREE.MeshBasicMaterial({ color: 0x2e7d32, transparent: true, opacity: 0.9 });
-const craftFrameNo = new THREE.MeshBasicMaterial({ color: 0x333842, transparent: true, opacity: 0.85 });
-const craftHi = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.4 });
-function buildCraftPanel(){
-  // clear old
-  for(const t of craftTiles){ craftPanel.remove(t.frame); craftPanel.remove(t.mesh); if(t.hi) craftPanel.remove(t.hi); }
-  craftTiles.length = 0;
-  // background board
-  if(!craftPanel.userData.bg){
-    const bg = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 0.95), new THREE.MeshBasicMaterial({ color: 0x14151a, transparent: true, opacity: 0.92 }));
-    bg.position.z = -0.01; craftPanel.add(bg); craftPanel.userData.bg = bg;
-    const title = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.08), new THREE.MeshBasicMaterial({ color: 0x7cc44a }));
-    title.position.set(0, 0.5, 0); craftPanel.add(title);
-  }
-  const cols = 7, size = 0.17;
-  RECIPES.forEach((r, i) => {
-    const col = i % cols, row = (i / cols) | 0;
-    const x = (col - (cols - 1) / 2) * size;
-    const y = 0.36 - row * size;
-    const frame = new THREE.Mesh(craftTileGeo, canCraft(r) ? craftFrameOK : craftFrameNo);
-    frame.position.set(x, y, 0);
-    craftPanel.add(frame);
-    const id = r.out[0];
-    const mat = id >= 100 ? matItem : isCross(id) ? (id === TORCH ? matGC : matC) : matO;
-    const mesh = new THREE.Mesh(dropGeo(id), mat);
-    mesh.scale.setScalar(1.4);
-    mesh.position.set(x, y, 0.03);
-    craftPanel.add(mesh);
-    const hi = new THREE.Mesh(new THREE.PlaneGeometry(0.15, 0.15), craftHi);
-    hi.position.set(x, y, 0.005); hi.visible = false;
-    craftPanel.add(hi);
-    craftTiles.push({ frame, mesh, hi, recipeIndex: i, x, y });
-  });
+let vrMenuTab = 'inventory', vrMenuPage = 0, vrPickedSlot = null, vrRecipe = -1;
+let vrActionRelease = false;
+let vrMenuStatus = '', vrMenuHover = -1, vrMenuRefresh = 0, vrMenuBWas = false;
+const vrMenuCanvas = document.createElement('canvas');
+vrMenuCanvas.width = 1440; vrMenuCanvas.height = 1040;
+const vrMenuTexture = new THREE.CanvasTexture(vrMenuCanvas);
+vrMenuTexture.colorSpace = THREE.SRGBColorSpace;
+const vrMenuMesh = new THREE.Mesh(new THREE.PlaneGeometry(1.44,1.04),
+  new THREE.MeshBasicMaterial({map:vrMenuTexture,transparent:true,depthTest:false}));
+vrMenuMesh.renderOrder = 100;
+craftPanel.add(vrMenuMesh);
+const vrMenuButtons = [];
+const vrIconCanvas = document.createElement('canvas');
+vrIconCanvas.width = vrIconCanvas.height = 16;
+function vrInventoryChanged(){
+  invDirty = true; renderHotbar(); selectSlot(sel,true); updateWristHotbar(); vrBuildTool();
 }
-function openCraftVR(){
-  vrCraftOpen = true;
-  buildCraftPanel();
-  // place the panel ~1.2m in front of the player at eye height, facing them
-  const xrCam = renderer.xr.getCamera();
-  const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(xrCam.quaternion);
-  fwd.y = 0; fwd.normalize();
-  const cp = xrCam.position;
-  craftPanel.position.set(cp.x + fwd.x * 1.2, cp.y - 0.1, cp.z + fwd.z * 1.2);
-  craftPanel.lookAt(cp.x, cp.y - 0.1, cp.z);
-  craftPanel.visible = true;
-  tone(500, 620, 0.06, 'triangle', 0.06);
+function vrEquipItem(id){
+  if(mode === 'creative') creativeItems[sel] = id;
+  else {
+    const i = survInv.findIndex(s => s.id === id && s.count > 0);
+    if(i < 0) return false;
+    if(i < 9) selectSlot(i,true);
+    else [survInv[i],survInv[sel]] = [survInv[sel],survInv[i]];
+  }
+  vrInventoryChanged(); return true;
+}
+function vrInventoryClick(i){
+  if(vrPickedSlot === null){
+    if(i < 9){ selectSlot(i,true); vrMenuStatus = 'Equipped '+(heldId() ? nameOf(heldId()) : 'empty hand'); }
+    else if(survInv[i].count > 0){ vrPickedSlot=i; vrMenuStatus='Choose a hotbar or backpack slot to move this stack.'; }
+  } else {
+    const from=vrPickedSlot;
+    if(from !== i) [survInv[from],survInv[i]]=[survInv[i],survInv[from]];
+    vrPickedSlot=null;
+    if(i < 9) selectSlot(i,true);
+    vrMenuStatus= i < 9 ? 'Equipped '+nameOf(heldId()) : 'Moved stack. The previous contents were swapped back.';
+    vrInventoryChanged();
+  }
+}
+function vrCraftSelected(equip){
+  if(vrRecipe < 0) return;
+  const recipe=RECIPES[vrRecipe];
+  if(doCraft(vrRecipe)){
+    if(equip) vrEquipItem(recipe.out[0]);
+    vrMenuStatus='Crafted '+recipe.out[1]+' '+nameOf(recipe.out[0])+(equip?' and equipped it.':'. Find it in Inventory.');
+    vrInventoryChanged();
+  } else vrMenuStatus='Cannot craft: check ingredients, station and inventory space.';
+}
+function buildCraftPanel(){
+  const g=vrMenuCanvas.getContext('2d');
+  g.clearRect(0,0,1440,1040); g.fillStyle='#142032'; g.fillRect(0,0,1440,1040);
+  g.strokeStyle='#8bc95b';g.lineWidth=5;g.strokeRect(3,3,1434,1034);
+  g.textBaseline='middle'; g.textAlign='left';
+  const text=(t,x,y,size=24,color='#f1f5fa',max=1320)=>{
+    g.font=size+'px system-ui';g.fillStyle=color;g.fillText(t,x,y,max);
+  };
+  text('BLOCKCRAFT  /  '+(mode==='creative'?'CREATIVE':'SURVIVAL'),35,42,32);
+  text('Point your right controller • Trigger selects • X or B closes',35,83,23,'#b7c7df');
+  vrMenuButtons.length=0;
+  function button(x,y,w,h,label,action,enabled=true,selected=false){
+    const index=vrMenuButtons.length;
+    g.fillStyle=!enabled?'#283344':selected?'#41692d':index===vrMenuHover?'#4a6487':'#293e59';
+    g.fillRect(x,y,w,h);g.strokeStyle=selected?'#b5ed79':index===vrMenuHover?'#fff':'#5b728e';g.lineWidth=2;g.strokeRect(x,y,w,h);
+    if(label)text(label,x+12,y+h/2,24,enabled?'#fff':'#8591a1',w-24);
+    vrMenuButtons.push({x,y,w,h,action,enabled,label}); return index;
+  }
+  for(const [i,tab,label] of [[0,'inventory','Inventory'],[1,'craft',mode==='creative'?'All blocks & items':'Crafting'],[2,'help','Controls']]){
+    button(35+i*345,115,325,55,label,()=>{vrMenuTab=tab;vrMenuPage=0;vrRecipe=-1;vrPickedSlot=null;vrMenuStatus='';},true,vrMenuTab===tab);
+  }
+  button(1110,115,290,55,'Close',closeCraftVR);
+  function icon(id,x,y,size=50){
+    if(!id)return;drawIcon(vrIconCanvas.getContext('2d'),id);g.imageSmoothingEnabled=false;g.drawImage(vrIconCanvas,x,y,size,size);
+  }
+  function slot(i,x,y){
+    const item=i < 9 ? slotInfo(i) : survInv[i];
+    const id=item.count===0?0:item.id;
+    button(x,y,142,115,'',()=>vrInventoryClick(i),true,vrPickedSlot===i || i===sel);
+    icon(id,x+45,y+9);text(id?nameOf(id):'Empty',x+7,y+78,17,'#fff',128);
+    text(i<9?String(i+1):'',x+8,y+17,18,'#bdcce0');
+    if(item.count>0)text('×'+item.count,x+96,y+20,19);
+    if(item.dur>0 && ITEMS[id]?.tool){
+      const ratio=Math.min(1,item.dur/TIER_DUR[ITEMS[id].tool.tier-1]);g.fillStyle='#8bc95b';g.fillRect(x+8,y+104,126*ratio,4);
+    }
+  }
+  if(vrMenuTab==='inventory'){
+    text(mode==='creative'?'Choose a hotbar slot, then open All blocks & items.':'Select a backpack stack, then select a destination slot to move / equip.',35,205,24);
+    if(mode==='survival'){
+      for(let i=9;i<36;i++)slot(i,35+((i-9)%9)*152,242+Math.floor((i-9)/9)*128);
+      button(35,640,310,48,'Move equipped stack',()=>{vrPickedSlot=sel;vrMenuStatus='Choose a destination slot.';},heldId()!==0);
+      button(365,640,270,48,'Cancel move',()=>{vrPickedSlot=null;vrMenuStatus='Move cancelled.';},vrPickedSlot!==null);
+    } else {
+      text('Every block and item is available in the palette.',55,330,31);
+      text('1. Select the hotbar slot you want to replace.',55,395,26);
+      text('2. Open All blocks & items and select an item.',55,450,26);
+      text('3. Close this menu. Right grip places the block.',55,505,26);
+    }
+  } else if(vrMenuTab==='craft'){
+    const creative=mode==='creative', pageSize=creative?27:8;
+    const total=creative?ALL_CREATIVE.length:RECIPES.length;
+    const pages=Math.max(1,Math.ceil(total/pageSize));vrMenuPage=Math.max(0,Math.min(vrMenuPage,pages-1));
+    button(35,190,180,48,'Previous',()=>{vrMenuPage--;vrRecipe=-1;},vrMenuPage>0);
+    text('Page '+(vrMenuPage+1)+' / '+pages,245,215,24);
+    button(460,190,180,48,'Next',()=>{vrMenuPage++;vrRecipe=-1;},vrMenuPage<pages-1);
+    if(creative){
+      ALL_CREATIVE.slice(vrMenuPage*pageSize,(vrMenuPage+1)*pageSize).forEach((id,j)=>{
+        const x=35+(j%9)*152,y=255+Math.floor(j/9)*130;
+        button(x,y,142,116,'',()=>{vrEquipItem(id);vrMenuStatus='Equipped '+nameOf(id)+' in slot '+(sel+1)+'. Close to build.';},true,heldId()===id);
+        icon(id,x+45,y+10);text(nameOf(id),x+7,y+88,18,'#fff',128);
+      });
+    } else {
+      RECIPES.slice(vrMenuPage*pageSize,(vrMenuPage+1)*pageSize).forEach((r,j)=>{
+        const i=vrMenuPage*pageSize+j,y=250+j*53;
+        button(35,y,630,48,'',()=>{vrRecipe=i;vrMenuStatus='';},true,vrRecipe===i);
+        icon(r.out[0],45,y+5,36);text(nameOf(r.out[0])+' ×'+r.out[1],94,y+24,22,'#fff',425);
+        text(canCraft(r)?'Ready':'Locked',555,y+24,19,canCraft(r)?'#b5ed79':'#f3b9a6',95);
+      });
+      if(vrRecipe>=0){
+        const r=RECIPES[vrRecipe];text(nameOf(r.out[0])+' ×'+r.out[1],710,265,28,'#fff',675);
+        text(r.st==='table'?'Requires nearby crafting table':r.st==='furnace'?'Requires nearby furnace':'Craft anywhere',710,308,22,stationOk(r)?'#b5ed79':'#ffbdad',675);
+        r.in.forEach(([id,n],i)=>text(inName(id)+': '+invCount(id)+' / '+n,710,352+i*34,22,invCount(id)>=n?'#b5ed79':'#ffbdad',675));
+        if(!spaceOK(r))text('Inventory full: make space first.',710,560,22,'#ffbdad',660);
+        button(710,602,300,62,'Craft',()=>vrCraftSelected(false),canCraft(r));
+        button(1030,602,355,62,'Craft & equip',()=>vrCraftSelected(true),canCraft(r));
+      } else text('Select a recipe to see what it needs.',710,325,25,'#b7c7df',670);
+    }
+  } else {
+    const lines=['X (left controller): open / close inventory','Point RIGHT controller + trigger: select menu buttons','Inventory: select backpack item, then a hotbar slot to equip','Crafting: select recipe, then Craft or Craft & equip','Right grip: place held block / use targeted block','Right trigger: hold to mine / attack','Left stick: move • Right stick: turn / cycle hotbar','A: jump / fly up • B: fly down (closes an open menu)','Right stick click: creative flight • Y: crouch'];
+    lines.forEach((line,i)=>text(line,50,220+i*49,25,'#e0e8f4',1330));
+  }
+  text('HOTBAR — select a slot to hold its item',35,726,23,'#b7c7df');
+  for(let i=0;i<9;i++)slot(i,35+i*152,755);
+  text(vrMenuStatus || (heldId()?'Holding: '+nameOf(heldId()):'Empty hand'),35,917,25,'#b5ed79');
+  text('Movement and block actions are disabled while this menu is open.',35,978,22,'#b7c7df');
+  vrMenuTexture.needsUpdate=true;
+}
+function openCraftVR(tab='inventory'){
+  vrCraftOpen=true;vrMenuTab=tab;vrMenuPage=0;vrPickedSlot=null;vrRecipe=-1;vrMenuStatus='';vrMenuHover=-1;
+  camera.updateWorldMatrix(true,false);
+  const cp=camera.getWorldPosition(new THREE.Vector3());
+  const fwd=new THREE.Vector3(0,0,-1).applyQuaternion(camera.getWorldQuaternion(new THREE.Quaternion()));
+  fwd.y=0;if(fwd.lengthSq()<0.001)fwd.set(0,0,-1);fwd.normalize();
+  craftPanel.position.copy(cp).addScaledVector(fwd,1.35);craftPanel.position.y-=0.12;
+  craftPanel.lookAt(cp.x,craftPanel.position.y,cp.z);craftPanel.updateMatrixWorld(true);
+  craftPanel.visible=true;player.vel.x=player.vel.z=0;resetMine();buildCraftPanel();
 }
 function closeCraftVR(){
-  vrCraftOpen = false;
-  craftPanel.visible = false;
-  tone(420, 320, 0.06, 'triangle', 0.06);
+  vrCraftOpen=false;craftPanel.visible=false;vrPickedSlot=null;vrActionRelease=true;resetMine();
 }
-function updateCraftVR(dt, triggerPressedEdge){
-  if(!vrCraftOpen) return;
-  // raycast the right controller against tiles (use plane-normal projection)
-  const { o, d } = ctrlOriginDir(rightCtrl);
-  let hovered = null, bestT = Infinity;
-  const n = new THREE.Vector3(0, 0, 1).applyQuaternion(craftPanel.quaternion);
-  const denom = d.dot(n);
-  if(Math.abs(denom) > 1e-5){
-    const t = (craftPanel.position.clone().sub(o)).dot(n) / denom;
-    if(t > 0 && t < 6){
-      const hitPt = o.clone().add(d.clone().multiplyScalar(t));
-      const local = craftPanel.worldToLocal(hitPt.clone());
-      for(const tile of craftTiles){
-        if(Math.abs(local.x - tile.x) < 0.085 && Math.abs(local.y - tile.y) < 0.085){ hovered = tile; break; }
-      }
+function updateCraftVR(dt,triggerPressedEdge){
+  const {o,d}=ctrlOriginDir(rightCtrl);
+  const inverse=craftPanel.matrixWorld.clone().invert();
+  const localO=o.clone().applyMatrix4(inverse),localD=d.clone().transformDirection(inverse);
+  let hover=-1;
+  if(rightCtrl.userData.inputSource && Math.abs(localD.z)>0.00001){
+    const t=-localO.z/localD.z;
+    if(t>0 && t<6){
+      const hit=localO.addScaledVector(localD,t),x=(hit.x/1.44+0.5)*1440,y=(0.5-hit.y/1.04)*1040;
+      hover=vrMenuButtons.findIndex(b=>x>=b.x&&x<=b.x+b.w&&y>=b.y&&y<=b.y+b.h);
     }
   }
-  for(const tile of craftTiles) tile.hi.visible = (tile === hovered);
-  if(hovered && triggerPressedEdge){
-    if(doCraft(hovered.recipeIndex)){
-      buildCraftPanel();     // refresh craftability highlights
-      tone(700, 900, 0.05, 'triangle', 0.07);
-    } else {
-      tone(200, 160, 0.1, 'sawtooth', 0.08);   // can't craft
-    }
+  vrMenuRefresh-=dt;
+  if(hover!==vrMenuHover || vrMenuRefresh<=0){vrMenuHover=hover;vrMenuRefresh=0.3;buildCraftPanel();}
+  if(triggerPressedEdge && hover>=0){
+    const b=vrMenuButtons[hover];
+    if(b.enabled){b.action();if(vrCraftOpen)buildCraftPanel();}
   }
+}
+function vrMenuInput(dt){
+  const lb=readButtons('left'),rb=readButtons('right');
+  const x=!!lb?.[4]?.pressed,b=!!rb?.[5]?.pressed;
+  const trigger=!!rightCtrl.userData.inputSource && (!!rb?.[0]?.pressed||vrSelectHeld);
+  const edge=trigger&&!vrTrigWas;
+  const wasOpen=vrCraftOpen;
+  if(x&&!vrCraftWas){vrCraftOpen?closeCraftVR():openCraftVR();}
+  else if(b&&!vrMenuBWas&&vrCraftOpen)closeCraftVR();
+  vrCraftWas=x;vrMenuBWas=b;
+  if(wasOpen||vrCraftOpen){
+    if(vrCraftOpen)updateCraftVR(dt,edge);
+    vrTrigWas=trigger;vrGripWas=!!rb?.[1]?.pressed;
+    vrJumpWasDown=!!rb?.[4]?.pressed;vrFlyWas=!!rb?.[3]?.pressed;
+    player.vel.x=player.vel.z=0;if(player.fly)player.vel.y=0;
+    vrBreakHeld=false;resetMine();hl.visible=false;return true;
+  }
+  return false;
 }
 
 function updateWristHotbar(){
@@ -6435,7 +6540,7 @@ function vrTryPlace(){
     if(isDoor(hit.id)){ toggleDoor(hit.x, hit.y, hit.z); triggerViewSwing(); return; }
     if(hit.id === CHEST){ openChest(hit.x, hit.y, hit.z); return; }
     if(hit.id === TNT){ igniteTNT(hit.x, hit.y, hit.z); return; }
-    if((hit.id === CRAFTT || hit.id === FURN) && mode === 'survival'){ openCraftVR(); return; }
+    if((hit.id === CRAFTT || hit.id === FURN) && mode === 'survival'){ openCraftVR('craft'); return; }
   }
   const held = heldId();
   if(mode === 'survival' && foodOf(held)){ eatHeld(); return; }
@@ -6544,6 +6649,7 @@ function updateVR(dt){
   const eB = new THREE.Euler().setFromQuaternion(camera.quaternion, 'YXZ');
   vrBody.rotation.y = eB.y;   // rig already rotates by yawOffset
   updateWristHotbar();
+  if(vrMenuInput(dt)){ updateAvatarArms(); return; }
 
   // right thumbstick: X = snap turn (comfort), Y = cycle hotbar
   const ra = readAxes('right');
@@ -6603,13 +6709,6 @@ function updateVR(dt){
   const crouchDrop = vrCrouch ? 0.45 : 0;
   player.crouchDrop = (player.crouchDrop || 0) + (crouchDrop - (player.crouchDrop || 0)) * Math.min(1, dt * 12);
 
-  // continuous survival mining while trigger held, aimed by the controller
-  // ---- crafting menu toggle (left X button, index 4) ----
-  const lbtn = readButtons('left');
-  const craftBtnDown = !!(lbtn && lbtn[4] && lbtn[4].pressed);
-  if(craftBtnDown && !vrCraftWas){ vrCraftOpen ? closeCraftVR() : openCraftVR(); }
-  vrCraftWas = craftBtnDown;
-
   // ---- breaking: poll the right trigger every frame (more reliable than
   //      relying solely on selectstart/selectend events) ----
   const rbtn = readButtons('right');
@@ -6625,6 +6724,11 @@ function updateVR(dt){
     return;   // skip break/place/highlight while crafting
   }
 
+  if(vrActionRelease){
+    vrGripWas=!!rbtn?.[1]?.pressed;
+    if(!triggerDown&&!vrGripWas)vrActionRelease=false;
+    resetMine();hl.visible=false;return;
+  }
   if(triggerDown){
     const { o, d } = ctrlOriginDir(rightCtrl);
     const eh = rayEntity(o, d, REACH);
@@ -6660,6 +6764,7 @@ function updateVR(dt){
 
 renderer.xr.addEventListener('sessionstart', () => {
   xrActive = true;
+  vrActionRelease=false;
   xrRig.visible = true;
   // move camera into the rig for XR
   xrRig.add(camera);
