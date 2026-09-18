@@ -356,7 +356,7 @@ const SPLASHES = ['Punch trees!', 'Now with zombies!', 'Diamonds are deep!', 'On
 document.getElementById('splash').textContent = SPLASHES[Math.floor(Math.random() * SPLASHES.length)];
 {
   const bl = document.getElementById('buildLabel');
-  const label = IS_DESKTOP ? 'Desktop Edition · ' : IS_MOBILE ? 'Mobile Edition · ' : IS_VR ? 'VR Woodland Update · ' : '';
+  const label = IS_DESKTOP ? 'Desktop Edition · ' : IS_MOBILE ? 'Mobile Edition · ' : IS_VR ? 'VR Nether & Comfort Update · ' : '';
   if(bl) bl.textContent = label;
 }
 
@@ -2851,7 +2851,7 @@ function updateChunks(){
 /* ============================ player ================================ */
 const player = {
   pos: new THREE.Vector3(), vel: new THREE.Vector3(),
-  yaw: 2.6, pitch: -0.12, onGround: false, fly: false, w: 0.3, h: 1.8, eye: 1.62,
+  yaw: 2.6, pitch: -0.12, onGround: false, fly: false, w: 0.3, h: 1.9, eye: 1.75,
 };
 (function spawn(){
   let sx = 0, sh = 30;
@@ -5889,6 +5889,17 @@ function updateVehicles(dt){
 /* ------------------------ nether portals --------------------------- */
 // Detect an obsidian frame around (x,y,z) and fill the interior with PORTAL.
 // Supports vertical portals on either the X or Z axis, interior up to 3x4.
+function useFlintSteel(hit){
+  if(heldId() !== FLINTSTEEL || !hit) return false;
+  const lit = hit.id === TNT ? (igniteTNT(hit.x,hit.y,hit.z),true) : tryLightPortal(hit.x+hit.face[0],hit.y+hit.face[1],hit.z+hit.face[2]);
+  triggerViewSwing();
+  if(lit && mode === 'survival'){
+    const s=survInv[sel];s.dur=(s.dur || ITEMS[FLINTSTEEL].dur)-1;
+    if(s.dur<=0){s.id=0;s.count=0;s.dur=0;flashName('Flint & Steel broke!');}
+    invDirty=true;renderHotbar();
+  } else if(!lit) flashName('Use inside a 4 wide × 5 tall obsidian frame');
+  return true;
+}
 function tryLightPortal(x, y, z){
   for(const axis of ['x', 'z']){
     const cells = scanPortalInterior(x, y, z, axis);
@@ -5924,7 +5935,10 @@ function scanPortalInterior(sx, sy, sz, axis){
     if(cells.length > 21){ ok = false; break; }  // too big (max 3x4 interior + margin)
     for(const [dx, dy, dz] of dirs) stack.push([x + dx, y + dy, z + dz]);
   }
-  return (ok && cells.length >= 2 && cells.length <= 21) ? cells : null;
+  if(!ok || cells.length < 6) return null;
+  const u=cells.map(c=>axis==='x'?c[0]:c[2]), v=cells.map(c=>c[1]);
+  const width=Math.max(...u)-Math.min(...u)+1,height=Math.max(...v)-Math.min(...v)+1;
+  return width>=2 && width<=3 && height>=3 && height<=4 && cells.length===width*height ? cells : null;
 }
 
 let portalTimer = 0, portalCooldown = 0;
@@ -5958,7 +5972,7 @@ const dimReturn = [null, null, null];
 function travelToEnd(){
   saveNow();
   dimReturn[dim] = { x: player.pos.x, y: player.pos.y, z: player.pos.z };
-  for(const c of chunks.values()) unloadMeshes(c);
+  for(const c of chunks.values()){ unloadMeshes(c); c.built = false; }
   const goingToEnd = dim !== 2;
   dim = goingToEnd ? 2 : 0;
   chunks = dim === 0 ? overworldChunks : dim === 1 ? netherChunks : endChunks;
@@ -5988,7 +6002,7 @@ function travelDimension(){
   saveNow();
   dimReturn[dim] = { x: player.pos.x, y: player.pos.y, z: player.pos.z };
   // unload all current meshes
-  for(const c of chunks.values()) unloadMeshes(c);
+  for(const c of chunks.values()){ unloadMeshes(c); c.built = false; }
   // swap dimension pointers
   dim = dim === 0 ? 1 : 0;
   chunks = dim === 0 ? overworldChunks : netherChunks;
@@ -6007,13 +6021,13 @@ function travelDimension(){
     // first visit: scale coords (overworld->nether /8) and drop onto ground, build a return portal
     if(dim === 1){
       dest = { x: Math.floor(player.pos.x / 8), y: 40, z: Math.floor(player.pos.z / 8) };
-      buildArrivalPortal(dest.x, dest.z, 1);
+      dest = buildArrivalPortal(dest.x, dest.z, 1);
     } else {
       dest = { x: Math.floor(player.pos.x * 8), y: 50, z: Math.floor(player.pos.z * 8) };
-      buildArrivalPortal(dest.x, dest.z, 0);
+      dest = buildArrivalPortal(dest.x, dest.z, 0);
     }
   }
-  player.pos.set(dest.x + 0.5, findSafeY(dest.x, dest.z, dest.y), dest.z + 0.5);
+  player.pos.set(dest.x, dest.y, dest.z);
   player.vel.set(0, 0, 0);
   curPC = null;                                  // force chunk reload
   updateChunks();
@@ -6031,11 +6045,17 @@ function findSafeY(x, z, guess){
 }
 function buildArrivalPortal(x, z, toDim){
   const y = findSafeY(x, z, dim === 1 ? 40 : 50) | 0;
+  // Clear a safe landing beside the return portal, away from lava and terrain.
+  for(let dx=-1;dx<=2;dx++)for(let dz=-2;dz<=2;dz++){
+    setBlock(x+dx,y-1,z+dz,OBSIDIAN);
+    for(let dy=0;dy<=4;dy++)setBlock(x+dx,y+dy,z+dz,AIR);
+  }
   // small obsidian pad + frame so you can get back
   for(let dx = -1; dx <= 2; dx++) for(let dz = -1; dz <= 1; dz++) setBlock(x + dx, y - 1, z + dz, OBSIDIAN);
   for(let dy = 0; dy <= 4; dy++){ setBlock(x - 1, y + dy, z, OBSIDIAN); setBlock(x + 2, y + dy, z, OBSIDIAN); }
   for(let dx = 0; dx <= 1; dx++){ setBlock(x + dx, y + 4, z, OBSIDIAN); setBlock(x + dx, y - 1, z, OBSIDIAN); }
   for(let dx = 0; dx <= 1; dx++) for(let dy = 0; dy <= 3; dy++) setBlock(x + dx, y + dy, z, PORTAL);
+  return {x:x+0.5,y:y+0.02,z:z+1.5};
 }
 function applySkyForDim(){
   if(dim === 1){
@@ -6147,6 +6167,7 @@ function doPlace(){
   if(eh&&(!hit||eh.t<hit.t)&&feedFantasy(eh.e))return;
   if(eh && eh.e.kind === 'villager' && (!hit || eh.t < hit.t) && mode === 'survival'){ openTrade(eh.e); return; }
   // interactions first (bed, crafting table, furnace)
+  if(useFlintSteel(hit))return;
   if(useBucket(hit))return;
   if(hit){
     if(hit.id === BED){ trySleep(hit.x, hit.y, hit.z); return; }
@@ -6154,18 +6175,6 @@ function doPlace(){
     if(hit.id === CHEST){ openChest(hit.x, hit.y, hit.z); return; }
     if(hit.id === TNT){ igniteTNT(hit.x, hit.y, hit.z); return; }
     if((hit.id === CRAFTT || hit.id === FURN) && mode === 'survival'){ openCraft(); return; }
-    // flint & steel: light an obsidian portal frame
-    if(heldId() === FLINTSTEEL && (hit.id === OBSIDIAN || hit.id === NETHERRACK)){
-      const x = hit.x + hit.face[0], y = hit.y + hit.face[1], z = hit.z + hit.face[2];
-      if(tryLightPortal(x, y, z)){
-        if(mode === 'survival') damageTool();
-        triggerViewSwing();
-        return;
-      }
-      // small fire sfx even if no frame (flavour)
-      tone(500, 200, 0.12, 'sawtooth', 0.1);
-      return;
-    }
     // buckets: fill from a liquid source, or empty a filled bucket
     const heldB = heldId();
     if(heldB === BUCKET && (hit.id === WATER || hit.id === LAVA)){
@@ -6388,13 +6397,13 @@ function buildViewModel(){
   vmMesh = new THREE.Mesh(dropGeo(id), mat);
   const tool = ITEMS[id] && ITEMS[id].tool;
   if(!!ITEMS[id] && tool){             // tools/weapons: bigger, angled like they're gripped
-    vmMesh.scale.setScalar(1.7);
+    vmMesh.scale.setScalar(1.19);
     vmMesh.rotation.set(0.2, -0.5, -0.5);
   } else if(!!ITEMS[id]){              // flat items (food, etc.)
-    vmMesh.scale.setScalar(1.4);
+    vmMesh.scale.setScalar(id === FLINTSTEEL ? 0.98 : 1.4);
     vmMesh.rotation.set(0.1, -0.3, -0.2);
   } else {                          // blocks
-    vmMesh.scale.setScalar(1.5);
+    vmMesh.scale.setScalar(0.6);
     vmMesh.rotation.set(0.3, 0.6, 0);
   }
   viewModel.add(vmMesh);
@@ -6482,7 +6491,7 @@ const wristPanel = new THREE.Group();
 const wristCanvas=document.createElement('canvas');wristCanvas.width=1000;wristCanvas.height=300;
 const wristTexture=new THREE.CanvasTexture(wristCanvas);wristTexture.colorSpace=THREE.SRGBColorSpace;
 const wristScreen=new THREE.Mesh(new THREE.PlaneGeometry(.62,.186),new THREE.MeshBasicMaterial({map:wristTexture,side:THREE.DoubleSide,transparent:true}));
-wristPanel.add(wristScreen);wristPanel.position.set(0,.10,.17);wristPanel.rotation.x=-Math.PI/2;
+wristPanel.add(wristScreen);wristPanel.position.set(0,.075,.24);wristPanel.rotation.x=-Math.PI/2;
 wristPanel.visible=false;controllerGrips[0].add(wristPanel);
 let wristDrawKey='',wristHover=-1;
 function updateWristHotbar(){
@@ -6771,7 +6780,7 @@ function vrBuildTool(){
   const mat = !!ITEMS[id] ? matItem : isCross(id) ? (id === TORCH ? matGC : matC) : matO;
   vrTool = new THREE.Mesh(dropGeo(id), mat);
   const tool = ITEMS[id] && ITEMS[id].tool;
-  vrTool.scale.setScalar(!!ITEMS[id] && tool ? 2.2 : !!ITEMS[id] ? 1.8 : 1.9);
+  vrTool.scale.setScalar(!!ITEMS[id] && tool ? 1.54 : id === FLINTSTEEL ? 1.26 : !!ITEMS[id] ? 1.8 : 0.76);
   vrTool.position.set(0, 0, -0.12);
   vrTool.rotation.set(-0.4, 0, 0);
   rightCtrl.add(vrTool);
@@ -6808,6 +6817,7 @@ function vrTryPlace(){
   const eh = rayEntity(o, d, REACH);
   if(eh&&(!hit||eh.t<hit.t)&&feedFantasy(eh.e))return;
   if(eh && eh.e.kind === 'villager' && (!hit || eh.t < hit.t) && mode === 'survival'){ openTrade(eh.e); return; }
+  if(useFlintSteel(hit))return;
   if(useBucket(hit))return;
   if(hit){
     if(hit.id === BED){ trySleep(hit.x, hit.y, hit.z); return; }
@@ -6838,6 +6848,7 @@ function vrTryPlace(){
 
 // Thumbstick smooth locomotion + snap-ish turn from the gamepad axes.
 let vrTurnCd = 0;
+let vrHeightOffset = null;
 function readAxes(hand){
   const src = renderer.xr.getSession();
   if(!src) return null;
@@ -6905,7 +6916,8 @@ function updateDebug(){
 function updateVR(dt){
   bindVRHands();
   vrBuildTool();
-  vrBody.visible = wristPanel.visible = true;
+  vrBody.visible = true;
+  wristPanel.visible = !!leftCtrl.userData.inputSource && leftCtrl.userData.inputSource.handedness === 'left';
   // debug panel: pin it up in the player's view so it's visible in-headset
   dbgPanel.visible = false;
   const xrCamD = renderer.xr.getCamera();
@@ -6916,7 +6928,8 @@ function updateVR(dt){
   // Debug panel is hidden during play.
   // keep the rig at the player's feet; XR moves the camera within it
   const p = player.pos;
-  xrRig.position.set(p.x, p.y - (player.crouchDrop || 0), p.z);
+  if(vrHeightOffset === null && camera.position.y > 0.3) vrHeightOffset = player.eye - camera.position.y;
+  xrRig.position.set(p.x, p.y + (vrHeightOffset || 0) - (player.crouchDrop || 0), p.z);
   // place the body under the headset, facing the head's yaw (rig-local space)
   const xrCamB = renderer.xr.getCamera();
   xrRig.updateMatrixWorld(true);
@@ -7046,6 +7059,7 @@ function updateVR(dt){
 
 renderer.xr.addEventListener('sessionstart', () => {
   xrActive = true;
+  vrHeightOffset = null;
   vrActionRelease=false;
   xrRig.visible = true;
   // move camera into the rig for XR
