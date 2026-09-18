@@ -163,7 +163,7 @@
   <button class="mcbtn small" id="resetBtn">Reset This World</button>
   <button class="mcbtn small" id="fsBtn">Fullscreen</button>
   <p id="vrnote" style="display:none;color:#ffcf6b;font-size:12px;margin:6px 0 0">VR headset not detected — open this build in a WebXR headset browser (e.g. Meta Quest Browser) over https.</p>
-  <p style="max-width:580px;font-size:13px;line-height:1.6">VR controls: Left stick: move · Right stick: turn / up-down selects items<br>Right trigger: hold to mine / attack · Right grip: place / use<br>A: jump / fly up · B: fly down · Right stick click: creative flight<br>X: inventory / crafting · Point at wrist + trigger: equip · Y: crouch</p>
+  <p style="max-width:580px;font-size:13px;line-height:1.6">VR controls: Left stick: move / click for sprint or flight boost · Right stick: turn / select<br>Right trigger: hold to mine / attack · Right grip: place / use<br>A: jump / fly up · B: fly down · Right stick click: creative flight<br>X: inventory / crafting · Point at wrist + trigger: equip · Y: crouch</p>
   <p class="meta">seed <span id="seedLabel"></span> · <span id="buildLabel"></span>world &amp; inventory auto-save in this browser</p>
 </div>
 
@@ -356,7 +356,7 @@ const SPLASHES = ['Punch trees!', 'Now with zombies!', 'Diamonds are deep!', 'On
 document.getElementById('splash').textContent = SPLASHES[Math.floor(Math.random() * SPLASHES.length)];
 {
   const bl = document.getElementById('buildLabel');
-  const label = IS_DESKTOP ? 'Desktop Edition · ' : IS_MOBILE ? 'Mobile Edition · ' : IS_VR ? 'VR Living Biomes Update · ' : '';
+  const label = IS_DESKTOP ? 'Desktop Edition · ' : IS_MOBILE ? 'Mobile Edition · ' : IS_VR ? 'VR Armour & Sprint Update · ' : '';
   if(bl) bl.textContent = label;
 }
 
@@ -824,6 +824,26 @@ const foodOf = id => (ITEMS[id] && ITEMS[id].food) || (id === MUSHROOMR || id ==
     for(let i = 0; i < 4; i++)
       ITEMS[base + i] = { name: mats[i] + ' ' + tname, icon: icon + i, tool: { type, tier: i + 1 } };
 }
+const ARMOUR_SLOTS=['helmet','chestplate','leggings','boots'];
+const ARMOUR_SETS=[{name:'Leather',material:LEATHER,color:0x986444,points:[1,3,2,1]},{name:'Iron',material:IRONI,color:0xb9c8d2,points:[2,6,5,2]},{name:'Diamond',material:DIAMI,color:0x5cdbd6,points:[3,8,6,3]}];
+const armour={helmet:0,chestplate:0,leggings:0,boots:0};
+ARMOUR_SETS.forEach((set,t)=>ARMOUR_SLOTS.forEach((slot,j)=>{ITEMS[200+t*4+j]={name:set.name+' '+slot[0].toUpperCase()+slot.slice(1),icon:54+t*4+j,armour:{slot,points:set.points[j],color:set.color}};}));
+function armourProtection(){return Math.min(.8,Object.values(armour).reduce((sum,id)=>sum+(ITEMS[id]?.armour?.points||0),0)*.04);}
+function equipArmour(){
+ const id=heldId(),info=ITEMS[id]?.armour;if(!info)return false;
+ const previous=armour[info.slot];
+ if(mode==='survival'){
+   const stack=survInv[sel];
+   if(stack.count===1){stack.id=previous;stack.count=previous?1:0;stack.dur=0;}
+   else {if(previous&&!addItem(previous,true)){vrMenuStatus='Make room for your old armour.';return true;}stack.count--;}
+ }
+ armour[info.slot]=id;invDirty=true;renderHotbar();updateArmourModel();saveNow();flashName('Equipped '+nameOf(id));return true;
+}
+function removeArmour(slot){
+ const id=armour[slot];if(!id)return;
+ if(mode==='survival'&&!addItem(id,true)){vrMenuStatus='Inventory full: make space first.';return;}
+ armour[slot]=0;invDirty=true;updateArmourModel();renderHotbar();saveNow();
+}
 const nameOf = id => BLOCKS[id]?.name || ITEMS[id]?.name || 'Empty';
 const isPlant  = id => FLORA_IDS.has(id) || id === TGRASSB || id === POPPYB || id === DANDB || id === DEADBUSH ||
                        id === MUSHROOMR || id === MUSHROOMB ||
@@ -970,6 +990,7 @@ RECIPES.push(
  {out:[COALI,1],in:[[EXTRA_WOODS.map(w=>w.log).concat([LOG,BIRCHLOG,SPRUCELOG,JUNGLELOG]),1]],st:'furnace'},
  {out:[PUMPKINPIE,1],in:[[PUMPKIN,1],[WHEATITEM,2]],st:'table'},
  {out:[BREAD,1],in:[[WHEATITEM,3]]});
+ARMOUR_SETS.forEach((set,t)=>ARMOUR_SLOTS.forEach((slot,j)=>RECIPES.push({out:[200+t*4+j,1],in:[[set.material,[5,8,7,4][j]]],st:'table'})));
 /* ========================= texture atlases ========================== */
 function mulberry32(a){
   return () => { a |= 0; a = a + 0x6D2B79F5 | 0;
@@ -980,7 +1001,7 @@ function mulberry32(a){
 const atlas = document.createElement('canvas');
 atlas.width = ATLAS_W; atlas.height = ATLAS_H;
 const itemAtlas = document.createElement('canvas');
-itemAtlas.width = 128; itemAtlas.height = 128;
+itemAtlas.width = 128; itemAtlas.height = 256;
 {
   const tn = (x, y, s, salt) => vnoise(x * s + 37.7, y * s + 11.3, 5000 + salt);
   const pick = (v, shades) => shades[Math.max(0, Math.min(shades.length - 1, Math.floor(v * shades.length)))];
@@ -1743,6 +1764,17 @@ const tileAvg = [];
    }
  });
 }
+{
+ const g=itemAtlas.getContext('2d');
+ ARMOUR_SETS.forEach((set,t)=>ARMOUR_SLOTS.forEach((slot,j)=>{
+  const tile=54+t*4+j,x=tile%8*16,y=Math.floor(tile/8)*16;g.fillStyle='#'+set.color.toString(16).padStart(6,'0');
+  if(j===0){g.fillRect(x+3,y+3,10,7);g.clearRect(x+5,y+7,6,4);}
+  if(j===1){g.fillRect(x+4,y+4,8,10);g.fillRect(x+1,y+4,14,4);g.clearRect(x+6,y+3,4,3);}
+  if(j===2){g.fillRect(x+3,y+3,10,11);g.clearRect(x+7,y+7,2,8);}
+  if(j===3){g.fillRect(x+3,y+5,4,8);g.fillRect(x+9,y+5,4,8);g.fillRect(x+2,y+11,5,3);g.fillRect(x+8,y+11,5,3);}
+  g.fillStyle='#effaff';g.fillRect(x+4,y+(j===3?6:4),2,2);
+ }));
+}
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(72, innerWidth / innerHeight, 0.1, 420);
 camera.rotation.order = 'YXZ';
@@ -1847,7 +1879,7 @@ document.getElementById('resetBtn').addEventListener('click', () => {
   localStorage.removeItem(INV_KEY);
   localStorage.removeItem(CHEST_KEY);
   localStorage.removeItem(SAVE_KEY + '-doors');
-  localStorage.removeItem(SAVE_KEY+'-vitals');localStorage.removeItem(SAVE_KEY+'-waterflow');
+  localStorage.removeItem(SAVE_KEY+'-armour');localStorage.removeItem(SAVE_KEY+'-vitals');localStorage.removeItem(SAVE_KEY+'-waterflow');
   localStorage.removeItem(SAVE_KEY + '-bed');
   localStorage.removeItem(SAVE_KEY + '-dragon');
   localStorage.removeItem(NETHER_KEY);
@@ -1863,6 +1895,7 @@ function saveNow(){
     localStorage.setItem(CHEST_KEY, JSON.stringify(chests));
     localStorage.setItem(SAVE_KEY + '-doors', JSON.stringify([...doorState]));
     localStorage.setItem(SAVE_KEY+'-vitals',JSON.stringify({hunger,saturation}));
+    localStorage.setItem(SAVE_KEY+'-armour',JSON.stringify(armour));
     localStorage.setItem(SAVE_KEY+'-waterflow',JSON.stringify([...fluidLevels]));
   } catch(e){}
   editsDirty = invDirty = chestsDirty = false;
@@ -2964,7 +2997,7 @@ function physics(dt){
   if(riding) return;                 // vehicle controls the player's position
   const inWater = getBlock(Math.floor(p.pos.x), Math.floor(p.pos.y + 0.2), Math.floor(p.pos.z)) === WATER;
   const sprint = key('ShiftLeft') && !p.fly && key('KeyW') && !inWater;
-  const speed = p.fly ? (key('ShiftRight') ? 22 : 11) : inWater ? 2.6 : sprint ? 6.0 : 4.3;
+  const speed = p.fly ? (key('ShiftRight') ? 26 : 16) : inWater ? 2.6 : sprint ? 7.2 : 4.3;
   if(!xrActive){
     let fx = 0, fz = 0;
     if(key('KeyW')) fz -= 1; if(key('KeyS')) fz += 1;
@@ -2979,9 +3012,10 @@ function physics(dt){
     // light ground friction in VR so you coast to a stop when the stick centers
     if(p.onGround){ v.x *= Math.max(0, 1 - dt * 6); v.z *= Math.max(0, 1 - dt * 6); }
   }
-  if(p.fly){
+  if(p.fly && !xrActive){
     const vt = (key('Space') ? speed : 0) + (key('ShiftLeft') ? -speed : 0);
     v.y += (vt - v.y) * Math.min(1, dt * 10);
+  } else if(p.fly){ /* VR sets vertical flight velocity in updateVR. */
   } else if(inWater){
     const [cx,cz]=waterCurrent(Math.floor(p.pos.x),Math.floor(p.pos.y+.2),Math.floor(p.pos.z));v.x+=cx*dt*.8;v.z+=cz*dt*.8;
     v.y += (((key('Space') || (xrActive&&readButtons('right')?.[4]?.pressed)) ? 3.4 : (xrActive&&readButtons('right')?.[5]?.pressed)?-3.2:-.65) - v.y) * Math.min(1, dt * 3);
@@ -3300,6 +3334,7 @@ function closeCraft(){
 /* ============================= health =============================== */
 let hp = 20, dead = false, regenT = 0;
 let hunger=20,saturation=8,exhaustion=0,starveT=0;
+try{const saved=JSON.parse(localStorage.getItem(SAVE_KEY+'-armour'));for(const slot of ARMOUR_SLOTS)if(ITEMS[saved?.[slot]]?.armour?.slot===slot)armour[slot]=saved[slot];}catch(e){}
 try{const h=JSON.parse(localStorage.getItem(SAVE_KEY+'-vitals'));if(h){hunger=Math.max(0,Math.min(20,Number(h.hunger)||0));saturation=Math.max(0,Math.min(20,Number(h.saturation)||0));}}catch(e){}
 const hungerEl=document.createElement('div');hungerEl.style.cssText='position:fixed;left:50%;bottom:115px;transform:translateX(-50%);color:#ffc978;z-index:3;font:15px system-ui;pointer-events:none';document.body.appendChild(hungerEl);
 function updateHunger(dt){
@@ -3329,7 +3364,7 @@ function renderHearts(){
 }
 function damage(n){
   if(dead || n <= 0 || mode !== 'survival') return;
-  hp = Math.max(0, hp - n);
+  hp = Math.max(0, hp - n*(1-armourProtection()));
   renderHearts();
   tone(140 * jr(0.15), 45, 0.2, 'sawtooth', 0.22);
   playN({ f: 220, type: 'lowpass', dur: 0.18, vol: 0.2 });
@@ -5014,7 +5049,7 @@ function dropGeo(id){
     const ic = ITEMS[id].icon, ix = (ic % 8) * 16, iy = ((ic / 8) | 0) * 16;
     const uv = g.attributes.uv;
     for(let i = 0; i < uv.count; i++)
-      uv.setXY(i, (ix + 0.3 + uv.getX(i) * 15.4) / 128, 1 - (iy + 0.3 + (1 - uv.getY(i)) * 15.4) / 128);
+      uv.setXY(i, (ix + 0.3 + uv.getX(i) * 15.4) / 128, 1 - (iy + 0.3 + (1 - uv.getY(i)) * 15.4) / itemAtlas.height);
   } else {
     const B = {pos:[],uv:[],col:[],idx:[]};
     if(isCross(id)) pushCross(B, 0, 0, 0, tileFor(id, 0));
@@ -6197,6 +6232,7 @@ function doPlace(){
   if(eh&&(!hit||eh.t<hit.t)&&feedFantasy(eh.e))return;
   if(eh && eh.e.kind === 'villager' && (!hit || eh.t < hit.t) && mode === 'survival'){ openTrade(eh.e); return; }
   // interactions first (bed, crafting table, furnace)
+  if(equipArmour())return;
   if(useFlintSteel(hit))return;
   if(useBucket(hit))return;
   if(hit){
@@ -6625,8 +6661,8 @@ function buildCraftPanel(){
     if(label)text(label,x+12,y+h/2,24,enabled?'#222':'#666',w-24);
     vrMenuButtons.push({x,y,w,h,action,enabled,label}); return index;
   }
-  for(const [i,tab,label] of [[0,'inventory','Inventory'],[1,'craft',mode==='creative'?'All blocks & items':'Crafting'],[2,'help','Controls']]){
-    button(35+i*345,115,325,55,label,()=>{vrMenuTab=tab;vrMenuPage=0;vrPickedSlot=null;vrMenuStatus='';},true,vrMenuTab===tab);
+  for(const [i,tab,label] of [[0,'inventory','Inventory'],[1,'craft',mode==='creative'?'All items':'Crafting'],[2,'armour','Armour'],[3,'help','Controls']]){
+    button(35+i*260,115,245,55,label,()=>{vrMenuTab=tab;vrMenuPage=0;vrPickedSlot=null;vrMenuStatus='';},true,vrMenuTab===tab);
   }
   button(1110,115,290,55,'Close',closeCraftVR);
   function icon(id,x,y,size=50){
@@ -6667,6 +6703,16 @@ function buildCraftPanel(){
       text('2. Open All blocks & items and select an item.',55,450,26);
       text('3. Close this menu. Right grip places the block.',55,505,26);
     }
+  } else if(vrMenuTab==='armour'){
+    text('Armour reduces damage. Craft a set or select it from All items.',35,218,25);
+    text('Protection: '+Math.round(armourProtection()*100)+'%',35,265,29);
+    ARMOUR_SLOTS.forEach((slot,i)=>{const x=35+i*345,id=armour[slot];
+      text(slot[0].toUpperCase()+slot.slice(1),x,330,27);icon(id,x+80,368,100);
+      text(id?nameOf(id):'Empty',x,500,22,'#222',325);
+      button(x,545,310,55,'Remove',()=>removeArmour(slot),!!id);
+    });
+    button(35,630,550,55,'Equip held armour',()=>equipArmour(),!!ITEMS[heldId()]?.armour);
+    text('You can also equip armour with RIGHT GRIP while holding it.',620,655,21,'#333',760);
   } else if(vrMenuTab==='craft'){
     const creative=mode==='creative', pageSize=creative?27:8;
     const total=creative?ALL_CREATIVE.length:RECIPES.length;
@@ -6697,7 +6743,7 @@ function buildCraftPanel(){
       } else text('Select a recipe to see what it needs.',710,325,25,'#454545',670);
     }
   } else {
-    const lines=['X (left controller): open / close inventory','Point RIGHT controller + trigger: select menu buttons','Inventory: select backpack item, then a hotbar slot to equip','Crafting: select recipe, then Craft or Craft & equip','Right grip: place / use / eat food / fill or pour bucket','Right trigger: hold to mine / attack','Wrist: point + trigger on a slot to equip; Inventory opens all items','A: jump / swim up / fly up • B: swim down / fly down / close menu','Right stick click: creative flight • Y: crouch'];
+    const lines=['X (left controller): open / close inventory','Point RIGHT controller + trigger: select menu buttons','Inventory: select backpack item, then a hotbar slot to equip','Crafting: select recipe, then Craft or Craft & equip','Right grip: place / use / eat food / fill or pour bucket','Right trigger: hold to mine / attack','Wrist: point + trigger on a slot to equip; Inventory opens all items','A: jump / swim up / fly up • B: swim down / fly down / close menu','Left stick click: sprint / flight boost • Right stick click: flight • Y: crouch'];
     lines.forEach((line,i)=>text(line,50,220+i*49,25,'#333333',1330));
   }
   text('HOTBAR — select a slot to hold its item',35,726,23,'#454545');
@@ -6774,13 +6820,28 @@ const foreL = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.3, 0.13), skinMat);
 foreL.position.set(-0.3, -0.9, 0.02); vrBody.add(foreL);
 const foreR = foreL.clone(); foreR.position.x = 0.3; vrBody.add(foreR);
 // legs
-const legL = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.6, 0.2), pantsMat);
-legL.position.set(-0.11, -1.2, 0);
+const legL = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.8, 0.2), pantsMat);
+legL.position.set(-0.11, -1.3, 0);
 const legR = legL.clone(); legR.position.x = 0.11;
 vrBody.add(legL); vrBody.add(legR);
 vrBody.visible = false;
 xrRig.add(vrBody);   // positioned under the camera each frame in updateVR
 
+const armourMaterials=ARMOUR_SETS.map(set=>new THREE.MeshBasicMaterial({color:set.color}));
+const helmetModel=new THREE.Group();
+for(const [w,h,d,x,y,z] of [[.48,.08,.42,0,.23,.03],[.07,.25,.32,-.23,.09,.07],[.07,.25,.32,.23,.09,.07]]){
+ const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),armourMaterials[0]);mesh.position.set(x,y,z);helmetModel.add(mesh);
+}
+vrBody.add(helmetModel);
+const bootMeshes=[-1,1].map(side=>{const mesh=new THREE.Mesh(new THREE.BoxGeometry(.19,.2,.26),armourMaterials[0]);mesh.position.set(side*.11,-1.62,-.02);vrBody.add(mesh);return mesh;});
+function updateArmourModel(){
+ const mat=slot=>armourMaterials[Math.floor((armour[slot]-200)/4)];
+ torso.material=armL.material=armR.material=mat('chestplate')||shirtMat;
+ legL.material=legR.material=mat('leggings')||pantsMat;
+ helmetModel.visible=!!armour.helmet;helmetModel.children.forEach(m=>m.material=mat('helmet')||armourMaterials[0]);
+ bootMeshes.forEach(m=>{m.visible=!!armour.boots;m.material=mat('boots')||armourMaterials[0];});
+}
+updateArmourModel();
 // Segmented block arms connect the shoulders to the actual grip poses.
 function updateAvatarArms(){
   vrBody.updateWorldMatrix(true,false);
@@ -6847,6 +6908,7 @@ function vrTryPlace(){
   const eh = rayEntity(o, d, REACH);
   if(eh&&(!hit||eh.t<hit.t)&&feedFantasy(eh.e))return;
   if(eh && eh.e.kind === 'villager' && (!hit || eh.t < hit.t) && mode === 'survival'){ openTrade(eh.e); return; }
+  if(equipArmour())return;
   if(useFlintSteel(hit))return;
   if(useBucket(hit))return;
   if(hit){
@@ -6898,7 +6960,7 @@ function readButtons(hand){
   }
   return null;
 }
-let vrJumpWasDown = false, vrCrouch = false, vrFlyWas = false;
+let vrJumpWasDown = false, vrCrouch = false, vrFlyWas = false, vrSprint=false,vrSprintWas=false;
 // ---- VR debug readout (rendered in-scene so it's visible inside the headset) ----
 const dbgCanvas = document.createElement('canvas');
 dbgCanvas.width = 512; dbgCanvas.height = 256;
@@ -6998,10 +7060,14 @@ function updateVR(dt){
   const yaw = e.y + vrYawOffset;
   player.yaw = yaw;                              // keep player.yaw synced for other systems
   const swimming=getBlock(Math.floor(player.pos.x),Math.floor(player.pos.y+.2),Math.floor(player.pos.z))===WATER;
-  const speed = player.fly ? 9 : swimming?2.6:mode === 'survival' ? 4.3 : 6;
+  const sprintPressed=!!readButtons('left')?.[3]?.pressed;
+  if(sprintPressed&&!vrSprintWas)vrSprint=!vrSprint;
+  vrSprintWas=sprintPressed;
+  const speed = player.fly ? (vrSprint?26:16) : swimming?2.6:vrSprint?7.2:4.3;
   const fwdX = -Math.sin(yaw), fwdZ = -Math.cos(yaw);
   const rgtX =  Math.cos(yaw), rgtZ = -Math.sin(yaw);
-  const wishX = fwdX * -dz + rgtX * dx, wishZ = fwdZ * -dz + rgtZ * dx;
+  const magnitude=Math.max(1,Math.hypot(dx,dz));
+  const wishX = (fwdX * -dz + rgtX * dx)/magnitude, wishZ = (fwdZ * -dz + rgtZ * dx)/magnitude;
   const crouchMul = vrCrouch ? 0.5 : 1;
   player.vel.x += (wishX * speed * crouchMul - player.vel.x) * Math.min(1, dt * 10);
   player.vel.z += (wishZ * speed * crouchMul - player.vel.z) * Math.min(1, dt * 10);
@@ -7011,11 +7077,11 @@ function updateVR(dt){
   const jumpDown = !!(rb && rb[4] && rb[4].pressed);
   if(jumpDown && !vrJumpWasDown){
     if(riding){ dismountVehicle(); }
-    else if(player.fly){ player.vel.y = 8; }
+    else if(player.fly){ player.vel.y = speed; }
     else if(player.onGround){ player.vel.y = 8.2; tone(300, 380, 0.05, 'triangle', 0.05); }
   }
-  if(player.fly && rb && rb[5] && rb[5].pressed) player.vel.y = -8;   // B = fly down
-  if(player.fly && jumpDown) player.vel.y = 8;
+  if(player.fly && rb && rb[5] && rb[5].pressed) player.vel.y = -speed;   // B = fly down
+  if(player.fly)player.vel.y=jumpDown?speed:rb?.[5]?.pressed?-speed:0;
   const flyDown = !!(rb && rb[3] && rb[3].pressed);
   if(mode === 'creative' && flyDown && !vrFlyWas) player.fly = !player.fly;
   vrFlyWas = flyDown;
@@ -7089,6 +7155,7 @@ function updateVR(dt){
 
 renderer.xr.addEventListener('sessionstart', () => {
   xrActive = true;
+  vrSprint=vrSprintWas=false;
   vrHeightOffset = null;
   vrActionRelease=false;
   xrRig.visible = true;
