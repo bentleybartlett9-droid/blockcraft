@@ -356,7 +356,7 @@ const SPLASHES = ['Punch trees!', 'Now with zombies!', 'Diamonds are deep!', 'On
 document.getElementById('splash').textContent = SPLASHES[Math.floor(Math.random() * SPLASHES.length)];
 {
   const bl = document.getElementById('buildLabel');
-  const label = IS_DESKTOP ? 'Desktop Edition · ' : IS_MOBILE ? 'Mobile Edition · ' : IS_VR ? 'VR Nether & Comfort Update · ' : '';
+  const label = IS_DESKTOP ? 'Desktop Edition · ' : IS_MOBILE ? 'Mobile Edition · ' : IS_VR ? 'VR Living Biomes Update · ' : '';
   if(bl) bl.textContent = label;
 }
 
@@ -631,6 +631,21 @@ const CHERRYLOG=160, CHERRYPLANK=161, CHERRYLEAVES=162,
  MAPLELOG=163, MAPLEPLANK=164, MAPLELEAVES=165,
  WILLOWLOG=166, WILLOWPLANK=167, WILLOWLEAVES=168,
  MARBLE=169, MARBLEBRICK=170, BASALT=171, BASALTBRICK=172, MOSAIC=173, AMBERLAMP=174;
+const BLUEBELL=175,LAVENDER=176,DAISY=177,ORCHID=178,CROCUS=179,DESERTFLOWER=180,FERN=181,REEDS=182,DRYGRASS=183,AMBERFLOWER=184,NETHERSPROUT=185,ENDSPROUT=186;
+const FLORA=[
+ {id:BLUEBELL,name:'Bluebell',color:'#7da8ef',kind:'bells'},
+ {id:LAVENDER,name:'Lavender',color:'#b298de',kind:'spike'},
+ {id:DAISY,name:'Daisy',color:'#fff5d5',kind:'flower'},
+ {id:ORCHID,name:'Orchid',color:'#ed8bc7',kind:'flower'},
+ {id:CROCUS,name:'Snow Crocus',color:'#b5a6ee',kind:'flower'},
+ {id:DESERTFLOWER,name:'Desert Bloom',color:'#ecae76',kind:'flower'},
+ {id:FERN,name:'Fern',color:'#6eae69',kind:'fern'},
+ {id:REEDS,name:'Marsh Reeds',color:'#a3b369',kind:'reeds'},
+ {id:DRYGRASS,name:'Dry Grass',color:'#cbb478',kind:'grass'},
+ {id:AMBERFLOWER,name:'Amber Daisy',color:'#ecb454',kind:'flower'},
+ {id:NETHERSPROUT,name:'Ember Sprout',color:'#f49068',kind:'fern'},
+ {id:ENDSPROUT,name:'End Bloom',color:'#bc98ec',kind:'bells'}];
+const FLORA_IDS=new Set(FLORA.map(f=>f.id));
 const EXTRA_WOODS=[{log:CHERRYLOG,plank:CHERRYPLANK,leaves:CHERRYLEAVES,name:'Cherry',bark:[105,56,61],wood:[220,163,161],leaf:[230,142,182]},
  {log:MAPLELOG,plank:MAPLEPLANK,leaves:MAPLELEAVES,name:'Maple',bark:[91,62,40],wood:[190,121,59],leaf:[225,111,33]},
  {log:WILLOWLOG,plank:WILLOWPLANK,leaves:WILLOWLEAVES,name:'Willow',bark:[72,83,55],wood:[153,163,112],leaf:[82,148,94]}];
@@ -753,6 +768,7 @@ EXTRA_WOODS.forEach((w,i)=>{
   BLOCKS[w.leaves]={name:w.name+' Leaves',all:t+3};
 });
 for(const [id,name,tile] of [[MARBLE,'Marble',106],[MARBLEBRICK,'Marble Bricks',107],[BASALT,'Basalt',108],[BASALTBRICK,'Basalt Bricks',109],[MOSAIC,'Mosaic Tiles',110],[AMBERLAMP,'Amber Lantern',111]])BLOCKS[id]={name,all:tile};
+FLORA.forEach((f,i)=>BLOCKS[f.id]={name:f.name,all:112+i});
 /* Item IDs and block IDs use explicit registries. */
 const STICK=100, COALI=101, IRONI=102, GOLDI=103, DIAMI=104, PORK=105, PORKC=106, MUTTON=107, MUTTONC=108,
       EMERALD=109,
@@ -809,7 +825,7 @@ const foodOf = id => (ITEMS[id] && ITEMS[id].food) || (id === MUSHROOMR || id ==
       ITEMS[base + i] = { name: mats[i] + ' ' + tname, icon: icon + i, tool: { type, tier: i + 1 } };
 }
 const nameOf = id => BLOCKS[id]?.name || ITEMS[id]?.name || 'Empty';
-const isPlant  = id => id === TGRASSB || id === POPPYB || id === DANDB || id === DEADBUSH ||
+const isPlant  = id => FLORA_IDS.has(id) || id === TGRASSB || id === POPPYB || id === DANDB || id === DEADBUSH ||
                        id === MUSHROOMR || id === MUSHROOMB ||
                        id === WHEAT0 || id === WHEAT1 || id === WHEAT2 || id === WHEAT3;
 const isCross  = id => isPlant(id) || id === TORCH || id === COBWEB || id === IRONBARS;
@@ -1697,6 +1713,36 @@ const tileAvg = [];
 
  }
 }
+// Living-biome texture pass, built locally once; no extra downloads or per-plant meshes.
+{
+ const g=atlas.getContext('2d');
+ for(const [tile,base] of [[T.LEAVES,[72,130,57]],[T.SPRUCE_LEAVES_T,[40,88,65]],...EXTRA_WOODS.map((w,i)=>[97+i*4,w.leaf])]){
+   const ox=tile%8*16,oy=Math.floor(tile/8)*16;g.clearRect(ox,oy,16,16);
+   const rng=mulberry32(tile*1327),clusters=Array.from({length:18},()=>({x:rng()*16,y:rng()*16,w:1.5+rng()*1.3,h:1.2+rng()*1.7,t:rng()*30-15}));
+   for(let y=0;y<16;y++)for(let x=0;x<16;x++){
+     let best=2,leaf=null,ly=0;
+     for(const c of clusters){let dx=(x-c.x+24)%16-8,dy=(y-c.y+24)%16-8;const d=Math.abs(dx)/c.w+Math.abs(dy)/c.h;if(d<best){best=d;leaf=c;ly=dy;}}
+     if(best>1.72)continue;
+     const shade=leaf.t+(ly<0?18:-9)+(best<.32?9:0);
+     g.fillStyle='rgb('+base.map(c=>Math.max(0,Math.min(255,c+shade))).join(',')+')';g.fillRect(ox+x,oy+y,1,1);
+   }
+ }
+ FLORA.forEach((f,i)=>{
+   const ox=(112+i)%8*16,oy=Math.floor((112+i)/8)*16;g.clearRect(ox,oy,16,16);
+   const rect=(x,y,w,h,color)=>{g.fillStyle=color;g.fillRect(ox+x,oy+y,w,h);};
+   const green=f.id===NETHERSPROUT?'#864451':f.id===ENDSPROUT?'#756583':f.kind==='grass'?'#a18c55':'#518253';
+   if(f.kind==='fern'){
+     rect(7,3,2,13,green);for(let j=0;j<5;j++){let w=2+j%3;rect(7-w,4+j*2,w,2,f.color);rect(9,5+j*2,w,2,f.color);}rect(7,1,2,3,f.color);
+   }else if(f.kind==='reeds'||f.kind==='grass'){
+     for(const [x,h] of [[3,9],[7,14],[11,11]]){rect(x,16-h,1,h,green);rect(x-1,16-h,2,f.kind==='reeds'?4:2,f.color);rect(x+1,10,2,1,f.color);}
+   }else{
+     rect(7,6,2,10,green);rect(4,11,3,2,green);rect(9,9,3,2,green);
+     if(f.kind==='spike'){for(let j=0;j<5;j++)rect(6+(j%2),2+j*2,4,2,j%2?'#d5bde9':f.color);}
+     else if(f.kind==='bells'){for(const [x,y] of [[4,4],[9,7],[5,9]]){rect(x,y,3,3,f.color);rect(x+1,y+2,3,1,'#bed8ff');}rect(7,2,2,5,green);}
+     else{rect(4,3,8,4,f.color);rect(6,1,4,8,f.color);rect(7,4,2,2,'#e9b95c');rect(5,3,2,1,'#fff0db');}
+   }
+ });
+}
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(72, innerWidth / innerHeight, 0.1, 420);
 camera.rotation.order = 'YXZ';
@@ -1727,6 +1773,8 @@ const matO = new THREE.MeshBasicMaterial({ map: tex, vertexColors: true });
 const matT = new THREE.MeshBasicMaterial({ map: tex, vertexColors: true, transparent: true,
                                            depthWrite: false, side: THREE.DoubleSide });
 const matC = new THREE.MeshBasicMaterial({ map: tex, vertexColors: true, alphaTest: 0.5, side: THREE.DoubleSide });
+const matLeaf = new THREE.MeshBasicMaterial({map:tex,vertexColors:true,alphaTest:.5,side:THREE.DoubleSide});
+const foliageTime={value:0};
 const matG = new THREE.MeshBasicMaterial({ map: tex, vertexColors: true });
 const matGC = new THREE.MeshBasicMaterial({ map: tex, vertexColors: true, alphaTest: 0.5, side: THREE.DoubleSide });
 const matItem = new THREE.MeshBasicMaterial({ map: itemTex, alphaTest: 0.5, side: THREE.DoubleSide });
@@ -1869,6 +1917,10 @@ function genNetherChunk(cx, cz){
       }
     }
   }
+  // Sparse ember plants on genuine dry Nether ground.
+  for(let z=0;z<16;z++)for(let x=0;x<16;x++)if(hash(cx*16+x,cz*16+z,995)<.10){
+    for(let y=NETHER_LAVA+1;y<NETHER_CEIL-3;y++)if([NETHERRACK,SOULSAND].includes(getLocal(data,x,y-1,z))&&getLocal(data,x,y,z)===AIR&&getLocal(data,x,y+1,z)===AIR){data[(y<<8)|(z<<4)|x]=NETHERSPROUT;break;}
+  }
   // apply saved player edits for this nether chunk
   const ed = netherEdits[cx + ',' + cz];
   if(ed) for(const k in ed){
@@ -1908,6 +1960,7 @@ function genEndChunk(cx, cz){
     const thick = 3 + Math.floor(edge * 10 + fbm(wx * 0.05, wz * 0.05, 3, 411) * 5);
     const top = END_Y + Math.floor(fbm(wx * 0.04 + 20, wz * 0.04 - 9, 3, 413) * 4);
     for(let y = top - thick; y <= top; y++) set(lx, y, lz, ENDSTONE);
+    if(d>8 && hash(wx,wz,996)<.085)set(lx,top+1,lz,ENDSPROUT);
   }
   // obsidian pillars + end crystals
   for(const p of END_PILLARS){
@@ -1931,6 +1984,22 @@ function genEndChunk(cx, cz){
     data[(y << 8) | (lz << 4) | lx] = ed[k];
   }
   return data;
+}
+function biomePlant(biome,r,patch,snowy,beach){
+  if(beach)return r<.04?REEDS:r<.07?DRYGRASS:0;
+  if(snowy)return r<.035?CROCUS:r<.055?DEADBUSH:0;
+  const palettes={
+    plains:[DAISY,BLUEBELL,POPPYB,DANDB],forest:[FERN,BLUEBELL,MUSHROOMB,DAISY],
+    birch:[DAISY,LAVENDER,BLUEBELL,FERN],jungle:[FERN,ORCHID,FERN,MUSHROOMR],
+    swamp:[REEDS,BLUEBELL,MUSHROOMB,FERN],savanna:[DRYGRASS,AMBERFLOWER,DRYGRASS,DESERTFLOWER],
+    desert:[DEADBUSH,DESERTFLOWER,DRYGRASS,DEADBUSH],
+    'cherry-grove':[ORCHID,DAISY,LAVENDER,BLUEBELL],'maple-woods':[AMBERFLOWER,FERN,MUSHROOMR,DANDB],
+    'willow-marsh':[REEDS,BLUEBELL,FERN,MUSHROOMB]};
+  const palette=palettes[biome]||palettes.plains;
+  const density=biome==='desert'?.09:biome==='jungle'?.34:biome==='savanna'?.22:.25;
+  if(r>=density)return 0;
+  if(r<density*(patch>.52?.72:.38))return palette[Math.min(3,Math.floor(patch*4))];
+  return biome==='desert'||biome==='savanna'?DRYGRASS:TGRASSB;
 }
 function genChunk(cx, cz){
   if(dim === 1) return genNetherChunk(cx, cz);
@@ -1977,81 +2046,52 @@ function genChunk(cx, cz){
     }
     for(let y = h + 1; y <= SEA; y++) data[(y << 8) | (lz << 4) | lx] = WATER;
     if(getLocal(data,lx,h,lz) === AIR) continue; // No plants above cave mouths.
-    if(biome === 'desert' && !beach && h > SEA + 1 && h + 4 < HEIGHT){
-      const dr = hash(wx, wz, 884);
-      if(dr < 0.0045){
-        const ch = 2 + Math.floor(hash(wx, wz, 885) * 2);
-        for(let k = 1; k <= ch; k++) set(lx, h + k, lz, CACTUS);
-      } else if(dr < 0.013) set(lx, h + 1, lz, DEADBUSH);
-    } else if(!sandy && !snowyTop && h > SEA + 1 && h + 1 < HEIGHT){
-      const pr = hash(wx, wz, 606);
-      // some plains/forest regions are dense flower meadows (low-freq mask)
-      const meadow = (biome === 'plains' || biome === 'forest') &&
-                     vnoise(wx * 0.006 + 12.3, wz * 0.006 - 8.1, 660) > 0.66;
-      const tg = biome === 'jungle' ? 0.24 : biome === 'swamp' ? 0.20 : biome === 'forest' ? 0.16 :
-                 biome === 'savanna' ? 0.14 : biome === 'birch' ? 0.12 : 0.10;
-      if(meadow){
-        // lots of poppies & dandelions, some grass
-        if(pr < 0.16) set(lx, h + 1, lz, hash(wx, wz, 661) < 0.5 ? POPPYB : DANDB);
-        else if(pr < 0.24) set(lx, h + 1, lz, TGRASSB);
-      } else if(pr < tg) set(lx, h + 1, lz, TGRASSB);
-      else if(biome === 'swamp'){
-        if(pr < tg + 0.02) set(lx, h + 1, lz, hash(wx, wz, 607) < 0.5 ? MUSHROOMR : MUSHROOMB);
-      }
-      else if(pr < tg + 0.012) set(lx, h + 1, lz, POPPYB);
-      else if(pr < tg + 0.024) set(lx, h + 1, lz, DANDB);
+    if(h+2<HEIGHT && h>=SEA && getLocal(data,lx,h+1,lz)===AIR){
+      const pr=hash(wx,wz,606),patch=vnoise(wx*.075,wz*.075,994);
+      let plant=biomePlant(biome,pr,patch,snowyTop,beach);
+      if(biome==='desert'&&!beach&&pr<.007){
+        const ch=2+Math.floor(hash(wx,wz,885)*2);for(let k=1;k<=ch;k++)set(lx,h+k,lz,CACTUS);
+      }else if(plant)set(lx,h+1,lz,plant);
     }
   }
-  for(let tz = -3; tz < 19; tz++) for(let tx = -3; tx < 19; tx++){
-    const wx = cx * 16 + tx, wz = cz * 16 + tz;
-    const t = treeAt(wx, wz);
-    if(!t) continue;
+  for(let tz=-5;tz<21;tz++)for(let tx=-5;tx<21;tx++){
+    const wx=cx*16+tx,wz=cz*16+tz,t=treeAt(wx,wz);if(!t)continue;
     const extra=EXTRA_WOODS.find(w=>w.name.toLowerCase()===t.type);
-    const logId = extra?extra.log:t.type === 'spruce' ? SPRUCELOG : t.type === 'birch' ? BIRCHLOG :
-                  t.type === 'jungle' ? JUNGLELOG : LOG;
-    const leafId = extra?extra.leaves:t.type === 'spruce' ? SPRUCELEAVES : LEAVES;
-    for(let k = 1; k <= t.th; k++) set(tx, t.h + k, tz, logId);
-    if(t.type === 'willow'){
-      for(let dx=-3;dx<=3;dx++)for(let dz=-3;dz<=3;dz++){
-        if(Math.abs(dx)+Math.abs(dz)>4)continue;
-        set(tx+dx,t.h+t.th,tz+dz,leafId,true);
-        if(Math.abs(dx)===3||Math.abs(dz)===3)for(let dy=1;dy<=3;dy++)set(tx+dx,t.h+t.th-dy,tz+dz,leafId,true);
+    const log=extra?extra.log:t.type==='spruce'?SPRUCELOG:t.type==='birch'?BIRCHLOG:t.type==='jungle'?JUNGLELOG:LOG;
+    const leaf=extra?extra.leaves:t.type==='spruce'?SPRUCELEAVES:LEAVES;
+    const crown=(ox,oy,oz,rx,ry,rz)=>{
+      for(let dx=-Math.ceil(rx);dx<=rx;dx++)for(let dy=-Math.ceil(ry);dy<=ry;dy++)for(let dz=-Math.ceil(rz);dz<=rz;dz++){
+        const shape=dx*dx/(rx*rx)+dy*dy/(ry*ry)+dz*dz/(rz*rz);
+        if(shape>1.12 || (shape>.8&&hash3(wx+ox+dx,t.h+oy+dy,wz+oz+dz,902)>.8))continue;
+        set(tx+ox+dx,t.h+oy+dy,tz+oz+dz,leaf,true);
       }
-    } else if(t.type === 'jungle'){
-      for(let dy = t.th - 1; dy <= t.th + 1; dy++){
-        const r = dy === t.th - 1 ? 3 : dy === t.th ? 2 : 1;
-        for(let dx = -r; dx <= r; dx++) for(let dz = -r; dz <= r; dz++){
-          if(dx === 0 && dz === 0 && dy <= t.th) continue;
-          if(Math.abs(dx) === r && Math.abs(dz) === r && r > 1) continue;
-          set(tx + dx, t.h + dy, tz + dz, leafId, true);
-        }
+    };
+    const branch=(ox,oy,oz)=>{
+      const base=t.th-2,n=Math.max(Math.abs(ox),Math.abs(oz),Math.abs(oy-base));
+      for(let i=0;i<=n;i++)set(tx+Math.round(ox*i/n),t.h+base+Math.round((oy-base)*i/n),tz+Math.round(oz*i/n),log);
+    };
+    for(let k=1;k<=t.th;k++)set(tx,t.h+k,tz,log);
+    const turn=hash(wx,wz,991)<.5?-1:1;
+    if(t.type==='spruce'){
+      for(let dy=2;dy<=t.th+1;dy++){
+        const r=dy===t.th+1?0:Math.min(2,Math.ceil((t.th+1-dy)/2))-(dy%2===0?.35:0);
+        for(let dx=-2;dx<=2;dx++)for(let dz=-2;dz<=2;dz++)if(Math.abs(dx)+Math.abs(dz)<=r+1 && Math.max(Math.abs(dx),Math.abs(dz))<=r)set(tx+dx,t.h+dy,tz+dz,leaf,true);
       }
-    } else if(t.type === 'savanna'){
-      for(let dx = -2; dx <= 2; dx++) for(let dz = -2; dz <= 2; dz++){
-        if(Math.abs(dx) === 2 && Math.abs(dz) === 2) continue;
-        set(tx + dx, t.h + t.th, tz + dz, leafId, true);
-      }
-      for(let dx = -1; dx <= 1; dx++) for(let dz = -1; dz <= 1; dz++)
-        set(tx + dx, t.h + t.th + 1, tz + dz, leafId, true);
-    } else if(t.type === 'spruce'){
-      for(let dy = 2; dy <= t.th; dy++){
-        const r = ((t.th - dy) % 2) ? 2 : 1;
-        for(let dx = -r; dx <= r; dx++) for(let dz = -r; dz <= r; dz++){
-          if(dx === 0 && dz === 0) continue;
-          if(r === 2 && Math.abs(dx) === 2 && Math.abs(dz) === 2) continue;
-          set(tx + dx, t.h + dy, tz + dz, leafId, true);
-        }
-      }
-      set(tx, t.h + t.th + 1, tz, leafId, true);
-    } else {
-      for(let dy = t.th - 2; dy <= t.th + 1; dy++){
-        const r = dy <= t.th - 1 ? 2 : 1;
-        for(let dx = -r; dx <= r; dx++) for(let dz = -r; dz <= r; dz++){
-          if(dx === 0 && dz === 0 && dy <= t.th) continue;
-          if(Math.abs(dx) === r && Math.abs(dz) === r && hash(wx + dx, wz + dz, 800 + dy) > 0.5) continue;
-          set(tx + dx, t.h + dy, tz + dz, leafId, true);
-        }
-      }
+    }else if(t.type==='willow'){
+      for(const [dx,dz] of [[2,0],[-2,0],[0,2],[0,-2]]){branch(dx,t.th,dz);crown(dx,t.th,dz,2,1,2);}
+      crown(0,t.th+1,0,2,1,2);
+      for(let dx=-4;dx<=4;dx++)for(let dz=-4;dz<=4;dz++)if(Math.max(Math.abs(dx),Math.abs(dz))>=3&&Math.abs(dx)+Math.abs(dz)<=5&&hash(wx+dx,wz+dz,992)<.7)
+        for(let dy=0;dy<2+Math.floor(hash(wx+dx,wz+dz,993)*3);dy++)set(tx+dx,t.h+t.th-dy,tz+dz,leaf,true);
+    }else if(t.type==='savanna'){
+      branch(turn*2,t.th,1);branch(-turn,t.th-1,-1);crown(turn*2,t.th+1,1,2,1,2);crown(-turn,t.th,-1,2,1,2);
+    }else if(t.type==='birch'){
+      branch(turn,t.th,0);crown(turn,t.th,0,1.7,2,1.7);crown(0,t.th-2,0,1.4,1.5,1.4);
+    }else if(t.type==='cherry'){
+      branch(2,t.th,turn);branch(-2,t.th,-turn);crown(2,t.th+1,turn,2,1.4,2);crown(-2,t.th+1,-turn,2,1.4,2);crown(0,t.th+2,0,2,1,2);
+    }else if(t.type==='jungle'){
+      branch(2,t.th-2,turn);branch(-2,t.th,-turn);crown(2,t.th-1,turn,2,1,2);crown(-2,t.th+1,-turn,2,1,2);crown(0,t.th+2,0,3,1.5,3);
+    }else{
+      branch(turn*2,t.th-1,1);crown(turn*2,t.th,1,2,1.5,2);crown(0,t.th+1,0,t.type==='maple'?2.5:2,2,2);crown(-turn,t.th-1,-1,2,1.5,2);
     }
   }
   // villages (stamped after terrain/trees so buildings clear space; player edits still win)
@@ -2547,15 +2587,20 @@ function blockLightForChunk(c){
 }
 function installBlockLighting(mat){
   mat.onBeforeCompile=shader=>{
+    if(mat===matC||mat===matLeaf){
+      shader.uniforms.foliageTime=foliageTime;
+      shader.vertexShader='attribute float windWeight; uniform float foliageTime;\n'+shader.vertexShader;
+      shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvec3 wp=(modelMatrix*vec4(position,1.0)).xyz; transformed.x += sin(foliageTime*1.3+wp.x*.7+wp.z*.5)*windWeight*.035; transformed.z += cos(foliageTime*.9+wp.z*.6)*windWeight*.018;');
+    }
     shader.vertexShader='attribute float blockFloor; varying float vBlockFloor;\n'+shader.vertexShader;
     shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvBlockFloor=blockFloor;');
     shader.fragmentShader='varying float vBlockFloor;\n'+shader.fragmentShader;
     shader.fragmentShader=shader.fragmentShader.replace('#include <color_fragment>',
       '#ifdef USE_COLOR\ndiffuseColor.rgb *= max(vColor, vec3(vBlockFloor) / max(diffuse, vec3(0.001)));\n#endif');
   };
-  mat.customProgramCacheKey=()=> 'blockcraft-block-light-v1';
+  mat.customProgramCacheKey=()=> 'blockcraft-biome-light-v2-'+((mat===matC||mat===matLeaf)?'wind':'solid');
 }
-[matO,matT,matC].forEach(installBlockLighting);
+[matO,matT,matC,matLeaf].forEach(installBlockLighting);
 
 function computeLight(c, gb){
   const light = new Uint8Array(LSTRIDE * HEIGHT);
@@ -2623,11 +2668,11 @@ function buildChunk(c,reuseLight=false){
   c.light = light;
   const O = {pos:[],uv:[],col:[],idx:[]}, W = {pos:[],uv:[],col:[],idx:[]},
         C = {pos:[],uv:[],col:[],idx:[]}, G = {pos:[],uv:[],col:[],idx:[]},
-        GC = {pos:[],uv:[],col:[],idx:[]};
+        GC = {pos:[],uv:[],col:[],idx:[]}, L={pos:[],uv:[],col:[],idx:[],wind:[],foliage:true};
   for(let y = 0; y < HEIGHT; y++) for(let lz = 0; lz < 16; lz++) for(let lx = 0; lx < 16; lx++){
     const b = data[(y << 8) | (lz << 4) | lx];
     if(!b) continue;
-    if(isCross(b)){ pushCross(b === TORCH ? GC : C, lx, y, lz, tileFor(b, 0), light); continue; }
+    if(isCross(b)){ pushCross(b === TORCH ? GC : C, lx, y, lz, tileFor(b, 0), light, isPlant(b)?1:0); continue; }
     if(isPartial(b)){ pushPartial(O, lx, y, lz, b, light); continue; }
     if(isDoor(b)){ pushDoor(O, lx, y, lz, b, wx0 + lx, wz0 + lz, light); continue; }
     if(isFlat(b)){                                       // rail: thin plate on the floor
@@ -2637,7 +2682,7 @@ function buildChunk(c,reuseLight=false){
       continue;
     }
     const opq = isOpaque(b);
-    const bucket = emitsLight(b) ? G : opq ? O : W;
+    const bucket = isLeaf(b) ? L : emitsLight(b) ? G : opq ? O : W;
     const mode = emitsLight(b) ? 2 : opq ? 1 : 0;
     for(let f = 0; f < 6; f++){
       const F = FACES[f];
@@ -2658,6 +2703,7 @@ function buildChunk(c,reuseLight=false){
   addMesh(c, C, matC);
   addMesh(c, G, matG);
   addMesh(c, GC, matGC);
+  addMesh(c,L,matLeaf);
   c.built = true;
 }
 function tileUV(B, tile, u, v){
@@ -2707,10 +2753,15 @@ function pushFace(B, gb, lx, y, lz, F, tile, mode, light, surfaceHeight=1,surfac
       }
     }
     B.col.push(l, l, l);
+    if(B.foliage)B.wind.push(.65);
   }
   B.idx.push(base, base + 1, base + 2, base + 2, base + 1, base + 3);
 }
-function pushCross(B, lx, y, lz, tile, light){
+function pushCross(B, lx, y, lz, tile, light, sway=0){
+  if(!B.wind)B.wind=[];
+  const flora=tile>=112&&tile<124?FLORA[tile-112]:null;
+  const height=flora?(flora.kind==='reeds'?1:flora.kind==='fern'?.8:.64):1;
+  const width=flora?(flora.kind==='reeds'?.8:.76):1;
   const quads = [
     [[0.07,0,0.07],[0.93,0,0.93],[0.07,1,0.07],[0.93,1,0.93]],
     [[0.93,0,0.07],[0.07,0,0.93],[0.93,1,0.07],[0.07,1,0.93]],
@@ -2721,9 +2772,10 @@ function pushCross(B, lx, y, lz, tile, light){
   for(const q of quads){
     const base = B.pos.length / 3;
     for(let i = 0; i < 4; i++){
-      B.pos.push(lx + q[i][0], y + q[i][1], lz + q[i][2]);
+      B.pos.push(lx+.5+(q[i][0]-.5)*width, y+q[i][1]*height, lz+.5+(q[i][2]-.5)*width);
       tileUV(B, tile, uvs[i][0], uvs[i][1]);
       B.col.push(ll, ll, ll);
+      B.wind.push(q[i][1]*sway);
     }
     B.idx.push(base, base + 1, base + 2, base + 2, base + 1, base + 3);
   }
@@ -2797,6 +2849,7 @@ function addMesh(c, B, mat){
   g.setAttribute('position', new THREE.Float32BufferAttribute(B.pos, 3));
   g.setAttribute('uv',       new THREE.Float32BufferAttribute(B.uv, 2));
   g.setAttribute('color',    new THREE.Float32BufferAttribute(B.col, 3));
+  g.setAttribute('windWeight',new THREE.Float32BufferAttribute(B.wind||new Array(B.pos.length/3).fill(0),1));
   const floors=[];
   for(let i=0;i<B.pos.length;i+=3){
     let level=0;
@@ -3363,13 +3416,20 @@ function trySleep(bx, by, bz){
 /* ====================== shared entity helpers ======================= */
 const entMats = [];
 function entMat(color){
-  const m = new THREE.MeshBasicMaterial({ color });
+  const m = new THREE.MeshBasicMaterial({ color, vertexColors:true });
   m.userData.base = new THREE.Color(color);
   entMats.push(m);
   return m;
 }
 function box(w, h, d, mat, x, y, z, parent){
-  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+  const geo=new THREE.BoxGeometry(w,h,d),normals=geo.attributes.normal,colors=[];
+  for(let i=0;i<normals.count;i++){
+    const nx=normals.getX(i),ny=normals.getY(i),nz=normals.getZ(i);
+    const shade=ny>.5?1:ny<-.5?.66:nx>.5?.86:nx<-.5?.79:nz<-.5?.94:.83;
+    colors.push(shade,shade,shade);
+  }
+  geo.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
+  const m = new THREE.Mesh(geo, mat);
   m.position.set(x, y, z);
   parent.add(m);
   return m;
@@ -3392,125 +3452,95 @@ const wolfMats  = { body: entMat(0x9a9a9a), belly: entMat(0xcfcfca), head: entMa
 const rabbitMats= { body: entMat(0xbfa78f), belly: entMat(0xe6dccb), head: entMat(0xc9b39d), earIn: entMat(0xe0b7b0), ear: entMat(0xb09a82), leg: entMat(0xa8927b), eye: entMat(0x241a12), tail: entMat(0xf0ebe1), nose: entMat(0x9a6a63) };
 const fantasyMats={moss:entMat(0x70a75b),moon:entMat(0xb7a2dc),crystal:entMat(0x4bc5ba),dark:entMat(0x263345),cap:entMat(0xb86889),glow:entMat(0xcdf88d)};
 const FANTASY=['mossling','moonhopper','crystalback'];
+function mergeAnimalParts(parent){
+  const sets=new Map();for(const child of [...parent.children])if(child.isMesh){let list=sets.get(child.material);if(!list)sets.set(child.material,list=[]);list.push(child);}
+  for(const [material,meshes] of sets){if(meshes.length<2)continue;const arrays={position:[],normal:[],uv:[],color:[]};
+    for(const mesh of meshes){mesh.updateMatrix();let geo=mesh.geometry.clone();if(geo.index){const old=geo;geo=geo.toNonIndexed();old.dispose();}geo.applyMatrix4(mesh.matrix);
+      for(const key of Object.keys(arrays))arrays[key].push(...geo.attributes[key].array);
+      geo.dispose();parent.remove(mesh);mesh.geometry.dispose();
+    }
+    const geo=new THREE.BufferGeometry();for(const [key,data] of Object.entries(arrays))geo.setAttribute(key,new THREE.Float32BufferAttribute(data,key==='uv'?2:3));parent.add(new THREE.Mesh(geo,material));
+  }
+}
 function spawnAnimal(type, x, y, z){
   const g = new THREE.Group();
   const legs = [];
-  if(FANTASY.includes(type)){
-    const mat=type==='mossling'?fantasyMats.moss:type==='moonhopper'?fantasyMats.moon:fantasyMats.crystal;
-    box(.65,.5,.8,mat,0,.55,0,g);box(.43,.38,.4,mat,0,.7,-.5,g);
-    for(const side of [-1,1])box(.07,.08,.04,fantasyMats.dark,side*.13,.76,-.72,g);
-    if(type==='mossling'){
-      box(.85,.18,.85,fantasyMats.cap,0,.9,.04,g);
-      for(const side of [-1,1]){box(.08,.42,.08,fantasyMats.moss,side*.18,1.18,0,g);box(.18,.13,.18,fantasyMats.glow,side*.18,1.4,0,g);}
-    }else if(type==='moonhopper'){
-      for(const side of [-1,1]){const ear=box(.11,.55,.10,mat,side*.17,1.15,-.5,g);ear.rotation.z=side*.3;box(.25,.15,.37,mat,side*.3,.12,.25,g);}
-      box(.22,.22,.3,fantasyMats.glow,0,.7,.55,g);
+  const palettes={pig:pigMats,sheep:sheepMats,cow:cowMats,horse:horseMats,wolf:wolfMats,rabbit:rabbitMats,chicken:chickMats};
+  const m=palettes[type];
+  const part=(w,h,d,mat,x,y,z,parent=g)=>box(w,h,d,mat,x,y,z,parent);
+  const limb=(x,z,height,width,mat,footMat,footDepth=width)=>{
+    const pivot=new THREE.Group();pivot.position.set(x,height,z);g.add(pivot);
+    part(width,height,width,mat,0,-height/2,0,pivot);
+    part(width*1.12,.09,footDepth,footMat||mat,0,-height+.045,-(footDepth-width)/2,pivot);
+    legs.push(pivot);
+  };
+  const eyes=(x,y,z,dark)=>{for(const side of [-1,1]){
+    part(.075,.09,.035,dark,x*side,y,z);
+    part(.025,.03,.012,sheepMats.wool,x*side-.012,y+.018,z-.022);
+  }};
+  const ear=(x,y,z,w,h,mat,inner,angle)=>{
+    const p=new THREE.Group();p.position.set(x,y,z);p.rotation.z=angle;g.add(p);
+    part(w,h,.09,mat,0,h/2,0,p);if(inner)part(w*.48,h*.7,.018,inner,0,h*.52,-.05,p);
+  };
+  if(m){
+    const profiles={pig:[.76,.49,1.05,.62,.46,.43,.42,.72,-.68,.34],sheep:[.88,.65,1.18,.81,.35,.4,.38,.9,-.76,.45],cow:[.86,.66,1.28,.94,.44,.45,.45,1.12,-.79,.59],horse:[.67,.69,1.38,1.15,.33,.43,.48,1.58,-.91,.8],wolf:[.44,.44,.85,.64,.36,.35,.38,.84,-.56,.42],rabbit:[.34,.34,.48,.35,.25,.26,.27,.48,-.29,.2],chicken:[.4,.4,.55,.44,.25,.29,.26,.75,-.28,.24]};
+    const [bw,bh,bd,by,hw,hh,hd,hy,hz,lh]=profiles[type];
+    const body=m.body||m.wool,head=m.head||body;
+    part(bw,bh,bd,body,0,by,0);part(bw*.8,bh*.28,bd*.85,m.belly||m.woolSh||body,0,by-bh*.34,0);
+    if(type==='horse'){const neck=part(.34,.65,.38,body,0,1.37,-.55);neck.rotation.x=.22;}
+    part(hw,hh,hd,head,0,hy,hz);eyes(hw*.32,hy+.045,hz-hd/2-.018,m.eye);
+    const small=type==='rabbit'||type==='chicken';
+    if(type==='chicken'){
+      for(const side of [-1,1]){const wing=part(.13,.29,.43,m.wing,side*.245,.46,.02);wing.rotation.z=side*.13;limb(side*.095,0,lh,.055,m.leg,m.leg,.18);}
+      part(.14,.09,.18,m.beak,0,.73,-.48);part(.09,.12,.05,m.wattle,0,.62,-.43);
+      for(let i=0;i<3;i++)part(.075,.10+i%2*.04,.08,m.comb,0,.93,-.37+i*.09);
+      for(let i=-1;i<=1;i++){const tail=part(.10,.32,.13,m.wing,i*.08,.62,.3);tail.rotation.x=-.5;tail.rotation.z=i*.2;}
     }else{
-      for(let i=0;i<3;i++){const crystal=box(.18,.45,.18,fantasyMats.glow,0,.98,.3-i*.28,g);crystal.rotation.z=.4;}
-      box(.75,.2,.78,fantasyMats.dark,0,.73,0,g);
+      for(const [side,back] of [[-1,-1],[1,-1],[-1,1],[1,1]])limb(side*bw*.32,back*bd*.32,lh,small?.10:type==='wolf'?.12:.17,m.leg,m.hoof||m.leg,type==='rabbit'&&back===1?.3:undefined);
+      if(type==='rabbit'){
+        for(const side of [-1,1]){ear(side*.085,.58,-.26,.085,.39,m.ear,m.earIn,side*.18);part(.18,.24,.25,body,side*.15,.24,.15);}
+        part(.15,.15,.15,m.tail,0,.35,.3);part(.055,.04,.03,m.nose,0,.43,-.44);
+      }else if(type==='pig'){
+        part(.28,.19,.14,m.snout,0,.66,-.93);for(const side of [-1,1]){part(.048,.045,.018,m.nostril,side*.065,.67,-1.01);ear(side*.2,.88,-.65,.15,.15,m.ear,m.snout,side*-.5);}
+        part(.06,.17,.06,body,0,.66,.56);part(.13,.055,.06,body,.045,.75,.56);part(.045,.09,.06,body,.09,.72,.56);
+      }else if(type==='sheep'){
+        for(let i=0;i<7;i++){const a=i/7*Math.PI*2;part(.31,.26,.35,i%2?m.wool:m.woolSh,Math.sin(a)*.35,.99,Math.cos(a)*.47);}
+        part(.41,.17,.37,m.wool,0,1.11,-.7);for(const side of [-1,1])ear(side*.23,.94,-.72,.17,.10,m.head,null,side*.9);
+      }else if(type==='cow'){
+        for(const side of [-1,1]){part(.02,.3,.4,m.spot,side*.436,1.05,.22);part(.02,.23,.3,m.spot,side*.437,.88,-.32);ear(side*.29,1.15,-.72,.2,.10,m.head,m.snout,side*.7);const horn=part(.085,.22,.09,m.horn,side*.2,1.4,-.74);horn.rotation.z=-side*.3;}
+        part(.37,.23,.17,m.snout,0,1.01,-1.06);part(.045,.43,.045,body,0,.81,.68);part(.09,.14,.08,m.hoof,0,.56,.68);
+      }else if(type==='horse'){
+        for(const side of [-1,1])ear(side*.13,1.78,-.88,.09,.2,m.ear,null,side*.12);
+        part(.28,.23,.26,m.snout,0,1.43,-1.12);for(let i=0;i<4;i++)part(.13,.24,.16,m.mane,0,1.76-i*.13,-.43+i*.06);
+        const tail=part(.18,.64,.2,m.mane,0,1.0,.76);tail.rotation.x=-.2;
+      }else if(type==='wolf'){
+        for(const side of [-1,1])ear(side*.13,.98,-.53,.12,.22,m.ear,m.belly,side*.18);
+        part(.24,.19,.26,m.snout,0,.79,-.8);part(.12,.08,.055,m.nose,0,.83,-.95);
+        part(.34,.34,.26,m.belly,0,.61,-.35);const tail=part(.2,.2,.56,m.tail,0,.68,.58);tail.rotation.x=-.3;part(.15,.15,.16,m.belly,0,.78,.86);
+      }
     }
-    for(const [lx,lz] of [[-.22,-.24],[.22,-.24],[-.22,.24],[.22,.24]])legs.push(box(.14,.3,.14,mat,lx,.17,lz,g));
-  } else if(type === 'pig'){
-    box(0.8, 0.5, 1.1, pigMats.body, 0, 0.62, 0, g);
-    box(0.82, 0.16, 1.05, pigMats.belly, 0, 0.42, 0, g);           // darker underside
-    box(0.5, 0.45, 0.45, pigMats.head, 0, 0.68, -0.72, g);
-    box(0.26, 0.2, 0.1, pigMats.snout, 0, 0.6, -0.98, g);
-    box(0.07, 0.07, 0.04, pigMats.nostril, -0.06, 0.6, -1.03, g);
-    box(0.07, 0.07, 0.04, pigMats.nostril, 0.06, 0.6, -1.03, g);
-    box(0.12, 0.12, 0.05, pigMats.ear, -0.17, 0.9, -0.66, g);
-    box(0.12, 0.12, 0.05, pigMats.ear, 0.17, 0.9, -0.66, g);
-    box(0.06, 0.06, 0.06, pigMats.eye, -0.16, 0.74, -0.94, g);
-    box(0.06, 0.06, 0.06, pigMats.eye, 0.16, 0.74, -0.94, g);
-    box(0.06, 0.14, 0.06, pigMats.body, 0, 0.66, 0.58, g);          // curly-ish tail
-    for(const [lx, lz] of [[-0.24,-0.34],[0.24,-0.34],[-0.24,0.34],[0.24,0.34]]){
-      legs.push(box(0.2, 0.34, 0.2, pigMats.leg, lx, 0.23, lz, g));
-      box(0.21, 0.08, 0.21, pigMats.hoof, lx, 0.05, lz, g);
+  }else{
+    const moss=type==='mossling',moon=type==='moonhopper',body=moss?fantasyMats.moss:moon?fantasyMats.moon:fantasyMats.crystal;
+    if(moss){
+      part(.64,.43,.77,body,0,.47,0);part(.39,.31,.34,body,0,.57,-.47);eyes(.13,.63,-.652,cowMats.eye);
+      part(.93,.14,.9,fantasyMats.cap,0,.78,.05);part(.69,.17,.65,fantasyMats.cap,0,.925,.05);part(.38,.12,.36,fantasyMats.cap,0,1.06,.05);
+      for(const [x,z] of [[-.26,-.18],[.2,.19],[.11,-.23]])part(.12,.035,.12,sheepMats.wool,x,1.02,z);
+      for(const side of [-1,1]){const sprout=part(.05,.25,.05,body,side*.15,1.22,.06);sprout.rotation.z=side*.3;const leaf=part(.17,.06,.12,fantasyMats.glow,side*.19,1.32,.06);leaf.rotation.z=side*.3;}
+    }else if(moon){
+      part(.46,.47,.67,body,0,.48,0);part(.35,.34,.34,body,0,.65,-.42);eyes(.11,.71,-.602,fantasyMats.dark);
+      for(const side of [-1,1]){ear(side*.12,.8,-.4,.10,.37,body,sheepMats.wool,side*.24);const tip=part(.10,.2,.09,body,side*.23,1.22,-.4);tip.rotation.z=-side*.6;part(.25,.25,.32,body,side*.23,.24,.17);part(.055,.08,.02,fantasyMats.dark,side*.12,.49,-.762);}
+      part(.28,.27,.27,sheepMats.wool,0,.55,.43);
+    }else{
+      part(.82,.29,.95,fantasyMats.dark,0,.44,0);part(.64,.22,.75,fantasyMats.dark,0,.68,0);part(.38,.26,.32,body,0,.38,-.57);eyes(.12,.43,-.742,fantasyMats.dark);
+      for(const [x,z,h] of [[0,0,.55],[-.22,.22,.32],[.22,.22,.4],[-.2,-.22,.3],[.2,-.22,.34]]){
+        const crystal=part(.16,h,.16,body,x,.75+h/2,z);crystal.rotation.z=x*1.5;
+        const tip=part(.10,.12,.10,fantasyMats.glow,x,.8+h,z);tip.rotation.z=.5;
+      }
     }
-  } else if(type === 'sheep'){
-    box(0.95, 0.72, 1.3, sheepMats.wool, 0, 0.85, 0.05, g);         // fluffy body
-    box(0.99, 0.2, 1.32, sheepMats.woolSh, 0, 0.55, 0.05, g);       // shaded underwool
-    box(0.5, 0.3, 0.35, sheepMats.wool, 0, 1.05, -0.62, g);         // wool cap
-    box(0.36, 0.42, 0.4, sheepMats.head, 0, 0.92, -0.82, g);        // dark face
-    box(0.12, 0.16, 0.06, sheepMats.head, -0.2, 1.02, -0.7, g);     // ears
-    box(0.12, 0.16, 0.06, sheepMats.head, 0.2, 1.02, -0.7, g);
-    box(0.06, 0.06, 0.05, sheepMats.eye, -0.13, 0.95, -1.0, g);
-    box(0.06, 0.06, 0.05, sheepMats.eye, 0.13, 0.95, -1.0, g);
-    for(const [lx, lz] of [[-0.26,-0.4],[0.26,-0.4],[-0.26,0.4],[0.26,0.4]])
-      legs.push(box(0.16, 0.5, 0.16, sheepMats.leg, lx, 0.25, lz, g));
-  } else if(type === 'cow'){
-    box(0.9, 0.7, 1.35, cowMats.body, 0, 0.95, 0, g);
-    box(0.5, 0.4, 0.6, cowMats.spot, 0.18, 1.0, 0.2, g);            // white patches
-    box(0.4, 0.35, 0.4, cowMats.spot, -0.22, 0.9, -0.3, g);
-    box(0.45, 0.42, 0.45, cowMats.head, 0, 1.12, -0.84, g);
-    box(0.34, 0.24, 0.18, cowMats.snout, 0, 1.02, -1.06, g);        // muzzle
-    box(0.1, 0.12, 0.1, cowMats.horn, -0.22, 1.34, -0.8, g);
-    box(0.1, 0.12, 0.1, cowMats.horn, 0.22, 1.34, -0.8, g);
-    box(0.14, 0.1, 0.06, cowMats.head, -0.3, 1.14, -0.78, g);       // ears
-    box(0.14, 0.1, 0.06, cowMats.head, 0.3, 1.14, -0.78, g);
-    box(0.06, 0.06, 0.05, cowMats.eye, -0.15, 1.16, -1.05, g);
-    box(0.06, 0.06, 0.05, cowMats.eye, 0.15, 1.16, -1.05, g);
-    box(0.3, 0.18, 0.3, cowMats.udder, 0, 0.6, 0.35, g);            // udder
-    box(0.06, 0.5, 0.06, cowMats.body, 0, 0.75, 0.72, g);           // tail
-    for(const [lx, lz] of [[-0.26,-0.42],[0.26,-0.42],[-0.26,0.42],[0.26,0.42]]){
-      legs.push(box(0.2, 0.52, 0.2, cowMats.leg, lx, 0.34, lz, g));
-      box(0.21, 0.1, 0.21, cowMats.hoof, lx, 0.05, lz, g);
-    }
-  } else if(type === 'horse'){
-    box(0.7, 0.75, 1.5, horseMats.body, 0, 1.15, 0, g);
-    box(0.72, 0.2, 1.45, horseMats.belly, 0, 0.9, 0, g);
-    box(0.36, 0.44, 0.5, horseMats.head, 0, 1.6, -0.9, g);          // upper head
-    box(0.3, 0.34, 0.4, horseMats.snout, 0, 1.38, -1.06, g);        // muzzle
-    box(0.5, 0.62, 0.16, horseMats.body, 0, 1.5, -0.55, g);         // neck
-    box(0.16, 0.62, 0.34, horseMats.mane, 0, 1.62, -0.5, g);        // mane
-    box(0.1, 0.22, 0.06, horseMats.ear, -0.13, 1.86, -0.86, g);
-    box(0.1, 0.22, 0.06, horseMats.ear, 0.13, 1.86, -0.86, g);
-    box(0.06, 0.07, 0.05, horseMats.eye, -0.17, 1.62, -1.02, g);
-    box(0.06, 0.07, 0.05, horseMats.eye, 0.17, 1.62, -1.02, g);
-    box(0.14, 0.6, 0.1, horseMats.mane, 0, 1.0, 0.76, g);           // tail
-    for(const [lx, lz] of [[-0.26,-0.5],[0.26,-0.5],[-0.26,0.5],[0.26,0.5]]){
-      legs.push(box(0.19, 0.78, 0.19, horseMats.leg, lx, 0.46, lz, g));
-      box(0.2, 0.1, 0.2, horseMats.hoof, lx, 0.05, lz, g);
-    }
-  } else if(type === 'wolf'){
-    box(0.45, 0.5, 0.95, wolfMats.body, 0, 0.7, 0, g);
-    box(0.47, 0.18, 0.9, wolfMats.belly, 0, 0.52, 0.02, g);
-    box(0.4, 0.4, 0.42, wolfMats.head, 0, 0.86, -0.62, g);
-    box(0.24, 0.2, 0.22, wolfMats.snout, 0, 0.8, -0.88, g);
-    box(0.08, 0.06, 0.05, wolfMats.nose, 0, 0.82, -1.0, g);
-    box(0.11, 0.16, 0.05, wolfMats.ear, -0.13, 1.1, -0.55, g);      // pointed ears
-    box(0.11, 0.16, 0.05, wolfMats.ear, 0.13, 1.1, -0.55, g);
-    box(0.06, 0.05, 0.04, wolfMats.eye, -0.12, 0.92, -0.82, g);
-    box(0.06, 0.05, 0.04, wolfMats.eye, 0.12, 0.92, -0.82, g);
-    box(0.13, 0.14, 0.5, wolfMats.tail, 0, 0.78, 0.6, g);           // bushy tail
-    for(const [lx, lz] of [[-0.15,-0.3],[0.15,-0.3],[-0.15,0.32],[0.15,0.32]])
-      legs.push(box(0.14, 0.45, 0.14, wolfMats.leg, lx, 0.23, lz, g));
-  } else if(type === 'rabbit'){
-    box(0.32, 0.32, 0.5, rabbitMats.body, 0, 0.3, 0.02, g);
-    box(0.3, 0.14, 0.46, rabbitMats.belly, 0, 0.18, 0.02, g);
-    box(0.26, 0.26, 0.26, rabbitMats.head, 0, 0.44, -0.3, g);
-    box(0.07, 0.3, 0.05, rabbitMats.ear, -0.08, 0.68, -0.26, g);
-    box(0.07, 0.3, 0.05, rabbitMats.ear, 0.08, 0.68, -0.26, g);
-    box(0.035, 0.24, 0.03, rabbitMats.earIn, -0.08, 0.68, -0.28, g); // inner ear
-    box(0.035, 0.24, 0.03, rabbitMats.earIn, 0.08, 0.68, -0.28, g);
-    box(0.05, 0.05, 0.04, rabbitMats.eye, -0.1, 0.47, -0.42, g);
-    box(0.05, 0.05, 0.04, rabbitMats.eye, 0.1, 0.47, -0.42, g);
-    box(0.05, 0.04, 0.03, rabbitMats.nose, 0, 0.4, -0.44, g);
-    box(0.12, 0.12, 0.12, rabbitMats.tail, 0, 0.32, 0.28, g);        // fluffy tail
-    for(const [lx, lz] of [[-0.1,-0.14],[0.1,-0.14],[-0.11,0.18],[0.11,0.18]])
-      legs.push(box(0.09, 0.2, 0.16, rabbitMats.leg, lx, 0.12, lz, g));
-  } else {  // chicken
-    box(0.4, 0.42, 0.55, chickMats.body, 0, 0.45, 0, g);
-    box(0.16, 0.3, 0.5, chickMats.wing, -0.24, 0.48, 0.02, g);       // wings
-    box(0.16, 0.3, 0.5, chickMats.wing, 0.24, 0.48, 0.02, g);
-    box(0.26, 0.3, 0.26, chickMats.head, 0, 0.74, -0.3, g);
-    box(0.12, 0.1, 0.16, chickMats.beak, 0, 0.72, -0.48, g);
-    box(0.16, 0.12, 0.06, chickMats.comb, 0, 0.9, -0.28, g);         // comb
-    box(0.1, 0.12, 0.05, chickMats.wattle, 0, 0.62, -0.44, g);       // wattle
-    box(0.05, 0.05, 0.04, chickMats.eye, -0.11, 0.78, -0.4, g);
-    box(0.05, 0.05, 0.04, chickMats.eye, 0.11, 0.78, -0.4, g);
-    for(const lx of [-0.09, 0.09])
-      legs.push(box(0.06, 0.24, 0.06, chickMats.leg, lx, 0.13, 0, g));
+    for(const [side,back] of [[-1,-1],[1,-1],[-1,1],[1,1]])limb(side*(moon?.18:.26),back*.25,moon?.28:.25,moon?.11:.16,body,body,moon&&back===1?.31:undefined);
   }
+  // Batch static pieces by material; the four leg pivots remain animated.
+  mergeAnimalParts(g);for(const child of g.children)if(child.isGroup)mergeAnimalParts(child);
   scene.add(g);
   animals.push({
     kind: 'animal', type, group: g, legs,
@@ -5002,7 +5032,7 @@ function dropGeo(id){
 }
 function spawnDropAt(x, y, z, id, n = 1){
   if(drops.length >= 80){ scene.remove(drops[0].mesh); drops.shift(); }
-  const mat = !!ITEMS[id] ? matItem : isCross(id) ? (id === TORCH ? matGC : matC) : matO;
+  const mat = !!ITEMS[id] ? matItem : isCross(id) ? (id === TORCH ? matGC : matC) : isLeaf(id)?matLeaf:matO;
   const mesh = new THREE.Mesh(dropGeo(id), mat);
   scene.add(mesh);
   drops.push({
@@ -6393,7 +6423,7 @@ function buildViewModel(){
   vmId = id;
   if(vmMesh){ viewModel.remove(vmMesh); vmMesh = null; }
   if(!id) return;                    // empty hand
-  const mat = !!ITEMS[id] ? matItem : isCross(id) ? (id === TORCH ? matGC : matC) : matO;
+  const mat = !!ITEMS[id] ? matItem : isCross(id) ? (id === TORCH ? matGC : matC) : isLeaf(id)?matLeaf:matO;
   vmMesh = new THREE.Mesh(dropGeo(id), mat);
   const tool = ITEMS[id] && ITEMS[id].tool;
   if(!!ITEMS[id] && tool){             // tools/weapons: bigger, angled like they're gripped
@@ -6777,7 +6807,7 @@ function vrBuildTool(){
   vrToolId = id;
   if(vrTool){ rightCtrl.remove(vrTool); vrTool = null; }
   if(!id) return;
-  const mat = !!ITEMS[id] ? matItem : isCross(id) ? (id === TORCH ? matGC : matC) : matO;
+  const mat = !!ITEMS[id] ? matItem : isCross(id) ? (id === TORCH ? matGC : matC) : isLeaf(id)?matLeaf:matO;
   vrTool = new THREE.Mesh(dropGeo(id), mat);
   const tool = ITEMS[id] && ITEMS[id].tool;
   vrTool.scale.setScalar(!!ITEMS[id] && tool ? 1.54 : id === FLINTSTEEL ? 1.26 : !!ITEMS[id] ? 1.8 : 0.76);
@@ -7139,6 +7169,7 @@ let timeOfDay = 0.32, frames = 0, fps = 0, fpsT = 0, hudT = 0, saveT = 0, fluidW
 function animate(){
   const dt = Math.min(clock.getDelta(), 0.05);
   const now = performance.now() / 1000;
+  foliageTime.value=now;
   const daylight = (dim === 1 || dim === 2) ? 0 : daylightOf(timeOfDay);
 
   if(locked && !dead){
@@ -7205,6 +7236,7 @@ function animate(){
   matO.color.setScalar(b);
   matT.color.setScalar(b);
   matC.color.setScalar(b);
+  matLeaf.color.setScalar(b);
   matItem.color.setScalar(b);
   cloudMat.color.setScalar(b);
   for(const m of entMats) m.color.copy(m.userData.base).multiplyScalar(Math.max(0.35, b));
