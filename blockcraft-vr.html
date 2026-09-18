@@ -337,7 +337,9 @@ const IS_VR      = BUILD === 'vr';
 
 /* ============================== config ============================== */
 const CHUNK = 16, HEIGHT = 96, SEA = 26, SNOW_H = 52;
-let RD = Math.min(7, Math.max(4, parseInt(localStorage.getItem('blockcraft-rd')) || 5));
+const QUEST_DEVICE=/Quest|Oculus/i.test(navigator.userAgent);
+let RD = Math.min(7, Math.max(2, parseInt(localStorage.getItem(QUEST_DEVICE?'blockcraft-vr-rd':'blockcraft-rd')) || (QUEST_DEVICE?3:5)));
+function finishSteps(it){let r;do{r=it.next();}while(!r.done);return r.value;}
 const REACH = 5.5;
 const DAY_LENGTH = 480;
 const TREE_P = 0.005;
@@ -358,7 +360,7 @@ const SPLASHES = ['Punch trees!', 'Now with zombies!', 'Diamonds are deep!', 'On
 document.getElementById('splash').textContent = SPLASHES[Math.floor(Math.random() * SPLASHES.length)];
 {
   const bl = document.getElementById('buildLabel');
-  const label = IS_DESKTOP ? 'Desktop Edition · ' : IS_MOBILE ? 'Mobile Edition · ' : IS_VR ? 'VR Crystal Caves & Animal Sounds · ' : '';
+  const label = IS_DESKTOP ? 'Desktop Edition · ' : IS_MOBILE ? 'Mobile Edition · ' : IS_VR ? 'VR Quest Performance Update · ' : '';
   if(bl) bl.textContent = label;
 }
 
@@ -1808,7 +1810,9 @@ const camera = new THREE.PerspectiveCamera(72, innerWidth / innerHeight, 0.1, 42
 camera.rotation.order = 'YXZ';
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(innerWidth, innerHeight);
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setPixelRatio(Math.min(devicePixelRatio, QUEST_DEVICE?1:2));
+renderer.xr.setFramebufferScaleFactor(.85);
+renderer.xr.setFoveation(1);
 renderer.xr.enabled = true;                       // WebXR (VR) support
 try { renderer.xr.setReferenceSpaceType('local-floor'); } catch(e){}   // must be set before session start
 document.body.appendChild(renderer.domElement);
@@ -1943,9 +1947,11 @@ function getBlock(x, y, z){
   return c.data[(y << 8) | ((z & 15) << 4) | (x & 15)];
 }
 const NETHER_LAVA = 28, NETHER_CEIL = 84;
-function genNetherChunk(cx, cz){
+function genNetherChunk(cx,cz){return finishSteps(genNetherChunkSteps(cx,cz));}
+function* genNetherChunkSteps(cx, cz){
   const data = new Uint8Array(CHUNK * CHUNK * HEIGHT);
   for(let lz = 0; lz < 16; lz++) for(let lx = 0; lx < 16; lx++){
+    yield;
     const wx = cx * 16 + lx, wz = cz * 16 + lz;
     // rolling netherrack floor height + a separate ceiling
     const fh = 34 + Math.floor(fbm(wx * 0.03, wz * 0.03, 4, 311) * 22);
@@ -2006,13 +2012,15 @@ const END_PILLARS = (() => {
   }
   return p;
 })();
-function genEndChunk(cx, cz){
+function genEndChunk(cx,cz){return finishSteps(genEndChunkSteps(cx,cz));}
+function* genEndChunkSteps(cx, cz){
   const data = new Uint8Array(CHUNK * CHUNK * HEIGHT);
   const set = (lx, y, lz, id) => {
     if(lx < 0 || lx > 15 || lz < 0 || lz > 15 || y < 0 || y >= HEIGHT) return;
     data[(y << 8) | (lz << 4) | lx] = id;
   };
   for(let lz = 0; lz < 16; lz++) for(let lx = 0; lx < 16; lx++){
+    yield;
     const wx = cx * 16 + lx, wz = cz * 16 + lz;
     const d = Math.hypot(wx, wz);
     if(d > END_R) continue;                               // void beyond the island
@@ -2062,9 +2070,10 @@ function biomePlant(biome,r,patch,snowy,beach){
   if(r<density*(patch>.52?.72:.38))return palette[Math.min(3,Math.floor(patch*4))];
   return biome==='desert'||biome==='savanna'?DRYGRASS:TGRASSB;
 }
-function genChunk(cx, cz){
-  if(dim === 1) return genNetherChunk(cx, cz);
-  if(dim === 2) return genEndChunk(cx, cz);
+function genChunk(cx,cz){return finishSteps(genChunkSteps(cx,cz));}
+function* genChunkSteps(cx, cz){
+  if(dim === 1) return yield* genNetherChunkSteps(cx, cz);
+  if(dim === 2) return yield* genEndChunkSteps(cx, cz);
   const caverns=cavernsNear(cx*16+8,cz*16+8);
   const data = new Uint8Array(CHUNK * CHUNK * HEIGHT);
   const set = (lx, y, lz, id, keep) => {
@@ -2074,6 +2083,7 @@ function genChunk(cx, cz){
     data[i] = id;
   };
   for(let lz = 0; lz < 16; lz++) for(let lx = 0; lx < 16; lx++){
+    yield;
     const wx = cx * 16 + lx, wz = cz * 16 + lz;
     const h = terrainHeight(wx, wz);
     const beach = h <= SEA + 1;
@@ -2120,6 +2130,7 @@ function genChunk(cx, cz){
     }
   }
   for(let tz=-5;tz<21;tz++)for(let tx=-5;tx<21;tx++){
+    if((tx+5)%8===0)yield;
     const wx=cx*16+tx,wz=cz*16+tz,t=treeAt(wx,wz);if(!t)continue;
     const extra=EXTRA_WOODS.find(w=>w.name.toLowerCase()===t.type);
     const log=extra?extra.log:t.type==='spruce'?SPRUCELOG:t.type==='birch'?BIRCHLOG:t.type==='jungle'?JUNGLELOG:LOG;
@@ -2575,7 +2586,7 @@ function updateWater(dt){
     if(fluidHead>2048){fluidQueue.splice(0,fluidHead);fluidHead=0;}
   }
   // At most one remesh per frame, rather than nine for every moving water cell.
-  for(const [k,v] of fluidMeshes){fluidMeshes.delete(k);if(v.dim===dim){buildChunk(v.chunk,true);break;}}
+  for(const [k,v] of fluidMeshes){fluidMeshes.delete(k);if(v.dim===dim)queueMesh(v.chunk,true);}
 }
 function useBucket(hit){
   const id=heldId();if(!hit)return false;
@@ -2613,7 +2624,32 @@ function setBlock(x, y, z, id){
   for(let dx = -1; dx <= 1; dx++) for(let dz = -1; dz <= 1; dz++) rebuild(chunkAt(cx + dx, cz + dz));
   if(!netApplying && conns.length) mpBroadcast({ t: 'set', x, y, z, id });
 }
-const rebuild = c => { if(c.built) buildChunk(c); };
+const meshQueue=new Map();let activeMeshJob=null;
+// Finish active work, then rebuild again if edits arrived mid-job; never starve flowing water.
+function queueMesh(c,reuseLight=false){
+  c.revision=(c.revision||0)+1;
+  const previous=meshQueue.get(c);meshQueue.set(c,{reuseLight:previous?previous.reuseLight&&reuseLight:reuseLight});
+}
+const rebuild=c=>{if(c.built||activeMeshJob?.c===c)queueMesh(c);};
+function cancelMeshJob(){if(activeMeshJob){activeMeshJob.steps.return();activeMeshJob=null;}}
+function runMeshWork(pcx,pcz){
+  const deadline=performance.now()+(xrActive?3:5);
+  do{
+    if(activeMeshJob && (activeMeshJob.world!==chunks || Math.max(Math.abs(activeMeshJob.c.cx-pcx),Math.abs(activeMeshJob.c.cz-pcz))>RD+1))cancelMeshJob();
+    if(!activeMeshJob){
+      let next=null,options=null,best=Infinity;
+      for(const [c,o] of meshQueue){
+        if(chunks.get(c.cx+','+c.cz)!==c || Math.max(Math.abs(c.cx-pcx),Math.abs(c.cz-pcz))>RD+1){meshQueue.delete(c);continue;}
+        const score=(c.cx-pcx)**2+(c.cz-pcz)**2;
+        if(score<best){best=score;next=c;options=o;}
+      }
+      if(!next){for(const [cx,cz] of wanted){const c=chunkAt(cx,cz);if(!c.built){next=c;options={reuseLight:false};break;}}}
+      if(!next)return;
+      meshQueue.delete(next);activeMeshJob={c:next,world:chunks,revision:next.revision||0,steps:buildChunkSteps(next,options.reuseLight)};
+    }
+    if(activeMeshJob.steps.next().done)activeMeshJob=null;
+  }while(performance.now()<deadline);
+}
 
 /* ============================ meshing =============================== */
 function unloadMeshes(c){
@@ -2640,11 +2676,13 @@ function emitLevel(id){
 function blocksLight(id){ return isOpaque(id) && !isLeaf(id); }
 // How much light a block costs to pass through (leaves cost extra).
 function lightCost(id){ return isLeaf(id) ? 2 : 1; }
-function blockLightForChunk(c){
+function blockLightForChunk(c){return finishSteps(blockLightSteps(c));}
+function* blockLightSteps(c){
   const width=44,stride=width*width,margin=14;
   const values=new Uint8Array(stride*HEIGHT),queue=[];
   const index=(x,y,z)=>(x+margin)+(z+margin)*width+y*stride;
   for(let dz=-1;dz<=1;dz++)for(let dx=-1;dx<=1;dx++){
+    yield;
     const near=chunkAt(c.cx+dx,c.cz+dz);ensureData(near);
     if(!near.emitters){
       near.emitters=[];
@@ -2658,6 +2696,7 @@ function blockLightForChunk(c){
   }
   const dirs=[[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
   for(let head=0;head<queue.length;head++){
+    if((head&255)===0)yield;
     const [x,y,z,e]=queue[head];if(e<=1)continue;
     for(const [dx,dy,dz] of dirs){
       const nx=x+dx,ny=y+dy,nz=z+dz;
@@ -2688,11 +2727,13 @@ function installBlockLighting(mat){
 }
 [matO,matT,matC,matLeaf].forEach(installBlockLighting);
 
-function computeLight(c, gb){
+function computeLight(c,gb){return finishSteps(computeLightSteps(c,gb));}
+function* computeLightSteps(c, gb){
   const light = new Uint8Array(LSTRIDE * HEIGHT);
   const idx = (lx, y, lz) => (lx + 1) + (lz + 1) * LW + y * LSTRIDE;
   // 1) skylight: full 15 from the sky; solid blocks stop it, leaves just dim it
   for(let lz = -1; lz <= 16; lz++) for(let lx = -1; lx <= 16; lx++){
+    yield;
     let sky = 15;
     for(let y = HEIGHT - 1; y >= 0; y--){
       const b = gb(lx, y, lz);
@@ -2704,6 +2745,7 @@ function computeLight(c, gb){
   // 2) seed block-light emitters
   const queue = [];
   for(let lz = -1; lz <= 16; lz++) for(let lx = -1; lx <= 16; lx++) for(let y = 0; y < HEIGHT; y++){
+    if((y&63)===0)yield;
     const e = emitLevel(gb(lx, y, lz));
     if(e > 0){
       const i = idx(lx, y, lz);
@@ -2712,25 +2754,28 @@ function computeLight(c, gb){
   }
   // 3) BFS flood: skylight spreads horizontally into caves; block light spreads outward
   for(let lz = 0; lz < 16; lz++) for(let lx = 0; lx < 16; lx++) for(let y = 0; y < HEIGHT; y++){
+    if((y&63)===0)yield;
     const i = idx(lx, y, lz);
     if(light[i] > 1 && !blocksLight(gb(lx, y, lz))) queue.push([lx, y, lz, light[i]]);
   }
   const dirs = [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
   let head = 0;
   while(head < queue.length){
+    if((head&255)===0)yield;
     const [lx, y, lz, lvl] = queue[head++];
     if(lvl <= 1) continue;
     for(const [dx, dy, dz] of dirs){
       const nx = lx + dx, ny = y + dy, nz = lz + dz;
       if(ny < 0 || ny >= HEIGHT || nx < -1 || nx > 16 || nz < -1 || nz > 16) continue;
+      const ni = idx(nx, ny, nz);
+      if(light[ni]>=lvl-1)continue;
       const nb = gb(nx, ny, nz);
       if(blocksLight(nb)) continue;
-      const ni = idx(nx, ny, nz);
       const nl = lvl - lightCost(nb);               // leaves cost more to pass through
       if(nl > light[ni]){ light[ni] = nl; queue.push([nx, ny, nz, nl]); }
     }
   }
-  return { light, idx, block:blockLightForChunk(c) };
+  return { light, idx, block:yield* blockLightSteps(c) };
 }
 // sample light at a world-neighbor cell (the air block a face looks into)
 function sampleLight(lightObj, lx, y, lz){
@@ -2739,10 +2784,11 @@ function sampleLight(lightObj, lx, y, lz){
   return lightObj.light[lightObj.idx(lx, y, lz)];
 }
 
-function buildChunk(c,reuseLight=false){
-  unloadMeshes(c);
-  ensureData(c);
-  for(let dx = -1; dx <= 1; dx++) for(let dz = -1; dz <= 1; dz++) ensureData(chunkAt(c.cx + dx, c.cz + dz));
+function buildChunk(c,reuseLight=false){return finishSteps(buildChunkSteps(c,reuseLight));}
+function* prepareChunk(c){if(!c.data){const data=yield* genChunkSteps(c.cx,c.cz);if(!c.data)c.data=data;}}
+function* buildChunkSteps(c,reuseLight=false){
+  yield* prepareChunk(c);
+  for(let dx=-1;dx<=1;dx++)for(let dz=-1;dz<=1;dz++)yield* prepareChunk(chunkAt(c.cx+dx,c.cz+dz));
   const wx0 = c.cx * 16, wz0 = c.cz * 16, data = c.data;
   const gb = (lx, y, lz) => {
     if(y < 0) return STONE;
@@ -2750,12 +2796,12 @@ function buildChunk(c,reuseLight=false){
     if((lx & ~15) === 0 && (lz & ~15) === 0) return data[(y << 8) | (lz << 4) | lx];
     return getBlock(wx0 + lx, y, wz0 + lz);
   };
-  const light = reuseLight&&c.light ? c.light : computeLight(c, gb);
-  c.light = light;
+  const light = reuseLight&&c.light ? c.light : yield* computeLightSteps(c, gb);
   const O = {pos:[],uv:[],col:[],idx:[]}, W = {pos:[],uv:[],col:[],idx:[]},
         C = {pos:[],uv:[],col:[],idx:[]}, G = {pos:[],uv:[],col:[],idx:[]},
         GC = {pos:[],uv:[],col:[],idx:[]}, L={pos:[],uv:[],col:[],idx:[],wind:[],foliage:true};
   for(let y = 0; y < HEIGHT; y++) for(let lz = 0; lz < 16; lz++) for(let lx = 0; lx < 16; lx++){
+    if(lx===0 && (lz&3)===0)yield;
     const b = data[(y << 8) | (lz << 4) | lx];
     if(!b) continue;
     if(isCross(b)){ pushCross(b === TORCH || emitsLight(b) ? GC : C, lx, y, lz, tileFor(b, 0), light, isPlant(b)?1:0); continue; }
@@ -2783,14 +2829,11 @@ function buildChunk(c,reuseLight=false){
       pushFace(bucket, gb, lx, y, lz, F, tileFor(b, f), mode, light,b===WATER?flowingHeight(wx0+lx,y,wz0+lz):1);
     }
   }
-  c.meshes = [];
-  addMesh(c, O, matO);
-  addMesh(c, W, matT);
-  addMesh(c, C, matC);
-  addMesh(c, G, matG);
-  addMesh(c, GC, matGC);
-  addMesh(c,L,matLeaf);
-  c.built = true;
+  const staged={cx:c.cx,cz:c.cz,light,meshes:[]};let committed=false;
+  try{
+    for(const [bucket,material] of [[O,matO],[W,matT],[C,matC],[G,matG],[GC,matGC],[L,matLeaf]])yield* addMeshSteps(staged,bucket,material);
+    unloadMeshes(c);c.light=light;c.meshes=staged.meshes;for(const mesh of c.meshes)scene.add(mesh);c.built=true;committed=true;
+  }finally{if(!committed)unloadMeshes(staged);}
 }
 function tileUV(B, tile, u, v){
   const tx = (tile % ATLAS_COLS) * 16, ty = ((tile / ATLAS_COLS) | 0) * 16;
@@ -2929,15 +2972,11 @@ function pushDoor(B, lx, y, lz, b, wx, wz, light){
   }
   pushBox(B, tile, x0, y, z0, x1, y + 1, z1, ll);
 }
-function addMesh(c, B, mat){
+function* addMeshSteps(c, B, mat){
   if(!B.idx.length) return;
-  const g = new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.Float32BufferAttribute(B.pos, 3));
-  g.setAttribute('uv',       new THREE.Float32BufferAttribute(B.uv, 2));
-  g.setAttribute('color',    new THREE.Float32BufferAttribute(B.col, 3));
-  g.setAttribute('windWeight',new THREE.Float32BufferAttribute(B.wind||new Array(B.pos.length/3).fill(0),1));
   const floors=[];
   for(let i=0;i<B.pos.length;i+=3){
+    if(i%1536===0)yield;
     let level=0;
     const x=B.pos[i],y=B.pos[i+1],z=B.pos[i+2];
     if(c.light?.block)for(const dx of [-0.02,0.02])for(const dy of [-0.02,0.02])for(const dz of [-0.02,0.02]){
@@ -2946,11 +2985,15 @@ function addMesh(c, B, mat){
     }
     floors.push(level ? (level/15)*0.85 : 0);
   }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(B.pos, 3));
+  g.setAttribute('uv',       new THREE.Float32BufferAttribute(B.uv, 2));
+  g.setAttribute('color',    new THREE.Float32BufferAttribute(B.col, 3));
+  g.setAttribute('windWeight',new THREE.Float32BufferAttribute(B.wind||new Array(B.pos.length/3).fill(0),1));
   g.setAttribute('blockFloor',new THREE.Float32BufferAttribute(floors,1));
   g.setIndex(B.idx);
   const m = new THREE.Mesh(g, mat);
   m.position.set(c.cx * 16, 0, c.cz * 16);
-  scene.add(m);
   c.meshes.push(m);
 }
 
@@ -2980,11 +3023,7 @@ function updateChunks(){
       }
     }
   }
-  let budget = locked ? 2 : 6;
-  for(const [cx, cz] of wanted){
-    const c = chunkAt(cx, cz);
-    if(!c.built){ buildChunk(c); if(--budget <= 0) break; }
-  }
+  runMeshWork(pcx,pcz);
 }
 
 /* ============================ player ================================ */
@@ -4229,7 +4268,7 @@ function explode(x, y, z, radius, dmgMax, fromNet){
   }
   for(const ck of rebuildSet){
     const c = chunks.get(ck);
-    if(c && c.built) buildChunk(c);
+    if(c && c.built){c.emitters=null;queueMesh(c);}
   }
   // damage + knockback: each client applies to its own player
   const pd = Math.hypot(player.pos.x - x, player.pos.y + 0.9 - y, player.pos.z - z);
@@ -5567,7 +5606,7 @@ function onNet(c, m){
       if(ch && ch.data){
         ch.data = null;
         ensureData(ch);
-        if(ch.built) buildChunk(ch);
+        if(ch.built){ch.emitters=null;queueMesh(ch);}
       }
     }
     editsDirty = true;
@@ -7055,14 +7094,7 @@ function updateVR(dt){
   vrBuildTool();
   vrBody.visible = true;
   wristPanel.visible = !!leftCtrl.userData.inputSource && leftCtrl.userData.inputSource.handedness === 'left';
-  // debug panel: pin it up in the player's view so it's visible in-headset
   dbgPanel.visible = false;
-  const xrCamD = renderer.xr.getCamera();
-  const fwdD = new THREE.Vector3(0, 0, -1).applyQuaternion(xrCamD.quaternion);
-  const upD = new THREE.Vector3(0, 1, 0).applyQuaternion(xrCamD.quaternion);
-  dbgPanel.position.copy(xrCamD.position).add(fwdD.multiplyScalar(0.9)).add(upD.multiplyScalar(0.32));
-  dbgPanel.quaternion.copy(xrCamD.quaternion);
-  // Debug panel is hidden during play.
   // keep the rig at the player's feet; XR moves the camera within it
   const p = player.pos;
   if(vrHeightOffset === null && camera.position.y > 0.3) vrHeightOffset = player.eye - camera.position.y;
@@ -7200,6 +7232,9 @@ function updateVR(dt){
 
 renderer.xr.addEventListener('sessionstart', () => {
   xrActive = true;
+  RD=Math.min(4,Math.max(2,parseInt(localStorage.getItem('blockcraft-vr-rd'))||3));
+  curPC=null;applySkyForDim();btnRender.textContent='Render Distance: '+RD;
+  renderer.xr.setFoveation(1);
   vrSprint=vrSprintWas=false;
   vrHeightOffset = null;
   vrActionRelease=false;
@@ -7215,6 +7250,7 @@ renderer.xr.addEventListener('sessionstart', () => {
 });
 renderer.xr.addEventListener('sessionend', () => {
   xrActive = false;
+  RD=Math.min(7,Math.max(2,parseInt(localStorage.getItem(QUEST_DEVICE?'blockcraft-vr-rd':'blockcraft-rd'))||(QUEST_DEVICE?3:5)));curPC=null;applySkyForDim();btnRender.textContent='Render Distance: '+RD;
   vrSelectHeld = vrTrigWas = vrGripWas = false; resetMine();
   player.crouchDrop = 0; player.crouching = false;
   xrRig.visible = false;
@@ -7428,8 +7464,8 @@ document.getElementById('btnMusic').addEventListener('click', () => toggleMusic(
 const btnRender = document.getElementById('btnRender');
 btnRender.textContent = 'Render Distance: ' + RD;
 btnRender.addEventListener('click', () => {
-  RD = RD >= 7 ? 4 : RD + 1;
-  localStorage.setItem('blockcraft-rd', String(RD));
+  const vr=xrActive||QUEST_DEVICE;RD=RD>=(vr?4:7)?2:RD+1;
+  localStorage.setItem(vr?'blockcraft-vr-rd':'blockcraft-rd', String(RD));
   scene.fog.near = RD * 16 * 0.55;
   scene.fog.far = RD * 16 * 0.95;
   curPC = null;                                   // force chunk set rebuild
