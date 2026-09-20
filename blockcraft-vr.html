@@ -4526,21 +4526,58 @@ function updateSpiders(dt, daylight){
 /* =========================== villagers ============================== */
 const villagers = [];
 const villagerSpawned = new Set();
-const vilMats = { skin: entMat(0xbd8f68), robe: entMat(0x7a5b3a), arms: entMat(0x6b4f32) };
-function spawnVillager(x, y, z, hx, hz){
+const vilMats = { skin: entMat(0xbd8f68), robe: entMat(0x7a5b3a), arms: entMat(0x6b4f32),
+                  boot: entMat(0x4b3a28) };
+/* Minecraft-style professions: each has its own robe, badge colour and trade list */
+const VIL_PROF = [
+  { id:'farmer', name:'Farmer', robe:0x8a6a3f, badge:0xd9c06a, hat:0xd9c06a, voice:210, trades:[
+      {in:[[WHEATITEM,16]],out:[EMERALD,1]}, {in:[[MELONSLICE,10]],out:[EMERALD,1]},
+      {in:[[EMERALD,1]],out:[BREAD,6]}, {in:[[EMERALD,1]],out:[MELONSLICE,4]} ]},
+  { id:'librarian', name:'Librarian', robe:0xd6d0c0, badge:0x6d5f8a, hat:0, voice:250, trades:[
+      {in:[[STRING,12]],out:[EMERALD,1]}, {in:[[EMERALD,1]],out:[GLASS,6]},
+      {in:[[EMERALD,3]],out:[BOOKSHELF,2]}, {in:[[EMERALD,1]],out:[TORCH,8]} ]},
+  { id:'toolsmith', name:'Toolsmith', robe:0x4a4a52, badge:0x9c6b3a, hat:0, voice:170, trades:[
+      {in:[[COALI,12]],out:[EMERALD,1]}, {in:[[IRONO,4]],out:[EMERALD,1]},
+      {in:[[EMERALD,3]],out:[IPICK,1]}, {in:[[EMERALD,4]],out:[ISWORD,1]} ]},
+  { id:'butcher', name:'Butcher', robe:0xe0ddd2, badge:0xa83a34, hat:0, voice:195, trades:[
+      {in:[[PORK,7]],out:[EMERALD,1]}, {in:[[BEEF,7]],out:[EMERALD,1]},
+      {in:[[EMERALD,1]],out:[PORKC,5]}, {in:[[EMERALD,1]],out:[BEEFC,4]} ]},
+  { id:'cleric', name:'Cleric', robe:0x7a4a9c, badge:0xe2c85a, hat:0, voice:230, trades:[
+      {in:[[GOLDO,3]],out:[EMERALD,1]},
+      {in:[[EMERALD,2]],out:[GLOWB,4]}, {in:[[EMERALD,6]],out:[DIAMI,1]} ]},
+];
+const profMatCache = {};
+function profMats(prof){
+  if(!profMatCache[prof.id]) profMatCache[prof.id] = {
+    robe: entMat(prof.robe), badge: entMat(prof.badge),
+    hat: prof.hat ? entMat(prof.hat) : null,
+  };
+  return profMatCache[prof.id];
+}
+const profByBuilding = t => t === 'blacksmith' ? 'toolsmith' : t === 'library' ? 'librarian'
+                          : t === 'farm' ? 'farmer' : t === 'inn' ? 'butcher' : null;
+function spawnVillager(x, y, z, hx, hz, profId){
+  const prof = VIL_PROF.find(p => p.id === profId) || VIL_PROF[Math.floor(Math.random()*VIL_PROF.length)];
+  const M = profMats(prof);
   const g = new THREE.Group();
-  box(0.55, 1.15, 0.34, vilMats.robe, 0, 0.72, 0, g);
-  box(0.55, 0.2, 0.2, vilMats.arms, 0, 1.02, -0.22, g);
-  box(0.5, 0.5, 0.5, vilMats.skin, 0, 1.62, 0, g);
-  box(0.12, 0.3, 0.14, vilMats.skin, 0, 1.5, -0.32, g);
+  const legs = [];
+  box(0.55, 1.05, 0.34, M.robe, 0, 0.78, 0, g);                 // robe
+  box(0.58, 0.16, 0.36, M.badge, 0, 1.06, 0, g);                // profession band
+  box(0.5, 0.2, 0.22, vilMats.arms, 0, 1.02, -0.24, g);          // crossed arms
+  box(0.5, 0.5, 0.5, vilMats.skin, 0, 1.62, 0, g);               // head
+  box(0.14, 0.32, 0.16, vilMats.skin, 0, 1.5, -0.33, g);         // the famous nose
+  box(0.52, 0.1, 0.52, vilMats.arms, 0, 1.87, 0, g);             // brow
+  if(M.hat) box(0.62, 0.14, 0.62, M.hat, 0, 1.94, 0, g);         // farmer's straw hat
+  for(const lx of [-0.13, 0.13]) legs.push(box(0.17, 0.42, 0.2, vilMats.boot, lx, 0.22, 0, g));
   scene.add(g);
   villagers.push({
-    kind: 'villager', group: g, legs: [],
+    kind: 'villager', group: g, legs,
     pos: new THREE.Vector3(x, y, z), vel: new THREE.Vector3(),
     w: 0.35, h: 1.9, hp: 20,
     yaw: Math.random() * Math.PI * 2, speed: 0, t: 1, flee: 0,
     hmT: 3 + Math.random() * 4, onGround: false, anim: Math.random() * 9,
-    home: [hx, hz], trades: pickTrades(),
+    home: [hx, hz], prof, restock: 0,
+    trades: pickTrades(prof),
   });
 }
 /* trading */
@@ -4563,9 +4600,10 @@ const TRADE_POOL = [
   { in: [[STRING, 6]],  out: [EMERALD, 1] },
   { in: [[EMERALD, 1]], out: [BEEFC, 3] },
 ];
-function pickTrades(){
-  const pool = [...TRADE_POOL], picks = [];
-  for(let i = 0; i < 3 && pool.length; i++)
+function pickTrades(prof){
+  const pool = [...((prof && prof.trades) || TRADE_POOL)], picks = [];
+  const want = Math.min(3, pool.length);
+  for(let i = 0; i < want; i++)
     picks.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
   return picks;
 }
@@ -4707,14 +4745,15 @@ function updateVillagerSpawns(dt){
     if(Math.hypot(v.cx - player.pos.x, v.cz - player.pos.z) > 100) continue;
     if(villagerSpawned.has(v.key) || villagers.length > 12) continue;
     villagerSpawned.add(v.key);
-    const n = 2 + Math.floor(Math.random() * 3);
-    for(let i = 0; i < n; i++){
-      const hs = v.houses[Math.floor(Math.random() * v.houses.length)];
-      const sx = hs.x + 0.5 + (Math.random() - 0.5) * 4;
-      const sz = hs.z + 0.5 + (Math.random() - 0.5) * 4;
+    // one resident per plot, and their trade wheel matches the building they work in
+    const plots = v.houses.slice(0, 6);
+    for(const hs of plots){
+      const sx = hs.x + 0.5 + (Math.random() - 0.5) * 3;
+      const sz = hs.z + 0.5 + (Math.random() - 0.5) * 3;
       const gy = findSurfaceY(Math.floor(sx), Math.floor(sz));
       const sy = (gy >= 0 ? gy : Math.max(terrainHeight(Math.floor(sx), Math.floor(sz)), hs.y)) + 1.1;
-      spawnVillager(sx, sy, sz, v.cx, v.cz);
+      spawnVillager(sx, sy, sz, hs.x, hs.z, profByBuilding(hs.type));
+      villagers[villagers.length - 1].plaza = [v.cx, v.cz];
     }
   }
 }
@@ -4728,18 +4767,33 @@ function updateVillagers(dt){
       continue;
     }
     const dp = Math.hypot(player.pos.x - e.pos.x, player.pos.z - e.pos.z);
+    const night = daylightOf(timeOfDay) < 0.3;
+    // trades slowly restock, the way a MC villager refreshes its offers
+    e.restock -= dt;
+    if(e.restock <= 0){ e.restock = 90 + Math.random() * 60; e.trades = pickTrades(e.prof); }
+    // a hostile within sight sends them running for their door, even before being hit
+    const threat = hostilesNear(e.pos, 12);
+    if(threat && e.flee <= 0) e.flee = 2.2;
     if(e.flee > 0){
       e.flee -= dt;
-      let nz = null, nd = Infinity;
-      for(const z of zombies){
-        const d = e.pos.distanceToSquared(z.pos);
-        if(d < nd){ nd = d; nz = z; }
-      }
+      const nz = threat || (() => { let b = null, bd = Infinity;
+        for(const z of zombies){ const d = e.pos.distanceToSquared(z.pos); if(d < bd){ bd = d; b = z; } }
+        return b; })();
       if(nz){
-        const dx = e.pos.x - nz.pos.x, dz = e.pos.z - nz.pos.z, l = Math.hypot(dx, dz) || 1;
-        e.yaw = Math.atan2(-dx / l, -dz / l);
+        // run toward home, away from the monster
+        const ax = (e.home[0] - e.pos.x) + (e.pos.x - nz.pos.x) * 1.5;
+        const az = (e.home[1] - e.pos.z) + (e.pos.z - nz.pos.z) * 1.5;
+        const l = Math.hypot(ax, az) || 1;
+        e.yaw = Math.atan2(-ax / l, -az / l);
       }
       e.speed = 4;
+      e.hmT -= dt;
+      if(e.hmT <= 0){ e.hmT = 1.2; tone(300 * jr(0.25), 140, 0.3, 'sawtooth', 0.1); }  // panic cry
+    } else if(night){
+      // curfew: get back to your own doorstep and settle
+      const dhx = e.home[0] - e.pos.x, dhz = e.home[1] - e.pos.z, dh = Math.hypot(dhx, dhz);
+      if(dh > 2.2){ e.yaw = Math.atan2(-dhx / dh, -dhz / dh); e.speed = 1.6; }
+      else e.speed = 0;
     } else if(dp < 3.5){
       e.speed = 0;
       const dx = player.pos.x - e.pos.x, dz = player.pos.z - e.pos.z, l = Math.hypot(dx, dz) || 1;
@@ -4747,16 +4801,23 @@ function updateVillagers(dt){
       e.hmT -= dt;
       if(e.hmT <= 0){ e.hmT = 4 + Math.random() * 6; tone(200 * jr(0.2), 150, 0.22, 'sawtooth', 0.07); }
     } else {
-      const dhx = e.home[0] - e.pos.x, dhz = e.home[1] - e.pos.z;
+      // working hours: mill about between the job site and the village square
+      const anchor = (e.plaza && Math.random() < 0.004) ? e.plaza : e.home;
+      const dhx = anchor[0] - e.pos.x, dhz = anchor[1] - e.pos.z;
       const dh = Math.hypot(dhx, dhz);
       e.t -= dt;
-      if(dh > 20){
+      if(dh > 14){
         e.yaw = Math.atan2(-dhx / dh, -dhz / dh);
         e.speed = 1.1;
       } else if(e.t <= 0){
         e.t = 1.5 + Math.random() * 3.5;
         if(Math.random() < 0.55) e.speed = 0;
         else { e.speed = 1.0; e.yaw = Math.random() * Math.PI * 2; }
+      }
+      e.hmT -= dt;
+      if(e.hmT <= 0){                                   // idle "hmm", pitched per profession
+        e.hmT = 7 + Math.random() * 9;
+        if(dp < 22) tone((e.prof ? e.prof.voice : 200) * jr(0.2), 150, 0.22, 'sawtooth', 0.05);
       }
     }
     stepMob(e, dt, 24);
@@ -4767,26 +4828,36 @@ function updateVillagers(dt){
 /* ============================ iron golems =========================== */
 const golems = [];
 const golemSpawned = new Set();
-const golemMats = { iron: entMat(0xc9c1b4), dark: entMat(0xa89f90), vine: entMat(0x5f8a4a), nose: entMat(0xb7ac9c) };
+const golemMats = { iron: entMat(0xc9c1b4), dark: entMat(0xa89f90), vine: entMat(0x5f8a4a), nose: entMat(0xb7ac9c),
+                    cracked: entMat(0x8e8578), poppy: entMat(0xcf3f36), stem: entMat(0x4f7a3a) };
 function spawnGolem(x, y, z, hx, hz){
   const g = new THREE.Group();
-  const legs = [], arms = [];
-  box(0.9, 1.2, 0.55, golemMats.iron, 0, 1.35, 0, g);      // torso
+  const legs = [], arms = [], shell = [];
+  const torso = box(0.9, 1.2, 0.55, golemMats.iron, 0, 1.35, 0, g);
   box(0.55, 0.3, 0.4, golemMats.vine, 0, 0.85, 0, g);       // vine belt
-  box(0.55, 0.6, 0.55, golemMats.iron, 0, 2.25, 0, g);      // head
+  const head = box(0.55, 0.6, 0.55, golemMats.iron, 0, 2.25, 0, g);
   box(0.14, 0.34, 0.14, golemMats.nose, 0, 2.15, -0.32, g); // nose
   arms.push(box(0.28, 1.3, 0.34, golemMats.iron, -0.68, 1.35, 0, g));
   arms.push(box(0.28, 1.3, 0.34, golemMats.iron,  0.68, 1.35, 0, g));
+  shell.push(torso, head, arms[0], arms[1]);
   for(const [lx] of [[-0.26],[0.26]])
     legs.push(box(0.34, 0.75, 0.4, golemMats.dark, lx, 0.38, 0, g));
+  // the poppy it holds out to villagers
+  const poppy = new THREE.Group();
+  box(0.05, 0.26, 0.05, golemMats.stem, 0, 0.13, 0, poppy);
+  box(0.16, 0.14, 0.16, golemMats.poppy, 0, 0.3, 0, poppy);
+  poppy.position.set(0.68, 0.72, -0.16);
+  poppy.visible = false;
+  g.add(poppy);
   scene.add(g);
   golems.push({
-    kind: 'golem', group: g, legs, arms,
+    kind: 'golem', group: g, legs, arms, shell, poppy,
     pos: new THREE.Vector3(x, y, z), vel: new THREE.Vector3(),
-    w: 0.5, h: 2.6, hp: 60,
+    w: 0.5, h: 2.6, hp: 60, maxHp: 60, cracked: false,
     yaw: Math.random() * Math.PI * 2, speed: 0, t: 1, flee: 0,
     atkCd: 0, onGround: false, anim: Math.random() * 9,
-    home: [hx, hz],
+    home: [hx, hz], swing: 0, offerT: 4 + Math.random() * 6, offering: 0,
+    angryAtPlayer: 0, stepT: 0,
   });
 }
 let golemCheckT = 0;
@@ -4977,13 +5048,46 @@ function updateGolems(dt){
       continue;
     }
     e.atkCd -= dt;
-    const tgt = hostilesNear(e.pos, 16);
+    e.swing = Math.max(0, e.swing - dt);
+    e.angryAtPlayer = Math.max(0, e.angryAtPlayer - dt);
+    // battle damage: iron dulls and cracks below half health
+    if(!e.cracked && e.hp < e.maxHp * 0.5){
+      e.cracked = true;
+      for(const m of e.shell) m.material = golemMats.cracked;
+      burstRGB(e.pos.x, e.pos.y + 1.4, e.pos.z, 0.6, 0.58, 0.52, 8, 0.5);
+    }
+    // heavy footfalls
+    const gspd = Math.hypot(e.vel.x, e.vel.z);
+    if(gspd > 0.6 && e.onGround){
+      e.stepT -= dt;
+      if(e.stepT <= 0){
+        e.stepT = 0.55;
+        if(e.pos.distanceToSquared(player.pos) < 900)
+          playN({ f: 110, type: 'lowpass', dur: 0.12, vol: 0.2 });
+      }
+    }
+    let tgt = hostilesNear(e.pos, 16);
+    // a player who attacks the village gets treated as a hostile too
+    if(!tgt && e.angryAtPlayer > 0 && mode === 'survival' && !dead &&
+       e.pos.distanceToSquared(player.pos) < 256) tgt = { pos: player.pos, isPlayer: true };
     if(tgt){
       const dx = tgt.pos.x - e.pos.x, dz = tgt.pos.z - e.pos.z, l = Math.hypot(dx, dz) || 1;
       e.yaw = Math.atan2(-dx / l, -dz / l);
       e.speed = 2.6;
-      if(l < 2.0 && Math.abs(tgt.pos.y - e.pos.y) < 2.5 && e.atkCd <= 0){
+      e.poppy.visible = false; e.offering = 0;
+      if(l < 2.4 && Math.abs(tgt.pos.y - e.pos.y) < 2.5 && e.atkCd <= 0){
         e.atkCd = 1.0;
+        e.swing = 0.45;                                     // wind up and slam
+        if(tgt.isPlayer){
+          damage(7);
+          player.vel.x += dx / l * 14; player.vel.z += dz / l * 14;
+          player.vel.y = Math.max(player.vel.y, 9);
+          playN({ f: 140, type: 'lowpass', dur: 0.14, vol: 0.28 });
+          monsterCall(e,'attack');
+          e.atkCd = 1.4;
+          stepMob(e, dt, 26); animMob(e, dt);
+          continue;
+        }
         tgt.hp -= 12;                                       // heavy hit
         tgt.vel.x += dx / l * 12; tgt.vel.z += dz / l * 12; tgt.vel.y = 8;
         playN({ f: 140, type: 'lowpass', dur: 0.14, vol: 0.28 });
@@ -4997,20 +5101,46 @@ function updateGolems(dt){
         }
       }
     } else {
-      // patrol near village centre
-      const dhx = e.home[0] - e.pos.x, dhz = e.home[1] - e.pos.z, dh = Math.hypot(dhx, dhz);
-      e.t -= dt;
-      if(dh > 22){ e.yaw = Math.atan2(-dhx / dh, -dhz / dh); e.speed = 1.4; }
-      else if(e.t <= 0){
-        e.t = 2 + Math.random() * 3;
-        if(Math.random() < 0.5) e.speed = 0;
-        else { e.speed = 1.0; e.yaw = Math.random() * Math.PI * 2; }
+      // peacetime: patrol, and now and then hold a poppy out to a villager
+      if(e.offering > 0){
+        e.offering -= dt;
+        e.speed = 0;
+        e.poppy.visible = true;
+        if(e.offerTarget){
+          const ox = e.offerTarget.pos.x - e.pos.x, oz = e.offerTarget.pos.z - e.pos.z;
+          const ol = Math.hypot(ox, oz) || 1;
+          e.yaw = Math.atan2(-ox / ol, -oz / ol);
+        }
+        if(e.offering <= 0){ e.poppy.visible = false; e.offerT = 14 + Math.random() * 16; }
+      } else {
+        e.poppy.visible = false;
+        e.offerT -= dt;
+        if(e.offerT <= 0){
+          let near = null, nd = 36;
+          for(const vg of villagers){
+            const d = vg.pos.distanceToSquared(e.pos);
+            if(d < nd){ nd = d; near = vg; }
+          }
+          if(near){ e.offering = 4.5; e.offerTarget = near; }
+          else e.offerT = 6 + Math.random() * 6;
+        }
+        const dhx = e.home[0] - e.pos.x, dhz = e.home[1] - e.pos.z, dh = Math.hypot(dhx, dhz);
+        e.t -= dt;
+        if(dh > 22){ e.yaw = Math.atan2(-dhx / dh, -dhz / dh); e.speed = 1.4; }
+        else if(e.t <= 0){
+          e.t = 2 + Math.random() * 3;
+          if(Math.random() < 0.5) e.speed = 0;
+          else { e.speed = 1.0; e.yaw = Math.random() * Math.PI * 2; }
+        }
       }
     }
     stepMob(e, dt, 26);
     animMob(e, dt);
+    const walk = Math.sin(e.anim * 2.2) * 0.25 * Math.min(1, Math.hypot(e.vel.x, e.vel.z));
+    const slam = e.swing > 0 ? Math.sin((1 - e.swing / 0.45) * Math.PI) * -1.9 : 0;
     for(let j = 0; j < e.arms.length; j++)
-      e.arms[j].rotation.x = Math.sin(e.anim * 2.2 + j * Math.PI) * 0.25 * Math.min(1, Math.hypot(e.vel.x, e.vel.z));
+      e.arms[j].rotation.x = slam || (walk * (j ? -1 : 1));
+    if(e.offering > 0) e.arms[1].rotation.x = -1.25;          // hold the flower forward
   }
 }
 
@@ -5134,6 +5264,9 @@ function punchEntity(e){
     e.hp -= dmg;
     e.flee = 2.5;
     tone(210 * jr(0.15), 130, 0.2, 'sawtooth', 0.12);
+    // harm a villager and the village guard comes for you
+    for(const gl of golems)
+      if(gl.pos.distanceToSquared(e.pos) < 40 * 40) gl.angryAtPlayer = 25;
     if(e.hp <= 0){
       const i = villagers.indexOf(e);
       if(i >= 0){
@@ -5144,6 +5277,7 @@ function punchEntity(e){
     }
   } else if(e.kind === 'golem'){
     e.hp -= dmg;
+    e.angryAtPlayer = 25;
     burstRGB(e.pos.x, e.pos.y + 1.4, e.pos.z, 0.78, 0.74, 0.66, 5, 0.3);
     monsterCall(e,e.hp>0?'hurt':'die');       // metallic clank
     if(e.hp <= 0){
@@ -7765,6 +7899,8 @@ renderer.setAnimationLoop(animate);
 window.__bc = {
   camera, scene, hapticPulse, vignetteMesh, updateVignette,
   openCraftVR, closeCraftVR, buildCraftPanel, spawnVillagerAt: spawnVillager,
+  golems, spawnGolem, stepGolems: dt => updateGolems(dt), VIL_PROF,
+  stepVillagersAI: dt => updateVillagers(dt), setTimeOfDay: t => { timeOfDay = t; },
   vrMenuState: () => ({ tab: vrMenuTab, status: vrMenuStatus,
                         buttons: vrMenuButtons.map(x => x.label).filter(Boolean),
                         trading: !!tradeVillager }),
