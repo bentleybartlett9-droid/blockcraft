@@ -1486,6 +1486,17 @@ itemAtlas.width = 128; itemAtlas.height = 256;
     const band = blob > 0.62 ? 22 : blob > 0.44 ? 10 : blob > 0.28 ? 0 : -12;
     return [78 + band + k, 55 + band + k, 31 + Math.floor(band * 0.7) + k];
   });
+  put(143, (x,y,r) => {                                 // coarse dirt: soil shot through with grit
+    const clod = vnoise(x * 0.62 - 4.3, y * 0.62 + 9.1, 5417);   // clumpy soil, not TV static
+    const k = Math.floor((r() - 0.5) * 8);
+    // grit worked through the soil: warm, not grey gravel, and sparse
+    // enough that the eye reads dirt first and stones second
+    if(r() < 0.035) return [136 + k, 118 + k, 96 + k];            // pale stone chip
+    if(r() < 0.085) return [114 + k, 94 + k, 72 + k];             // smaller grit
+    if(r() < 0.140) return [62 + k, 45 + k, 30 + k];              // dark crumb / shadow gap
+    const band = clod > 0.6 ? 16 : clod > 0.42 ? 6 : clod > 0.26 ? -2 : -11;
+    return [108 + band + k, 80 + band + k, 52 + Math.floor(band * 0.8) + k];
+  });
   const woolPx = (base) => (x,y,r) => {
     const k = Math.floor((r()-0.5)*16);
     return [base[0]+k, base[1]+k, base[2]+k];
@@ -1783,7 +1794,7 @@ const tileAvg = [];
   g.fillStyle='rgb('+base.map(c=>Math.max(0,Math.min(255,c+v))).join(',')+')';g.fillRect((tile%8)*16+x,Math.floor(tile/8)*16+y,1,1);
  }}
  EXTRA_WOODS.forEach((w,i)=>{let t=94+i*4;paint(t,w.bark,'bark');paint(t+1,w.wood,'brick');paint(t+2,w.wood,'plank');paint(t+3,w.leaf,'leaf');});
- [[143,[104,76,50],'stone'],[140,[198,104,56],'stone'],[141,[176,98,52],'brick'],[142,[214,176,140],'brick'],
+ [[140,[198,104,56],'stone'],[141,[176,98,52],'brick'],[142,[214,176,140],'brick'],
   [134,[218,218,211],'stone'],[135,[218,218,211],'brick'],[136,[58,65,73],'stone'],[137,[65,74,84],'brick'],[138,[156,174,178],'brick'],[139,[236,169,65],'brick']].forEach(a=>paint(...a));
  const it=itemAtlas.getContext('2d');for(const [tile,color] of [[49,'#db446a'],[50,'#d59351'],[51,'#8aa54c'],[52,'#62efd9'],[53,'#dccbfa']]){
   const x=(tile%8)*16,y=Math.floor(tile/8)*16;it.fillStyle='#3b293b';it.fillRect(x+3,y+5,11,9);it.fillStyle=color;it.fillRect(x+4,y+4,9,8);it.fillStyle='#e6edb7';it.fillRect(x+5,y+5,3,2);
