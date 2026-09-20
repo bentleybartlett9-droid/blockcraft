@@ -231,6 +231,7 @@
       <input id="joinInput" class="finput" placeholder="room code from the host">
       <button class="mcbtn" id="btnJoin">Join</button>
     </div>
+    <button class="mcbtn" id="btnVoice">Voice chat: off</button>
     <div id="mpstatus">Not connected</div>
     <button class="mcbtn small" id="btnMpBack">Back</button>
   </div>
@@ -3926,7 +3927,8 @@ function updateAnimals(dt){
     animMob(e, dt);
     e.callT -= dt;
     if(e.callT <= 0){
-      e.callT = (e.type === 'rabbit' ? 10 : e.type === 'wolf' ? 7 : 4) + Math.random() * 6;
+      e.callT = (e.type === 'cow' ? 20 : e.type === 'rabbit' ? 10 : e.type === 'wolf' ? 7 : 4)
+                + Math.random() * (e.type === 'cow' ? 18 : 6);
       animalCall(e.type, e.pos, 'idle');
     }
   }
@@ -5730,7 +5732,8 @@ function animalCall(type,pos,mood='idle'){
  const source=AC.createBufferSource(),gain=AC.createGain(),pan=AC.createStereoPanner(),filter=AC.createBiquadFilter();source.buffer=buffer;
  const pitch=(spec?spec[1]:type==='rabbit'&&!idle?2.1:1)*(idle?1:mood==='die'?.85:1.16)*(.96+Math.random()*.08);
  source.playbackRate.value=pitch;filter.type='lowpass';filter.frequency.value=spec?1800:8000;
- const volume=(idle?.34:.5)/(1+d*.085);const duration=Math.min(buffer.duration, idle?3:1.1);
+ const quiet=type==='cow'?.45:1;                      // moos carry far; keep them in the background
+ const volume=(idle?.34:.5)*quiet/(1+d*.085);const duration=Math.min(buffer.duration, idle?3:1.1);
  gain.gain.setValueAtTime(0,AC.currentTime);gain.gain.linearRampToValueAtTime(volume,AC.currentTime+.015);gain.gain.setValueAtTime(volume,AC.currentTime+Math.max(.02,duration/pitch-.05));gain.gain.linearRampToValueAtTime(0,AC.currentTime+duration/pitch);
  pan.pan.value=Math.max(-1,Math.min(1,(dx*Math.cos(player.yaw)-dz*Math.sin(player.yaw))/Math.max(3,d)));
  source.connect(filter).connect(gain).connect(pan).connect(AC.destination);animalVoices++;if(idle)animalIdleAt=AC.currentTime+.45;
@@ -6001,14 +6004,77 @@ let peer = null, isHost = false, netApplying = false, posT = 0;
 let conns = [];
 const remotes = new Map();
 const avMats = { head: entMat(0xd8a877), body: entMat(0x2fa1c9), leg: entMat(0x3b3f8f), arm: entMat(0xc99667) };
-function setMpStatus(t){ const el = document.getElementById('mpstatus'); if(el) el.textContent = t; }
+/* Codes avoid 0/O and 1/I/L so they survive being read aloud, and are
+   four characters so they can be poked in on a VR keypad. */
+const MP_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+const mpNewCode = () => Array.from({length:4},
+  () => MP_ALPHABET[Math.floor(Math.random()*MP_ALPHABET.length)]).join('');
+let mpStatusText = 'Not connected', mpRoomCode = '';
+function setMpStatus(t){
+  mpStatusText = t;
+  const el = document.getElementById('mpstatus'); if(el) el.textContent = t;
+  if(vrCraftOpen && vrMenuTab === 'mp') buildCraftPanel();
+}
 function mpActive(){ return conns.some(c => c.open); }
 function mpBroadcast(msg, except){
   if(!conns.length) return;
   const s = JSON.stringify(msg);
   for(const c of conns) if(c !== except && c.open) c.send(s);
 }
+/* Voice chat. Off until the player asks for it, because it needs mic
+   permission; the browser prompts on the first enable. */
+let voiceOn = false, voiceStream = null;
+const voiceEls = new Map();
+function attachVoice(id, stream){
+  let el = voiceEls.get(id);
+  if(!el){
+    el = document.createElement('audio');
+    el.autoplay = true; el.playsInline = true;
+    document.body.appendChild(el);
+    voiceEls.set(id, el);
+  }
+  el.srcObject = stream;
+  el.play().catch(()=>{});
+}
+function placeVoiceCall(peerId){
+  if(!peer || !voiceStream || !peerId) return;
+  try {
+    const call = peer.call(peerId, voiceStream);
+    if(call) call.on('stream', rs => attachVoice(peerId, rs));
+  } catch(e){}
+}
+function voiceSetup(pr){
+  pr.on('call', call => {
+    try { call.answer(voiceStream || undefined); } catch(e){ return; }
+    call.on('stream', rs => attachVoice(call.peer, rs));
+  });
+}
+async function enableVoice(){
+  if(voiceStream) return true;
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+    setMpStatus('This browser has no microphone support.'); return false;
+  }
+  try {
+    voiceStream = await navigator.mediaDevices.getUserMedia(
+      { audio: { echoCancellation: true, noiseSuppression: true } });
+    voiceOn = true;
+    for(const c of conns) placeVoiceCall(c.peer);
+    setMpStatus('Voice chat on - just talk.');
+    return true;
+  } catch(e){
+    setMpStatus('Microphone blocked (' + e.name + ')');
+    return false;
+  }
+}
+function disableVoice(){
+  voiceOn = false;
+  if(voiceStream){ voiceStream.getTracks().forEach(t => t.stop()); voiceStream = null; }
+  for(const el of voiceEls.values()){ try { el.pause(); el.srcObject = null; el.remove(); } catch(e){} }
+  voiceEls.clear();
+  setMpStatus('Voice chat off.');
+}
 function destroyPeer(){
+  disableVoice();
   for(const c of conns) try { c.close(); } catch(e){}
   conns = [];
   if(peer){ try { peer.destroy(); } catch(e){} peer = null; }
@@ -6019,34 +6085,42 @@ function startHost(){
   if(typeof Peer === 'undefined'){ setMpStatus('Multiplayer needs an internet connection — reload when online.'); return; }
   destroyPeer();
   isHost = true;
-  const code = Math.random().toString(36).slice(2, 8);
-  peer = new Peer('bcraft-' + code);
+  const code = mpNewCode();
+  mpRoomCode = code;
+  peer = new Peer('bcraft-' + code.toLowerCase());
   setMpStatus('Starting host…');
-  peer.on('open', () => setMpStatus('Hosting! Room code: ' + code.toUpperCase() + ' — share it, then click Back and play.'));
+  peer.on('open', () => setMpStatus('Hosting — share the code, then play.'));
+  voiceSetup(peer);
   peer.on('connection', c => setupConn(c));
   peer.on('error', e => setMpStatus('Connection error: ' + e.type));
 }
 function joinGame(codeRaw){
   if(typeof Peer === 'undefined'){ setMpStatus('Multiplayer needs an internet connection — reload when online.'); return; }
   const code = String(codeRaw).trim().toLowerCase();
-  if(!code){ setMpStatus('Type the room code first.'); return; }
+  if(!code){ setMpStatus('Enter the room code first.'); return; }
   destroyPeer();
   isHost = false;
+  mpRoomCode = code.toUpperCase();
   peer = new Peer();
   setMpStatus('Connecting…');
+  voiceSetup(peer);
   peer.on('open', () => setupConn(peer.connect('bcraft-' + code, { reliable: true })));
   peer.on('error', e => setMpStatus('Connection error: ' + e.type));
 }
 function setupConn(c){
   c.on('open', () => {
     conns.push(c);
-    setMpStatus(isHost ? 'Player joined! (' + conns.length + ' connected)' : 'Connected! Click Back and play together.');
+    setMpStatus(isHost ? 'Player joined — ' + (conns.length + 1) + ' in this world'
+                       : 'Connected! Close this menu and play together.');
+    hapticPulse(null, 0.6, 80);
+    if(voiceOn) placeVoiceCall(c.peer);
     if(isHost) c.send(JSON.stringify({ t: 'world', seed: SEED, edits, fluid:[...fluidLevels] }));
   });
   c.on('data', d => { try { onNet(c, typeof d === 'string' ? JSON.parse(d) : d); } catch(e){} });
   c.on('close', () => {
     conns = conns.filter(x => x !== c);
-    setMpStatus('A player disconnected.');
+    setMpStatus('A player left.');
+    hapticPulse(null, 0.3, 50);
   });
 }
 function onNet(c, m){
@@ -6092,8 +6166,22 @@ function updateAvatar(m){
     box(0.2, 0.66, 0.2, avMats.leg, 0.13, 0.33, 0, g);
     box(0.17, 0.64, 0.17, avMats.arm, -0.34, 1.02, 0, g);
     box(0.17, 0.64, 0.17, avMats.arm, 0.34, 1.02, 0, g);
+    // name tag, drawn once and billboarded at the head each frame
+    const nc = document.createElement('canvas');
+    nc.width = 256; nc.height = 64;
+    const ng = nc.getContext('2d');
+    ng.fillStyle = 'rgba(0,0,0,0.55)'; ng.fillRect(0, 0, 256, 64);
+    ng.font = 'bold 38px system-ui'; ng.fillStyle = '#ffffff';
+    ng.textAlign = 'center'; ng.textBaseline = 'middle';
+    ng.fillText('Player ' + String(m.tag).slice(0, 3).toUpperCase(), 128, 34);
+    const tex = new THREE.CanvasTexture(nc);
+    const tag = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.225),
+      new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthTest: false, fog: false }));
+    tag.position.set(0, 2.25, 0);
+    tag.renderOrder = 9000;
+    g.add(tag);
     scene.add(g);
-    a = { group: g, t: new THREE.Vector3(m.x, m.y, m.z), yaw: m.yaw || 0, seen: 0 };
+    a = { group: g, tag, t: new THREE.Vector3(m.x, m.y, m.z), yaw: m.yaw || 0, seen: 0 };
     a.group.position.copy(a.t);
     remotes.set(m.tag, a);
   }
@@ -6112,6 +6200,11 @@ function updateNet(dt){
     a.seen += dt;
     if(a.seen > 6){ scene.remove(a.group); remotes.delete(tag); continue; }
     a.group.position.lerp(a.t, Math.min(1, dt * 10));
+    if(a.tag){                                   // billboard, and fade in close quarters
+      a.tag.lookAt(camera.getWorldPosition(new THREE.Vector3()));
+      const dist = a.group.position.distanceTo(player.pos);
+      a.tag.visible = dist > 2.5 && dist < 60;
+    }
     a.group.rotation.y += (((a.yaw - a.group.rotation.y + Math.PI * 3) % (Math.PI * 2)) - Math.PI) * Math.min(1, dt * 10);
   }
 }
@@ -7132,6 +7225,7 @@ craftPanel.visible = false;
 scene.add(craftPanel);
 let vrCraftOpen = false;
 let vrMenuTab = 'inventory', vrMenuPage = 0, vrPickedSlot = null, vrRecipe = -1;
+let vrMpMode = '', vrJoinCode = '';
 let vrActionRelease = false;
 let vrMenuStatus = '', vrMenuHover = -1, vrMenuRefresh = 0, vrMenuBWas = false;
 const vrMenuCanvas = document.createElement('canvas');
@@ -7200,7 +7294,7 @@ function buildCraftPanel(){
   }
   const tabDefs=[['inventory','Inventory'],['craft',mode==='creative'?'All items':'Crafting'],['armour','Armour']];
   if(tradeVillager) tabDefs.push(['trade','Trade']);
-  tabDefs.push(['help','Controls']);
+  tabDefs.push(['mp','Play Together'],['help','Controls']);
   const tabStep=Math.floor(1025/tabDefs.length), tabW=tabStep-14;
   tabDefs.forEach(([tab,label],i)=>{
     button(35+i*tabStep,115,tabW,55,label,()=>{vrMenuTab=tab;vrMenuPage=0;vrPickedSlot=null;vrMenuStatus='';},true,vrMenuTab===tab);
@@ -7291,6 +7385,60 @@ function buildCraftPanel(){
         button(710,602,300,62,'Craft',()=>vrCraftSelected(false),canCraft(r));
         button(1030,602,355,62,'Craft & equip',()=>vrCraftSelected(true),canCraft(r));
       } else text('Select a recipe to see what it needs.',710,325,25,'#454545',670);
+    }
+  } else if(vrMenuTab==='mp'){
+    const connected = mpActive();
+    text('PLAY TOGETHER',35,190,27,'#454545');
+    if(connected){
+      text('Connected  -  ' + (conns.length + 1) + ' players in this world',50,250,34,'#28572d');
+      if(mpRoomCode) text('Room code: ' + mpRoomCode,50,308,30);
+      text(mpStatusText,50,362,24,'#454545',1330);
+      button(50,420,430,74, voiceOn ? 'Voice chat: ON' : 'Voice chat: off  (talk to each other)',
+        ()=>{ if(voiceOn) disableVoice(); else enableVoice().then(()=>buildCraftPanel()); buildCraftPanel(); },
+        true, voiceOn);
+      text(voiceOn ? 'Your friends can hear you.' : 'Turning this on asks for microphone permission.',
+           50,522,23,'#454545',1200);
+      button(50,560,340,70,'Leave the game',()=>{ destroyPeer(); mpRoomCode=''; setMpStatus('Not connected'); buildCraftPanel(); });
+    } else if(vrMpMode==='host'){
+      text('Your room code',50,250,26,'#454545');
+      // big enough to read across a room and say out loud
+      g.fillStyle='#8b8b8b';g.fillRect(50,286,520,116);
+      g.strokeStyle='#454545';g.lineWidth=3;g.strokeRect(50,286,520,116);
+      g.font='bold 86px monospace';g.fillStyle='#1d3a1f';
+      g.fillText(mpRoomCode||'....',74,350);
+      g.font='24px system-ui';
+      text('Read this out to your friend. They pick Join and key it in.',50,438,24,'#454545',900);
+      text(mpStatusText,50,486,24,'#28572d',1200);
+      button(50,528,300,66,'Back',()=>{ vrMpMode=''; destroyPeer(); mpRoomCode=''; buildCraftPanel(); });
+    } else if(vrMpMode==='join'){
+      text('Key in the code your friend read out',50,244,26,'#454545');
+      g.fillStyle='#8b8b8b';g.fillRect(50,272,360,96);
+      g.strokeStyle='#454545';g.lineWidth=3;g.strokeRect(50,272,360,96);
+      g.font='bold 70px monospace';g.fillStyle='#1d3a1f';
+      g.fillText((vrJoinCode+'____').slice(0,4).split('').join(' '),70,326);
+      g.font='24px system-ui';
+      // point-and-click keypad: no typing, no physical keyboard
+      const cols=8, kw=104, kh=64, gap=8, kx0=470, ky0=250;
+      MP_ALPHABET.split('').forEach((ch,i)=>{
+        const cx=kx0+(i%cols)*(kw+gap), cy=ky0+Math.floor(i/cols)*(kh+gap);
+        button(cx,cy,kw,kh,'  '+ch,()=>{
+          if(vrJoinCode.length<4){ vrJoinCode+=ch; hapticPulse('right',0.25,18); buildCraftPanel(); }
+        });
+      });
+      button(50,392,170,62,'Back',()=>{ vrJoinCode=vrJoinCode.slice(0,-1); buildCraftPanel(); });
+      button(240,392,170,62,'Clear',()=>{ vrJoinCode=''; buildCraftPanel(); });
+      button(50,470,360,74,'Connect',()=>{
+        if(vrJoinCode.length===4){ initAudio(); joinGame(vrJoinCode); }
+      }, vrJoinCode.length===4);
+      text(mpStatusText,50,570,24,'#454545',1330);
+      button(50,606,300,62,'Cancel',()=>{ vrMpMode=''; vrJoinCode=''; buildCraftPanel(); });
+    } else {
+      text('Build in the same world as a friend, over the internet.',50,244,26,'#454545',1330);
+      button(50,290,420,92,'Host a game',()=>{ initAudio(); vrMpMode='host'; startHost(); buildCraftPanel(); });
+      button(510,290,420,92,'Join a game',()=>{ vrMpMode='join'; vrJoinCode=''; buildCraftPanel(); });
+      text('Hosting gives you a four-letter code to read out. Joining lets you',50,420,24,'#454545',1330);
+      text('key one in with the pointer - no keyboard needed.',50,454,24,'#454545',1330);
+      text(mpStatusText,50,520,24,'#454545',1330);
     }
   } else if(vrMenuTab==='trade'){
     const tv=tradeVillager;
@@ -8150,6 +8298,11 @@ document.getElementById('btnMpBack').addEventListener('click', () => {
   mpEl.style.display = 'none';
   titleEl.style.display = 'flex';
 });
+document.getElementById('btnVoice').addEventListener('click', async () => {
+  uiClick();
+  if(voiceOn) disableVoice(); else await enableVoice();
+  document.getElementById('btnVoice').textContent = 'Voice chat: ' + (voiceOn ? 'ON' : 'off');
+});
 document.getElementById('btnHost').addEventListener('click', () => { uiClick(); initAudio(); startHost(); });
 document.getElementById('btnJoin').addEventListener('click', () => { uiClick(); initAudio(); joinGame(document.getElementById('joinInput').value); });
 document.getElementById('joinInput').addEventListener('keydown', e => {
@@ -8169,11 +8322,16 @@ renderer.setAnimationLoop(animate);
 window.__bc = {
   camera, scene, hapticPulse, vignetteMesh, updateVignette,
   openCraftVR, closeCraftVR, buildCraftPanel, spawnVillagerAt: spawnVillager,
+  mpNewCode, MP_ALPHABET, startHost, joinGame, destroyPeer, enableVoice, disableVoice,
+  mpState: () => ({ code: mpRoomCode, status: mpStatusText, conns: conns.length,
+                    voiceOn, vrMpMode, vrJoinCode, remotes: remotes.size }),
+  setVrMp: (mode, code) => { vrMpMode = mode; if(code !== undefined) vrJoinCode = code; },
   golems, spawnGolem, stepGolems: dt => updateGolems(dt), VIL_PROF,
   villagerVoice, golemVoice, healGolem, golemTarget,
   stepVillagersAI: dt => updateVillagers(dt), setTimeOfDay: t => { timeOfDay = t; },
   vrMenuState: () => ({ tab: vrMenuTab, status: vrMenuStatus,
                         buttons: vrMenuButtons.map(x => x.label).filter(Boolean),
+                        enabled: vrMenuButtons.filter(x=>x.label).map(x=>[x.label,x.enabled]),
                         trading: !!tradeVillager }),
   setTradeVillager: v => { tradeVillager = v; },
   vignetteState: () => ({ on: vignetteOn, amt: vignetteAmt, opacity: vignetteMesh.material.opacity }),
