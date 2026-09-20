@@ -442,6 +442,9 @@ function biomeAt(x, z){
     if(m>.57&&grove>.44&&grove<.54)return 'willow-marsh';
   }
   if(t < 0.37) return 'snowy';
+  if(t < 0.47 && m > 0.50) return 'taiga';          // cold conifer forest
+  if(t > 0.72 && m < 0.28) return 'badlands';       // hottest and driest: banded clay
+  if(t > 0.66 && m < 0.35) return 'outback';        // the red centre
   if(t > 0.63 && m < 0.42) return 'desert';
   if(t > 0.59 && m < 0.53) return 'savanna';
   if(t > 0.56 && m > 0.60) return 'jungle';
@@ -453,6 +456,18 @@ function biomeAt(x, z){
 function surfaceCarved(x, z, h){
   return h > SEA + 1 && x*x + z*z >= 24*24 && h > 1 && caveNoise(x,h,z) > 0.76;
 }
+/* Badlands strata: horizontal bands of clay, fixed to world height so the
+   stripes line up across a whole canyon wall. */
+function terraBand(y){
+  // wavy so bands aren't perfectly flat, but wide enough to read as strata
+  const b = (y + Math.floor(vnoise(y * 0.18, 0.5, 411) * 3)) % 12;
+  return b < 3 ? TERRACOTTA
+       : b < 5 ? TERRA_ORANGE
+       : b < 7 ? TERRA_PALE
+       : b < 9 ? TERRACOTTA
+       : b < 11 ? TERRA_ORANGE
+       : TERRA_PALE;
+}
 function treeAt(x, z){
   const r = hash(x, z, 777);
   if(r >= 0.03) return null;                        // cheap reject before biome lookup
@@ -460,12 +475,14 @@ function treeAt(x, z){
   if(h <= SEA + 1 || h >= SNOW_H - 4 || surfaceCarved(x,z,h)) return null;
   const b = biomeAt(x, z);
   const p = ['cherry-grove','maple-woods','willow-marsh'].includes(b) ? .024 : b === 'jungle' ? 0.028 : b === 'forest' ? 0.022 : b === 'birch' ? 0.016 :
+            b === 'taiga' ? 0.026 : b === 'outback' ? 0.006 :
             b === 'snowy' ? 0.008 : b === 'swamp' ? 0.007 : b === 'plains' ? TREE_P :
             b === 'savanna' ? 0.003 : 0;
   if(r >= p) return null;
-  const type = b==='cherry-grove'?'cherry':b==='maple-woods'?'maple':b==='willow-marsh'?'willow':b === 'snowy' ? 'spruce' : b === 'birch' ? 'birch' :
+  const type = b==='cherry-grove'?'cherry':b==='maple-woods'?'maple':b==='willow-marsh'?'willow':b==='outback'?'gum':
+               b === 'snowy' || b === 'taiga' ? 'spruce' : b === 'birch' ? 'birch' :
                b === 'jungle' ? 'jungle' : b === 'savanna' ? 'savanna' : 'oak';
-  const th = type==='willow'?6:type==='cherry'?4:type==='maple'?7:type === 'jungle' ? 7 + Math.floor(hash(x, z, 778) * 4) :
+  const th = type==='gum'?6+Math.floor(hash(x,z,778)*3):type==='willow'?6:type==='cherry'?4:type==='maple'?7:type === 'jungle' ? 7 + Math.floor(hash(x, z, 778) * 4) :
              type === 'savanna' ? 4 + Math.floor(hash(x, z, 778) * 2) :
              4 + Math.floor(hash(x, z, 778) * 3) + (type === 'spruce' ? 1 : 0);
   return { h, th, type };
@@ -649,6 +666,8 @@ const CHERRYLOG=160, CHERRYPLANK=161, CHERRYLEAVES=162,
  MARBLE=169, MARBLEBRICK=170, BASALT=171, BASALTBRICK=172, MOSAIC=173, AMBERLAMP=174;
 const CRYSTALORE=187,GLOWCRYSTAL=188,CRYSTALBRICK=189,CRYSTALSHARD=212,CRYSTALPICK=213,CRYSTALSWORD=214;
 const BLUEBELL=175,LAVENDER=176,DAISY=177,ORCHID=178,CROCUS=179,DESERTFLOWER=180,FERN=181,REEDS=182,DRYGRASS=183,AMBERFLOWER=184,NETHERSPROUT=185,ENDSPROUT=186;
+const GUMLOG=190, GUMPLANK=191, GUMLEAVES=192, SPINIFEX=193,
+      REDSAND=194, TERRA_ORANGE=195, TERRA_PALE=196;
 const FLORA=[
  {id:BLUEBELL,name:'Bluebell',color:'#7da8ef',kind:'bells'},
  {id:LAVENDER,name:'Lavender',color:'#b298de',kind:'spike'},
@@ -661,14 +680,16 @@ const FLORA=[
  {id:DRYGRASS,name:'Dry Grass',color:'#cbb478',kind:'grass'},
  {id:AMBERFLOWER,name:'Amber Daisy',color:'#ecb454',kind:'flower'},
  {id:NETHERSPROUT,name:'Ember Sprout',color:'#f49068',kind:'fern'},
- {id:ENDSPROUT,name:'End Bloom',color:'#bc98ec',kind:'bells'}];
+ {id:ENDSPROUT,name:'End Bloom',color:'#bc98ec',kind:'bells'},
+ {id:SPINIFEX,name:'Spinifex',color:'#d8c069',kind:'spike'}];
 const FLORA_IDS=new Set(FLORA.map(f=>f.id));
 const EXTRA_WOODS=[{log:CHERRYLOG,plank:CHERRYPLANK,leaves:CHERRYLEAVES,name:'Cherry',bark:[105,56,61],wood:[220,163,161],leaf:[230,142,182]},
  {log:MAPLELOG,plank:MAPLEPLANK,leaves:MAPLELEAVES,name:'Maple',bark:[91,62,40],wood:[190,121,59],leaf:[225,111,33]},
- {log:WILLOWLOG,plank:WILLOWPLANK,leaves:WILLOWLEAVES,name:'Willow',bark:[72,83,55],wood:[153,163,112],leaf:[82,148,94]}];
+ {log:WILLOWLOG,plank:WILLOWPLANK,leaves:WILLOWLEAVES,name:'Willow',bark:[72,83,55],wood:[153,163,112],leaf:[82,148,94]},
+ {log:GUMLOG,plank:GUMPLANK,leaves:GUMLEAVES,name:'Gum',bark:[214,209,196],wood:[206,178,142],leaf:[126,158,124]}];
 const isLeaf=id=>id===LEAVES||id===SPRUCELEAVES||EXTRA_WOODS.some(w=>w.leaves===id);
 const isLog=id=>[LOG,BIRCHLOG,SPRUCELOG,JUNGLELOG,...EXTRA_WOODS.map(w=>w.log)].includes(id);
-const ANY_PLANK = [7, 39, 40, 41, CHERRYPLANK, MAPLEPLANK, WILLOWPLANK];   // oak, birch, spruce, jungle planks (recipe group)
+const ANY_PLANK = [7, 39, 40, 41, CHERRYPLANK, MAPLEPLANK, WILLOWPLANK, GUMPLANK];   // oak, birch, spruce, jungle planks (recipe group)
 const T = {GRASS_TOP:0,GRASS_SIDE:1,DIRT:2,STONE:3,SAND:4,LOG_SIDE:5,LOG_TOP:6,LEAVES:7,PLANK:8,BRICK:9,SNOW:10,GLASS:11,WATER:12,
            GLOW:13,COAL:14,IRON:15,GOLD:16,DIAMOND:17,TGRASS:18,POPPY:19,DANDELION:20,DIAMB:21,
            TORCH_T:22,CRAFT_TOP:23,CRAFT_SIDE:24,FURN_FRONT:25,FURN_SIDE:26,IRONB_T:27,GOLDB_T:28,SBRICK_T:29,WOOL_T:30,BED_TOP:31,
@@ -684,7 +705,7 @@ const T = {GRASS_TOP:0,GRASS_SIDE:1,DIRT:2,STONE:3,SAND:4,LOG_SIDE:5,LOG_TOP:6,L
            DOOR_T:82,DOORTOP_T:83,
            ENDSTONE_T:84,ENDPORTAL_T:85,DRAGONEGG_T:86,ENDCRYSTAL_T:87,
            SPAWNER_T:88,RAIL_T:89,COBWEB_T:90,CRACKED_T:91,MOSSYBRICK_T:92,IRONBARS_T:93};
-const ATLAS_COLS = 8, ATLAS_W = 128, ATLAS_H = 256;
+const ATLAS_COLS = 8, ATLAS_W = 128, ATLAS_H = 320;
 const BLOCKS = {
   [GRASS]:{name:'Grass',  top:T.GRASS_TOP, bottom:T.DIRT, side:T.GRASS_SIDE},
   [DIRT] :{name:'Dirt',   all:T.DIRT},
@@ -784,9 +805,12 @@ EXTRA_WOODS.forEach((w,i)=>{
   BLOCKS[w.plank]={name:w.name+' Planks',all:t+2};
   BLOCKS[w.leaves]={name:w.name+' Leaves',all:t+3};
 });
-for(const [id,name,tile] of [[MARBLE,'Marble',106],[MARBLEBRICK,'Marble Bricks',107],[BASALT,'Basalt',108],[BASALTBRICK,'Basalt Bricks',109],[MOSAIC,'Mosaic Tiles',110],[AMBERLAMP,'Amber Lantern',111]])BLOCKS[id]={name,all:tile};
+for(const [id,name,tile] of [[MARBLE,'Marble',134],[MARBLEBRICK,'Marble Bricks',135],[BASALT,'Basalt',136],[BASALTBRICK,'Basalt Bricks',137],[MOSAIC,'Mosaic Tiles',138],[AMBERLAMP,'Amber Lantern',139]])BLOCKS[id]={name,all:tile};
 FLORA.forEach((f,i)=>BLOCKS[f.id]={name:f.name,all:112+i});
-BLOCKS[CRYSTALORE]={name:'Crystal Ore',all:124};BLOCKS[GLOWCRYSTAL]={name:'Glowing Crystal',all:125};BLOCKS[CRYSTALBRICK]={name:'Crystal Bricks',all:126};
+BLOCKS[REDSAND]={name:'Red Sand',all:140};
+BLOCKS[TERRA_ORANGE]={name:'Orange Terracotta',all:141};
+BLOCKS[TERRA_PALE]={name:'Pale Terracotta',all:142};
+BLOCKS[CRYSTALORE]={name:'Crystal Ore',all:131};BLOCKS[GLOWCRYSTAL]={name:'Glowing Crystal',all:132};BLOCKS[CRYSTALBRICK]={name:'Crystal Bricks',all:133};
 /* Item IDs and block IDs use explicit registries. */
 const STICK=100, COALI=101, IRONI=102, GOLDI=103, DIAMI=104, PORK=105, PORKC=106, MUTTON=107, MUTTONC=108,
       EMERALD=109,
@@ -1727,7 +1751,7 @@ itemAtlas.width = 128; itemAtlas.height = 256;
 const tileAvg = [];
 {
   const ctx = atlas.getContext('2d');
-  for(let ti = 0; ti <= 51; ti++){
+  for(let ti = 0; ti <= 142; ti++){      // every tile, so break particles match the block
     const d = ctx.getImageData((ti % ATLAS_COLS) * 16, ((ti / ATLAS_COLS) | 0) * 16, 16, 16).data;
     let r = 0, g = 0, b = 0, n = 0;
     for(let i = 0; i < d.length; i += 4) if(d[i+3] > 40){ r += d[i]; g += d[i+1]; b += d[i+2]; n++; }
@@ -1746,7 +1770,8 @@ const tileAvg = [];
   g.fillStyle='rgb('+base.map(c=>Math.max(0,Math.min(255,c+v))).join(',')+')';g.fillRect((tile%8)*16+x,Math.floor(tile/8)*16+y,1,1);
  }}
  EXTRA_WOODS.forEach((w,i)=>{let t=94+i*4;paint(t,w.bark,'bark');paint(t+1,w.wood,'brick');paint(t+2,w.wood,'plank');paint(t+3,w.leaf,'leaf');});
- [[106,[218,218,211],'stone'],[107,[218,218,211],'brick'],[108,[58,65,73],'stone'],[109,[65,74,84],'brick'],[110,[156,174,178],'brick'],[111,[236,169,65],'brick']].forEach(a=>paint(...a));
+ [[140,[198,104,56],'stone'],[141,[176,98,52],'brick'],[142,[214,176,140],'brick'],
+  [134,[218,218,211],'stone'],[135,[218,218,211],'brick'],[136,[58,65,73],'stone'],[137,[65,74,84],'brick'],[138,[156,174,178],'brick'],[139,[236,169,65],'brick']].forEach(a=>paint(...a));
  const it=itemAtlas.getContext('2d');for(const [tile,color] of [[49,'#db446a'],[50,'#d59351'],[51,'#8aa54c'],[52,'#62efd9'],[53,'#dccbfa']]){
   const x=(tile%8)*16,y=Math.floor(tile/8)*16;it.fillStyle='#3b293b';it.fillRect(x+3,y+5,11,9);it.fillStyle=color;it.fillRect(x+4,y+4,9,8);it.fillStyle='#e6edb7';it.fillRect(x+5,y+5,3,2);
   if(tile===49){it.clearRect(x,y,16,16);it.fillStyle='#ba305e';for(const [dx,dy] of [[3,7],[8,6],[6,10]])it.fillRect(x+dx,y+dy,5,5);it.fillStyle='#78a84e';it.fillRect(x+7,y+2,3,4);it.fillStyle='#f186a2';it.fillRect(x+4,y+8,2,2);}
@@ -1797,7 +1822,7 @@ const tileAvg = [];
  }));
 }
 {
- const g=atlas.getContext('2d');for(const [tile,kind] of [[124,'ore'],[125,'cluster'],[126,'brick']]){
+ const g=atlas.getContext('2d');for(const [tile,kind] of [[131,'ore'],[132,'cluster'],[133,'brick']]){
  const ox=tile%8*16,oy=Math.floor(tile/8)*16;g.clearRect(ox,oy,16,16);
  if(kind!=='cluster'){g.fillStyle=kind==='ore'?'#666a79':'#716b99';g.fillRect(ox,oy,16,16);for(let i=0;i<30;i++){g.fillStyle=i%2?'#858698':'#505765';g.fillRect(ox+hash(i,tile,2)*16,oy+hash(i,tile,3)*16,2,2);}}
  if(kind==='brick'){g.fillStyle='#4a486d';g.fillRect(ox,oy+7,16,1);g.fillRect(ox+7,oy,1,8);g.fillRect(ox+3,oy+8,1,8);}
@@ -2065,13 +2090,18 @@ function biomePlant(biome,r,patch,snowy,beach){
     birch:[DAISY,LAVENDER,BLUEBELL,FERN],jungle:[FERN,ORCHID,FERN,MUSHROOMR],
     swamp:[REEDS,BLUEBELL,MUSHROOMB,FERN],savanna:[DRYGRASS,AMBERFLOWER,DRYGRASS,DESERTFLOWER],
     desert:[DEADBUSH,DESERTFLOWER,DRYGRASS,DEADBUSH],
+    taiga:[FERN,MUSHROOMR,FERN,BLUEBELL],
+    badlands:[DEADBUSH,DRYGRASS,DEADBUSH,DESERTFLOWER],
+    outback:[SPINIFEX,DRYGRASS,SPINIFEX,DESERTFLOWER],
     'cherry-grove':[ORCHID,DAISY,LAVENDER,BLUEBELL],'maple-woods':[AMBERFLOWER,FERN,MUSHROOMR,DANDB],
     'willow-marsh':[REEDS,BLUEBELL,FERN,MUSHROOMB]};
   const palette=palettes[biome]||palettes.plains;
-  const density=biome==='desert'?.09:biome==='jungle'?.34:biome==='savanna'?.22:.25;
+  const density=biome==='desert'?.09:biome==='badlands'?.07:biome==='outback'?.17
+               :biome==='jungle'?.34:biome==='savanna'?.22:biome==='taiga'?.28:.25;
   if(r>=density)return 0;
   if(r<density*(patch>.52?.72:.38))return palette[Math.min(3,Math.floor(patch*4))];
-  return biome==='desert'||biome==='savanna'?DRYGRASS:TGRASSB;
+  return biome==='desert'||biome==='savanna'||biome==='badlands'?DRYGRASS
+       : biome==='outback'?SPINIFEX:TGRASSB;
 }
 function genChunk(cx,cz){return finishSteps(genChunkSteps(cx,cz));}
 function* genChunkSteps(cx, cz){
@@ -2091,6 +2121,7 @@ function* genChunkSteps(cx, cz){
     const h = terrainHeight(wx, wz);
     const beach = h <= SEA + 1;
     const biome = biomeAt(wx, wz);
+    const badlands = biome === 'badlands', outback = biome === 'outback';
     const sandy = beach || biome === 'desert';
     const snowyTop = biome === 'snowy' || h >= SNOW_H;
     const dry = h > SEA + 1;                       // don't open caves under the sea (avoids flooding)
@@ -2099,8 +2130,12 @@ function* genChunkSteps(cx, cz){
     for(let y = 0; y <= h; y++){
       let b;
       if(y === 0) b = STONE;
-      else if(y === h) b = sandy ? SAND : (snowyTop ? SNOW : (biome === 'savanna' ? SAVGRASS : GRASS));
-      else if(y > h - 4) b = sandy ? SAND : DIRT;
+      else if(y === h) b = badlands ? terraBand(y) : outback ? REDSAND
+                         : sandy ? SAND : (snowyTop ? SNOW
+                         : (biome === 'savanna' ? SAVGRASS
+                         : (biome === 'taiga' && hash(wx, wz, 617) < 0.35 ? PODZOL : GRASS)));
+      else if(badlands && y > h - 26) b = terraBand(y);   // deep banded clay walls
+      else if(y > h - 4) b = outback ? REDSAND : sandy ? SAND : DIRT;
       else b = STONE;
       // caves: a little bigger than vanilla. Allowed to reach the surface on dry
       // land so mouths are visible — but never right at the spawn point.
@@ -2161,6 +2196,9 @@ function* genChunkSteps(cx, cz){
       crown(0,t.th+1,0,2,1,2);
       for(let dx=-4;dx<=4;dx++)for(let dz=-4;dz<=4;dz++)if(Math.max(Math.abs(dx),Math.abs(dz))>=3&&Math.abs(dx)+Math.abs(dz)<=5&&hash(wx+dx,wz+dz,992)<.7)
         for(let dy=0;dy<2+Math.floor(hash(wx+dx,wz+dz,993)*3);dy++)set(tx+dx,t.h+t.th-dy,tz+dz,leaf,true);
+    }else if(t.type==='gum'){
+      branch(turn*2,t.th-1,0);branch(-turn,t.th,turn);
+      crown(turn*2,t.th,0,1.9,1.1,1.9);crown(-turn,t.th+1,turn,1.7,1,1.7);crown(0,t.th+1,0,1.6,1.2,1.6);
     }else if(t.type==='savanna'){
       branch(turn*2,t.th,1);branch(-turn,t.th-1,-1);crown(turn*2,t.th+1,1,2,1,2);crown(-turn,t.th,-1,2,1,2);
     }else if(t.type==='birch'){
@@ -3622,6 +3660,9 @@ const chickMats = { body: entMat(0xf4f4ef), wing: entMat(0xdedcd2), head: entMat
 const horseMats = { body: entMat(0x7a5230), belly: entMat(0x633f22), head: entMat(0x6b4728), mane: entMat(0x2c1c10), snout: entMat(0x4a3320), leg: entMat(0x5a3d24), hoof: entMat(0x241811), eye: entMat(0x120b06), ear: entMat(0x5a3d24) };
 const wolfMats  = { body: entMat(0x9a9a9a), belly: entMat(0xcfcfca), head: entMat(0xa6a6a6), snout: entMat(0x5f5f5f), nose: entMat(0x1a1a1a), leg: entMat(0x808080), ear: entMat(0x6a6a6a), eye: entMat(0xc9b23a), tail: entMat(0x8a8a8a) };
 const rabbitMats= { body: entMat(0xbfa78f), belly: entMat(0xe6dccb), head: entMat(0xc9b39d), earIn: entMat(0xe0b7b0), ear: entMat(0xb09a82), leg: entMat(0xa8927b), eye: entMat(0x241a12), tail: entMat(0xf0ebe1), nose: entMat(0x9a6a63) };
+const rooMats   = { body: entMat(0xa8703f), belly: entMat(0xd8b189), head: entMat(0x9c6637), snout: entMat(0x7d4f2a), nose: entMat(0x2a1a10), leg: entMat(0x94602f), ear: entMat(0x8a5730), earIn: entMat(0xd9a68a), eye: entMat(0x1d1209), tail: entMat(0x8f5c2c) };
+const foxMats   = { body: entMat(0xd2762c), belly: entMat(0xf0e4d4), head: entMat(0xdb8137), snout: entMat(0xf2e7d8), nose: entMat(0x241611), leg: entMat(0x5b3a24), ear: entMat(0xb35f22), earIn: entMat(0x33201a), eye: entMat(0x2b1a0d), tail: entMat(0xdc8438) };
+const llamaMats = { body: entMat(0xd6c7ab), belly: entMat(0xe8ddc7), head: entMat(0xe0d3ba), snout: entMat(0xefe6d3), nose: entMat(0x3a2f24), leg: entMat(0xc6b498), ear: entMat(0xcfc0a4), earIn: entMat(0xb5a68c), eye: entMat(0x25190f), tail: entMat(0xcfc0a4) };
 const fantasyMats={moss:entMat(0x70a75b),moon:entMat(0xb7a2dc),crystal:entMat(0x4bc5ba),dark:entMat(0x263345),cap:entMat(0xb86889),glow:entMat(0xcdf88d)};
 const FANTASY=['mossling','moonhopper','crystalback'];
 function mergeAnimalParts(parent){
@@ -3637,7 +3678,8 @@ function mergeAnimalParts(parent){
 function spawnAnimal(type, x, y, z){
   const g = new THREE.Group();
   const legs = [];
-  const palettes={pig:pigMats,sheep:sheepMats,cow:cowMats,horse:horseMats,wolf:wolfMats,rabbit:rabbitMats,chicken:chickMats};
+  const palettes={pig:pigMats,sheep:sheepMats,cow:cowMats,horse:horseMats,wolf:wolfMats,rabbit:rabbitMats,chicken:chickMats,
+                  kangaroo:rooMats,fox:foxMats,llama:llamaMats};
   const m=palettes[type];
   const part=(w,h,d,mat,x,y,z,parent=g)=>box(w,h,d,mat,x,y,z,parent);
   const limb=(x,z,height,width,mat,footMat,footDepth=width)=>{
@@ -3655,7 +3697,38 @@ function spawnAnimal(type, x, y, z){
     part(w,h,.09,mat,0,h/2,0,p);if(inner)part(w*.48,h*.7,.018,inner,0,h*.52,-.05,p);
   };
   if(m){
-    const profiles={pig:[.76,.49,1.05,.62,.46,.43,.42,.72,-.68,.34],sheep:[.88,.65,1.18,.81,.35,.4,.38,.9,-.76,.45],cow:[.86,.66,1.28,.94,.44,.45,.45,1.12,-.79,.59],horse:[.67,.69,1.38,1.15,.33,.43,.48,1.58,-.91,.8],wolf:[.44,.44,.85,.64,.36,.35,.38,.84,-.56,.42],rabbit:[.34,.34,.48,.35,.25,.26,.27,.48,-.29,.2],chicken:[.4,.4,.55,.44,.25,.29,.26,.75,-.28,.24]};
+   if(type==='kangaroo'){
+    const body=m.body, head=m.head||m.body;
+    // heavy tapering tail, sweeping back and down so it tripods on the ground
+    const tailA=new THREE.Group();tailA.position.set(0,.6,.16);tailA.rotation.x=-.5;g.add(tailA);
+    part(.21,.21,.52,m.tail,0,0,.26,tailA);
+    const tailB=new THREE.Group();tailB.position.set(0,-.02,.5,tailA);tailB.rotation.x=.38;tailA.add(tailB);
+    part(.16,.16,.46,m.tail,0,0,.23,tailB);
+    // powerful haunches over long flat feet
+    for(const side of [-1,1]){
+      const pivot=new THREE.Group();pivot.position.set(side*.17,.66,-.02);g.add(pivot);
+      part(.25,.42,.34,m.leg,0,-.19,.02,pivot);     // thigh
+      part(.17,.3,.17,m.leg,0,-.48,-.08,pivot);     // shin
+      part(.2,.1,.5,m.leg,0,-.63,-.2,pivot);        // the big foot
+      legs.push(pivot);
+    }
+    // torso, leaning forward over the hips
+    const torso=part(.44,.62,.4,body,0,1.02,-.05);torso.rotation.x=.17;
+    part(.33,.34,.28,m.belly||body,0,.84,-.16);
+    // little forearms tucked at the chest
+    for(const side of [-1,1]){
+      const arm=part(.1,.3,.12,m.leg,side*.23,1.08,-.21);arm.rotation.x=-.55;
+    }
+    // head, muzzle and the tall ears
+    part(.29,.28,.33,head,0,1.44,-.17);
+    part(.17,.15,.19,m.snout,0,1.4,-.4);
+    part(.08,.06,.05,m.nose,0,1.42,-.51);
+    eyes(.1,1.49,-.335,m.eye);
+    for(const side of [-1,1])ear(side*.1,1.57,-.12,.09,.27,m.ear,m.earIn,side*.17);
+   } else {
+    const profiles={pig:[.76,.49,1.05,.62,.46,.43,.42,.72,-.68,.34],sheep:[.88,.65,1.18,.81,.35,.4,.38,.9,-.76,.45],cow:[.86,.66,1.28,.94,.44,.45,.45,1.12,-.79,.59],horse:[.67,.69,1.38,1.15,.33,.43,.48,1.58,-.91,.8],wolf:[.44,.44,.85,.64,.36,.35,.38,.84,-.56,.42],rabbit:[.34,.34,.48,.35,.25,.26,.27,.48,-.29,.2],chicken:[.4,.4,.55,.44,.25,.29,.26,.75,-.28,.24],
+      fox:[.36,.34,.82,.46,.3,.28,.34,.62,-.52,.26],
+      llama:[.56,.68,1.02,1.0,.34,.4,.44,1.78,-.5,.6]};
     const [bw,bh,bd,by,hw,hh,hd,hy,hz,lh]=profiles[type];
     const body=m.body||m.wool,head=m.head||body;
     part(bw,bh,bd,body,0,by,0);part(bw*.8,bh*.28,bd*.85,m.belly||m.woolSh||body,0,by-bh*.34,0);
@@ -3669,7 +3742,17 @@ function spawnAnimal(type, x, y, z){
       for(let i=-1;i<=1;i++){const tail=part(.10,.32,.13,m.wing,i*.08,.62,.3);tail.rotation.x=-.5;tail.rotation.z=i*.2;}
     }else{
       for(const [side,back] of [[-1,-1],[1,-1],[-1,1],[1,1]])limb(side*bw*.32,back*bd*.32,lh,small?.10:type==='wolf'?.12:.17,m.leg,m.hoof||m.leg,type==='rabbit'&&back===1?.3:undefined);
-      if(type==='rabbit'){
+      if(type==='fox'){
+        for(const side of [-1,1])ear(side*.13,.8,-.5,.1,.2,m.ear,m.earIn,side*.1);
+        part(.16,.13,.22,m.snout,0,.58,-.74);part(.06,.05,.05,m.nose,0,.59,-.85);
+        const tail=part(.26,.26,.6,m.tail,0,.5,.52);tail.rotation.x=-.22;  // big brush tail
+        part(.2,.1,.18,m.belly,0,.46,.72);
+      }else if(type==='llama'){
+        const neck=part(.3,.78,.34,body,0,1.42,-.4);neck.rotation.x=.14;
+        for(const side of [-1,1])ear(side*.11,1.99,-.48,.07,.22,m.ear,m.earIn,side*.08);
+        part(.22,.16,.2,m.snout,0,1.7,-.68);part(.06,.05,.04,m.nose,0,1.72,-.77);
+        const tail=part(.13,.2,.13,m.tail,0,1.0,.54);tail.rotation.x=-.3;
+      }else if(type==='rabbit'){
         for(const side of [-1,1]){ear(side*.085,.58,-.26,.085,.39,m.ear,m.earIn,side*.18);part(.18,.24,.25,body,side*.15,.24,.15);}
         part(.15,.15,.15,m.tail,0,.35,.3);part(.055,.04,.03,m.nose,0,.43,-.44);
       }else if(type==='pig'){
@@ -3691,6 +3774,7 @@ function spawnAnimal(type, x, y, z){
         part(.34,.34,.26,m.belly,0,.61,-.35);const tail=part(.2,.2,.56,m.tail,0,.68,.58);tail.rotation.x=-.3;part(.15,.15,.16,m.belly,0,.78,.86);
       }
     }
+   }
   }else{
     const moss=type==='mossling',moon=type==='moonhopper',body=moss?fantasyMats.moss:moon?fantasyMats.moon:fantasyMats.crystal;
     if(moss){
@@ -3716,11 +3800,14 @@ function spawnAnimal(type, x, y, z){
   scene.add(g);
   animals.push({
     kind: 'animal', type, group: g, legs,
-    hp: type === 'chicken' ? 4 : type === 'rabbit' ? 3 : type === 'horse' ? 22 : type === 'wolf' ? 8 : 10,
+    hp: type === 'chicken' ? 4 : type === 'rabbit' ? 3 : type === 'horse' ? 22 : type === 'wolf' ? 8 :
+        type === 'kangaroo' ? 12 : type === 'fox' ? 6 : type === 'llama' ? 15 : 10,
     pos: new THREE.Vector3(x, y, z), vel: new THREE.Vector3(),
-    w: type === 'chicken' ? 0.25 : type === 'rabbit' ? 0.2 : type === 'horse' ? 0.45 : 0.4,
+    w: type === 'chicken' ? 0.25 : type === 'rabbit' ? 0.2 : type === 'horse' ? 0.45 :
+       type === 'fox' ? 0.3 : type === 'llama' ? 0.42 : 0.4,
     h: FANTASY.includes(type)?1.5:type === 'pig' ? 0.95 : type === 'sheep' ? 1.2 : type === 'cow' ? 1.4 :
-       type === 'horse' ? 1.6 : type === 'wolf' ? 1.0 : type === 'rabbit' ? 0.5 : 0.75,
+       type === 'horse' ? 1.6 : type === 'wolf' ? 1.0 : type === 'rabbit' ? 0.5 :
+       type === 'kangaroo' ? 1.7 : type === 'fox' ? 0.75 : type === 'llama' ? 2.0 : 0.75,
     yaw: Math.random() * Math.PI * 2, speed: 0, t: 1 + Math.random() * 2,
     flee: 0, onGround: false, anim: Math.random() * 9,
     callT: 1.5 + Math.random() * 4,
@@ -3761,7 +3848,9 @@ function updateAnimalSpawns(dt){
   const h = findSurfaceY(x, z);
   if(h < 0 || h <= SEA + 1 || h >= SNOW_H) return;
   const ground = getBlock(x, h, z);
-  if(ground !== GRASS && ground !== SAVGRASS && ground !== SAND && ground !== SNOW) return;
+  if(ground !== GRASS && ground !== SAVGRASS && ground !== SAND && ground !== SNOW &&
+     ground !== REDSAND && ground !== PODZOL && ground !== TERRACOTTA &&
+     ground !== TERRA_ORANGE && ground !== TERRA_PALE) return;
   const bio = biomeAt(x, z);
   let pool;
   if(bio==='cherry-grove')pool=['moonhopper','moonhopper','mossling'];
@@ -3769,6 +3858,9 @@ function updateAnimalSpawns(dt){
   else if(bio==='willow-marsh')pool=['crystalback','mossling','crystalback'];
   else if(bio === 'snowy')        pool = ['rabbit', 'wolf', 'sheep', 'rabbit'];
   else if(bio === 'desert')  pool = ['rabbit'];
+  else if(bio === 'outback')  pool = ['kangaroo', 'kangaroo', 'kangaroo', 'rabbit'];
+  else if(bio === 'taiga')    pool = ['fox', 'fox', 'wolf', 'rabbit', 'sheep'];
+  else if(bio === 'badlands') pool = ['llama', 'llama', 'rabbit'];
   else if(bio === 'forest' || bio === 'birch' || bio === 'jungle') pool = ['wolf', 'pig', 'cow', 'chicken', 'wolf'];
   else if(bio === 'savanna') pool = ['horse', 'horse', 'cow', 'chicken'];
   else if(bio === 'plains')  pool = ['horse', 'pig', 'sheep', 'cow', 'chicken', 'rabbit'];
@@ -3825,6 +3917,13 @@ function animMob(e, dt){
   e.group.rotation.y += dyaw * Math.min(1, dt * 8);
   const sp = Math.hypot(e.vel.x, e.vel.z);
   e.anim += dt * (2 + sp * 4);
+  if(e.type === 'kangaroo'){
+    // a roo bounds: both feet swing together and the whole body lifts
+    const beat = Math.sin(e.anim * 3.4), drive = Math.min(1, sp);
+    for(const leg of e.legs) leg.rotation.x = beat * 0.5 * drive;
+    e.group.position.y += Math.max(0, beat) * 0.3 * drive;
+    return;
+  }
   for(let j = 0; j < e.legs.length; j++)
     e.legs[j].rotation.x = Math.sin(e.anim * 3 + (j % 2 ? Math.PI : 0)) * 0.55 * Math.min(1, sp);
 }
