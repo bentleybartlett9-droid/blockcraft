@@ -499,7 +499,9 @@ function villageDef(gx, gz){
           w: 5 + Math.floor(hash(gx, gz, 3020 + i) * 3),
           d: 5 + Math.floor(hash(gx, gz, 3030 + i) * 3),
           door: Math.floor(hash(gx, gz, 3040 + i) * 4),
-          type: roll < 0.22 ? 'farm' : roll < 0.4 ? 'tall' : 'house',   // some plots are farms / 2-storey
+          type: roll < 0.16 ? 'farm' : roll < 0.28 ? 'blacksmith'
+              : roll < 0.40 ? 'library' : roll < 0.52 ? 'inn'
+              : roll < 0.68 ? 'tall' : 'house',
         });
       }
       if(houses.length >= 3) v = { cx, cz, cy: ch, houses, biome: bm, key: k };
@@ -2404,6 +2406,15 @@ function stockLootChest(x, y, z, key, kind){
   } else if(kind === 'dungeon'){
     loot = [[IRONI, 2 + ((R()*4)|0)], [BREAD, 1 + ((R()*3)|0)], [GUNPOWDER, 1 + ((R()*3)|0)],
             [WHEATITEM, 1 + ((R()*3)|0)], [GOLDI, R() < 0.5 ? 1 + ((R()*2)|0) : 0]];
+  } else if(kind === 'blacksmith'){
+    loot = [[IRONI, 3 + ((R()*4)|0)], [COALI, 4 + ((R()*5)|0)], [GOLDI, R() < 0.5 ? 2 : 0],
+            [EMERALD, R() < 0.4 ? 1 : 0], [DIAMI, R() < 0.15 ? 1 : 0]];
+  } else if(kind === 'library'){
+    loot = [[BREAD, 2], [WHEATITEM, 2 + ((R()*3)|0)], [EMERALD, R() < 0.5 ? 1 : 0],
+            [MELONSLICE, R() < 0.4 ? 2 : 0]];
+  } else if(kind === 'inn'){
+    loot = [[BREAD, 3 + ((R()*3)|0)], [MELONSLICE, 2], [WHEATITEM, 2],
+            [EMERALD, R() < 0.3 ? 1 : 0]];
   } else if(kind === 'mine'){
     loot = [[COALI, 3 + ((R()*6)|0)], [IRONI, 2 + ((R()*5)|0)], [RAIL, 4 + ((R()*8)|0)],
             [MINECART, R() < 0.4 ? 1 : 0], [GOLDI, R() < 0.4 ? 1 + ((R()*2)|0) : 0]];
@@ -2464,6 +2475,7 @@ function stampVillage(v, set, data, cx, cz){
   for(const hs of v.houses){
     if(hs.type === 'farm'){ stampFarm(hs, setW); continue; }
     stampHouse(hs, setW, P, hs.type === 'tall');
+    furnishBuilding(hs, setW);
   }
 }
 // A village crop farm: log-framed plot, tilled soil + wheat, a water channel.
@@ -2478,6 +2490,37 @@ function stampFarm(hs, setW){
       setW(wx, y0, wz, water ? WATER : FARMLAND);
       if(!water){ setW(wx, y0 + 1, wz, WHEAT3, true); }
     }
+  }
+}
+/* interiors: a forge, a reading room, or rentable beds — each with fitting loot */
+function furnishBuilding(hs, setW){
+  const x0 = hs.x - (hs.w >> 1), z0 = hs.z - (hs.d >> 1), y0 = hs.y;
+  const x1 = x0 + hs.w - 1, z1 = z0 + hs.d - 1;
+  const midX = x0 + (hs.w >> 1), midZ = z0 + (hs.d >> 1);
+  const key = hs.x + ',' + hs.y + ',' + hs.z;
+  if(hs.type === 'blacksmith'){
+    setW(x0 + 1, y0 + 1, z1 - 1, FURN, true);          // the forge
+    setW(x0 + 2, y0 + 1, z1 - 1, FURN, true);
+    setW(midX, y0 + 1, midZ, CRAFTT, true);
+    setW(x1 - 1, y0 + 1, z1 - 1, TERRACOTTA, true);
+    setW(x1 - 1, y0 + 2, z1 - 1, GLOWSTONE, true);
+    setW(x1 - 1, y0 + 1, z0 + 1, CHEST, true);
+    stockLootChest(x1 - 1, y0 + 1, z0 + 1, 'smith' + key, 'blacksmith');
+  } else if(hs.type === 'library'){
+    for(let dz = 2; dz < hs.d - 1; dz++){
+      setW(x0 + 1, y0 + 1, z0 + dz, BOOKSHELF, true);
+      setW(x0 + 1, y0 + 2, z0 + dz, BOOKSHELF, true);
+      setW(x1 - 1, y0 + 1, z0 + dz, BOOKSHELF, true);
+    }
+    setW(midX, y0 + 1, midZ, CRAFTT, true);
+    setW(midX, y0 + 1, z1 - 1, CHEST, true);
+    stockLootChest(midX, y0 + 1, z1 - 1, 'lib' + key, 'library');
+  } else if(hs.type === 'inn'){
+    setW(x0 + 1, y0 + 1, z1 - 1, BED, true);           // beds you can actually sleep in
+    setW(x1 - 1, y0 + 1, z1 - 1, BED, true);
+    setW(midX, y0 + 1, midZ, SLAB_WOOD, true);         // common table
+    setW(x1 - 1, y0 + 1, z0 + 1, CHEST, true);
+    stockLootChest(x1 - 1, y0 + 1, z0 + 1, 'inn' + key, 'inn');
   }
 }
 function stampHouse(hs, setW, P, tall){
@@ -2522,7 +2565,7 @@ function stampHouse(hs, setW, P, tall){
     else setW(wx, ry, wz, P.roof);
   }
   setW(x0 + 1, y0 + 1, z0 + 1, TORCH);
-  setW(midX, y0 + 1, midZ, CRAFTT, true);
+  if(hs.type === 'house' || hs.type === 'tall') setW(midX, y0 + 1, midZ, CRAFTT, true);
   const off = hs.door === 0 ? [midX + 1, z0 - 1] :
               hs.door === 1 ? [midX + 1, z0 + hs.d] :
               hs.door === 2 ? [x0 - 1, midZ + 1] :
