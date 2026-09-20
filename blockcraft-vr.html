@@ -338,7 +338,9 @@ const IS_VR      = BUILD === 'vr';
 
 
 /* ============================== config ============================== */
-const CHUNK = 16, HEIGHT = 96, SEA = 26, SNOW_H = 52;
+const CHUNK = 16, HEIGHT = 144, SEA = 66, SNOW_H = 92;
+const DEEP_Y = 34;              // below this the stone turns to deepslate
+const WORLD_LIFT = 40;          // how far this build raised terrain vs the old 96-tall world
 const QUEST_DEVICE=/Quest|Oculus/i.test(navigator.userAgent);
 let RD = Math.min(7, Math.max(2, parseInt(localStorage.getItem(QUEST_DEVICE?'blockcraft-vr-rd':'blockcraft-rd')) || (QUEST_DEVICE?3:5)));
 function finishSteps(it){let r;do{r=it.next();}while(!r.done);return r.value;}
@@ -405,7 +407,7 @@ function terrainHeight(x, z){
   const cont   = fbm(x * 0.004, z * 0.004, 4, 11);
   const hills  = fbm(x * 0.015, z * 0.015, 4, 29);
   const detail = fbm(x * 0.06,  z * 0.06,  2, 47);
-  let h = 14 + cont * 24 + hills * 18 + detail * 3;
+  let h = 54 + cont * 24 + hills * 18 + detail * 3;
   const m = Math.max(0, cont - 0.55) / 0.45;
   h += m * m * 30;
   // mountain ranges: a separate low-freq mask drives tall, ridged peaks
@@ -676,7 +678,8 @@ const CHERRYLOG=160, CHERRYPLANK=161, CHERRYLEAVES=162,
 const CRYSTALORE=187,GLOWCRYSTAL=188,CRYSTALBRICK=189,CRYSTALSHARD=212,CRYSTALPICK=213,CRYSTALSWORD=214;
 const BLUEBELL=175,LAVENDER=176,DAISY=177,ORCHID=178,CROCUS=179,DESERTFLOWER=180,FERN=181,REEDS=182,DRYGRASS=183,AMBERFLOWER=184,NETHERSPROUT=185,ENDSPROUT=186;
 const GUMLOG=190, GUMPLANK=191, GUMLEAVES=192, SPINIFEX=193,
-      REDSAND=194, TERRA_ORANGE=195, TERRA_PALE=196, BERRYBUSH=197, COARSEDIRT=198;
+      REDSAND=194, TERRA_ORANGE=195, TERRA_PALE=196, BERRYBUSH=197, COARSEDIRT=198,
+      DEEPSLATE=199;
 const FLORA=[
  {id:BLUEBELL,name:'Bluebell',color:'#7da8ef',kind:'bells'},
  {id:LAVENDER,name:'Lavender',color:'#b298de',kind:'spike'},
@@ -818,6 +821,7 @@ EXTRA_WOODS.forEach((w,i)=>{
 for(const [id,name,tile] of [[MARBLE,'Marble',134],[MARBLEBRICK,'Marble Bricks',135],[BASALT,'Basalt',136],[BASALTBRICK,'Basalt Bricks',137],[MOSAIC,'Mosaic Tiles',138],[AMBERLAMP,'Amber Lantern',139]])BLOCKS[id]={name,all:tile};
 FLORA.forEach((f,i)=>BLOCKS[f.id]={name:f.name,all:112+i});
 BLOCKS[COARSEDIRT]={name:'Coarse Dirt',all:143};
+BLOCKS[DEEPSLATE]={name:'Deepslate',all:144};
 BLOCKS[REDSAND]={name:'Red Sand',all:140};
 BLOCKS[TERRA_ORANGE]={name:'Orange Terracotta',all:141};
 BLOCKS[TERRA_PALE]={name:'Pale Terracotta',all:142};
@@ -942,6 +946,7 @@ function toolClassOf(id){
   if([MARBLE,MARBLEBRICK,BASALT,BASALTBRICK,MOSAIC,AMBERLAMP].includes(id))return 'pick';
   if(isLog(id) || ANY_PLANK.includes(id) || id === CRAFTT || id === BED || id === CHEST) return 'axe';
   if(id === GRASS || id === SAVGRASS || id === DIRT || id === SAND || id === SNOW) return 'shovel';
+  if(id === DEEPSLATE) return 'pick';
   if(id === STONE || id === BRICK || id === SBRICK || id === GLOWB || id === FURN || id === IRONB ||
      id === GOLDB || id === DIAMB || id === COALO || id === IRONO || id === GOLDO || id === DIAMO || id === EMERO) return 'pick';
   return null;
@@ -956,6 +961,7 @@ function handTime(id){
   if(isLog(id) || ANY_PLANK.includes(id) || id === CRAFTT || id === BED || id === CHEST) return 3.0;
   if(id === CRYSTALORE || id === DIAMO || id === IRONB || id === GOLDB || id === DIAMB) return 5.0;
   if(id === COALO || id === IRONO || id === GOLDO || id === EMERO) return 4.5;
+  if(id === DEEPSLATE) return 5.5;                 // noticeably tougher than surface stone
   return 4.0;
 }
 /* crafting recipes — st: undefined (anywhere) | 'table' | 'furnace' */
@@ -1776,7 +1782,7 @@ itemAtlas.width = 128; itemAtlas.height = 256;
 const tileAvg = [];
 {
   const ctx = atlas.getContext('2d');
-  for(let ti = 0; ti <= 143; ti++){      // every tile, so break particles match the block
+  for(let ti = 0; ti <= 144; ti++){      // every tile, so break particles match the block
     const d = ctx.getImageData((ti % ATLAS_COLS) * 16, ((ti / ATLAS_COLS) | 0) * 16, 16, 16).data;
     let r = 0, g = 0, b = 0, n = 0;
     for(let i = 0; i < d.length; i += 4) if(d[i+3] > 40){ r += d[i]; g += d[i+1]; b += d[i+2]; n++; }
@@ -1795,7 +1801,7 @@ const tileAvg = [];
   g.fillStyle='rgb('+base.map(c=>Math.max(0,Math.min(255,c+v))).join(',')+')';g.fillRect((tile%8)*16+x,Math.floor(tile/8)*16+y,1,1);
  }}
  EXTRA_WOODS.forEach((w,i)=>{let t=94+i*4;paint(t,w.bark,'bark');paint(t+1,w.wood,'brick');paint(t+2,w.wood,'plank');paint(t+3,w.leaf,'leaf');});
- [[140,[198,104,56],'stone'],[141,[176,98,52],'brick'],[142,[214,176,140],'brick'],
+ [[144,[64,64,71],'stone'],[140,[198,104,56],'stone'],[141,[176,98,52],'brick'],[142,[214,176,140],'brick'],
   [134,[218,218,211],'stone'],[135,[218,218,211],'brick'],[136,[58,65,73],'stone'],[137,[65,74,84],'brick'],[138,[156,174,178],'brick'],[139,[236,169,65],'brick']].forEach(a=>paint(...a));
  const it=itemAtlas.getContext('2d');for(const [tile,color] of [[49,'#db446a'],[50,'#d59351'],[51,'#8aa54c'],[52,'#62efd9'],[53,'#dccbfa']]){
   const x=(tile%8)*16,y=Math.floor(tile/8)*16;it.fillStyle='#3b293b';it.fillRect(x+3,y+5,11,9);it.fillStyle=color;it.fillRect(x+4,y+4,9,8);it.fillStyle='#e6edb7';it.fillRect(x+5,y+5,3,2);
@@ -1958,6 +1964,48 @@ try { overworldEdits = JSON.parse(localStorage.getItem(SAVE_KEY)) || {}; edits =
 try { netherEdits = JSON.parse(localStorage.getItem(NETHER_KEY)) || {}; } catch(e){ netherEdits = {}; }
 try { endEdits = JSON.parse(localStorage.getItem(END_KEY)) || {}; } catch(e){ endEdits = {}; }
 try { chests = JSON.parse(localStorage.getItem(CHEST_KEY)) || {}; } catch(e){ chests = {}; }
+/* This build raised the terrain by WORLD_LIFT. Worlds saved before that
+   store their blocks at the old heights, so lift them to match rather
+   than leaving someone's house underground. Runs once per world. */
+(function liftOldSave(){
+  const MARK = SAVE_KEY + '-lift';
+  try {
+    if(localStorage.getItem(MARK)) return;                    // already lifted
+    const shiftEdits = obj => {
+      let moved = 0;
+      for(const ck in obj){
+        const out = {};
+        for(const k in obj[ck]){
+          const [lx, y, lz] = k.split(',').map(Number);
+          const ny = y + WORLD_LIFT;
+          if(ny >= 0 && ny < HEIGHT){ out[lx + ',' + ny + ',' + lz] = obj[ck][k]; moved++; }
+        }
+        obj[ck] = out;
+      }
+      return moved;
+    };
+    const touched = shiftEdits(overworldEdits) + shiftEdits(netherEdits) + shiftEdits(endEdits);
+    // chests are keyed by absolute world position
+    const lifted = {};
+    for(const key in chests){
+      const [x, y, z] = key.split(',').map(Number);
+      lifted[x + ',' + (y + WORLD_LIFT) + ',' + z] = chests[key];
+    }
+    chests = lifted;
+    // and the bed you respawn at
+    const bs = JSON.parse(localStorage.getItem(SAVE_KEY + '-bed') || 'null');
+    if(bs && typeof bs.y === 'number'){
+      bs.y += WORLD_LIFT;
+      localStorage.setItem(SAVE_KEY + '-bed', JSON.stringify(bs));
+    }
+    localStorage.setItem(SAVE_KEY, JSON.stringify(overworldEdits));
+    localStorage.setItem(NETHER_KEY, JSON.stringify(netherEdits));
+    localStorage.setItem(END_KEY, JSON.stringify(endEdits));
+    localStorage.setItem(CHEST_KEY, JSON.stringify(chests));
+    localStorage.setItem(MARK, String(WORLD_LIFT));
+    if(touched) console.log('[blockcraft] lifted ' + touched + ' saved blocks by ' + WORLD_LIFT);
+  } catch(e){ /* a failed migration must never block the game starting */ }
+})();
 let survInv;
 try { survInv = (JSON.parse(localStorage.getItem(INV_KEY)) || []).map(s => ({ id: s[0] | 0, count: s[1] | 0, dur: s[2] | 0 })); } catch(e){}
 if(!survInv || (survInv.length !== 9 && survInv.length !== 36)) survInv = [];
@@ -2173,16 +2221,17 @@ function* genChunkSteps(cx, cz){
       if(y>3&&y<h-5&&cuts.some(([lo,hi])=>y>lo&&y<hi))carved=true;
       if(carved){ b = AIR; }
       else if(b === STONE && y > 1){
-        if(y<32&&hash3(wx,y,wz,9810)<.0024){data[(y<<8)|(lz<<4)|lx]=CRYSTALORE;continue;}
-        if(y>12&&y<h-4){const rock=vnoise3(wx*.08,y*.08,wz*.08,822);if(rock>.72)b=MARBLE;else if(rock<.28)b=BASALT;}
+        if(y<40&&hash3(wx,y,wz,9810)<.0024){data[(y<<8)|(lz<<4)|lx]=CRYSTALORE;continue;}
+        if(y>20&&y<h-4){const rock=vnoise3(wx*.08,y*.08,wz*.08,822);if(rock>.72)b=MARBLE;else if(rock<.28)b=BASALT;}
         if(b!==STONE){data[(y<<8)|(lz<<4)|lx]=b;continue;}
-        if(y >= 20 && hash3(wx, y, wz, 4343) < 0.0022){ data[(y << 8) | (lz << 4) | lx] = EMERO; continue; }
+        if(y >= 30 && hash3(wx, y, wz, 4343) < 0.0022){ data[(y << 8) | (lz << 4) | lx] = EMERO; continue; }
         const r = hash3(wx, y, wz, 4242);
-        if(y < 14 && r < 0.0028) b = DIAMO;
-        else if(y < 18 && r < 0.006) b = GOLDO;
-        else if(y < 34 && r < 0.013) b = IRONO;
-        else if(y < 44 && r < 0.024) b = COALO;
+        if(y < 26 && r < 0.0030) b = DIAMO;              // deep down, a real journey
+        else if(y < 34 && r < 0.006) b = GOLDO;
+        else if(y < 60 && r < 0.013) b = IRONO;
+        else if(y < 82 && r < 0.024) b = COALO;
       }
+      if(b === STONE && y > 0 && y < DEEP_Y) b = DEEPSLATE;
       data[(y << 8) | (lz << 4) | lx] = b;
     }
     for(let y = h + 1; y <= SEA; y++) data[(y << 8) | (lz << 4) | lx] = WATER;
@@ -3582,8 +3631,13 @@ function damage(n){
   if(hp <= 0){
     dead = true;
     tone(300, 40, 0.6, 'sawtooth', 0.18);
-    document.exitPointerLock();
-    deathEl.style.display = 'flex';
+    hapticPulse(null, 1, 300);
+    if(xrActive){
+      openCraftVR('dead');            // stay in VR; the DOM overlay is invisible in a headset
+    } else {
+      document.exitPointerLock();
+      deathEl.style.display = 'flex';
+    }
   }
 }
 // Bed spawn point: set when you sleep, persisted, used on respawn.
@@ -3602,6 +3656,10 @@ function respawn(){
   player.vel.set(0, 0, 0);
   fallPeak = player.pos.y;
   deathEl.style.display = 'none';
+  if(vrMenuTab === 'dead'){                  // don't leave the menu parked on the death screen
+    vrMenuTab = 'inventory';
+    if(vrCraftOpen) closeCraftVR();
+  }
 }
 function swapHeld(newId){
   // replace the currently-held item with another single item (buckets)
@@ -7295,11 +7353,13 @@ function buildCraftPanel(){
   const tabDefs=[['inventory','Inventory'],['craft',mode==='creative'?'All items':'Crafting'],['armour','Armour']];
   if(tradeVillager) tabDefs.push(['trade','Trade']);
   tabDefs.push(['mp','Play Together'],['help','Controls']);
+  if(dead) tabDefs.length = 0;                 // dead players get one decision, not a menu
   const tabStep=Math.floor(1025/tabDefs.length), tabW=tabStep-14;
   tabDefs.forEach(([tab,label],i)=>{
     button(35+i*tabStep,115,tabW,55,label,()=>{vrMenuTab=tab;vrMenuPage=0;vrPickedSlot=null;vrMenuStatus='';},true,vrMenuTab===tab);
   });
-  button(1110,115,290,55, chestPos && vrMenuTab!=='chest'?'Back to chest':'Close',()=>{if(chestPos&&vrMenuTab!=='chest')vrMenuTab='chest';else closeCraftVR();});
+  if(!dead)
+    button(1110,115,290,55, chestPos && vrMenuTab!=='chest'?'Back to chest':'Close',()=>{if(chestPos&&vrMenuTab!=='chest')vrMenuTab='chest';else closeCraftVR();});
   function icon(id,x,y,size=50){
     if(!id)return;drawIcon(vrIconCanvas.getContext('2d'),id);g.imageSmoothingEnabled=false;g.drawImage(vrIconCanvas,x,y,size,size);
   }
@@ -7386,6 +7446,16 @@ function buildCraftPanel(){
         button(1030,602,355,62,'Craft & equip',()=>vrCraftSelected(true),canCraft(r));
       } else text('Select a recipe to see what it needs.',710,325,25,'#454545',670);
     }
+  } else if(vrMenuTab==='dead'){
+    g.fillStyle='#8a2f2f';g.fillRect(0,150,1440,190);
+    g.font='bold 104px system-ui';g.fillStyle='#ffe9e9';
+    g.fillText('You died',60,272);
+    g.font='24px system-ui';
+    text(bedSpawn ? 'You will wake at your bed.' : 'You will wake at your world spawn.',
+         60,392,28,'#454545',1200);
+    button(60,440,470,108,'Respawn',()=>{ respawn(); });
+    button(560,440,420,108,'Quit to title',()=>{ respawn(); closeCraftVR(); quitToTitle(); });
+    text('Point with the right controller and pull the trigger.',60,592,24,'#454545',1200);
   } else if(vrMenuTab==='mp'){
     const connected = mpActive();
     text('PLAY TOGETHER',35,190,27,'#454545');
@@ -7806,6 +7876,7 @@ function updateVR(dt){
   vrBody.rotation.y = eB.y;   // rig already rotates by yawOffset
   updateWristHotbar();
   if(vrMenuInput(dt)){ updateAvatarArms(); updateVignette(dt, false); return; }
+  if(dead){ updateAvatarArms(); updateVignette(dt, false); return; }
 
   // right thumbstick: X = snap turn (comfort), Y = cycle hotbar
   const ra = readAxes('right');
@@ -8027,6 +8098,7 @@ function animate(){
   foliageTime.value=now;
   const daylight = (dim === 1 || dim === 2) ? 0 : daylightOf(timeOfDay);
 
+  if(locked && dead && xrActive) updateVR(dt);   // menu only: updateVR bails before movement
   if(locked && !dead){
     if(xrActive) updateVR(dt);
     physics(dt);
