@@ -175,6 +175,7 @@
   <button class="mcbtn" id="btnSwitch">Switch to Creative</button>
   <button class="mcbtn" id="btnMusic">Music: On</button>
   <button class="mcbtn" id="btnRender">Render Distance: 5</button>
+  <button class="mcbtn" id="btnVignette">VR Comfort: On</button>
   <button class="mcbtn" id="btnQuit">Save &amp; Quit to Title</button>
   <div class="ctrl">
     <div><b>W A S D</b> move</div><div><b>Mouse</b> look</div>
@@ -3460,6 +3461,7 @@ function damage(n){
   renderHearts();
   tone(140 * jr(0.15), 45, 0.2, 'sawtooth', 0.22);
   playN({ f: 220, type: 'lowpass', dur: 0.18, vol: 0.2 });
+  hapticPulse(null, 1, 120);              // both controllers jolt when you're hit
   hurtEl.style.opacity = 0.85;
   setTimeout(() => hurtEl.style.opacity = 0, 60);
   if(hp <= 0){
@@ -5226,6 +5228,7 @@ function updateDrops(dt){
       renderHotbar();
       tone(430 * jr(0.1), 880, 0.07, 'sine', 0.14);
       tone(660 * jr(0.1), 1320, 0.07, 'sine', 0.1, 0.05);
+      hapticPulse(null, 0.25, 18);         // light tap as an item snaps into your pack
       flashName('+ ' + (got > 1 ? got + ' ' : '') + nameOf(d.id));
       scene.remove(d.mesh);
       drops.splice(i, 1);
@@ -7060,6 +7063,56 @@ function readButtons(hand){
   }
   return null;
 }
+
+/* ---- haptics: controller rumble. Silently no-ops outside XR or on pads
+   without actuators, so it is safe to call from shared (desktop) code. ---- */
+function hapticPulse(hand, intensity = 0.5, ms = 40){
+  const session = renderer.xr.getSession();
+  if(!session) return;
+  for(const ip of session.inputSources){
+    if(hand && ip.handedness !== hand) continue;
+    const gp = ip.gamepad;
+    const act = gp && gp.hapticActuators && gp.hapticActuators[0];
+    if(!act) continue;
+    try { act.pulse(Math.max(0, Math.min(1, intensity)), ms); } catch(e){}
+  }
+}
+
+/* ---- comfort vignette: tunnels peripheral vision while moving, which is the
+   standard fix for VR motion sickness during smooth locomotion ---- */
+const VIGNETTE_KEY = 'blockcraft-vr-vignette';
+let vignetteOn = localStorage.getItem(VIGNETTE_KEY) !== '0';
+let vignetteAmt = 0;
+const vignetteMesh = (() => {
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = 256;
+  const g = cv.getContext('2d');
+  const grad = g.createRadialGradient(128, 128, 62, 128, 128, 132);
+  grad.addColorStop(0, 'rgba(0,0,0,0)');
+  grad.addColorStop(0.5, 'rgba(0,0,0,0)');
+  grad.addColorStop(0.78, 'rgba(0,0,0,0.55)');
+  grad.addColorStop(1, 'rgba(0,0,0,1)');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 256, 256);
+  const tex = new THREE.CanvasTexture(cv);
+  const m = new THREE.Mesh(
+    new THREE.PlaneGeometry(1.15, 1.15),
+    new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0,
+                                  depthTest: false, depthWrite: false, fog: false })
+  );
+  m.position.set(0, 0, -0.32);   // rides just in front of the eyes
+  m.renderOrder = 9999;
+  m.frustumCulled = false;
+  m.visible = false;
+  try { camera.add(m); } catch(e){}
+  return m;
+})();
+function updateVignette(dt, moving){
+  const target = (vignetteOn && moving) ? 1 : 0;
+  vignetteAmt += (target - vignetteAmt) * Math.min(1, dt * (target > vignetteAmt ? 7 : 4));
+  vignetteMesh.material.opacity = vignetteAmt * 0.9;
+  vignetteMesh.visible = xrActive && vignetteAmt > 0.01;
+}
 let vrJumpWasDown = false, vrCrouch = false, vrFlyWas = false, vrSprint=false,vrSprintWas=false;
 // ---- VR debug readout (rendered in-scene so it's visible inside the headset) ----
 const dbgCanvas = document.createElement('canvas');
@@ -7123,7 +7176,7 @@ function updateVR(dt){
   const eB = new THREE.Euler().setFromQuaternion(camera.quaternion, 'YXZ');
   vrBody.rotation.y = eB.y;   // rig already rotates by yawOffset
   updateWristHotbar();
-  if(vrMenuInput(dt)){ updateAvatarArms(); return; }
+  if(vrMenuInput(dt)){ updateAvatarArms(); updateVignette(dt, false); return; }
 
   // right thumbstick: X = snap turn (comfort), Y = cycle hotbar
   const ra = readAxes('right');
@@ -7134,9 +7187,11 @@ function updateVR(dt){
       vrYawOffset -= (tx > 0 ? 1 : -1) * (Math.PI / 6);   // 30° snap turn
       vrTurnCd = 0.3;
       tone(300, 300, 0.03, 'triangle', 0.04);
+      hapticPulse('right', 0.35, 22);
     } else if(Math.abs(ty) > 0.8 && vrTurnCd <= 0){
       selectSlot((sel + (ty > 0 ? 1 : -1) + 9) % 9);
       vrTurnCd = 0.3;
+      hapticPulse('right', 0.3, 18);
     }
   }
   xrRig.rotation.y = vrYawOffset;
@@ -7164,6 +7219,8 @@ function updateVR(dt){
   const crouchMul = vrCrouch ? 0.5 : 1;
   player.vel.x += (wishX * speed * crouchMul - player.vel.x) * Math.min(1, dt * 10);
   player.vel.z += (wishZ * speed * crouchMul - player.vel.z) * Math.min(1, dt * 10);
+  // comfort: tunnel vision while the stick is driving us, ease it off when we stop
+  updateVignette(dt, dx !== 0 || dz !== 0);
 
   // ---- jump (right A/X button, index 4) & fly-up ----
   const rb = readButtons('right');
@@ -7218,10 +7275,10 @@ function updateVR(dt){
     const eh = rayEntity(o, d, REACH);
     const bh = raycast(o, d, REACH);
     if(eh && (!bh || eh.t < bh.t)){
-      if(vrAtkCd <= 0){ punchEntity(eh.e); vrAtkCd = 0.4; }
+      if(vrAtkCd <= 0){ punchEntity(eh.e); vrAtkCd = 0.4; hapticPulse('right', 0.9, 70); }
     } else if(bh && bh.y > 0){
       if(mode === 'creative'){
-        if(vrAtkCd <= 0){ breakBlock(bh.x, bh.y, bh.z, bh.id); vrAtkCd = 0.25; }
+        if(vrAtkCd <= 0){ breakBlock(bh.x, bh.y, bh.z, bh.id); vrAtkCd = 0.25; hapticPulse('right', 0.7, 50); }
       } else {
         // survival: accumulate mining progress on the aimed block
         const k = bh.x + ',' + bh.y + ',' + bh.z;
@@ -7229,15 +7286,19 @@ function updateVR(dt){
         mineNeed = calcMineTime(bh.id);
         mineProg += dt; mineTick -= dt;
         hl.material.color.setScalar(0.07 + Math.min(1,mineProg/mineNeed)*0.9);
-        if(mineTick <= 0){ mineTick = 0.22; blockSfx(bh.id, 'mine'); }
-        if(mineProg >= mineNeed){ breakBlock(bh.x, bh.y, bh.z, bh.id); resetMine(); }
+        // rumble grows as the block nears breaking, so you feel the pick biting in
+        if(mineTick <= 0){
+          mineTick = 0.22; blockSfx(bh.id, 'mine');
+          hapticPulse('right', 0.18 + Math.min(1, mineProg / mineNeed) * 0.32, 28);
+        }
+        if(mineProg >= mineNeed){ breakBlock(bh.x, bh.y, bh.z, bh.id); resetMine(); hapticPulse('right', 0.85, 65); }
       }
     } else resetMine();
   } else resetMine();
   vrAtkCd -= dt;
   // ---- placing: poll the right grip (index 1) with edge detection ----
   const gripDown = !!(rbtn && rbtn[1] && rbtn[1].pressed);
-  if(gripDown && !vrGripWas){ vrTryPlace(); }
+  if(gripDown && !vrGripWas){ vrTryPlace(); hapticPulse('right', 0.55, 40); }
   vrGripWas = gripDown;
   // aim highlight from right controller
   const { o, d } = ctrlOriginDir(rightCtrl);
@@ -7490,6 +7551,16 @@ btnRender.addEventListener('click', () => {
   uiClick();
 });
 
+/* VR comfort vignette toggle */
+const btnVignette = document.getElementById('btnVignette');
+btnVignette.textContent = 'VR Comfort: ' + (vignetteOn ? 'On' : 'Off');
+btnVignette.addEventListener('click', () => {
+  vignetteOn = !vignetteOn;
+  localStorage.setItem(VIGNETTE_KEY, vignetteOn ? '1' : '0');
+  btnVignette.textContent = 'VR Comfort: ' + (vignetteOn ? 'On' : 'Off');
+  uiClick();
+});
+
 /* world selector */
 const worldsEl = document.getElementById('worlds');
 function playSeed(s){
@@ -7615,6 +7686,8 @@ document.getElementById('joinInput').addEventListener('keydown', e => {
 }
 renderer.setAnimationLoop(animate);
 window.__bc = {
+  camera, scene, hapticPulse, vignetteMesh, updateVignette,
+  vignetteState: () => ({ on: vignetteOn, amt: vignetteAmt, opacity: vignetteMesh.material.opacity }),
   player, getBlock, setBlock, physics, raycast, terrainHeight, biomeAt, animals, zombies, drops, RECIPES,
   toggleMusic, musicState: () => ({ on: musicOn, running: !!musicTimer }),
   villagers, villagesNear, villageDef, spawnVillager,
