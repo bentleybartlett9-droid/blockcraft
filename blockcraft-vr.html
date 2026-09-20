@@ -458,6 +458,14 @@ function surfaceCarved(x, z, h){
 }
 /* Badlands strata: horizontal bands of clay, fixed to world height so the
    stripes line up across a whole canyon wall. */
+/* Taiga floor drifts between mossy grass, podzol under the canopy and
+   patches of coarse dirt, instead of a uniform lawn. */
+function taigaFloor(x, z){
+  const n = vnoise(x * 0.09, z * 0.09, 733);
+  if(n > 0.63) return PODZOL;
+  if(n < 0.29) return COARSEDIRT;
+  return hash(x, z, 617) < 0.16 ? PODZOL : GRASS;
+}
 function terraBand(y){
   // wavy so bands aren't perfectly flat, but wide enough to read as strata
   const b = (y + Math.floor(vnoise(y * 0.18, 0.5, 411) * 3)) % 12;
@@ -667,7 +675,7 @@ const CHERRYLOG=160, CHERRYPLANK=161, CHERRYLEAVES=162,
 const CRYSTALORE=187,GLOWCRYSTAL=188,CRYSTALBRICK=189,CRYSTALSHARD=212,CRYSTALPICK=213,CRYSTALSWORD=214;
 const BLUEBELL=175,LAVENDER=176,DAISY=177,ORCHID=178,CROCUS=179,DESERTFLOWER=180,FERN=181,REEDS=182,DRYGRASS=183,AMBERFLOWER=184,NETHERSPROUT=185,ENDSPROUT=186;
 const GUMLOG=190, GUMPLANK=191, GUMLEAVES=192, SPINIFEX=193,
-      REDSAND=194, TERRA_ORANGE=195, TERRA_PALE=196;
+      REDSAND=194, TERRA_ORANGE=195, TERRA_PALE=196, BERRYBUSH=197, COARSEDIRT=198;
 const FLORA=[
  {id:BLUEBELL,name:'Bluebell',color:'#7da8ef',kind:'bells'},
  {id:LAVENDER,name:'Lavender',color:'#b298de',kind:'spike'},
@@ -681,7 +689,8 @@ const FLORA=[
  {id:AMBERFLOWER,name:'Amber Daisy',color:'#ecb454',kind:'flower'},
  {id:NETHERSPROUT,name:'Ember Sprout',color:'#f49068',kind:'fern'},
  {id:ENDSPROUT,name:'End Bloom',color:'#bc98ec',kind:'bells'},
- {id:SPINIFEX,name:'Spinifex',color:'#d8c069',kind:'spike'}];
+ {id:SPINIFEX,name:'Spinifex',color:'#d8c069',kind:'grass'},
+ {id:BERRYBUSH,name:'Sweet Berry Bush',color:'#c0304a',kind:'berry'}];
 const FLORA_IDS=new Set(FLORA.map(f=>f.id));
 const EXTRA_WOODS=[{log:CHERRYLOG,plank:CHERRYPLANK,leaves:CHERRYLEAVES,name:'Cherry',bark:[105,56,61],wood:[220,163,161],leaf:[230,142,182]},
  {log:MAPLELOG,plank:MAPLEPLANK,leaves:MAPLELEAVES,name:'Maple',bark:[91,62,40],wood:[190,121,59],leaf:[225,111,33]},
@@ -807,6 +816,7 @@ EXTRA_WOODS.forEach((w,i)=>{
 });
 for(const [id,name,tile] of [[MARBLE,'Marble',134],[MARBLEBRICK,'Marble Bricks',135],[BASALT,'Basalt',136],[BASALTBRICK,'Basalt Bricks',137],[MOSAIC,'Mosaic Tiles',138],[AMBERLAMP,'Amber Lantern',139]])BLOCKS[id]={name,all:tile};
 FLORA.forEach((f,i)=>BLOCKS[f.id]={name:f.name,all:112+i});
+BLOCKS[COARSEDIRT]={name:'Coarse Dirt',all:143};
 BLOCKS[REDSAND]={name:'Red Sand',all:140};
 BLOCKS[TERRA_ORANGE]={name:'Orange Terracotta',all:141};
 BLOCKS[TERRA_PALE]={name:'Pale Terracotta',all:142};
@@ -924,7 +934,7 @@ function faceVisible(b, n){
   if(b === GLASS) return n === WATER;
   return !isOpaque(n);
 }
-const dropOf = id => id===CRYSTALORE||id===GLOWCRYSTAL?CRYSTALSHARD:id === GRASS || id === SAVGRASS || id === FARMLAND ? DIRT : id === COALO ? COALI : id === DIAMO ? DIAMI :
+const dropOf = id => id===BERRYBUSH?BERRIES:id===CRYSTALORE||id===GLOWCRYSTAL?CRYSTALSHARD:id === GRASS || id === SAVGRASS || id === FARMLAND ? DIRT : id === COALO ? COALI : id === DIAMO ? DIAMI :
                      id === EMERO ? EMERALD : id === DEADBUSH ? STICK : id;
 function toolClassOf(id){
   if([CRYSTALORE,GLOWCRYSTAL,CRYSTALBRICK].includes(id))return 'pick';
@@ -1468,10 +1478,13 @@ itemAtlas.width = 128; itemAtlas.height = 256;
     const k = Math.floor((r()-0.5)*10);
     return [168+k, 200+k, 236+k];
   });
-  put(T.PODZOL_T, (x,y,r) => {                          // podzol: dark brown with specks
-    const k = Math.floor((r()-0.5)*20);
-    if(r() < 0.15) return [96+k, 70+k, 40+k];
-    return [74+k, 52+k, 30+k];
+  put(T.PODZOL_T, (x,y,r) => {                          // podzol: humus blotches + needle litter
+    const blob = vnoise(x * 0.55 + 3.1, y * 0.55 - 7.7, 5311);   // soft clumps, not static
+    const k = Math.floor((r() - 0.5) * 9);
+    if(r() < 0.05) return [38 + k, 26 + k, 16 + k];               // damp hollows
+    if(r() < 0.10) return [132 + k, 104 + k, 58 + k];             // fallen needles catching light
+    const band = blob > 0.62 ? 22 : blob > 0.44 ? 10 : blob > 0.28 ? 0 : -12;
+    return [78 + band + k, 55 + band + k, 31 + Math.floor(band * 0.7) + k];
   });
   const woolPx = (base) => (x,y,r) => {
     const k = Math.floor((r()-0.5)*16);
@@ -1751,7 +1764,7 @@ itemAtlas.width = 128; itemAtlas.height = 256;
 const tileAvg = [];
 {
   const ctx = atlas.getContext('2d');
-  for(let ti = 0; ti <= 142; ti++){      // every tile, so break particles match the block
+  for(let ti = 0; ti <= 143; ti++){      // every tile, so break particles match the block
     const d = ctx.getImageData((ti % ATLAS_COLS) * 16, ((ti / ATLAS_COLS) | 0) * 16, 16, 16).data;
     let r = 0, g = 0, b = 0, n = 0;
     for(let i = 0; i < d.length; i += 4) if(d[i+3] > 40){ r += d[i]; g += d[i+1]; b += d[i+2]; n++; }
@@ -1770,7 +1783,7 @@ const tileAvg = [];
   g.fillStyle='rgb('+base.map(c=>Math.max(0,Math.min(255,c+v))).join(',')+')';g.fillRect((tile%8)*16+x,Math.floor(tile/8)*16+y,1,1);
  }}
  EXTRA_WOODS.forEach((w,i)=>{let t=94+i*4;paint(t,w.bark,'bark');paint(t+1,w.wood,'brick');paint(t+2,w.wood,'plank');paint(t+3,w.leaf,'leaf');});
- [[140,[198,104,56],'stone'],[141,[176,98,52],'brick'],[142,[214,176,140],'brick'],
+ [[143,[104,76,50],'stone'],[140,[198,104,56],'stone'],[141,[176,98,52],'brick'],[142,[214,176,140],'brick'],
   [134,[218,218,211],'stone'],[135,[218,218,211],'brick'],[136,[58,65,73],'stone'],[137,[65,74,84],'brick'],[138,[156,174,178],'brick'],[139,[236,169,65],'brick']].forEach(a=>paint(...a));
  const it=itemAtlas.getContext('2d');for(const [tile,color] of [[49,'#db446a'],[50,'#d59351'],[51,'#8aa54c'],[52,'#62efd9'],[53,'#dccbfa']]){
   const x=(tile%8)*16,y=Math.floor(tile/8)*16;it.fillStyle='#3b293b';it.fillRect(x+3,y+5,11,9);it.fillStyle=color;it.fillRect(x+4,y+4,9,8);it.fillStyle='#e6edb7';it.fillRect(x+5,y+5,3,2);
@@ -1805,7 +1818,10 @@ const tileAvg = [];
    }else{
      rect(7,6,2,10,green);rect(4,11,3,2,green);rect(9,9,3,2,green);
      if(f.kind==='spike'){for(let j=0;j<5;j++)rect(6+(j%2),2+j*2,4,2,j%2?'#d5bde9':f.color);}
-     else if(f.kind==='bells'){for(const [x,y] of [[4,4],[9,7],[5,9]]){rect(x,y,3,3,f.color);rect(x+1,y+2,3,1,'#bed8ff');}rect(7,2,2,5,green);}
+     else if(f.kind==='berry'){
+       rect(5,7,6,8,green);rect(4,9,8,5,green);rect(6,5,4,3,green);
+       for(const [x,y] of [[5,8],[9,10],[7,12],[10,6]]){rect(x,y,2,2,f.color);rect(x,y,1,1,'#e2707f');}
+     }else if(f.kind==='bells'){for(const [x,y] of [[4,4],[9,7],[5,9]]){rect(x,y,3,3,f.color);rect(x+1,y+2,3,1,'#bed8ff');}rect(7,2,2,5,green);}
      else{rect(4,3,8,4,f.color);rect(6,1,4,8,f.color);rect(7,4,2,2,'#e9b95c');rect(5,3,2,1,'#fff0db');}
    }
  });
@@ -2090,7 +2106,7 @@ function biomePlant(biome,r,patch,snowy,beach){
     birch:[DAISY,LAVENDER,BLUEBELL,FERN],jungle:[FERN,ORCHID,FERN,MUSHROOMR],
     swamp:[REEDS,BLUEBELL,MUSHROOMB,FERN],savanna:[DRYGRASS,AMBERFLOWER,DRYGRASS,DESERTFLOWER],
     desert:[DEADBUSH,DESERTFLOWER,DRYGRASS,DEADBUSH],
-    taiga:[FERN,MUSHROOMR,FERN,BLUEBELL],
+    taiga:[FERN,BERRYBUSH,FERN,MUSHROOMR],
     badlands:[DEADBUSH,DRYGRASS,DEADBUSH,DESERTFLOWER],
     outback:[SPINIFEX,DRYGRASS,SPINIFEX,DESERTFLOWER],
     'cherry-grove':[ORCHID,DAISY,LAVENDER,BLUEBELL],'maple-woods':[AMBERFLOWER,FERN,MUSHROOMR,DANDB],
@@ -2133,7 +2149,7 @@ function* genChunkSteps(cx, cz){
       else if(y === h) b = badlands ? terraBand(y) : outback ? REDSAND
                          : sandy ? SAND : (snowyTop ? SNOW
                          : (biome === 'savanna' ? SAVGRASS
-                         : (biome === 'taiga' && hash(wx, wz, 617) < 0.35 ? PODZOL : GRASS)));
+                         : (biome === 'taiga' ? taigaFloor(wx, wz) : GRASS)));
       else if(badlands && y > h - 26) b = terraBand(y);   // deep banded clay walls
       else if(y > h - 4) b = outback ? REDSAND : sandy ? SAND : DIRT;
       else b = STONE;
@@ -2162,7 +2178,13 @@ function* genChunkSteps(cx, cz){
     if(h+2<HEIGHT && h>=SEA && getLocal(data,lx,h+1,lz)===AIR){
       const pr=hash(wx,wz,606),patch=vnoise(wx*.075,wz*.075,994);
       let plant=biomePlant(biome,pr,patch,snowyTop,beach);
-      if(biome==='desert'&&!beach&&pr<.007){
+      if(biome==='taiga' && vnoise(wx*.13, wz*.13, 851) > .78 && pr < .3){
+        set(lx, h+1, lz, MOSSY);                       // boulder field
+        if(pr < .12 && h+2 < HEIGHT) set(lx, h+2, lz, MOSSY);
+      }else if(biome==='taiga' && pr > .9945 && h+1 < HEIGHT &&
+               getLocal(data,lx,h,lz) !== GRASS){
+        set(lx, h+1, lz, SPRUCELOG);                   // the odd weathered stump
+      }else if(biome==='desert'&&!beach&&pr<.007){
         const ch=2+Math.floor(hash(wx,wz,885)*2);for(let k=1;k<=ch;k++)set(lx,h+k,lz,CACTUS);
       }else if(plant)set(lx,h+1,lz,plant);
     }
