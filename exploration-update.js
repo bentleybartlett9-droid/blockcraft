@@ -1,7 +1,7 @@
 /* Blockcraft VR — Caves, Exploration & Animal Sounds Update */
 (() => {
 'use strict';
-const BUILD='Caves, Exploration & Animal Sounds Update';
+const BUILD='Biomes, Villagers & Voice Chat';
 
 const toast=document.createElement('div');
 toast.id='exploreToast';
