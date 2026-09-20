@@ -4097,7 +4097,7 @@ function updateZombies(dt, daylight){
             const vi = villagers.indexOf(tgt);
             if(vi >= 0){
               burstRGB(tgt.pos.x, tgt.pos.y + 1, tgt.pos.z, 0.6, 0.45, 0.3, 12);
-              tone(260, 80, 0.5, 'sawtooth', 0.14);
+              villagerVoice(tgt, 'die');
               removeEnt(villagers, vi);
             }
           }
@@ -4622,6 +4622,7 @@ function doTrade(i){
   renderHotbar();
   renderTrade();
   tone(520 * jr(0.1), 780, 0.08, 'sine', 0.14);
+  villagerVoice(tradeVillager, 'trade');
   tone(200 * jr(0.2), 150, 0.22, 'sawtooth', 0.08);
   flashName('+ ' + t.out[1] + ' ' + nameOf(t.out[0]));
 }
@@ -4788,7 +4789,7 @@ function updateVillagers(dt){
       }
       e.speed = 4;
       e.hmT -= dt;
-      if(e.hmT <= 0){ e.hmT = 1.2; tone(300 * jr(0.25), 140, 0.3, 'sawtooth', 0.1); }  // panic cry
+      if(e.hmT <= 0){ e.hmT = 1.2; villagerVoice(e, 'no'); }  // panic cry
     } else if(night){
       // curfew: get back to your own doorstep and settle
       const dhx = e.home[0] - e.pos.x, dhz = e.home[1] - e.pos.z, dh = Math.hypot(dhx, dhz);
@@ -4799,7 +4800,7 @@ function updateVillagers(dt){
       const dx = player.pos.x - e.pos.x, dz = player.pos.z - e.pos.z, l = Math.hypot(dx, dz) || 1;
       e.yaw = Math.atan2(-dx / l, -dz / l);
       e.hmT -= dt;
-      if(e.hmT <= 0){ e.hmT = 4 + Math.random() * 6; tone(200 * jr(0.2), 150, 0.22, 'sawtooth', 0.07); }
+      if(e.hmT <= 0){ e.hmT = 4 + Math.random() * 6; villagerVoice(e, 'idle'); }
     } else {
       // working hours: mill about between the job site and the village square
       const anchor = (e.plaza && Math.random() < 0.004) ? e.plaza : e.home;
@@ -4817,7 +4818,7 @@ function updateVillagers(dt){
       e.hmT -= dt;
       if(e.hmT <= 0){                                   // idle "hmm", pitched per profession
         e.hmT = 7 + Math.random() * 9;
-        if(dp < 22) tone((e.prof ? e.prof.voice : 200) * jr(0.2), 150, 0.22, 'sawtooth', 0.05);
+        if(dp < 22) villagerVoice(e, 'idle');
       }
     }
     stepMob(e, dt, 24);
@@ -4878,6 +4879,41 @@ function updateGolemSpawns(dt){
       spawnGolem(sx, sy, sz, v.cx, v.cz);
     }
   }
+}
+/* A golem guards people, not ground: a monster closing on a villager
+   outranks a nearer one wandering by itself.                          */
+function golemTarget(e){
+  let best = null, score = Infinity;
+  for(const list of [zombies, skeletons, creepers, spiders]){
+    for(const m of list){
+      const d = e.pos.distanceTo(m.pos);
+      if(d > 22) continue;
+      let menacing = false;
+      for(const vg of villagers)
+        if(vg.pos.distanceToSquared(m.pos) < 144){ menacing = true; break; }
+      const sc = d - (menacing ? 15 : 0);
+      if(sc < score){ score = sc; best = m; }
+    }
+  }
+  return best;
+}
+/* Minecraft lets you patch a golem up with iron ingots. */
+function healGolem(g){
+  if(g.hp >= g.maxHp){ flashName('The golem needs no repair'); return false; }
+  const sl = survInv[sel];
+  if(!sl || sl.id !== IRONI || sl.count <= 0) return false;
+  g.hp = Math.min(g.maxHp, g.hp + 25);
+  sl.count--;
+  if(sl.count <= 0){ sl.id = 0; sl.count = 0; sl.dur = 0; }
+  invDirty = true; renderHotbar();
+  if(g.cracked && g.hp >= g.maxHp * 0.5){          // welds the cracks shut again
+    g.cracked = false;
+    for(const m of g.shell) m.material = golemMats.iron;
+  }
+  burstRGB(g.pos.x, g.pos.y + 1.6, g.pos.z, 0.95, 0.9, 0.55, 12, 0.7);
+  golemVoice(g, 'hurt');
+  flashName('Repaired the golem  (' + Math.round(g.hp) + '/' + g.maxHp + ')');
+  return true;
 }
 function hostilesNear(pos, range){
   let best = null, bd = range * range;
@@ -5039,7 +5075,7 @@ function updateGolems(dt){
     }
     if(e.hp <= 0){
       burstRGB(e.pos.x, e.pos.y + 1.2, e.pos.z, 0.78, 0.74, 0.66, 16, 0.6);
-      monsterCall(e,'die');
+      golemVoice(e, 'die');
       if(mode === 'survival'){
         spawnDropAt(e.pos.x, e.pos.y + 0.6, e.pos.z, IRONI, 2 + Math.floor(Math.random() * 3));
         if(Math.random() < 0.5) spawnDropAt(e.pos.x + 0.2, e.pos.y + 0.6, e.pos.z, POPPYB);
@@ -5050,6 +5086,8 @@ function updateGolems(dt){
     e.atkCd -= dt;
     e.swing = Math.max(0, e.swing - dt);
     e.angryAtPlayer = Math.max(0, e.angryAtPlayer - dt);
+    e.groanT = (e.groanT || 6 + Math.random() * 8) - dt;
+    if(e.groanT <= 0){ e.groanT = 9 + Math.random() * 12; golemVoice(e, 'idle'); }
     // battle damage: iron dulls and cracks below half health
     if(!e.cracked && e.hp < e.maxHp * 0.5){
       e.cracked = true;
@@ -5063,10 +5101,10 @@ function updateGolems(dt){
       if(e.stepT <= 0){
         e.stepT = 0.55;
         if(e.pos.distanceToSquared(player.pos) < 900)
-          playN({ f: 110, type: 'lowpass', dur: 0.12, vol: 0.2 });
+          golemVoice(e, 'step');
       }
     }
-    let tgt = hostilesNear(e.pos, 16);
+    let tgt = golemTarget(e);
     // a player who attacks the village gets treated as a hostile too
     if(!tgt && e.angryAtPlayer > 0 && mode === 'survival' && !dead &&
        e.pos.distanceToSquared(player.pos) < 256) tgt = { pos: player.pos, isPlayer: true };
@@ -5082,16 +5120,14 @@ function updateGolems(dt){
           damage(7);
           player.vel.x += dx / l * 14; player.vel.z += dz / l * 14;
           player.vel.y = Math.max(player.vel.y, 9);
-          playN({ f: 140, type: 'lowpass', dur: 0.14, vol: 0.28 });
-          monsterCall(e,'attack');
+          golemVoice(e, 'attack');
           e.atkCd = 1.4;
           stepMob(e, dt, 26); animMob(e, dt);
           continue;
         }
         tgt.hp -= 12;                                       // heavy hit
         tgt.vel.x += dx / l * 12; tgt.vel.z += dz / l * 12; tgt.vel.y = 8;
-        playN({ f: 140, type: 'lowpass', dur: 0.14, vol: 0.28 });
-        monsterCall(e,'attack');
+        golemVoice(e, 'attack');
         burstRGB(tgt.pos.x, tgt.pos.y + 1, tgt.pos.z, 0.8, 0.3, 0.2, 8, 0.4);
         if(tgt.hp <= 0){
           let idx = zombies.indexOf(tgt); if(idx >= 0){ killZombie(idx); }
@@ -5263,7 +5299,7 @@ function punchEntity(e){
   } else if(e.kind === 'villager'){
     e.hp -= dmg;
     e.flee = 2.5;
-    tone(210 * jr(0.15), 130, 0.2, 'sawtooth', 0.12);
+    villagerVoice(e, 'hurt');
     // harm a villager and the village guard comes for you
     for(const gl of golems)
       if(gl.pos.distanceToSquared(e.pos) < 40 * 40) gl.angryAtPlayer = 25;
@@ -5271,7 +5307,7 @@ function punchEntity(e){
       const i = villagers.indexOf(e);
       if(i >= 0){
         burstRGB(e.pos.x, e.pos.y + 1, e.pos.z, 0.6, 0.45, 0.3, 12);
-        tone(260, 80, 0.5, 'sawtooth', 0.14);
+        villagerVoice(e, 'die');
         removeEnt(villagers, i);
       }
     }
@@ -5279,7 +5315,7 @@ function punchEntity(e){
     e.hp -= dmg;
     e.angryAtPlayer = 25;
     burstRGB(e.pos.x, e.pos.y + 1.4, e.pos.z, 0.78, 0.74, 0.66, 5, 0.3);
-    monsterCall(e,e.hp>0?'hurt':'die');       // metallic clank
+    golemVoice(e, e.hp > 0 ? 'hurt' : 'die');       // metallic clank
     if(e.hp <= 0){
       const i = golems.indexOf(e);
       if(i >= 0){ e.hp = 0; }   // death handled in updateGolems
@@ -5571,6 +5607,102 @@ function animalCall(type,pos,mood='idle'){
 
 // Decoded once with the animal clips; bounded voices keep crowded fights inexpensive.
 const monsterVoices=new Set();let monsterBus=null,monsterIdleAt=0;
+/* ---------------- villager voice ----------------
+   The Minecraft "hmm" is a closed-mouth nasal hum: a buzzy tone squeezed
+   through two tight formant peaks, with a quick pitch bend. Synthesised
+   here so it needs no audio assets.                                     */
+function villagerVoice(e, mood = 'idle'){
+  if(!AC || AC.state !== 'running' || !e || !e.pos) return;
+  const d = e.pos.distanceTo(player.pos);
+  if(d > 30) return;
+  const t = AC.currentTime;
+  const vol = (mood === 'idle' ? 0.17 : mood === 'die' ? 0.3 : 0.26) / (1 + d * 0.13);
+  const base = (e.prof ? e.prof.voice : 205) * jr(0.05);
+  const dur = mood === 'die' ? 0.75 : mood === 'hurt' ? 0.26 : mood === 'trade' ? 0.4 : 0.36;
+  // pitch shapes: hmm dips, a deal rises, pain snaps up then collapses
+  const shape = mood === 'trade' ? [1, 1.28, 1.22]
+              : mood === 'no'    ? [1, 0.82, 0.7]
+              : mood === 'hurt'  ? [1.5, 1.1, 0.8]
+              : mood === 'die'   ? [1.2, 0.8, 0.45]
+              :                    [0.93, 1.06, 0.88];
+  const out = AC.createGain();
+  out.gain.setValueAtTime(0.0001, t);
+  out.gain.exponentialRampToValueAtTime(vol, t + 0.04);
+  out.gain.setValueAtTime(vol, t + dur * 0.62);
+  out.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  // nose + throat formants give it that pinched villager timbre
+  const f1 = AC.createBiquadFilter(); f1.type = 'bandpass'; f1.frequency.value = 720 * jr(0.08); f1.Q.value = 5;
+  const f2 = AC.createBiquadFilter(); f2.type = 'bandpass'; f2.frequency.value = 1180 * jr(0.08); f2.Q.value = 7;
+  const mix = AC.createGain(); mix.gain.value = 0.55;
+  f1.connect(out); f2.connect(out);
+  for(const [osc_t, det, lvl] of [['sawtooth', 1, 0.5], ['square', 1.005, 0.28], ['triangle', 0.5, 0.3]]){
+    const o = AC.createOscillator(), g = AC.createGain();
+    o.type = osc_t;
+    o.frequency.setValueAtTime(base * shape[0] * det, t);
+    o.frequency.linearRampToValueAtTime(base * shape[1] * det, t + dur * 0.35);
+    o.frequency.linearRampToValueAtTime(base * shape[2] * det, t + dur);
+    g.gain.value = lvl;
+    o.connect(g); g.connect(f1); g.connect(f2);
+    o.start(t); o.stop(t + dur + 0.05);
+  }
+  const pan = AC.createStereoPanner();
+  const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.getWorldQuaternion(new THREE.Quaternion()));
+  pan.pan.value = Math.max(-1, Math.min(1, right.dot(e.pos.clone().sub(player.pos)) / Math.max(3, d)));
+  out.connect(pan).connect(AC.destination);
+  mix.disconnect();
+}
+
+/* ---------------- iron golem voice ----------------
+   Heavy iron: a low body resonance plus inharmonic metal partials, so it
+   groans and clanks rather than growling like an animal.                */
+function golemVoice(e, mood = 'idle'){
+  if(!AC || AC.state !== 'running' || !e || !e.pos) return;
+  const d = e.pos.distanceTo(player.pos);
+  const range = mood === 'step' ? 22 : 46;
+  if(d > range) return;
+  const t = AC.currentTime;
+  const near = 1 / (1 + d * 0.12);
+  if(mood === 'step'){
+    // boot slam: deep thud with a faint plate rattle
+    const o = AC.createOscillator(), g = AC.createGain();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(78 * jr(0.12), t);
+    o.frequency.exponentialRampToValueAtTime(38, t + 0.16);
+    g.gain.setValueAtTime(0.3 * near, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+    o.connect(g).connect(AC.destination);
+    o.start(t); o.stop(t + 0.22);
+    playN({ f: 1900 * jr(0.2), q: 3, dur: 0.05, vol: 0.05 * near });
+    return;
+  }
+  const dur = mood === 'die' ? 1.5 : mood === 'attack' ? 0.4 : 0.6;
+  const vol = (mood === 'attack' ? 0.34 : mood === 'die' ? 0.4 : mood === 'hurt' ? 0.32 : 0.16) * near;
+  const out = AC.createGain();
+  out.gain.setValueAtTime(0.0001, t);
+  out.gain.exponentialRampToValueAtTime(vol, t + 0.03);
+  out.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  // inharmonic partials = struck iron rather than a musical note
+  const root = (mood === 'die' ? 96 : mood === 'attack' ? 190 : 132) * jr(0.08);
+  for(const mult of [1, 1.73, 2.41, 3.62, 5.11]){
+    const o = AC.createOscillator(), g = AC.createGain();
+    o.type = 'triangle';
+    o.frequency.setValueAtTime(root * mult, t);
+    o.frequency.exponentialRampToValueAtTime(root * mult * (mood === 'die' ? 0.4 : 0.72), t + dur);
+    g.gain.setValueAtTime(0.55 / (mult * 1.5), t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur * (mood === 'attack' ? 0.5 : 0.9));
+    o.connect(g).connect(out);
+    o.start(t); o.stop(t + dur + 0.05);
+  }
+  // the metallic scrape of joints moving
+  playN({ f: mood === 'attack' ? 2600 : 1200, type: 'bandpass', q: 1.6,
+          dur: mood === 'die' ? 0.7 : 0.22, vol: vol * 0.5,
+          slide: mood === 'attack' ? 1800 : -700 });
+  const pan = AC.createStereoPanner();
+  const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.getWorldQuaternion(new THREE.Quaternion()));
+  pan.pan.value = Math.max(-1, Math.min(1, right.dot(e.pos.clone().sub(player.pos)) / Math.max(3, d)));
+  out.connect(pan).connect(AC.destination);
+}
+
 function monsterCall(e,mood='idle'){
  if(!AC||AC.state!=='running'||!e?.pos)return false;
  const idle=mood==='idle',d=e.pos.distanceTo(player.pos);if(d>(idle?28:52))return false;
@@ -6500,6 +6632,9 @@ function doPlace(){
   // villager trading
   const eh = rayEntity(camera.position, _dir, REACH);
   if(eh&&(!hit||eh.t<hit.t)&&feedFantasy(eh.e))return;
+  if(eh && eh.e.kind === 'golem' && (!hit || eh.t < hit.t) && mode === 'survival' && heldId() === IRONI){
+    if(healGolem(eh.e)) return;
+  }
   if(eh && eh.e.kind === 'villager' && (!hit || eh.t < hit.t) && mode === 'survival'){ openTrade(eh.e); return; }
   // interactions first (bed, crafting table, furnace)
   if(equipArmour())return;
@@ -7215,6 +7350,9 @@ function vrTryPlace(){
   const hit = raycast(o, d, REACH,heldId()===BUCKET);
   const eh = rayEntity(o, d, REACH);
   if(eh&&(!hit||eh.t<hit.t)&&feedFantasy(eh.e))return;
+  if(eh && eh.e.kind === 'golem' && (!hit || eh.t < hit.t) && mode === 'survival' && heldId() === IRONI){
+    if(healGolem(eh.e)){ hapticPulse('right', 0.6, 60); return; }
+  }
   if(eh && eh.e.kind === 'villager' && (!hit || eh.t < hit.t) && mode === 'survival'){
     tradeVillager = eh.e;                    // the DOM trade panel is invisible in a headset,
     tone(220 * jr(0.15), 170, 0.25, 'sawtooth', 0.1);
@@ -7900,6 +8038,7 @@ window.__bc = {
   camera, scene, hapticPulse, vignetteMesh, updateVignette,
   openCraftVR, closeCraftVR, buildCraftPanel, spawnVillagerAt: spawnVillager,
   golems, spawnGolem, stepGolems: dt => updateGolems(dt), VIL_PROF,
+  villagerVoice, golemVoice, healGolem, golemTarget,
   stepVillagersAI: dt => updateVillagers(dt), setTimeOfDay: t => { timeOfDay = t; },
   vrMenuState: () => ({ tab: vrMenuTab, status: vrMenuStatus,
                         buttons: vrMenuButtons.map(x => x.label).filter(Boolean),
