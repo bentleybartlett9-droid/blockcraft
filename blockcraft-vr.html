@@ -6754,9 +6754,13 @@ function buildCraftPanel(){
     if(label)text(label,x+12,y+h/2,24,enabled?'#222':'#666',w-24);
     vrMenuButtons.push({x,y,w,h,action,enabled,label}); return index;
   }
-  for(const [i,tab,label] of [[0,'inventory','Inventory'],[1,'craft',mode==='creative'?'All items':'Crafting'],[2,'armour','Armour'],[3,'help','Controls']]){
-    button(35+i*260,115,245,55,label,()=>{vrMenuTab=tab;vrMenuPage=0;vrPickedSlot=null;vrMenuStatus='';},true,vrMenuTab===tab);
-  }
+  const tabDefs=[['inventory','Inventory'],['craft',mode==='creative'?'All items':'Crafting'],['armour','Armour']];
+  if(tradeVillager) tabDefs.push(['trade','Trade']);
+  tabDefs.push(['help','Controls']);
+  const tabStep=Math.floor(1025/tabDefs.length), tabW=tabStep-14;
+  tabDefs.forEach(([tab,label],i)=>{
+    button(35+i*tabStep,115,tabW,55,label,()=>{vrMenuTab=tab;vrMenuPage=0;vrPickedSlot=null;vrMenuStatus='';},true,vrMenuTab===tab);
+  });
   button(1110,115,290,55, chestPos && vrMenuTab!=='chest'?'Back to chest':'Close',()=>{if(chestPos&&vrMenuTab!=='chest')vrMenuTab='chest';else closeCraftVR();});
   function icon(id,x,y,size=50){
     if(!id)return;drawIcon(vrIconCanvas.getContext('2d'),id);g.imageSmoothingEnabled=false;g.drawImage(vrIconCanvas,x,y,size,size);
@@ -6844,6 +6848,30 @@ function buildCraftPanel(){
         button(1030,602,355,62,'Craft & equip',()=>vrCraftSelected(true),canCraft(r));
       } else text('Select a recipe to see what it needs.',710,325,25,'#454545',670);
     }
+  } else if(vrMenuTab==='trade'){
+    const tv=tradeVillager;
+    if(!tv){
+      text('No villager here. Point at a villager and squeeze the right grip to trade.',50,250,27,'#454545',1330);
+    } else {
+      text('TRADING  -  point + trigger a deal to accept it',35,190,27,'#454545');
+      tv.trades.forEach((t,i)=>{
+        const y=232+i*152;
+        g.fillStyle='#b9b9b9';g.fillRect(35,y-14,1365,132);
+        g.strokeStyle='#8f8f8f';g.lineWidth=2;g.strokeRect(35,y-14,1365,132);
+        icon(t.out[0],58,y+14,74);
+        text(nameOf(t.out[0])+(t.out[1]>1?'  x'+t.out[1]:''),156,y+30,30);
+        const have=t.in.every(([id,n])=>invCount(id)>=n);
+        text('costs '+t.in.map(([id,n])=>n+' '+nameOf(id)+' ('+invCount(id)+')').join(' + '),
+             156,y+74,24,have?'#28572d':'#8a2f2f',880);
+        const ok=tradeOk(t);
+        button(1078,y+18,300,66,ok?'Trade':'Need more',()=>{
+          doTrade(i);
+          vrMenuStatus='Traded for '+nameOf(t.out[0]);
+          buildCraftPanel();
+        },ok);
+      });
+      text('Emeralds are the village currency - sell goods to earn them.',35,690,23,'#454545');
+    }
   } else {
     const lines=['X (left controller): open / close inventory','Point RIGHT controller + trigger: select menu buttons','Inventory: select backpack item, then a hotbar slot to equip','Crafting: select recipe, then Craft or Craft & equip','Right grip: place / use / eat food / fill or pour bucket','Right trigger: hold to mine / attack','Wrist: point + trigger on a slot to equip; Inventory opens all items','A: jump / swim up / fly up • B: swim down / fly down / close menu','Left stick click: sprint / flight boost • Right stick click: flight • Y: crouch'];
     lines.forEach((line,i)=>text(line,50,220+i*49,25,'#333333',1330));
@@ -6865,7 +6893,7 @@ function openCraftVR(tab='inventory'){
   craftPanel.visible=true;player.vel.x=player.vel.z=0;resetMine();buildCraftPanel();
 }
 function closeCraftVR(){
-  chestOpen=false;chestPos=null;
+  chestOpen=false;chestPos=null;tradeVillager=null;
   vrCraftOpen=false;craftPanel.visible=false;vrPickedSlot=null;vrActionRelease=true;resetMine();
 }
 function updateCraftVR(dt,triggerPressedEdge){
@@ -7010,7 +7038,13 @@ function vrTryPlace(){
   const hit = raycast(o, d, REACH,heldId()===BUCKET);
   const eh = rayEntity(o, d, REACH);
   if(eh&&(!hit||eh.t<hit.t)&&feedFantasy(eh.e))return;
-  if(eh && eh.e.kind === 'villager' && (!hit || eh.t < hit.t) && mode === 'survival'){ openTrade(eh.e); return; }
+  if(eh && eh.e.kind === 'villager' && (!hit || eh.t < hit.t) && mode === 'survival'){
+    tradeVillager = eh.e;                    // the DOM trade panel is invisible in a headset,
+    tone(220 * jr(0.15), 170, 0.25, 'sawtooth', 0.1);
+    hapticPulse('right', 0.5, 45);
+    openCraftVR('trade');                    // so open the in-world VR menu on its Trade tab
+    return;
+  }
   if(equipArmour())return;
   if(useFlintSteel(hit))return;
   if(useBucket(hit))return;
@@ -7687,6 +7721,11 @@ document.getElementById('joinInput').addEventListener('keydown', e => {
 renderer.setAnimationLoop(animate);
 window.__bc = {
   camera, scene, hapticPulse, vignetteMesh, updateVignette,
+  openCraftVR, closeCraftVR, buildCraftPanel, spawnVillagerAt: spawnVillager,
+  vrMenuState: () => ({ tab: vrMenuTab, status: vrMenuStatus,
+                        buttons: vrMenuButtons.map(x => x.label).filter(Boolean),
+                        trading: !!tradeVillager }),
+  setTradeVillager: v => { tradeVillager = v; },
   vignetteState: () => ({ on: vignetteOn, amt: vignetteAmt, opacity: vignetteMesh.material.opacity }),
   player, getBlock, setBlock, physics, raycast, terrainHeight, biomeAt, animals, zombies, drops, RECIPES,
   toggleMusic, musicState: () => ({ on: musicOn, running: !!musicTimer }),
