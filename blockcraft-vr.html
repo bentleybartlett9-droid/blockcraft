@@ -439,25 +439,27 @@ function biomeAt(x, z){
   const t = 0.75 * vnoise(wx * 0.0007, wz * 0.0007, 63) + 0.25 * vnoise(wx * 0.0021, wz * 0.0021, 64);
   const m = 0.75 * vnoise(wx * 0.0008 + 533, wz * 0.0008 - 711, 71) + 0.25 * vnoise(wx * 0.0024, wz * 0.0024, 72);
   const grove=vnoise(wx*.0023+71,wz*.0023-33,121);
+  // groves, not continents: these sit in pockets of the temperate band so
+  // plains and savanna keep the run of it
   if(t>=.37 && t<=.63){
-    if(grove>.67)return 'cherry-grove';
-    if(grove<.32)return 'maple-woods';
-    if(m>.57&&grove>.44&&grove<.54)return 'willow-marsh';
+    if(grove>.84)return 'cherry-grove';
+    if(grove<.16)return 'maple-woods';
+    if(m>.60&&grove>.46&&grove<.53)return 'willow-marsh';
   }
   const weird = vnoise(wx*.0019-311, wz*.0019+207, 133);
   if(weird > 0.73 && t > 0.56) return 'amberfield';      // golden meadow
-  if(weird > 0.73 && t < 0.44) return 'frostvale';       // pale rime forest
+  if(weird > 0.77 && t < 0.40) return 'frostvale';       // pale rime forest
   if(weird < 0.25 && m > 0.46 && t >= 0.40 && t <= 0.68) return 'duskhollow';
-  if(t < 0.37) return 'snowy';
-  if(t < 0.47 && m > 0.50) return 'taiga';          // cold conifer forest
+  if(t < 0.31) return 'snowy';                     // cold, but not a quarter of the world
+  if(t < 0.44 && m > 0.54) return 'taiga';          // cold conifer forest
   if(t > 0.72 && m < 0.28) return 'badlands';       // hottest and driest: banded clay
   if(t > 0.66 && m < 0.35) return 'outback';        // the red centre
   if(t > 0.63 && m < 0.42) return 'desert';
   if(t > 0.59 && m < 0.53) return 'savanna';
   if(t > 0.56 && m > 0.60) return 'jungle';
-  if(m > 0.64) return 'swamp';
-  if(m > 0.56) return 'forest';
-  if(m > 0.50 && t > 0.54) return 'birch';
+  if(m > 0.67) return 'swamp';
+  if(m > 0.61) return 'forest';
+  if(m > 0.57 && t > 0.54) return 'birch';
   return 'plains';
 }
 function surfaceCarved(x, z, h){
@@ -483,18 +485,28 @@ function terraBand(y){
        : b < 11 ? TERRA_ORANGE
        : TERRA_PALE;
 }
+/* A slow, wide field of open ground. Woods thin out into meadows and
+   glades instead of running unbroken to the horizon, so there is always
+   somewhere clear to build. */
+function clearing(x, z){
+  const n = vnoise(x * 0.0045 + 419, z * 0.0045 - 257, 611);
+  if(n < 0.44) return 0;                            // open meadow
+  return Math.min(1, (n - 0.44) / 0.16);            // soft edge into the trees
+}
 function treeAt(x, z){
   const r = hash(x, z, 777);
   if(r >= 0.03) return null;                        // cheap reject before biome lookup
   const h = terrainHeight(x, z);
   if(h <= SEA + 1 || h >= SNOW_H - 4 || surfaceCarved(x,z,h)) return null;
+  const open = clearing(x, z);
+  if(open <= 0) return null;
   const b = biomeAt(x, z);
   const p = b === 'amberfield' ? 0.012 : b === 'frostvale' ? 0.020 : b === 'duskhollow' ? 0.026 :
             ['cherry-grove','maple-woods','willow-marsh'].includes(b) ? .024 : b === 'jungle' ? 0.028 : b === 'forest' ? 0.022 : b === 'birch' ? 0.016 :
             b === 'taiga' ? 0.026 : b === 'outback' ? 0.006 :
             b === 'snowy' ? 0.008 : b === 'swamp' ? 0.007 : b === 'plains' ? TREE_P :
             b === 'savanna' ? 0.003 : 0;
-  if(r >= p) return null;
+  if(r >= p * open) return null;
   const type = b==='amberfield'?'sunwood':b==='frostvale'?'rimewood':b==='duskhollow'?'duskwood':
                b==='cherry-grove'?'cherry':b==='maple-woods'?'maple':b==='willow-marsh'?'willow':b==='outback'?'gum':
                b === 'snowy' || b === 'taiga' ? 'spruce' : b === 'birch' ? 'birch' :
@@ -8731,7 +8743,7 @@ window.__bc = {
                         trading: !!tradeVillager }),
   setTradeVillager: v => { tradeVillager = v; },
   vignetteState: () => ({ on: vignetteOn, amt: vignetteAmt, opacity: vignetteMesh.material.opacity }),
-  player, getBlock, setBlock, physics, raycast, terrainHeight, biomeAt, animals, zombies, drops, RECIPES,
+  player, getBlock, setBlock, physics, raycast, terrainHeight, biomeAt, treeAt, animals, zombies, drops, RECIPES,
   toggleMusic, musicState: () => ({ on: musicOn, running: !!musicTimer }),
   villagers, villagesNear, villageDef, spawnVillager,
   stepVillagers: dt => updateVillagers(dt),
