@@ -862,6 +862,23 @@ const POTIONS = {
   [POT_NIGHT]: { name: 'Potion of Night Vision', fx: 'night', t: 180, col: '#2a3ad0' },
   [POT_SLOW]:  { name: 'Potion of Slow Falling', fx: 'slow', t: 90, col: '#f0e8d8' },
 };
+/* Spawn eggs: one for every creature but the two bosses */
+const SPAWN_EGGS = [
+  ['pig','Pig','#f0a5a2','#db635f'], ['cow','Cow','#443626','#a1a1a1'], ['sheep','Sheep','#e7e7e7','#ffb5b5'], ['chicken','Chicken','#a1a1a1','#ff0000'],
+  ['horse','Horse','#c09e7d','#eee500'], ['wolf','Wolf','#d7d3d3','#ceaf96'], ['rabbit','Rabbit','#995f40','#734831'], ['fox','Fox','#d5b69f','#cc6920'],
+  ['llama','Llama','#c09e7d','#995f40'], ['goat','Goat','#a5947c','#55493e'], ['axolotl','Axolotl','#fbc1e3','#a62d74'], ['kangaroo','Kangaroo','#b3764a','#e0b48a'],
+  ['mossling','Mossling','#5c8a3a','#a4d46a'], ['moonhopper','Moonhopper','#b8c4e8','#6a78c8'], ['crystalback','Crystalback','#7a6aa8','#c8b0ff'],
+  ['gildhorn','Gildhorn','#d8b04a','#fff0a0'], ['frostpaw','Frostpaw','#dfeff8','#7ab8e0'], ['duskmoth','Duskmoth','#4a3a6a','#c878e8'],
+  ['zombie','Zombie','#00afaf','#799c65'], ['skeleton','Skeleton','#c1c1c1','#494949'], ['creeper','Creeper','#0da70b','#000000'],
+  ['spider','Spider','#342d27','#a80e0e'], ['enderman','Enderman','#161616','#000000'], ['villager','Villager','#563c33','#bd8b72'],
+  ['golem','Iron Golem','#dfd6cc','#74a332'],
+  ['zpiglin','Zombified Piglin','#ea9393','#4c7129'], ['piglin','Piglin','#995f40','#f9f3a4'], ['brute','Piglin Brute','#592a10','#f9f3a4'],
+  ['hoglin','Hoglin','#c66e55','#5f6464'], ['ghast','Ghast','#f9f9f9','#bcbcbc'], ['blaze','Blaze','#f6b201','#fff87e'],
+  ['magma','Magma Cube','#340000','#fcfc00'], ['wskel','Wither Skeleton','#141414','#474d4d'], ['strider','Strider','#9c3436','#4d494d'],
+  ['shulker','Shulker','#946794','#4d3852'], ['wisp','Storm Wisp','#8ae8ff','#ffffff'], ['stormling','Stormling','#2c3a54','#8ae8ff'],
+];
+const EGG_BASE = 410;                      // 410-446
+const eggMob = id => id >= EGG_BASE && id < EGG_BASE + SPAWN_EGGS.length ? SPAWN_EGGS[id - EGG_BASE][0] : null;
 const NETH_ARMOUR=376,   // 376-379: netherite armour
       BOW=380, ARROW_I=381, EYE_ENDER=382, ELYTRA=383, FIREWORK=384, PAPER=385, CHORUS_FRUIT=386,
       POPPED_CHORUS=387, SHULKER_SHELL=388, SADDLE=389, FUNGUS_STICK=390;
@@ -1145,7 +1162,8 @@ ITEMS[NAXE]={name:'Netherite Axe',icon:81,tool:{type:'axe',tier:5}};ITEMS[ROTTEN
 ITEMS[BOW]={name:'Bow',icon:91};ITEMS[ARROW_I]={name:'Arrow',icon:92};ITEMS[EYE_ENDER]={name:'Eye of Ender',icon:93};
 ITEMS[FIREWORK]={name:'Firework Rocket',icon:95};ITEMS[PAPER]={name:'Paper',icon:96};ITEMS[CHORUS_FRUIT]={name:'Chorus Fruit',icon:97,food:4};
 ITEMS[POPPED_CHORUS]={name:'Popped Chorus Fruit',icon:98};ITEMS[SHULKER_SHELL]={name:'Shulker Shell',icon:99};
-ITEMS[SADDLE]={name:'Saddle',icon:100};ITEMS[GLASS_BOTTLE]={name:'Glass Bottle',icon:107};ITEMS[WATER_BOTTLE]={name:'Water Bottle',icon:108};
+ITEMS[SADDLE]={name:'Saddle',icon:100};
+SPAWN_EGGS.forEach(([, name], i) => { ITEMS[EGG_BASE + i] = { name: name + ' Spawn Egg', icon: 120 + i }; });ITEMS[GLASS_BOTTLE]={name:'Glass Bottle',icon:107};ITEMS[WATER_BOTTLE]={name:'Water Bottle',icon:108};
 ITEMS[AWKWARD]={name:'Awkward Potion',icon:109};
 Object.keys(POTIONS).forEach((id, i) => { ITEMS[id] = { name: POTIONS[id].name, icon: 110 + i }; });ITEMS[STORMKEY_I]={name:'Storm Key',icon:102};ITEMS[VOLTITE]={name:'Voltite Shard',icon:103};
 ITEMS[TEMPEST_HEART]={name:'Tempest Heart',icon:104};ITEMS[STORMBREAKER]={name:'Stormbreaker',icon:105,tool:{type:'sword',tier:6}};
@@ -1386,7 +1404,7 @@ function mulberry32(a){
 const atlas = document.createElement('canvas');
 atlas.width = ATLAS_W; atlas.height = ATLAS_H;
 const itemAtlas = document.createElement('canvas');
-itemAtlas.width = 128; itemAtlas.height = 256;
+itemAtlas.width = 128; itemAtlas.height = 384;
 {
   const tn = (x, y, s, salt) => vnoise(x * s + 37.7, y * s + 11.3, 5000 + salt);
   const pick = (v, shades) => shades[Math.max(0, Math.min(shades.length - 1, Math.floor(v * shades.length)))];
@@ -2722,6 +2740,20 @@ const tileAvg = [];
     px(105, [['#3a78c0', blade], ['#dff8ff', edge], ['#c07048', [[2, 12, 3, 2], [3, 11, 1, 4]]], ['#4a3a2a', [[1, 13, 2, 2]]]]); }
   // voltite pickaxe
   px(106, [['#6a4a2a', [[4, 11], [5, 10], [6, 9], [7, 8], [8, 7], [9, 6], [3, 12]]], ['#3aa8d8', [[5, 2, 7, 2], [11, 3, 2, 3], [4, 3, 2, 2]]], ['#9aeaff', [[6, 2, 5, 1]]]]);
+}
+/* ---- spawn eggs ---- */
+{
+  const I = itemAtlas.getContext('2d');
+  SPAWN_EGGS.forEach(([, , shell, spots], i) => {
+    const ti = 120 + i, ox = ti % 8 * 16, oy = Math.floor(ti / 8) * 16;
+    for(let y = 0; y < 16; y++) for(let x = 0; x < 16; x++){
+      const ex = (x - 7.5) / 5.2, ey = (y - (y < 9 ? 8.5 : 8.5)) / (y < 9 ? 7.2 : 6.2);
+      if(ex * ex + ey * ey > 1) continue;
+      const spot = ((x * 7 + y * 13) % 11 < 2) || ((x * 3 + y * 5) % 9 === 0);
+      I.fillStyle = spot ? spots : shell; I.fillRect(ox + x, oy + y, 1, 1);
+      if(x === 5 && y >= 4 && y <= 7){ I.fillStyle = 'rgba(255,255,255,0.45)'; I.fillRect(ox + x, oy + y, 1, 1); }
+    }
+  });
 }
 /* ---- the boab: smooth, wrinkled grey-pink bark ---- */
 {
@@ -9095,8 +9127,32 @@ function launchFirework(){
   }, 100);
 }
 // right-click / grip with one of the new items; returns true if it was used
+function spawnFromEgg(type, x, y, z){
+  if(FANTASY.includes(type) || ['pig','cow','sheep','chicken','horse','wolf','rabbit','fox','llama','goat','axolotl','kangaroo'].includes(type)) return spawnAnimal(type, x, y, z);
+  if(type === 'zombie') return spawnZombie(x, y, z);
+  if(type === 'skeleton') return spawnSkeleton(x, y, z);
+  if(type === 'creeper') return spawnCreeper(x, y, z);
+  if(type === 'spider') return spawnSpider(x, y, z);
+  if(type === 'enderman') return spawnEnderman(x, y, z);
+  if(type === 'villager') return spawnVillager(x, y, z, Math.floor(x), Math.floor(z));
+  if(type === 'golem') return spawnGolem(x, y, z, Math.floor(x), Math.floor(z));
+  if(type === 'shulker') return spawnShulker(Math.floor(x) + 0.5, Math.floor(y), Math.floor(z) + 0.5, null);
+  return spawnNetherMob(type, x, type === 'ghast' ? y + 2 : y, z);
+}
+function useSpawnEgg(hit){
+  const type = eggMob(heldId());
+  if(!type || !hit) return false;
+  const x = hit.x + hit.face[0] + 0.5, y = hit.y + hit.face[1], z = hit.z + hit.face[2] + 0.5;
+  spawnFromEgg(type, x, y + 0.02, z);
+  if(mode === 'survival') consumePlacedItem();
+  burstRGB(x, y + 0.5, z, 0.9, 0.9, 0.9, 10, 0.5);
+  playN({ f: 500, type: 'bandpass', dur: 0.12, vol: 0.1 });
+  triggerViewSwing();
+  return true;
+}
 function useSpecial(o, d, hit, eh){
   const held = heldId();
+  if(eggMob(held)) return useSpawnEgg(hit) || true;
   if(POTIONS[held]){ drinkPotion(held); triggerViewSwing(); return true; }
   if(held === GLASS_BOTTLE && fillBottle(hit)){ triggerViewSwing(); return true; }
   if(hit && hit.id === CONDUIT){ armConduit(hit.x, hit.y, hit.z); triggerViewSwing(); return true; }
@@ -14580,7 +14636,7 @@ window.__bc = {
             save: { pack: packEdits, unpack: unpackEdits, packChests, unpackChests, used: storageUsed, exportWorld },
             adv: { list: ADVANCEMENTS, done: advDone, grant: grantAdv, next: nextAdv, tick: () => { advT = 0; updateAdvancements(0); }, guide: toggleGuide, toast: showToast },
             fx: { clearInv: () => { for(const q of survInv){ q.id = 0; q.count = 0; q.dur = 0; } renderHotbar(); }, effects, drink: id => drinkPotion(id), step: dt => updateEffects(dt), light: lightAtPlayer, mood: () => musicMood(), sub: showSubtitle, POTIONS },
-            tp: teleportToBiome, findBiome,
+            tp: teleportToBiome, findBiome, egg: (type, x, y, z) => spawnFromEgg(type, x, y, z), EGG_BASE, SPAWN_EGGS,
             spawns: dt => updateNetherSpawns(dt), effects: () => ({ burnT, witherT }), heal: () => { hp = 20; dead = false; burnT = 0; witherT = 0; }, give: e => tryGivePiglin(e), lightFire },
 };
 </script>
