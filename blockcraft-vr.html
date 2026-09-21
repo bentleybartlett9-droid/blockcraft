@@ -3341,7 +3341,11 @@ function updateChunks(){
       for(const [k, c] of chunks){
         if(chunks.size <= 500) break;
         if(c.built) continue;
-        if(Math.max(Math.abs(c.cx - pcx), Math.abs(c.cz - pcz)) > RD + 3) chunks.delete(k);
+        if(Math.max(Math.abs(c.cx - pcx), Math.abs(c.cz - pcz)) <= RD + 3) continue;
+        let nearFriend = false;
+        for(const a of remotes.values())
+          if(Math.max(Math.abs(c.cx - Math.floor(a.t.x / 16)), Math.abs(c.cz - Math.floor(a.t.z / 16))) <= 5){ nearFriend = true; break; }
+        if(!nearFriend) chunks.delete(k);
       }
     }
   }
@@ -4715,7 +4719,8 @@ function explode(x, y, z, radius, dmgMax, fromNet){
     if(c && c.built){c.emitters=null;queueMesh(c);}
   }
   // damage + knockback: each client applies to its own player
-  const pd = Math.hypot(player.pos.x - x, player.pos.y + 0.9 - y, player.pos.z - z);
+  const pd = mobCtx ? Infinity   // a friend's own game works out what the blast does to them
+                    : Math.hypot(player.pos.x - x, player.pos.y + 0.9 - y, player.pos.z - z);
   if(pd < radius + 2.5){
     damage(Math.round(dmgMax * Math.max(0, 1 - pd / (radius + 2.5))));
     const l = pd || 1;
@@ -5638,6 +5643,14 @@ function damageTool(types){
   renderHotbar();
 }
 function punchEntity(e){
+  if(e.puppet && mobsFromHost()){
+    triggerViewSwing();
+    damageTool(['sword', 'axe']);
+    playN({ f: 190, type: 'lowpass', dur: 0.08, vol: .05 });
+    burstRGB(e.pos.x, e.pos.y + 1, e.pos.z, 0.8, 0.3, 0.25, 4, 0.3);
+    mpBroadcast({ t: 'hit', nid: e.nid, from: MYTAG });
+    return;
+  }
   triggerViewSwing();
   // the Ender Dragon: no knockback, just damage
   if(e.kind === 'dragon'){
@@ -6449,6 +6462,24 @@ function onNet(c, m){
   } else if(m.t === 'pos'){
     if(m.tag !== MYTAG) updateAvatar(m);
     if(isHost) mpBroadcast(m, c);
+  } else if(m.t === 'mobs'){
+    if(!isHost){ hostDim = m.dim | 0; if(hostDim === dim && Array.isArray(m.list)) applyMobSnapshot(m.list); }
+  } else if(m.t === 'hit'){
+    // a friend struck one of our mobs: land it as them, with their weapon
+    if(!isHost) return;
+    const ctx = sharedPlayers().find(q => q.tag === m.from);
+    let e = null;
+    for(const [, list] of MOB_LISTS){ e = list.find(x => x.nid === m.nid); if(e) break; }
+    if(ctx && e && !(e.mesh && !e.group)){ asPlayer(ctx, () => punchEntity(e)); flushCtx(ctx); }
+  } else if(m.t === 'hurt'){
+    if(m.to !== MYTAG) return;
+    if(m.n > 0) damage(m.n);
+    const kb = m.kb || [0, 0, 0];
+    player.vel.x += kb[0]; player.vel.z += kb[2];
+    if(kb[1] > 0) player.vel.y = Math.max(player.vel.y, kb[1]);
+  } else if(m.t === 'loot'){
+    if(m.to !== MYTAG || !Array.isArray(m.items)) return;
+    for(const [x, y, z, id, n] of m.items) spawnDropAt(x, y, z, id, n);
   } else if(m.t === 'door'){
     const k = doorKey(m.x, m.y, m.z);
     const info = doorState.get(k) || { facing: 0, open: false };
@@ -6474,7 +6505,8 @@ const r3 = v => Math.round(v * 1000) / 1000;
 function myPose(){
   const p = player.pos;
   const pose = { held: heldId(), g: xrActive && vrMoveMode === 'gorilla' ? 1 : 0,
-                 c: player.crouching ? 1 : 0, sw: mySwing, vr: xrActive ? 1 : 0 };
+                 c: player.crouching ? 1 : 0, sw: mySwing, vr: xrActive ? 1 : 0,
+                 md: mode === 'survival' ? 's' : 'c', dd: dead ? 1 : 0, dm: dim };
   const pack = () => [r3(_np.x - p.x), r3(_np.y - p.y), r3(_np.z - p.z), r3(_nq.x), r3(_nq.y), r3(_nq.z), r3(_nq.w)];
   if(xrActive){
     camera.getWorldPosition(_np); camera.getWorldQuaternion(_nq);
@@ -6545,9 +6577,11 @@ function updateAvatar(m){
   a.yaw = m.yaw || 0;
   a.seen = 0;
   a.pose = m;                                    // older builds send no pose: the avatar just stands
+  a.mode = m.md === 'c' ? 'creative' : 'survival'; a.dead = !!m.dd; a.dim = m.dm | 0;
   if(m.sw !== undefined && m.sw !== a.sw){ a.sw = m.sw; a.swingT = 0.3; }
   // the host keeps the clock, so everyone shares one sun
   if(!isHost && typeof m.tod === 'number'){
+    hostDim = m.dm | 0;                          // only the host sends the clock
     let d = m.tod - timeOfDay; d -= Math.round(d);
     if(Math.abs(d) > 0.001) timeOfDay = ((m.tod % 1) + 1) % 1;
   }
@@ -6628,6 +6662,230 @@ function updateNet(dt){
     a.tag.lookAt(camera.getWorldPosition(new THREE.Vector3()));
     const dist = a.group.position.distanceTo(player.pos);
     a.tag.visible = dist > 2.5 && dist < 60;
+  }
+}
+
+/* ---- shared mobs ---------------------------------------------------------
+   In multiplayer the host runs every mob in the world and everyone else
+   sees copies of them. Each mob answers to whichever player is nearest:
+   the host briefly stands the world's `player` in for that friend - their
+   position, game mode and held item - so every mob's own AI, spawning and
+   despawning works unchanged, and whatever would have hurt the player or
+   dropped at their feet is posted to the friend instead. */
+const MOB_LISTS = [['animal', animals], ['zombie', zombies], ['skeleton', skeletons], ['creeper', creepers],
+                   ['spider', spiders], ['enderman', endermen], ['villager', villagers], ['golem', golems],
+                   ['arrow', arrows]];
+let mobCtx = null, nidSeq = 0, mobSnapT = 0, hostDim = -1;
+const puppets = new Map();                        // nid -> copy of one of the host's mobs
+const r2 = v => Math.round(v * 100) / 100;
+function mobsFromHost(){ return !isHost && mpActive() && hostDim === dim; }
+// friends in the host's dimension, each with a stand-in the mob AI can chase
+function sharedPlayers(){
+  if(!isHost || !mpActive()) return [];
+  const out = [];
+  for(const [tag, a] of remotes){
+    if(a.dim !== dim || a.seen > 3) continue;
+    if(!a.proxy) a.proxy = { tag, pos: new THREE.Vector3(), vel: new THREE.Vector3(), hurt: 0, drops: [], timers: null };
+    const c = a.proxy;
+    c.pos.copy(a.t); c.mode = a.mode || 'survival'; c.dead = !!a.dead; c.held = (a.pose && a.pose.held) | 0;
+    out.push(c);
+  }
+  return out;
+}
+// spawn timers are per player, so each friend gets their own share of spawns
+const spawnTimers = () => [animalSpawnT, zSpawnT, villagerCheckT, golemCheckT, enderSpawnT, netherSpawnT, crawlerSpawnTimer, spawnerT];
+function setSpawnTimers(t){ [animalSpawnT, zSpawnT, villagerCheckT, golemCheckT, enderSpawnT, netherSpawnT, crawlerSpawnTimer, spawnerT] = t; }
+function asPlayer(ctx, fn){
+  if(!ctx) return fn();
+  const saved = { pos: player.pos, vel: player.vel, mode, dead, damage, spawnDropAt, heldId, damageTool,
+                  triggerViewSwing, timers: spawnTimers() };
+  player.pos = ctx.pos; player.vel = ctx.vel; mode = ctx.mode; dead = ctx.dead;
+  damage = n => { ctx.hurt += n; };
+  spawnDropAt = (x, y, z, id, n = 1) => { ctx.drops.push([r2(x), r2(y), r2(z), id, n]); };
+  heldId = () => ctx.held || 0;
+  damageTool = () => {};                          // their tool wears on their own machine
+  triggerViewSwing = () => {};
+  setSpawnTimers(ctx.timers || [2, 3, 0, 0, 0, 0, 4, 0]);
+  mobCtx = ctx;
+  try { return fn(); }
+  finally {
+    ctx.timers = spawnTimers();
+    setSpawnTimers(saved.timers);
+    player.pos = saved.pos; player.vel = saved.vel; mode = saved.mode; dead = saved.dead;
+    damage = saved.damage; spawnDropAt = saved.spawnDropAt; heldId = saved.heldId;
+    damageTool = saved.damageTool; triggerViewSwing = saved.triggerViewSwing;
+    mobCtx = null;
+  }
+}
+// post what the mobs did to a friend: hits, knockback, loot
+function flushCtx(c){
+  if(c.hurt > 0 || c.vel.lengthSq() > 0)
+    mpBroadcast({ t: 'hurt', to: c.tag, n: c.hurt, kb: [r2(c.vel.x), r2(c.vel.y), r2(c.vel.z)] });
+  if(c.drops.length) mpBroadcast({ t: 'loot', to: c.tag, items: c.drops });
+  c.hurt = 0; c.vel.set(0, 0, 0); c.drops = [];
+}
+function runMobsFor(dt, daylight){
+  if(dim === 0){
+    updateAnimalSpawns(dt);
+    updateZombieSpawns(dt, daylight);
+    updateVillagerSpawns(dt);
+    updateGolemSpawns(dt);
+  } else if(dim === 1){
+    updateNetherSpawns(dt);
+  }   // The End: no ambient spawns - just the dragon
+  updateAnimals(dt);
+  updateZombies(dt, daylight);
+  updateSkeletons(dt, daylight);
+  updateCrystalCrawlers(dt);
+  updateSpiders(dt, daylight);
+  updateArrows(dt);
+  updateCreepers(dt);
+  updateVillagers(dt);
+  updateGolems(dt);
+  updateEndermen(dt);
+  updateEndermanSpawns(dt, daylight);
+  updateSpawners(dt);
+}
+function runMobWorld(dt, daylight){
+  if(mobsFromHost()){ purgeLocalMobs(); stepPuppets(dt); return; }
+  if(puppets.size) dropPuppets();                 // host gone, or we changed dimension: our own mobs again
+  const others = sharedPlayers();
+  if(!others.length){ runMobsFor(dt, daylight); return; }
+  // hand every mob to its nearest player, then run the world once as each of them
+  const ctxs = [null, ...others];
+  const buckets = ctxs.map(() => MOB_LISTS.map(() => []));
+  MOB_LISTS.forEach(([, list], li) => {
+    for(const e of list){
+      let best = 0, bd = Infinity;
+      ctxs.forEach((c, ci) => {
+        const q = c ? c.pos : player.pos, d = (q.x - e.pos.x) ** 2 + (q.z - e.pos.z) ** 2;
+        if(d < bd){ bd = d; best = ci; }
+      });
+      buckets[best][li].push(e);
+    }
+  });
+  try {
+    ctxs.forEach((c, ci) => {
+      MOB_LISTS.forEach(([, list], li) => { list.length = 0; list.push(...buckets[ci][li]); });
+      try { asPlayer(c, () => runMobsFor(dt, daylight)); }
+      finally { MOB_LISTS.forEach(([, list], li) => { buckets[ci][li] = list.slice(); }); }
+      if(c) flushCtx(c);
+    });
+  } finally {
+    MOB_LISTS.forEach(([, list], li) => { list.length = 0; for(const b of buckets) list.push(...b[li]); });
+  }
+  mobSnapT -= dt;
+  if(mobSnapT <= 0){ mobSnapT = 0.1; sendMobSnapshot(others); }
+}
+function mobExtra(kind, e){
+  if(kind === 'animal') return e.type;
+  if(kind === 'spider') return e.crystal ? 1 : 0;
+  if(kind === 'villager') return [e.prof && e.prof.id, e.home[0], e.home[1]];
+  if(kind === 'golem') return [e.home[0], e.home[1]];
+  if(kind === 'creeper') return e.fuse >= 0 ? 1 : 0;
+  return 0;
+}
+function sendMobSnapshot(others){
+  const list = [];
+  for(const [kind, arr] of MOB_LISTS) for(const e of arr){
+    if(!others.some(o => (o.pos.x - e.pos.x) ** 2 + (o.pos.z - e.pos.z) ** 2 < 96 * 96)) continue;
+    if(!e.nid) e.nid = ++nidSeq;
+    const row = [e.nid, kind, r2(e.pos.x), r2(e.pos.y), r2(e.pos.z)];
+    if(kind === 'arrow') row.push(r2(e.vel.x), r2(e.vel.y), r2(e.vel.z), e.stuck > 0 ? 1 : 0);
+    else row.push(r2(e.yaw || 0), mobExtra(kind, e));
+    list.push(row);
+  }
+  mpBroadcast({ t: 'mobs', dim, list });
+}
+/* ---- on a player who is not hosting: copies of the host's mobs ---- */
+const listOfKind = kind => (MOB_LISTS.find(k => k[0] === kind) || [])[1];
+function removeMob(e){
+  if(e.mesh && !e.group){                         // arrows
+    const i = arrows.indexOf(e);
+    scene.remove(e.mesh);
+    if(i >= 0) arrows.splice(i, 1);
+    return;
+  }
+  for(const [, list] of MOB_LISTS){
+    const i = list.indexOf(e);
+    if(i >= 0){ removeEnt(list, i); return; }
+  }
+}
+function purgeLocalMobs(){                        // anything we spawned ourselves is not in the shared world
+  for(const [, list] of MOB_LISTS)
+    for(let i = list.length - 1; i >= 0; i--) if(!list[i].puppet) removeMob(list[i]);
+}
+function dropPuppets(){
+  for(const e of puppets.values()) removeMob(e);
+  puppets.clear();
+}
+function makePuppet(kind, row){
+  const [nid, , x, y, z] = row, extra = row[6];
+  const list = listOfKind(kind);
+  if(!list) return null;
+  const n = list.length;
+  try {
+    if(kind === 'animal') spawnAnimal(extra, x, y, z);
+    else if(kind === 'zombie') spawnZombie(x, y, z);
+    else if(kind === 'skeleton') spawnSkeleton(x, y, z);
+    else if(kind === 'creeper') spawnCreeper(x, y, z);
+    else if(kind === 'spider') spawnSpider(x, y, z, !!extra);
+    else if(kind === 'enderman') spawnEnderman(x, y, z);
+    else if(kind === 'villager') spawnVillager(x, y, z, extra[1], extra[2], extra[0]);
+    else if(kind === 'golem') spawnGolem(x, y, z, extra[0], extra[1]);
+    else if(kind === 'arrow') spawnArrow(x, y, z, row[5], row[6], row[7]);
+  } catch(err){ return null; }
+  if(list.length <= n) return null;
+  const e = list[list.length - 1];
+  e.puppet = true; e.nid = nid; e.netPos = new THREE.Vector3(x, y, z); e.netSeen = 0;
+  return e;
+}
+function applyMobSnapshot(list){
+  const seen = new Set();
+  for(const row of list){
+    const [nid, kind, x, y, z] = row;
+    seen.add(nid);
+    let e = puppets.get(nid);
+    if(!e){ e = makePuppet(kind, row); if(!e) continue; puppets.set(nid, e); }
+    e.netPos.set(x, y, z);
+    e.netSeen = 0;
+    if(kind === 'arrow'){ e.vel.set(row[5], row[6], row[7]); e.stuck = row[8] ? 1 : 0; }
+    else { e.yaw = row[5]; if(kind === 'creeper') e.fuse = row[6] ? 0.5 : -1; }
+  }
+  for(const [nid, e] of puppets) if(!seen.has(nid)) e.netGone = true;
+}
+function stepPuppets(dt){
+  const k = Math.min(1, dt * 10);
+  for(const [nid, e] of puppets){
+    if(e.netGone || (e.netSeen += dt) > 2){
+      // gone from close by means it died; far off it simply wandered out of range
+      if(e.netGone && e.group && e.pos.distanceTo(player.pos) < 32)
+        burstRGB(e.pos.x, e.pos.y + 0.8, e.pos.z, 0.75, 0.75, 0.75, 10);
+      removeMob(e); puppets.delete(nid); continue;
+    }
+    if(e.mesh && !e.group){                       // arrow
+      e.pos.lerp(e.netPos, k);
+      e.mesh.position.copy(e.pos);
+      if(!(e.stuck > 0)) e.mesh.lookAt(e.pos.clone().add(e.vel));
+      continue;
+    }
+    const ox = e.pos.x, oz = e.pos.z;
+    e.pos.lerp(e.netPos, k);
+    e.vel.set((e.pos.x - ox) / Math.max(dt, 1e-3), 0, (e.pos.z - oz) / Math.max(dt, 1e-3));   // swings the legs
+    animMob(e, dt);
+    if(e.kind === 'creeper')                      // lit fuse: the swell and flash show on every screen
+      e.group.scale.setScalar(e.fuse >= 0 ? 1 + Math.abs(Math.sin(performance.now() / 90)) * 0.12 : 1);
+    if(e.kind === 'animal'){
+      e.callT = (e.callT === undefined ? 2 + Math.random() * 6 : e.callT) - dt;
+      if(e.callT <= 0){
+        e.callT = (e.type === 'cow' ? 20 : e.type === 'rabbit' ? 10 : e.type === 'wolf' ? 7 : 4)
+                  + Math.random() * (e.type === 'cow' ? 18 : 6);
+        animalCall(e.type, e.pos, 'idle');
+      }
+    } else if(e.kind === 'zombie' || e.kind === 'skeleton'){
+      e.groanT = (e.groanT === undefined ? 3 + Math.random() * 5 : e.groanT) - dt;
+      if(e.groanT <= 0){ e.groanT = 4 + Math.random() * 6; if(e.pos.distanceTo(player.pos) < 26) monsterCall(e); }
+    }
   }
 }
 
@@ -8732,29 +8990,10 @@ function animate(){
       if(mouseHeld[2]){ doPlace(); actCd = now + 0.22; }
       else if(mouseHeld[0] && mode === 'creative'){ doBreakInstant(); actCd = now + 0.22; }
     }
-    if(dim === 0){
-      updateAnimalSpawns(dt);
-      updateZombieSpawns(dt, daylight);
-      updateVillagerSpawns(dt);
-      updateGolemSpawns(dt);
-    } else if(dim === 1){
-      updateNetherSpawns(dt);
-    }   // The End: no ambient spawns — just the dragon
+    runMobWorld(dt, daylight);        // spawns and every mob - shared with friends in multiplayer
     updateMonsterAmbience(dt);
-    updateAnimals(dt);
-    updateZombies(dt, daylight);
-    updateSkeletons(dt, daylight);
-    updateCrystalCrawlers(dt);
-    updateSpiders(dt, daylight);
-    updateArrows(dt);
-    updateCreepers(dt);
     updateTNT(dt);
-    updateVillagers(dt);
-    updateGolems(dt);
     updateDragon(dt);
-    updateEndermen(dt);
-    updateEndermanSpawns(dt, daylight);
-    updateSpawners(dt);
     updateDrops(dt);
     updateCrops(dt);
     updatePortal(dt);
@@ -8762,6 +9001,8 @@ function animate(){
     timeOfDay = (timeOfDay + dt / DAY_LENGTH) % 1;
     updateHunger(dt);
     updateWater(dt);
+  } else if(isHost && mpActive() && inGame){
+    runMobWorld(dt, daylight);        // the host's menu or death screen must not freeze everyone's mobs
   }
   updateParticles(dt);
   tickLeafDecay(now); tickSaplings(now);
@@ -9030,6 +9271,10 @@ window.__bc = {
   mpNewCode, MP_ALPHABET, startHost, joinGame, destroyPeer, enableVoice, disableVoice,
   myPose, netMessage: m => onNet({ peer: 'test' }, m), remotes, stepNet: dt => updateNet(dt),
   setHost: v => { isHost = v; }, timeOfDay: () => timeOfDay,
+  stepMobWorld: (dt, dl) => runMobWorld(dt, dl), puppets, mobsFromHost: () => mobsFromHost(),
+  addTestConn: send => { const c = { open: true, send, peer: 'test', close(){} }; conns.push(c); return c; },
+  dropTestConns: () => { conns = conns.filter(c => c.peer !== 'test'); },
+  mobLists: () => Object.fromEntries(MOB_LISTS.map(([k, l]) => [k, l.length])),
   mpState: () => ({ code: mpRoomCode, status: mpStatusText, conns: conns.length,
                     voiceOn, vrMpMode, vrJoinCode, remotes: remotes.size }),
   setVrMp: (mode, code) => { vrMpMode = mode; if(code !== undefined) vrJoinCode = code; },
