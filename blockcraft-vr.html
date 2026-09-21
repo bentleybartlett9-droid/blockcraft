@@ -876,7 +876,7 @@ const SPAWN_EGGS = [
   ['hoglin','Hoglin','#c66e55','#5f6464'], ['ghast','Ghast','#f9f9f9','#bcbcbc'], ['blaze','Blaze','#f6b201','#fff87e'],
   ['magma','Magma Cube','#340000','#fcfc00'], ['wskel','Wither Skeleton','#141414','#474d4d'], ['strider','Strider','#9c3436','#4d494d'],
   ['shulker','Shulker','#946794','#4d3852'], ['wisp','Storm Wisp','#8ae8ff','#ffffff'], ['stormling','Stormling','#2c3a54','#8ae8ff'],
-  ['slime','Slime','#51a03e','#7ebf6e'],
+  ['slime','Slime','#51a03e','#7ebf6e'], ['drowned','Drowned','#8ff1d7','#799c65'],
 ];
 const EGG_BASE = 410;                      // 410-446
 const APPLE=457, GOLDEN_APPLE=458, CARROT=459, POTATO=460, BAKED_POTATO=461, MILK=462, EGG=463, SUGAR=464,
@@ -886,9 +886,9 @@ const isCake = id => id >= CAKE && id <= CAKE3;
 const CROP_GROWING = new Set([WHEAT0, WHEAT1, WHEAT2, CARROT0, CARROT1, CARROT2, POTATO0, POTATO1, POTATO2]);
 const BONE=455, BONE_MEAL=456, SHIELD=454, ROD=447, COD=448, SALMON=449, COOKED_COD=450, COOKED_SALMON=451, PUFFERFISH=452, TROPICAL=453;
 const EGG_RUN = 37, EGG_EXTRA = 479;          // eggs past the first 37 carry on from 479
-const eggId = i => i < EGG_RUN ? EGG_BASE + i : EGG_EXTRA + i - EGG_RUN, eggIcon = i => i < EGG_RUN ? 120 + i : 175 + i - EGG_RUN;
+const eggId = i => i < EGG_RUN ? EGG_BASE + i : EGG_EXTRA + i - EGG_RUN, eggIcon = i => i < EGG_RUN ? 120 + i : i === EGG_RUN ? 175 : 180 + i - EGG_RUN;
 const eggMob = id => { const i = id >= EGG_BASE && id < EGG_BASE + EGG_RUN ? id - EGG_BASE : id >= EGG_EXTRA ? EGG_RUN + id - EGG_EXTRA : -1; return i >= 0 && i < SPAWN_EGGS.length ? SPAWN_EGGS[i][0] : null; };
-const SLIMEBALL=477, SLIME_BLOCK=478, LANTERN=490, CAMPFIRE=491, BEEHIVE=492, BEEHIVE_FULL=493, HONEY_BOTTLE=494, HONEYCOMB=495, FENCE=496, GATE=497, GATE_OPEN=498, SHEARS=499;
+const SLIMEBALL=477, SLIME_BLOCK=478, LANTERN=490, CAMPFIRE=491, BEEHIVE=492, BEEHIVE_FULL=493, HONEY_BOTTLE=494, HONEYCOMB=495, FENCE=496, GATE=497, GATE_OPEN=498, SHEARS=499, TRIDENT=500;
 const isFenceish = id => id === FENCE || id === GATE || id === GATE_OPEN;
 const hivesSeen = new Set();           // "x,y,z" of overworld hives the mesher has seen
 const campfires = new Set();            // "dim:x,y,z" of campfires the mesher has seen
@@ -1178,7 +1178,7 @@ ITEMS[POPPED_CHORUS]={name:'Popped Chorus Fruit',icon:98};ITEMS[SHULKER_SHELL]={
 ITEMS[SADDLE]={name:'Saddle',icon:100};
 SPAWN_EGGS.forEach(([, name], i) => { ITEMS[eggId(i)] = { name: name + ' Spawn Egg', icon: eggIcon(i) }; });
 ITEMS[SLIMEBALL]={name:'Slimeball',icon:176};BLOCKS[LANTERN]={name:'Lantern',all:273};BLOCKS[FENCE]={name:'Fence',all:279};BLOCKS[GATE]={name:'Fence Gate',all:280};BLOCKS[GATE_OPEN]={name:'Fence Gate',all:280};BLOCKS[BEEHIVE]={name:'Beehive',top:277,bottom:277,side:276};BLOCKS[BEEHIVE_FULL]={name:'Beehive',top:277,bottom:277,side:278};
-ITEMS[HONEY_BOTTLE]={name:'Honey Bottle',icon:177,food:6};ITEMS[SHEARS]={name:'Shears',icon:179,tool:{type:'shears',tier:2}};ITEMS[HONEYCOMB]={name:'Honeycomb',icon:178};BLOCKS[CAMPFIRE]={name:'Campfire',top:275,bottom:275,side:274};BLOCKS[SLIME_BLOCK]={name:'Slime Block',all:272};
+ITEMS[HONEY_BOTTLE]={name:'Honey Bottle',icon:177,food:6};ITEMS[SHEARS]={name:'Shears',icon:179,tool:{type:'shears',tier:2}};ITEMS[TRIDENT]={name:'Trident',icon:180,tool:{type:'trident',tier:3}};ITEMS[HONEYCOMB]={name:'Honeycomb',icon:178};BLOCKS[CAMPFIRE]={name:'Campfire',top:275,bottom:275,side:274};BLOCKS[SLIME_BLOCK]={name:'Slime Block',all:272};
 ITEMS[APPLE]={name:'Apple',icon:167,food:4};ITEMS[GOLDEN_APPLE]={name:'Golden Apple',icon:168,food:4};ITEMS[CARROT]={name:'Carrot',icon:169,food:3,plant:CARROT0};
 ITEMS[POTATO]={name:'Potato',icon:170,food:1,plant:POTATO0};ITEMS[BAKED_POTATO]={name:'Baked Potato',icon:171,food:5};ITEMS[MILK]={name:'Milk Bucket',icon:172};
 ITEMS[EGG]={name:'Egg',icon:173};ITEMS[SUGAR]={name:'Sugar',icon:174};
@@ -2915,6 +2915,8 @@ const tileAvg = [];
   px(172, [['#8a8f96', [[3, 4, 10, 10], [4, 14, 8, 1]]], ['#f6f6f6', [[4, 4, 8, 3]]], ['#b0b4ba', [[4, 8, 8, 5]]], ['#5a5f66', [[2, 3, 12, 1]]]]);
   px(173, [['#f0e2c4', [[5, 4, 6, 9], [4, 6, 8, 6]]], ['#fff6e4', [[6, 5, 2, 3]]], ['#d8c4a0', [[9, 10, 2, 2]]]]);
   px(174, [['#f4f4f8', [[4, 8, 8, 5], [5, 6, 6, 2], [6, 5, 4, 1]]], ['#ffffff', [[6, 7, 2, 2], [9, 9, 1, 1]]], ['#d8d8e0', [[5, 11, 6, 2]]]]);
+  { const sh = []; for(let i = 0; i < 10; i++) sh.push([2 + i, 13 - i]);
+    px(180, [['#3a8a80', sh], ['#5cc0b0', [[11, 1, 1, 4], [11, 1, 4, 1], [13, 1, 1, 3], [14, 3, 1, 1], [12, 3, 1, 1]]], ['#2a6a62', [[1, 14, 2, 1]]]]); }
   px(179, [['#c8ccd2', [[3, 2, 2, 7], [5, 3, 1, 5], [11, 2, 2, 7], [10, 3, 1, 5]]], ['#e8ecf0', [[4, 2, 1, 5], [11, 3, 1, 4]]], ['#8a8f96', [[7, 8, 2, 2]]],
             ['#a03028', [[3, 10, 4, 4], [9, 10, 4, 4]]], ['#c84a3a', [[4, 11, 2, 2], [10, 11, 2, 2]]]]);
   px(177, [['#c8e0e8', [[5, 3, 6, 2], [4, 5, 8, 9], [5, 14, 6, 1]]], ['#f0a820', [[5, 7, 6, 7]]], ['#ffd050', [[6, 8, 2, 3]]], ['#8a6030', [[6, 1, 4, 2]]]]);
@@ -6597,17 +6599,22 @@ function animMob(e, dt){
 /* ============================ zombies =============================== */
 const zombies = [];
 const zMats = { skin: entMat(0x70a858), shirt: entMat(0x2c7874), pants: entMat(0x463f99) };
-function spawnZombie(x, y, z){
+const dMats = { skin: entMat(0x5aa39a), shirt: entMat(0x3f6f68), pants: entMat(0x44587a), weed: entMat(0x3c7a3a) };
+function spawnZombie(x, y, z, variant){
   const g = new THREE.Group();
   const legs = [], arms = [];
-  box(0.5, 0.5, 0.5, zMats.skin, 0, 1.7, 0, g);
-  box(0.52, 0.74, 0.28, zMats.shirt, 0, 1.08, 0, g);
+  const drowned = variant === 'drowned', M = drowned ? dMats : zMats, trident = drowned && Math.random() < 0.15;
+  box(0.5, 0.5, 0.5, M.skin, 0, 1.7, 0, g);
+  box(0.52, 0.74, 0.28, M.shirt, 0, 1.08, 0, g);
+  if(drowned){ box(0.08, 0.3, 0.02, M.weed, 0.12, 1.2, -0.15, g); box(0.1, 0.2, 0.02, M.weed, -0.18, 0.95, -0.15, g); box(0.52, 0.06, 0.06, M.weed, 0, 1.94, -0.2, g); }
   for(const sx of [-0.37, 0.37])
-    arms.push(box(0.2, 0.2, 0.74, zMats.skin, sx, 1.32, -0.32, g));
+    arms.push(box(0.2, 0.2, 0.74, M.skin, sx, 1.32, -0.32, g));
+  if(trident){ const t = makeTridentMesh(); t.scale.setScalar(0.9); t.rotation.x = -Math.PI / 2; t.position.set(0, 0.1, -0.3); arms[1].add(t); }
   for(const sx of [-0.14, 0.14])
-    legs.push(box(0.22, 0.72, 0.24, zMats.pants, sx, 0.36, 0, g));
+    legs.push(box(0.22, 0.72, 0.24, M.pants, sx, 0.36, 0, g));
   scene.add(g);
   zombies.push({
+    drowned, trident, throwCd: 2,
     kind: 'zombie', group: g, legs, arms,
     pos: new THREE.Vector3(x, y, z), vel: new THREE.Vector3(),
     w: 0.35, h: 1.85, hp: 20,
@@ -6624,6 +6631,11 @@ function updateZombieSpawns(dt, daylight){
   if(daylight > 0.35 || zombies.length + skeletons.length + creepers.length + spiders.length >= 9) return;
   const a = Math.random() * Math.PI * 2, d = 24 + Math.random() * 32;
   const x = Math.floor(player.pos.x + Math.cos(a) * d), z = Math.floor(player.pos.z + Math.sin(a) * d);
+  if(getBlock(x, SEA, z) === WATER || getBlock(x, SEA - 1, z) === WATER){
+    let y = SEA; while(y > SEA - 30 && getBlock(x, y - 1, z) === WATER) y--;
+    if(SEA - y >= 3 && zombies.filter(q => q.drowned).length < 5 && Math.random() < 0.5) spawnZombie(x + 0.5, y + 0.05, z + 0.5, 'drowned');
+    return;
+  }
   const h = findSurfaceY(x, z);
   if(h < 0 || h <= SEA) return;
   if(blockLightAt(x, h + 1, z) > 0) return;          // a lit spot keeps monsters away
@@ -7898,16 +7910,18 @@ function killZombie(i){
   dropXP(z.pos.x, z.pos.y + 1, z.pos.z, 5);
   burstRGB(z.pos.x, z.pos.y + 1, z.pos.z, 0.35, 0.55, 0.25, 14);
   zombieDie(z);
-  if(mode === 'survival' && Math.random() < 0.08) spawnDropAt(z.pos.x, z.pos.y + 0.5, z.pos.z, Math.random() < 0.5 ? CARROT : POTATO);
+  if(mode === 'survival' && !z.drowned && Math.random() < 0.08) spawnDropAt(z.pos.x, z.pos.y + 0.5, z.pos.z, Math.random() < 0.5 ? CARROT : POTATO);
+  if(mode === 'survival' && z.trident && Math.random() < 0.25) spawnDropAt(z.pos.x, z.pos.y + 0.5, z.pos.z, TRIDENT);
   removeEnt(zombies, i);
 }
 function updateZombies(dt, daylight){
   for(let i = zombies.length - 1; i >= 0; i--){
     const z = zombies[i];
     if(z.pos.distanceToSquared(player.pos) > 110 * 110){ removeEnt(zombies, i); continue; }
+    const zWet = z.drowned && getBlock(Math.floor(z.pos.x), Math.floor(z.pos.y + 0.9), Math.floor(z.pos.z)) === WATER;
     if(daylight > 0.5){
       z.skyT -= dt;
-      if(z.skyT <= 0){ z.skyT = 0.5; z.exposed = skyExposed(Math.floor(z.pos.x), Math.ceil(z.pos.y + z.h), Math.floor(z.pos.z)); }
+      if(z.skyT <= 0){ z.skyT = 0.5; z.exposed = !zWet && skyExposed(Math.floor(z.pos.x), Math.ceil(z.pos.y + z.h), Math.floor(z.pos.z)); }
       if(z.exposed){
         z.hp -= 6 * dt;
         z.fireT -= dt;
@@ -7929,6 +7943,13 @@ function updateZombies(dt, daylight){
       const dx = tgt.pos.x - z.pos.x, dz = tgt.pos.z - z.pos.z, l = tdist || 1;
       z.yaw = Math.atan2(-dx / l, -dz / l);
       z.speed = 2.3;
+      if(z.trident && tgt === player && tdist > 3 && tdist < 15 && (z.throwCd -= dt) <= 0){
+        z.throwCd = 3 + Math.random() * 2;
+        const o = new THREE.Vector3(z.pos.x, z.pos.y + 1.5, z.pos.z), aim = new THREE.Vector3(player.pos.x, player.pos.y + 1.2 + tdist * 0.04, player.pos.z).sub(o).normalize();
+        spawnArrow(o.x, o.y, o.z, aim.x * 22, aim.y * 22, aim.z * 22);
+        const a = arrows[arrows.length - 1]; scene.remove(a.mesh); a.mesh = makeTridentMesh(); scene.add(a.mesh); a.dmg = 6; a.grav = 6;
+        playN({ f: 700, type: 'bandpass', dur: 0.25, vol: 0.15, slide: -300 });
+      }
       if(tdist < 1.5 && Math.abs(tgt.pos.y - z.pos.y) < 2 && z.atkCd <= 0){
         z.atkCd = 1.1;
         monsterCall(z,'attack');
@@ -7968,7 +7989,14 @@ function updateZombies(dt, daylight){
       z.groanT = 4 + Math.random() * 6;
       if(distP < 26) monsterCall(z);
     }
-    stepMob(z, dt, 26);
+    if(zWet){
+      // swimming: straight at its target, up and down too; otherwise drift along the bottom
+      const sp = tgt ? 2.4 : z.speed, dy = (tgt ? tgt.pos.y + 0.2 : z.pos.y - 1) - z.pos.y;
+      z.vel.x += (-Math.sin(z.yaw) * sp - z.vel.x) * Math.min(1, dt * 4);
+      z.vel.z += (-Math.cos(z.yaw) * sp - z.vel.z) * Math.min(1, dt * 4);
+      z.vel.y += (Math.max(-2, Math.min(2.4, dy * 1.5)) - z.vel.y) * Math.min(1, dt * 3);
+      stepEntity(z, dt);
+    } else stepMob(z, dt, 26);
     animMob(z, dt);
     for(let j = 0; j < z.arms.length; j++)
       z.arms[j].position.y = 1.32 + Math.sin(z.anim * 2 + j * 2.1) * 0.04;
@@ -8083,7 +8111,7 @@ function updateArrows(dt){
       if(a.stuck <= 0){ scene.remove(a.mesh); arrows.splice(i, 1); }
       continue;
     }
-    a.vel.y -= 18 * dt;
+    a.vel.y -= (a.grav ?? 18) * dt;
     const steps = 2;
     let hitSomething = false;
     for(let st = 0; st < steps && !hitSomething; st++){
@@ -8096,7 +8124,7 @@ function updateArrows(dt){
          a.pos.x > p.x - 0.4 && a.pos.x < p.x + 0.4 &&
          a.pos.y > p.y && a.pos.y < p.y + 1.85 &&
          a.pos.z > p.z - 0.4 && a.pos.z < p.z + 0.4){
-        if(!shieldBlocks(a.pos.clone().sub(a.vel.clone().normalize().multiplyScalar(3)))) damage(3);
+        if(!shieldBlocks(a.pos.clone().sub(a.vel.clone().normalize().multiplyScalar(3)))) damage(a.dmg || 3);
         const l = Math.hypot(a.vel.x, a.vel.z) || 1;
         player.vel.x += a.vel.x / l * 5;
         player.vel.z += a.vel.z / l * 5;
@@ -9364,6 +9392,7 @@ function updateShots(dt){
     const s = shots[i];
     s.age += dt;
     if(s.kind === 'eye'){ updateEye(s, dt); if(s.done){ scene.remove(s.mesh); shots.splice(i, 1); } continue; }
+    if(s.kind === 'trident'){ if(updateTrident(s, dt)){ scene.remove(s.mesh); shots.splice(i, 1); } continue; }
     if(s.stuck){ if(s.age > 12){ scene.remove(s.mesh); shots.splice(i, 1); } continue; }
     s.vel.y -= (s.kind === 'arrow' ? 12 : 18) * dt;
     const step = s.vel.length() * dt, dir = s.vel.clone().normalize();
@@ -9472,6 +9501,7 @@ function launchFirework(){
 function spawnFromEgg(type, x, y, z){
   if(FANTASY.includes(type) || ['pig','cow','sheep','chicken','horse','wolf','rabbit','fox','llama','goat','axolotl','kangaroo'].includes(type)) return spawnAnimal(type, x, y, z);
   if(type === 'zombie') return spawnZombie(x, y, z);
+  if(type === 'drowned') return spawnZombie(x, y, z, 'drowned');
   if(type === 'skeleton') return spawnSkeleton(x, y, z);
   if(type === 'creeper') return spawnCreeper(x, y, z);
   if(type === 'spider') return spawnSpider(x, y, z);
@@ -9502,6 +9532,7 @@ function useSpecial(o, d, hit, eh){
   if(useCampfire(hit)) return true;
   if(useHive(hit)) return true;
   if(useGate(hit)) return true;
+  if(heldId() === TRIDENT) return throwTrident(o, d);
   if(held === ROD) return useRod(o, d);
   if(eggMob(held)) return useSpawnEgg(hit) || true;
   if(POTIONS[held]){ drinkPotion(held); triggerViewSwing(); return true; }
@@ -10415,6 +10446,7 @@ function heldDamageBase(){
   if(t){
     if(t.type === 'sword') return [5, 6, 7, 8, 9, 12][t.tier - 1];
     if(t.type === 'axe') return [4, 5, 6, 7, 8, 10][t.tier - 1];
+    if(t.type === 'trident') return 9;
   }
   return 3;
 }
@@ -14521,7 +14553,7 @@ const ENCH = {
   sharpness:  { name: 'Sharpness', max: 3, on: ['sword', 'axe'] },
   efficiency: { name: 'Efficiency', max: 3, on: ['pick', 'axe', 'shovel'] },
   fortune:    { name: 'Fortune', max: 3, on: ['pick'] },
-  unbreaking: { name: 'Unbreaking', max: 3, on: ['sword', 'axe', 'pick', 'shovel', 'hoe', 'rod', 'shield', 'shears'] },
+  unbreaking: { name: 'Unbreaking', max: 3, on: ['sword', 'axe', 'pick', 'shovel', 'hoe', 'rod', 'shield', 'shears', 'trident'] },
   power:      { name: 'Power', max: 3, on: ['bow'] },
   infinity:   { name: 'Infinity', max: 1, on: ['bow'] },
   protection: { name: 'Protection', max: 3, on: ['armour'] },
@@ -14824,6 +14856,73 @@ function updateBees(dt){
   }
   hiveSaveT -= dt;
   if(hiveSaveT <= 0){ hiveSaveT = 10; if(hivesDirty) saveHives(); }
+}
+/* ============================== TRIDENTS ==============================
+   Drowned sometimes carry a trident, and sometimes drop it. Stab with it,
+   or use it to throw it - it flies true, even through water, and once it
+   has struck it comes flying back to your hand. */
+function makeTridentMesh(){
+  const g = new THREE.Group(), m = entMat(0x3a8a80), h = entMat(0x5cc0b0);
+  box(0.05, 0.05, 1.1, m, 0, 0, -0.1, g);
+  box(0.26, 0.05, 0.05, h, 0, 0, 0.46, g);
+  box(0.05, 0.05, 0.26, h, 0, 0, 0.62, g); box(0.04, 0.04, 0.2, h, -0.11, 0, 0.58, g); box(0.04, 0.04, 0.2, h, 0.11, 0, 0.58, g);
+  return g;
+}
+function throwTrident(o, d){
+  let stack = null;
+  if(mode !== 'creative'){
+    const s = survInv[sel];
+    stack = { id: s.id, count: 1, dur: s.dur, ench: s.ench };
+    s.id = 0; s.count = 0; s.dur = 0; s.ench = undefined; invDirty = true; renderHotbar();
+  }
+  const mesh = makeTridentMesh(), pos = o.clone().addScaledVector(d, 0.7);
+  mesh.position.copy(pos); scene.add(mesh);
+  shots.push({ kind: 'trident', mesh, pos, vel: d.clone().normalize().multiplyScalar(32), age: 0, stack, slot: sel });
+  playN({ f: 900, type: 'bandpass', dur: 0.3, vol: 0.2, slide: -500 });
+  triggerViewSwing();
+  if(xrActive) hapticPulse('right', 0.5, 40);
+  return true;
+}
+function giveTridentBack(s){
+  playN({ f: 1400, type: 'bandpass', dur: 0.12, vol: 0.15 });
+  if(!s.stack) return;
+  const q = s.stack;
+  q.dur = (q.dur || TIER_DUR[2]) - 1;
+  if(q.dur <= 0){ flashName('Your trident broke!'); return; }
+  let slot = survInv[s.slot] && !(survInv[s.slot].count > 0) ? survInv[s.slot] : survInv.find(t => !(t.count > 0));
+  if(!slot){ spawnDropAt(player.pos.x, player.pos.y + 1, player.pos.z, TRIDENT); return; }
+  slot.id = TRIDENT; slot.count = 1; slot.dur = q.dur; slot.ench = q.ench;
+  invDirty = true; renderHotbar();
+}
+// returns true when the trident is done (back in your hand)
+function updateTrident(s, dt){
+  if(s.returning){
+    const to = new THREE.Vector3(player.pos.x, player.pos.y + 1.2, player.pos.z).sub(s.pos), l = to.length();
+    if(l < 1.3 || s.age > 20){ giveTridentBack(s); return true; }
+    s.vel.copy(to.multiplyScalar(Math.min(34, 10 + s.age * 16) / l));
+    s.pos.addScaledVector(s.vel, dt);
+    s.mesh.position.copy(s.pos); s.mesh.lookAt(s.pos.clone().sub(s.vel));        // comes back handle first
+    return false;
+  }
+  if(s.stuck){ if(s.age > 0.6){ s.returning = true; s.age = 0; playN({ f: 500, type: 'bandpass', dur: 0.4, vol: 0.12, slide: 600 }); } return false; }
+  const wet = getBlock(Math.floor(s.pos.x), Math.floor(s.pos.y), Math.floor(s.pos.z)) === WATER;
+  s.vel.y -= (wet ? 2 : 10) * dt;
+  if(wet) s.vel.multiplyScalar(1 - dt * 0.4);
+  const step = s.vel.length() * dt, dir = s.vel.clone().normalize();
+  const eh = rayEntity(s.pos, dir, step), bh = raycast(s.pos, dir, step);
+  if(eh && (!bh || eh.t < bh.t)){
+    hitWith(eh.e, 8);
+    grantAdv('trident');
+    s.pos.addScaledVector(dir, eh.t); s.stuck = true; s.age = 0;
+    playN({ f: 300, type: 'lowpass', dur: 0.15, vol: 0.3 });
+    return false;
+  }
+  if(bh){ s.pos.addScaledVector(dir, bh.t); s.mesh.position.copy(s.pos); s.stuck = true; s.age = 0; playN({ f: 900, type: 'bandpass', dur: 0.08, vol: 0.15 }); return false; }
+  s.pos.addScaledVector(s.vel, dt);
+  s.mesh.position.copy(s.pos); s.mesh.lookAt(s.pos.clone().add(s.vel));
+  if(wet && Math.random() < 0.5) burstRGB(s.pos.x, s.pos.y, s.pos.z, 0.8, 0.9, 1, 1, 0.1);
+  if(s.age > 5 || s.pos.y < -40){ s.returning = true; s.age = 0; }
+  return false;
 }
 /* ============================== SEA LIFE ==============================
    The water is alive: schools of cod and salmon, bright tropical fish in
@@ -15604,6 +15703,7 @@ const ADVANCEMENTS = [
   { ch: 'Overworld', id: 'campfire', title: 'Cookout', how: 'Cook some raw food on a campfire.', icon: CAMPFIRE, check: () => false },
   { ch: 'Overworld', id: 'honey', title: 'Sticky Situation', how: 'Fill a glass bottle with honey from a full beehive (a campfire under it keeps the bees calm).', icon: HONEY_BOTTLE, check: () => hasItem(HONEY_BOTTLE) },
   { ch: 'Overworld', id: 'breed', title: 'The Parrots and the Bats', how: 'Feed two animals their favourite food (wheat for cows and sheep, carrots for pigs, seeds for chickens) and watch.', icon: WHEATITEM, check: () => false },
+  { ch: 'Overworld', id: 'trident', title: 'A Throwaway Joke', how: 'Get a trident from a drowned (they rise out of deep water at night) and throw it at something.', icon: TRIDENT, check: () => false },
   { ch: 'Overworld', id: 'tame', title: 'Best Friends Forever', how: 'Feed bones (from skeletons) to a wild wolf until it wears a red collar.', icon: BONE, check: () => false },
   { ch: 'Overworld', id: 'obsidian', title: 'Hot Stuff', how: 'Pour water on a lava source, then mine the obsidian with a diamond pickaxe.', icon: OBSIDIAN, check: () => hasItem(OBSIDIAN) },
   { ch: 'Nether', id: 'nether', title: 'We Need to Go Deeper', how: 'Build a 4 wide, 5 tall obsidian frame and light it with flint & steel.', icon: NETHERRACK, check: () => dim === 1 },
@@ -16131,6 +16231,7 @@ window.__bc = {
             fx: { clearInv: () => { for(const q of survInv){ q.id = 0; q.count = 0; q.dur = 0; } renderHotbar(); }, effects, drink: id => drinkPotion(id), step: dt => updateEffects(dt), light: lightAtPlayer, mood: () => musicMood(), sub: showSubtitle, POTIONS },
             xp: { add: addXP, level: () => xpLevel, points: () => xpPoints, drop: dropXP, orbs: xpOrbs, offers: enchantOffers, enchant: doEnchant, setTable: t => { enchantAt = t; }, heldEnch, stackName, armourEnch },
             fence: { gate: useGate },
+            trident: { throw: throwTrident, mesh: makeTridentMesh },
             shears: { use: useShears, regrow: regrowWool },
             herd: { list: () => herd, feed: useBreed, step: dt => updateHerd(dt), breed },
             bees: { list: bees, hives, seen: hivesSeen, spawn: spawnBee, step: dt => updateBees(dt), use: useHive, broken: hiveBroken },
