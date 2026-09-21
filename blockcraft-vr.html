@@ -10338,7 +10338,7 @@ function updateGolems(dt){
     }
     if(e.hp <= 0){
       burstRGB(e.pos.x, e.pos.y + 1.2, e.pos.z, 0.78, 0.74, 0.66, 16, 0.6);
-      golemVoice(e, 'die');
+      golemVoice(e, 'die'); golemGone(e);
       if(mode === 'survival'){
         spawnDropAt(e.pos.x, e.pos.y + 0.6, e.pos.z, IRONI, 2 + Math.floor(Math.random() * 3));
         if(Math.random() < 0.5) spawnDropAt(e.pos.x + 0.2, e.pos.y + 0.6, e.pos.z, POPPYB);
@@ -14913,6 +14913,33 @@ function updateBees(dt){
    leaves a trail of snow, and pelts monsters with snowballs. Put one on a
    T of four iron blocks and you get an iron golem to guard you. */
 const snowGolems = [], snowballs = [];
+// golems you build are yours to keep: saved with the world and brought back when you return
+let builtGolems = (() => { try { return JSON.parse(localStorage.getItem(SAVE_KEY + '-golems')) || []; } catch(e){ return []; } })();
+let golemScanT = 0;
+const saveGolems = () => safeSet(SAVE_KEY + '-golems', JSON.stringify(builtGolems));
+function registerGolem(e, kind){
+  e.builtId = Date.now().toString(36) + ((Math.random() * 1e6) | 0).toString(36);
+  builtGolems.push({ id: e.builtId, kind, dim, x: e.pos.x, y: e.pos.y, z: e.pos.z }); saveGolems();
+}
+function golemGone(e){ if(e.builtId){ builtGolems = builtGolems.filter(r => r.id !== e.builtId); saveGolems(); } }
+function updateBuiltGolems(dt){
+  if(mobsFromHost() || (golemScanT -= dt) > 0) return;
+  golemScanT = 2;
+  const live = new Map();
+  for(const e of snowGolems) if(e.builtId) live.set(e.builtId, e);
+  for(const e of golems) if(e.builtId) live.set(e.builtId, e);
+  let moved = false;
+  for(const r of builtGolems){
+    const e = live.get(r.id);
+    if(e){ if(Math.abs(e.pos.x - r.x) + Math.abs(e.pos.z - r.z) > 1){ r.x = e.pos.x; r.y = e.pos.y; r.z = e.pos.z; moved = true; } continue; }
+    if(r.dim !== dim || Math.hypot(r.x - player.pos.x, r.z - player.pos.z) > 80) continue;
+    const c = chunks.get((Math.floor(r.x) >> 4) + ',' + (Math.floor(r.z) >> 4));
+    if(!c || !c.built) continue;
+    if(r.kind === 'snow') spawnSnowGolem(r.x, r.y + 0.1, r.z).builtId = r.id;
+    else { spawnGolem(r.x, r.y + 0.1, r.z, Math.floor(r.x), Math.floor(r.z)); golems[golems.length - 1].builtId = r.id; }
+  }
+  if(moved) saveGolems();
+}
 const sgMats = { snow: entMat(0xf4f8fc), pump: entMat(0xd88a22), face: entMat(0x3a2410), stick: entMat(0x6a4a2a) };
 function spawnSnowGolem(x, y, z){
   const g = new THREE.Group();
@@ -14934,7 +14961,7 @@ function tryBuildGolem(x, y, z){
   const b1 = getBlock(x, y - 1, z), b2 = getBlock(x, y - 2, z);
   if(b1 === SNOW && b2 === SNOW){
     for(const dy of [0, 1, 2]){ setBlock(x, y - dy, z, AIR); burstRGB(x + 0.5, y - dy + 0.5, z + 0.5, 0.95, 0.97, 1, 10, 0.6); }
-    spawnSnowGolem(x + 0.5, y - 2, z + 0.5);
+    registerGolem(spawnSnowGolem(x + 0.5, y - 2, z + 0.5), 'snow');
     tone(700, 1100, 0.3, 'sine', 0.1); flashName('A snow golem!'); grantAdv('golem');
     return true;
   }
@@ -14942,7 +14969,7 @@ function tryBuildGolem(x, y, z){
     for(const [dx, dz] of [[1, 0], [0, 1]]){
       if(getBlock(x + dx, y - 1, z + dz) === IRONB && getBlock(x - dx, y - 1, z - dz) === IRONB){
         for(const [ax, ay, az] of [[0, 0, 0], [0, -1, 0], [0, -2, 0], [dx, -1, dz], [-dx, -1, -dz]]){ setBlock(x + ax, y + ay, z + az, AIR); burstRGB(x + ax + 0.5, y + ay + 0.5, z + az + 0.5, 0.8, 0.8, 0.8, 8, 0.6); }
-        spawnGolem(x + 0.5, y - 2, z + 0.5, x, z);
+        spawnGolem(x + 0.5, y - 2, z + 0.5, x, z); registerGolem(golems[golems.length - 1], 'iron');
         tone(160, 90, 0.6, 'square', 0.12); flashName('An iron golem!'); grantAdv('golem');
         return true;
       }
@@ -14960,7 +14987,7 @@ function updateSnowGolems(dt){
     const b = biomeAt(Math.floor(e.pos.x), Math.floor(e.pos.z));
     if(dim === 1 || b === 'desert' || b === 'badlands' || b === 'savanna' || b === 'outback'){ e.hp -= dt * 0.5; if(Math.random() < dt * 4) burstRGB(e.pos.x, e.pos.y + 0.5, e.pos.z, 0.7, 0.85, 1, 1, 0.3); }
     if(getBlock(Math.floor(e.pos.x), Math.floor(e.pos.y + 0.3), Math.floor(e.pos.z)) === WATER) e.hp -= dt;
-    if(e.hp <= 0){ burstRGB(e.pos.x, e.pos.y + 0.8, e.pos.z, 0.95, 0.97, 1, 20, 0.7); scene.remove(e.group); snowGolems.splice(i, 1); continue; }
+    if(e.hp <= 0){ golemGone(e); burstRGB(e.pos.x, e.pos.y + 0.8, e.pos.z, 0.95, 0.97, 1, 20, 0.7); scene.remove(e.group); snowGolems.splice(i, 1); continue; }
     // find something to throw at
     let foe = null, fd = 12;
     for(const l of SG_FOES()) for(const m of l){ if(m.hp <= 0) continue; const d = m.pos.distanceTo(e.pos); if(d < fd){ fd = d; foe = m; } }
@@ -16335,7 +16362,7 @@ function animate(){
   updateBees(dt);
   updateJukes(dt);
   updateMap(dt);
-  if(inGame) updateSnowGolems(dt);
+  if(inGame){ updateSnowGolems(dt); updateBuiltGolems(dt); }
   if(inGame && ((xpT = (xpT || 0) - dt) <= 0)){ xpT = 1; renderXP(); }
   updateAmbience(dt);
   checkMusicMood(dt);
@@ -16687,7 +16714,7 @@ window.__bc = {
             fx: { clearInv: () => { for(const q of survInv){ q.id = 0; q.count = 0; q.dur = 0; } renderHotbar(); }, effects, drink: id => drinkPotion(id), step: dt => updateEffects(dt), light: lightAtPlayer, mood: () => musicMood(), sub: showSubtitle, POTIONS },
             xp: { add: addXP, level: () => xpLevel, points: () => xpPoints, drop: dropXP, orbs: xpOrbs, offers: enchantOffers, enchant: doEnchant, setTable: t => { enchantAt = t; }, heldEnch, stackName, armourEnch },
             fence: { gate: useGate },
-            golem: { build: tryBuildGolem, snow: snowGolems, step: dt => updateSnowGolems(dt), carve: carvePumpkin, balls: snowballs },
+            golem: { restore: dt => updateBuiltGolems(dt), saved: () => builtGolems, build: tryBuildGolem, snow: snowGolems, step: dt => updateSnowGolems(dt), carve: carvePumpkin, balls: snowballs },
             anvil: { use: useAnvil, mat: repairMaterial, slot: i => survInv[i] },
             map: { step: dt => updateMap(dt), canvas: mapShow, base: mapBase },
             juke: { use: useJukebox, list: jukes, step: dt => updateJukes(dt), DISCS },
