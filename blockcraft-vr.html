@@ -842,8 +842,10 @@ EXTRA_WOODS.forEach((w,i)=>{
 });
 /* which sapling a given leaf yields, and which tree a sapling grows into */
 const SAPLING_OF={[LEAVES]:SAP_OAK,[SPRUCELEAVES]:SAP_SPRUCE};
+const SAPLING_FOR_LOG={[LOG]:SAP_OAK,[BIRCHLOG]:SAP_BIRCH,[SPRUCELOG]:SAP_SPRUCE,[JUNGLELOG]:SAP_JUNGLE};
 const SAPLING_TREE={[SAP_OAK]:'oak',[SAP_BIRCH]:'birch',[SAP_SPRUCE]:'spruce',[SAP_JUNGLE]:'jungle'};
-EXTRA_WOODS.forEach(w=>{ SAPLING_OF[w.leaves]=w.sapling; SAPLING_TREE[w.sapling]=w.name.toLowerCase(); });
+EXTRA_WOODS.forEach(w=>{ SAPLING_OF[w.leaves]=w.sapling; SAPLING_FOR_LOG[w.log]=w.sapling;
+                         SAPLING_TREE[w.sapling]=w.name.toLowerCase(); });
 const isSapling=id=>id===SAP_OAK||id===SAP_BIRCH||id===SAP_SPRUCE||id===SAP_JUNGLE||EXTRA_SAPS.includes(id);
 for(const [id,name,tile] of [[MARBLE,'Marble',134],[MARBLEBRICK,'Marble Bricks',135],[BASALT,'Basalt',136],[BASALTBRICK,'Basalt Bricks',137],[MOSAIC,'Mosaic Tiles',138],[AMBERLAMP,'Amber Lantern',139]])BLOCKS[id]={name,all:tile};
 FLORA.forEach((f,i)=>BLOCKS[f.id]={name:f.name,all:145+i});
@@ -7054,6 +7056,50 @@ function calcMineTime(id){
    once it is felled. Checks are queued and spread over time so chopping
    a tree never stalls a frame. */
 const leafQueue = new Map(), saplingQueue = new Map();
+/* Chopping a tree opens a harvest session. Saplings still fall at random
+   from the dying canopy, but the moment the last of the trunk goes the
+   tree pays out whatever it owes - so every felled tree yields one or two. */
+let harvest = null;
+function openHarvest(x, y, z, logId){
+  if(mode !== 'survival') return;             // creative chopping owes nothing
+  const now = performance.now() / 1000;
+  const sap = SAPLING_FOR_LOG[logId] || SAP_OAK;
+  // still the same tree: a wide bole, or a branch off the last log cut.
+  // Once a tree has paid up the next log starts a fresh one, so trees
+  // growing shoulder to shoulder each owe their own saplings.
+  if(harvest && now - harvest.t < 45 && harvest.got < harvest.need &&
+     Math.abs(harvest.x - x) <= 2 && Math.abs(harvest.z - z) <= 2){
+    harvest.t = now; harvest.x = x; harvest.y = y; harvest.z = z;
+    return;
+  }
+  settleHarvest(true);                          // close the previous tree first
+  // x0/z0 pin the trunk's own column, so a tree growing right up against
+  // this one is never mistaken for the trunk still standing
+  harvest = { x, y, z, x0: x, y0: y, z0: z, sap, t: now,
+              need: 1 + (Math.random() < 0.5 ? 1 : 0), got: 0 };
+}
+/* A felled tree always owes its saplings. Whatever the canopy has not
+   handed over by the time the trunk is gone drops at the stump. */
+function settleHarvest(force){
+  if(!harvest || mode !== 'survival') return;
+  if(trunkStanding(harvest)) return;           // still standing: it owes nothing yet
+  const now = performance.now() / 1000;
+  if(!force && now - harvest.t < 6) return;    // unforced: wait for the chopping to stop
+  while(harvest.got < harvest.need){
+    spawnDropAt(harvest.x + .5, harvest.y + .6, harvest.z + .5, harvest.sap, 1);
+    harvest.got++;
+  }
+}
+/* A dying canopy still rains the odd sapling on top of the tree's own due. */
+function leafLoot(x, y, z, id){
+  if(mode !== 'survival') return;
+  if(Math.random() < .30) spawnDropAt(x+.5, y+.4, z+.5, BERRIES, 1);
+  const sap = SAPLING_OF[id];
+  if(sap && Math.random() < .05){
+    spawnDropAt(x+.5, y+.4, z+.5, sap, 1);
+    if(harvest && harvest.got < harvest.need) harvest.got++;   // counts against the stump
+  } else if(Math.random() < .03) spawnDropAt(x+.5, y+.4, z+.5, STICK, 1);
+}
 function wakeLeaves(x, y, z){
   const now = performance.now() / 1000;
   for(let dx = -5; dx <= 5; dx++) for(let dy = -5; dy <= 5; dy++) for(let dz = -5; dz <= 5; dz++){
@@ -7063,6 +7109,14 @@ function wakeLeaves(x, y, z){
     const k = (x + dx) + ',' + by + ',' + (z + dz);
     if(!leafQueue.has(k)) leafQueue.set(k, now + 1.5 + Math.random() * 5);
   }
+}
+/* Is any of this tree's trunk left? Only its own column counts - the
+   player may be working through a thicket. */
+function trunkStanding(h){
+  if(!h) return false;
+  const lo = Math.max(1, h.y0 - 14), hi = Math.min(HEIGHT - 1, h.y0 + 14);
+  for(let y = lo; y <= hi; y++) if(isLog(getBlock(h.x0, y, h.z0))) return true;
+  return false;
 }
 function logWithin(x, y, z, r){
   for(let dx = -r; dx <= r; dx++) for(let dy = -r; dy <= r; dy++) for(let dz = -r; dz <= r; dz++){
@@ -7074,11 +7128,7 @@ function logWithin(x, y, z, r){
 function leafSpoils(x, y, z, id){
   setBlock(x, y, z, AIR);
   burst(x, y, z, tileFor(id, 0));
-  if(mode === 'survival'){
-    const sap = SAPLING_OF[id];
-    if(sap && Math.random() < .06) spawnDropAt(x+.5, y+.4, z+.5, sap, 1);
-    else if(Math.random() < .03) spawnDropAt(x+.5, y+.4, z+.5, STICK, 1);
-  }
+  leafLoot(x, y, z, id);
   wakeLeaves(x, y, z);                        // the die-back spreads outward
 }
 function tickLeafDecay(now){
@@ -7094,6 +7144,7 @@ function tickLeafDecay(now){
     leafSpoils(x, y, z, id);
   }
   if(leafQueue.size > 4000) leafQueue.clear();   // safety valve
+  settleHarvest(false);
 }
 function growTree(x, y, z, kind){
   for(let dy = 1; dy <= 7; dy++) if(isSolid(getBlock(x, y + dy, z))) return false;
@@ -7138,15 +7189,13 @@ function breakBlock(x, y, z, id){
   }
   setBlock(x, y, z, AIR);
   if(isLeaf(id)){
-    if(mode === 'survival'){
-      if(Math.random() < .30) spawnDropAt(x+.5, y+.4, z+.5, BERRIES, 1);
-      const sap = SAPLING_OF[id];
-      if(sap && Math.random() < .06) spawnDropAt(x+.5, y+.4, z+.5, sap, 1);   // a seedling
-      else if(Math.random() < .03) spawnDropAt(x+.5, y+.4, z+.5, STICK, 1);
-    }
+    leafLoot(x, y, z, id);
     wakeLeaves(x, y, z);            // neighbours may now be cut off too
   }
-  if(isLog(id)) wakeLeaves(x, y, z);   // felling a trunk starts the canopy dying back
+  if(isLog(id)){
+    openHarvest(x, y, z, id); wakeLeaves(x, y, z);   // felling starts the die-back
+    settleHarvest(true);                             // trunk gone? pay the saplings now
+  }
   burst(x, y, z, tileFor(id, 0));
   blockSfx(id, 'break');
   // crops: drop seeds always, wheat only when fully grown
@@ -8696,6 +8745,9 @@ window.__bc = {
   spawnAnimal, spawnZombie, damage, punchEntity, addItem, invCount, eatHeld, trySleep, nearStation,
   selectSlot: i => selectSlot(i, true),
   calcMineTime, harvestOk: id => harvestOk(id),
+  harvestState: () => harvest && Object.assign({}, harvest),
+  tickLeaves: () => { const t = performance.now()/1000; tickLeafDecay(t); tickSaplings(t); },
+  sapForLog: id => SAPLING_FOR_LOG[id], leafQueueSize: () => leafQueue.size,
   setMode: m => { mode = m; inGame = true; applyMode(); },
   setTime: t => { timeOfDay = t; },
   breakAt: (x, y, z) => breakBlock(x, y, z, getBlock(x, y, z)),
