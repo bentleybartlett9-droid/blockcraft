@@ -802,11 +802,25 @@ const PURPUR=335, PURPUR_PILLAR=336, ENDSTONE_BRICK=337, END_ROD=338, CHORUS_PLA
 /* The Stormlands */
 const STORMSTONE=347, SKYGRASS=348, CLOUD=349, VOLTITE_ORE=350, STORM_PORTAL=351, CONDUIT=352, CONDUIT_LIT=353, STORM_BRICK=354;
 const STORMKEY_I=391, VOLTITE=392, TEMPEST_HEART=393, STORMBREAKER=394, VOLT_PICK=395;
+/* Brewing */
+const BREWING=355;
+const GLASS_BOTTLE=396, WATER_BOTTLE=397, AWKWARD=398, POT_HEAL=399, POT_FIRE=400, POT_STR=401, POT_SPEED=402,
+      POT_REGEN=403, POT_NIGHT=404, POT_SLOW=405;
+// what each potion does, for how long (seconds), and its colour
+const POTIONS = {
+  [POT_HEAL]:  { name: 'Potion of Healing', fx: 'heal', t: 0, col: '#f03a4a' },
+  [POT_FIRE]:  { name: 'Potion of Fire Resistance', fx: 'fire', t: 180, col: '#f09a2a' },
+  [POT_STR]:   { name: 'Potion of Strength', fx: 'strength', t: 180, col: '#a8242a' },
+  [POT_SPEED]: { name: 'Potion of Swiftness', fx: 'speed', t: 180, col: '#7ac8e8' },
+  [POT_REGEN]: { name: 'Potion of Regeneration', fx: 'regen', t: 45, col: '#e878b8' },
+  [POT_NIGHT]: { name: 'Potion of Night Vision', fx: 'night', t: 180, col: '#2a3ad0' },
+  [POT_SLOW]:  { name: 'Potion of Slow Falling', fx: 'slow', t: 90, col: '#f0e8d8' },
+};
 const NETH_ARMOUR=376,   // 376-379: netherite armour
       BOW=380, ARROW_I=381, EYE_ENDER=382, ELYTRA=383, FIREWORK=384, PAPER=385, CHORUS_FRUIT=386,
       POPPED_CHORUS=387, SHULKER_SHELL=388, SADDLE=389, FUNGUS_STICK=390;
 const NETHER_PLANTS = new Set([CRIM_FUNGUS, WARP_FUNGUS, CRIM_ROOTS, WARP_ROOTS, NSPROUTS, WEEPING, TWISTING, NWART]);
-const NETHER_CROSS = new Set([...NETHER_PLANTS, FIRE, SOULFIRE, NB_FENCE, SOUL_TORCH, END_ROD]);
+const NETHER_CROSS = new Set([...NETHER_PLANTS, FIRE, SOULFIRE, NB_FENCE, SOUL_TORCH, END_ROD, BREWING]);
 const isFire = id => id === FIRE || id === SOULFIRE;
 const CAVE_PLANTS = new Set([AZALEA, AZALEA_F, GLOWVINE, CAVEVINE, DRIPLEAF]);
 const CAVE_CROSS = new Set([...CAVE_PLANTS, DRIP_DOWN, DRIP_UP, AMETHYST_C]);
@@ -1012,6 +1026,7 @@ BLOCKS[CRYING_OBSIDIAN]={name:'Crying Obsidian',all:241};
 BLOCKS[STORMSTONE]={name:'Stormstone',all:246};BLOCKS[SKYGRASS]={name:'Skygrass',top:247,bottom:246,side:248};BLOCKS[CLOUD]={name:'Cloud',all:249};
 BLOCKS[VOLTITE_ORE]={name:'Voltite Ore',all:250};BLOCKS[STORM_PORTAL]={name:'Storm Portal',all:251};
 BLOCKS[CONDUIT]={name:'Storm Conduit',all:252};BLOCKS[CONDUIT_LIT]={name:'Armed Storm Conduit',all:253};BLOCKS[STORM_BRICK]={name:'Stormstone Bricks',all:254};
+BLOCKS[BREWING]={name:'Brewing Stand',all:255};
 BLOCKS[ANCHOR]={name:'Respawn Anchor',top:243,bottom:242,side:242};BLOCKS[ANCHOR_LIT]={name:'Respawn Anchor',top:244,bottom:242,side:245};
 BLOCKS[MOSS]={name:'Moss Block',all:171};BLOCKS[AZALEA]={name:'Azalea',all:172};BLOCKS[AZALEA_F]={name:'Flowering Azalea',all:173};
 BLOCKS[GLOWVINE]={name:'Glow Berries',all:174};BLOCKS[CAVEVINE]={name:'Cave Vines',all:175};BLOCKS[DRIPLEAF]={name:'Small Dripleaf',all:176};
@@ -1083,7 +1098,9 @@ ITEMS[NAXE]={name:'Netherite Axe',icon:81,tool:{type:'axe',tier:5}};ITEMS[ROTTEN
 ITEMS[BOW]={name:'Bow',icon:91};ITEMS[ARROW_I]={name:'Arrow',icon:92};ITEMS[EYE_ENDER]={name:'Eye of Ender',icon:93};
 ITEMS[FIREWORK]={name:'Firework Rocket',icon:95};ITEMS[PAPER]={name:'Paper',icon:96};ITEMS[CHORUS_FRUIT]={name:'Chorus Fruit',icon:97,food:4};
 ITEMS[POPPED_CHORUS]={name:'Popped Chorus Fruit',icon:98};ITEMS[SHULKER_SHELL]={name:'Shulker Shell',icon:99};
-ITEMS[SADDLE]={name:'Saddle',icon:100};ITEMS[STORMKEY_I]={name:'Storm Key',icon:102};ITEMS[VOLTITE]={name:'Voltite Shard',icon:103};
+ITEMS[SADDLE]={name:'Saddle',icon:100};ITEMS[GLASS_BOTTLE]={name:'Glass Bottle',icon:107};ITEMS[WATER_BOTTLE]={name:'Water Bottle',icon:108};
+ITEMS[AWKWARD]={name:'Awkward Potion',icon:109};
+Object.keys(POTIONS).forEach((id, i) => { ITEMS[id] = { name: POTIONS[id].name, icon: 110 + i }; });ITEMS[STORMKEY_I]={name:'Storm Key',icon:102};ITEMS[VOLTITE]={name:'Voltite Shard',icon:103};
 ITEMS[TEMPEST_HEART]={name:'Tempest Heart',icon:104};ITEMS[STORMBREAKER]={name:'Stormbreaker',icon:105,tool:{type:'sword',tier:6}};
 ITEMS[VOLT_PICK]={name:'Voltite Pickaxe',icon:106,tool:{type:'pick',tier:6}};ITEMS[FUNGUS_STICK]={name:'Warped Fungus on a Stick',icon:101};
 ITEMS[CRYSTALSHARD]={name:'Crystal Shard',icon:66};ITEMS[CRYSTALPICK]={name:'Crystal Pickaxe',icon:67,tool:{type:'pick',tier:4}};ITEMS[CRYSTALSWORD]={name:'Crystal Sword',icon:68,tool:{type:'sword',tier:4}};
@@ -1198,7 +1215,7 @@ function handTime(id){
   if(id === DEEPSLATE) return 5.5;                 // noticeably tougher than surface stone
   return 4.0;
 }
-/* crafting recipes — st: undefined (anywhere) | 'table' | 'furnace' */
+/* crafting recipes — st: undefined (anywhere) | 'table' | 'furnace' | 'brew' (a brewing stand) */
 const RECIPES = [
   { out: [PLANK, 4],  in: [[LOG, 1]] },
   { out: [BPLANK, 4], in: [[BIRCHLOG, 1]] },
@@ -1290,6 +1307,12 @@ RECIPES.push({out:[COPPERI,1],in:[[COPPERO,1],[COALI,1]],st:'furnace'},{out:[COP
 RECIPES.push({out:[STORMKEY_I,1],in:[[NETHERITE,1],[EYE_ENDER,1],[COPPERI,4]],st:'table'},
   {out:[STORMBREAKER,1],in:[[NSWORD,1],[TEMPEST_HEART,1],[VOLTITE,4]],st:'table'},{out:[VOLT_PICK,1],in:[[NPICK,1],[VOLTITE,6]],st:'table'},
   {out:[STORM_BRICK,4],in:[[STORMSTONE,4]]},{out:[CONDUIT,1],in:[[COPPERB,1],[VOLTITE,2]],st:'table'});
+RECIPES.push({out:[BREWING,1],in:[[BLAZEROD,1],[STONE,3]],st:'table'},{out:[GLASS_BOTTLE,3],in:[[GLASS,3]]},
+  {out:[AWKWARD,1],in:[[WATER_BOTTLE,1],[NWART,1]],st:'brew'},
+  {out:[POT_HEAL,1],in:[[AWKWARD,1],[MELONSLICE,1],[GNUGGET,4]],st:'brew'},{out:[POT_FIRE,1],in:[[AWKWARD,1],[MAGMACREAM,1]],st:'brew'},
+  {out:[POT_STR,1],in:[[AWKWARD,1],[BLAZEPOWDER,1]],st:'brew'},{out:[POT_SPEED,1],in:[[AWKWARD,1],[REEDS,1]],st:'brew'},
+  {out:[POT_REGEN,1],in:[[AWKWARD,1],[GHASTTEAR,1]],st:'brew'},{out:[POT_NIGHT,1],in:[[AWKWARD,1],[GLOWSTONE,1]],st:'brew'},
+  {out:[POT_SLOW,1],in:[[AWKWARD,1],[FEATHER,1]],st:'brew'});
 RECIPES.push({out:[BOW,1],in:[[STICK,3],[STRING,3]],st:'table'},{out:[ARROW_I,4],in:[[STICK,1],[FEATHER,1],[GRAVEL,1]]},
   {out:[EYE_ENDER,1],in:[[ENDERPEARL,1],[BLAZEPOWDER,1]]},{out:[PAPER,3],in:[[REEDS,3]]},{out:[FIREWORK,3],in:[[PAPER,1],[GUNPOWDER,1]]},
   {out:[POPPED_CHORUS,1],in:[[CHORUS_FRUIT,1],[COALI,1]],st:'furnace'},{out:[PURPUR,4],in:[[POPPED_CHORUS,4]]},
@@ -2651,6 +2674,27 @@ const tileAvg = [];
     px(105, [['#3a78c0', blade], ['#dff8ff', edge], ['#c07048', [[2, 12, 3, 2], [3, 11, 1, 4]]], ['#4a3a2a', [[1, 13, 2, 2]]]]); }
   // voltite pickaxe
   px(106, [['#6a4a2a', [[4, 11], [5, 10], [6, 9], [7, 8], [8, 7], [9, 6], [3, 12]]], ['#3aa8d8', [[5, 2, 7, 2], [11, 3, 2, 3], [4, 3, 2, 2]]], ['#9aeaff', [[6, 2, 5, 1]]]]);
+}
+/* ---- brewing: the stand and the bottles ---- */
+{
+  const ctx = atlas.getContext('2d'), ox = (255 % 8) * 16, oy = ((255 / 8) | 0) * 16;
+  ctx.clearRect(ox, oy, 16, 16);
+  ctx.fillStyle = '#5a5a5a'; ctx.fillRect(ox + 1, oy + 14, 14, 2);          // stone base
+  ctx.fillStyle = '#e8b84a'; ctx.fillRect(ox + 7, oy + 2, 2, 12);            // blaze-rod post
+  ctx.fillStyle = '#fff07a'; ctx.fillRect(ox + 7, oy + 2, 1, 12);
+  ctx.fillStyle = '#9ab4c8'; ctx.fillRect(ox + 2, oy + 9, 3, 5); ctx.fillRect(ox + 11, oy + 9, 3, 5);   // bottles hung either side
+  ctx.fillStyle = '#6a5a4a'; ctx.fillRect(ox + 4, oy + 8, 4, 1); ctx.fillRect(ox + 8, oy + 8, 4, 1);
+  const I = itemAtlas.getContext('2d');
+  const bottle = (ti, liquid) => {
+    const x = ti % 8 * 16, y = Math.floor(ti / 8) * 16;
+    I.clearRect(x, y, 16, 16);
+    I.fillStyle = '#6a4a2a'; I.fillRect(x + 6, y + 1, 4, 2);                  // cork
+    I.fillStyle = '#c8dce8'; I.fillRect(x + 6, y + 3, 4, 3); I.fillRect(x + 4, y + 6, 8, 8); I.fillRect(x + 5, y + 14, 6, 1);
+    if(liquid){ I.fillStyle = liquid; I.fillRect(x + 5, y + 8, 6, 6); I.fillStyle = 'rgba(255,255,255,0.45)'; I.fillRect(x + 5, y + 8, 2, 2); }
+    I.fillStyle = 'rgba(255,255,255,0.8)'; I.fillRect(x + 5, y + 7, 1, 3);
+  };
+  bottle(107, null); bottle(108, '#3a6ae0'); bottle(109, '#4a78e8');
+  Object.keys(POTIONS).forEach((id, i) => bottle(110 + i, POTIONS[id].col));
 }
 /* ---- Caves & Cliffs textures ---- */
 {
@@ -4492,7 +4536,7 @@ function stockLootChest(x, y, z, key, kind){
   } else if(kind === 'fortress'){
     loot = [[GOLDI, 1 + ((R()*3)|0)], [IRONI, 1 + ((R()*5)|0)], [NWART, 3 + ((R()*5)|0)],
             [DIAMI, R() < 0.3 ? 1 + ((R()*2)|0) : 0], [OBSIDIAN, R() < 0.4 ? 2 + ((R()*4)|0) : 0],
-            [FLINTSTEEL, R() < 0.3 ? 1 : 0], [GOLD_ARMOUR + 1, R() < 0.2 ? 1 : 0], [SADDLE, R() < 0.35 ? 1 : 0]];
+            [FLINTSTEEL, R() < 0.3 ? 1 : 0], [GOLD_ARMOUR + 1, R() < 0.2 ? 1 : 0], [SADDLE, R() < 0.35 ? 1 : 0], [POT_FIRE, R() < 0.3 ? 1 : 0]];
   } else if(kind === 'bastion'){
     loot = [[GOLDI, 3 + ((R()*7)|0)], [GNUGGET, 6 + ((R()*11)|0)], [GOLDB, R() < 0.4 ? 1 + ((R()*2)|0) : 0],
             [NSCRAP, R() < 0.3 ? 1 : 0], [DEBRIS, R() < 0.3 ? 1 : 0], [DIAMI, R() < 0.25 ? 1 + ((R()*2)|0) : 0],
@@ -5258,7 +5302,7 @@ function physics(dt){
   if(riding) return;                 // vehicle controls the player's position
   const inWater = getBlock(Math.floor(p.pos.x), Math.floor(p.pos.y + 0.2), Math.floor(p.pos.z)) === WATER;
   const sprint = key('ShiftLeft') && !p.fly && key('KeyW') && !inWater;
-  const speed = p.fly ? (key('ShiftRight') ? 26 : 16) : inWater ? 2.6 : sprint ? 7.2 : 4.3;
+  const speed = (p.fly ? (key('ShiftRight') ? 26 : 16) : inWater ? 2.6 : sprint ? 7.2 : 4.3) * (effects.speed > 0 && !p.fly ? 1.4 : 1);
   if(!xrActive && !gliding){
     let fx = 0, fz = 0;
     if(key('KeyW')) fz -= 1; if(key('KeyS')) fz += 1;
@@ -5284,6 +5328,7 @@ function physics(dt){
     /* gliding on elytra */
   } else {
     if(levT > 0) v.y += (2.4 - v.y) * Math.min(1, dt * 4);   // a shulker's levitation
+    else if(effects.slow > 0 && v.y < 0){ v.y -= 28 * dt * 0.12; if(v.y < -2.2) v.y = -2.2; }   // slow falling
     else if(!p.gorillaHold) v.y -= (xrActive && vrMoveMode === 'gorilla' ? GORILLA_G : 28) * dt;
     if(v.y < -55) v.y = -55;
     if(key('Space') && p.onGround) v.y = 8.6;
@@ -5295,7 +5340,7 @@ function physics(dt){
     p.pos.x = sx0 + (p.pos.x - sx0) * 0.45; p.pos.z = sz0 + (p.pos.z - sz0) * 0.45;
   }
   updatePlayerEffects(dt);
-  if(p.fly || inWater || p.gorillaHold || gliding || levT > 0) fallPeak = p.pos.y;   // hanging on is not falling
+  if(p.fly || inWater || p.gorillaHold || gliding || levT > 0 || effects.slow > 0) fallPeak = p.pos.y;   // hanging on is not falling
   else if(!p.onGround) fallPeak = Math.max(fallPeak, p.pos.y);
   if(p.onGround){
     const d = fallPeak - p.pos.y;
@@ -5322,7 +5367,7 @@ function physics(dt){
                  getBlock(Math.floor(p.pos.x), Math.floor(p.pos.y + 1.0), Math.floor(p.pos.z)) === LAVA;
   if(inLava){
     lavaT = (lavaT || 0) - dt;
-    if(lavaT <= 0){ lavaT = 0.5; damage(3); }
+    if(lavaT <= 0){ lavaT = 0.5; if(!fireproof()) damage(3); }
     p.vel.y *= 0.4;                                // sink slowly / thick
   }
   const hs = Math.hypot(v.x, v.z);
@@ -5461,7 +5506,7 @@ function nearStation(id){
   return false;
 }
 function stationOk(r){
-  return !r.st || (r.st === 'table' ? nearStation(CRAFTT) : nearStation(FURN));
+  return !r.st || (r.st === 'table' ? nearStation(CRAFTT) : r.st === 'brew' ? nearStation(BREWING) : nearStation(FURN));
 }
 function spaceOK(r){
   const [id, n] = r.out;
@@ -5558,7 +5603,8 @@ function renderCraft(){
   }
   const sections = [[undefined, 'Basics — craft anywhere', null],
                     ['table', 'Crafting Table', CRAFTT],
-                    ['furnace', 'Furnace — smelting', FURN]];
+                    ['furnace', 'Furnace — smelting', FURN],
+                    ['brew', 'Brewing Stand — potions', BREWING]];
   for(const [st, label, blockId] of sections){
     const head = document.createElement('div');
     head.className = 'rsec';
@@ -5657,6 +5703,7 @@ function damage(n){
 let bedSpawn = null;                       // {x,y,z} or null -> world SPAWN
 try { const bs = JSON.parse(localStorage.getItem(SAVE_KEY + '-bed')); if(bs && typeof bs.x === 'number') bedSpawn = bs; } catch(e){}
 function respawn(){
+  for(const k in effects) effects[k] = 0;
   hp = 20; dead = false; hunger=20;saturation=8;exhaustion=0;starveT=0;invDirty=true;
   renderHearts();
   // respawn at your bed if you have one and it still exists; else world spawn
@@ -5754,6 +5801,7 @@ function box(w, h, d, mat, x, y, z, parent){
 function removeEnt(list, i){
   const e = list[i];
   scene.remove(e.group);
+  if(e.hpBar) scene.remove(e.hpBar.bar);
   if(e.group2) scene.remove(e.group2);
   if(e.beam) scene.remove(e.beam);
   if(e === dragon) dragon = null;
@@ -7190,7 +7238,7 @@ function updateFireballs(dt){
     if(!hit){
       const pp = player.pos;
       if(!f.byPlayer && Math.abs(f.pos.x - pp.x) < 0.5 + f.w && Math.abs(f.pos.z - pp.z) < 0.5 + f.w && f.pos.y > pp.y - f.w && f.pos.y < pp.y + 1.9 + f.w){
-        if(f.type === 'blaze'){ damage(5); setBurn(5); }
+        if(f.type === 'blaze'){ if(mobCtx || !fireproof()) damage(5); setBurn(5); }
         else if(f.type === 'spark') damage(3);
         hit = true;
       }
@@ -7336,7 +7384,7 @@ function tickFires(){
 }
 /* ---- burning, withering, and the heat of the place ---- */
 let burnT = 0, witherT = 0, burnTick = 0, witherTick = 0, fireTouchT = 0, magmaT = 0;
-function setBurn(s){ if(mobCtx) damage(Math.ceil(s / 2)); else burnT = Math.max(burnT, s); }
+function setBurn(s){ if(mobCtx) damage(Math.ceil(s / 2)); else if(!fireproof()) burnT = Math.max(burnT, s); }
 function setWither(s){ if(mobCtx) damage(Math.ceil(s / 2)); else witherT = Math.max(witherT, s); }
 function updatePlayerEffects(dt){
   tickFires();
@@ -7347,14 +7395,16 @@ function updatePlayerEffects(dt){
   if(fireTouchT <= 0){
     fireTouchT = 0.5;
     const b1 = getBlock(Math.floor(p.x), Math.floor(p.y + 0.1), Math.floor(p.z)), b2 = getBlock(Math.floor(p.x), Math.floor(p.y + 1.1), Math.floor(p.z));
-    if(isFire(b1) || isFire(b2)){ damage(b1 === SOULFIRE || b2 === SOULFIRE ? 2 : 1); burnT = Math.max(burnT, 4); }
-    if(getBlock(Math.floor(p.x), Math.floor(p.y + 0.2), Math.floor(p.z)) === LAVA) burnT = 8;
+    if(!fireproof()){
+      if(isFire(b1) || isFire(b2)){ damage(b1 === SOULFIRE || b2 === SOULFIRE ? 2 : 1); burnT = Math.max(burnT, 4); }
+      if(getBlock(Math.floor(p.x), Math.floor(p.y + 0.2), Math.floor(p.z)) === LAVA) burnT = 8;
+    } else burnT = 0;
   }
   // magma burns the soles of your feet unless you crouch
   magmaT -= dt;
   if(magmaT <= 0){
     magmaT = 1;
-    if(player.onGround && !player.crouching && getBlock(Math.floor(p.x), Math.floor(p.y - 0.2), Math.floor(p.z)) === MAGMA) damage(1);
+    if(player.onGround && !player.crouching && !fireproof() && getBlock(Math.floor(p.x), Math.floor(p.y - 0.2), Math.floor(p.z)) === MAGMA) damage(1);
   }
   if(burnT > 0){
     burnT -= dt; burnTick -= dt;
@@ -8354,6 +8404,7 @@ function spawnDragon(){
   g.rotation.order = 'YXZ';
   scene.add(g);
   // the parts you can strike: the head takes full damage, the body a quarter
+  e.hpBar = makeBossBar(0xd070f0);
   e.headHit = { kind: 'dragonHead', dragon: e, pos: new THREE.Vector3(), w: 0.9, h: 1.3 };
   e.bodyHit = { kind: 'dragonBody', dragon: e, pos: new THREE.Vector3(), w: 1.6, h: 2.1 };
   dragons.push(e); dragon = e;
@@ -8403,7 +8454,7 @@ function killDragon(){
 }
 function removeDragon(e){
   if(!e) return;
-  scene.remove(e.group); if(e.group2) scene.remove(e.group2);
+  scene.remove(e.group); if(e.group2) scene.remove(e.group2); if(e.hpBar) scene.remove(e.hpBar.bar);
   const i = dragons.indexOf(e); if(i >= 0) dragons.splice(i, 1);
   if(dragon === e) dragon = null;
   if(!dragons.length) hideDragonBar();
@@ -8484,6 +8535,7 @@ function animDragon(e, dt){
   e.head.getWorldPosition(e.headHit.pos); e.headHit.pos.y -= 0.6;
   e.headHit.pos.add(new THREE.Vector3(0, 0, -1.3).applyEuler(e.group.rotation));
   e.bodyHit.pos.copy(e.pos); e.bodyHit.pos.y -= 1.0;
+  if(e.hpBar) placeBossBar(e.hpBar, e.pos, 3.6, e.hp / DRAGON_MAX_HP);
   if(e.puppet){ e.headHit.puppet = e.bodyHit.puppet = true; e.headHit.nid = e.bodyHit.nid = e.nid; }
   if(e.phase === 'dying'){
     // beams of light burst from her as she rises
@@ -8958,6 +9010,8 @@ function launchFirework(){
 // right-click / grip with one of the new items; returns true if it was used
 function useSpecial(o, d, hit, eh){
   const held = heldId();
+  if(POTIONS[held]){ drinkPotion(held); triggerViewSwing(); return true; }
+  if(held === GLASS_BOTTLE && fillBottle(hit)){ triggerViewSwing(); return true; }
   if(hit && hit.id === CONDUIT){ armConduit(hit.x, hit.y, hit.z); triggerViewSwing(); return true; }
   if(held === STORMKEY_I && hit){ lightStormPortal(hit.x + hit.face[0], hit.y + hit.face[1], hit.z + hit.face[2]); triggerViewSwing(); return true; }
   const survival = mode === 'survival';
@@ -9856,6 +9910,10 @@ function heldId(){
 }
 function heldDamage(){
   if(forcedDamage) return forcedDamage;
+  if(effects.strength > 0) return heldDamageBase() + 3;
+  return heldDamageBase();
+}
+function heldDamageBase(){
   const it = ITEMS[heldId()];
   const t = it && it.tool;
   if(t){
@@ -10498,58 +10556,121 @@ function craftSfx(){
 }
 const uiClick = () => { tone(820 * jr(0.06), 600, 0.04, 'square', 0.1); playN({ f: 1200, dur: 0.03, vol: 0.05 }); };
 
-/* ================= generative music (calm piano, MC-style) ========== */
+/* ================= generative music (calm piano, MC-style) ==========
+   The music follows you: gentle major piano by day, softer minor at night,
+   sparse echoing notes in caves, dark drones in the Nether, glassy bells
+   in the End, tense pulses in the Stormlands, and a driving rhythm when a
+   boss is near. */
 let musicOn = localStorage.getItem('blockcraft-music') !== '0';
-let musicGain = null, musicTimer = null;
+let musicGain = null, musicTimer = null, musicVerb = null;
 const MSCALE = [0, 2, 4, 7, 9, 12, 14, 16];
-const MCHORDS = { C: [0, 4, 7], G: [-5, -1, 2], Am: [-3, 0, 4], F: [-7, -3, 0], Em: [-8, -5, -1] };
-const MPROGS = [['C','G','Am','F'], ['C','F','G','C'], ['Am','F','C','G'], ['C','Em','Am','F'], ['F','G','C','Am']];
+const MCHORDS = { C: [0, 4, 7], G: [-5, -1, 2], Am: [-3, 0, 4], F: [-7, -3, 0], Em: [-8, -5, -1], Dm: [-10, -7, -3], Bb: [-2, 2, 5], E: [-8, -4, -1], Cm: [0, 3, 7], Ab: [-4, 0, 3], Fm: [-7, -4, 0], Gm: [-5, -2, 2] };
+const MOODS = {
+  day:    { progs: [['C','G','Am','F'], ['C','F','G','C'], ['Am','F','C','G'], ['C','Em','Am','F'], ['F','G','C','Am']], scale: [0, 2, 4, 7, 9, 12, 14, 16], len: [4.5, 2], notes: [2, 4], vol: 0.11, oct: 0, gap: 0.35 },
+  night:  { progs: [['Am','F','C','G'], ['Am','Dm','Em','Am'], ['F','Am','Dm','Em']], scale: [-3, 0, 2, 4, 7, 9, 12], len: [5.5, 2], notes: [1, 3], vol: 0.09, oct: -5, gap: 0.45 },
+  cave:   { progs: [['Am','Em'], ['Dm','Am'], ['Em','Am']], scale: [-3, 0, 4, 7, 12], len: [7, 3], notes: [1, 2], vol: 0.08, oct: -7, gap: 0.6, verb: 1 },
+  nether: { progs: [['Cm','Ab','Fm','Gm'], ['Cm','Gm','Ab','Gm'], ['Fm','Cm','Gm','Cm']], scale: [0, 3, 5, 7, 8, 12], len: [5, 2], notes: [2, 3], vol: 0.1, oct: -12, gap: 0.3, drone: 1 },
+  end:    { progs: [['C','E','Ab','E'], ['Am','C','E','C']], scale: [0, 4, 7, 11, 14, 16, 19], len: [6, 3], notes: [2, 4], vol: 0.07, oct: 12, gap: 0.3, bell: 1, verb: 1 },
+  storm:  { progs: [['Dm','Bb','Gm','Am'], ['Dm','Am','Bb','Am']], scale: [-10, -7, -3, 0, 2, 5], len: [3.5, 1], notes: [3, 5], vol: 0.1, oct: 0, gap: 0.2, pulse: 1 },
+  boss:   { progs: [['Dm','Bb','Gm','Am'], ['Cm','Ab','Gm','Gm']], scale: [0, 3, 7, 12], len: [2.2, 0.4], notes: [4, 6], vol: 0.12, oct: 0, gap: 0.05, pulse: 1, drums: 1 },
+};
+function musicMood(){
+  if(dragons.some(d => d.pos.distanceTo(player.pos) < 120) ||
+     (typeof wyrms !== 'undefined' && wyrms.some(w => w.pos.distanceTo(player.pos) < 100))) return 'boss';
+  if(dim === 1) return 'nether';
+  if(dim === 2) return 'end';
+  if(dim === 3) return 'storm';
+  const la = lightAtPlayer();
+  if(la.sky < 4 && player.pos.y < terrainHeight(Math.floor(player.pos.x), Math.floor(player.pos.z)) - 6) return 'cave';
+  return daylightOf(timeOfDay) > 0.35 ? 'day' : 'night';
+}
 const mfreq = semi => 261.63 * Math.pow(2, semi / 12);
-function pnote(semi, t, dur = 2.4, vol = 0.12){
+function musicOut(){ return musicVerb && musicVerb.on ? musicVerb.input : musicGain; }
+function pnote(semi, t, dur = 2.4, vol = 0.12, bell){
   const f = mfreq(semi);
-  const o1 = AC.createOscillator(); o1.type = 'triangle'; o1.frequency.value = f;
-  const o2 = AC.createOscillator(); o2.type = 'sine'; o2.frequency.value = f * 2;
-  const g2 = AC.createGain(); g2.gain.value = 0.22;
+  const o1 = AC.createOscillator(); o1.type = bell ? 'sine' : 'triangle'; o1.frequency.value = f;
+  const o2 = AC.createOscillator(); o2.type = 'sine'; o2.frequency.value = f * (bell ? 2.76 : 2);   // a bell's inharmonic ring
+  const g2 = AC.createGain(); g2.gain.value = bell ? 0.35 : 0.22;
   const g = AC.createGain();
-  const fl = AC.createBiquadFilter(); fl.type = 'lowpass'; fl.frequency.value = 2100;
+  const fl = AC.createBiquadFilter(); fl.type = 'lowpass'; fl.frequency.value = bell ? 5000 : 2100;
   g.gain.setValueAtTime(0.0001, t);
   g.gain.exponentialRampToValueAtTime(vol, t + 0.03);
-  g.gain.exponentialRampToValueAtTime(0.001, t + dur);
-  o1.connect(g); o2.connect(g2); g2.connect(g); g.connect(fl); fl.connect(musicGain);
-  o1.start(t); o1.stop(t + dur + 0.05);
-  o2.start(t); o2.stop(t + dur + 0.05);
+  g.gain.exponentialRampToValueAtTime(0.001, t + dur * (bell ? 1.6 : 1));
+  o1.connect(g); o2.connect(g2); g2.connect(g); g.connect(fl); fl.connect(musicOut());
+  o1.start(t); o1.stop(t + dur * 1.6 + 0.05);
+  o2.start(t); o2.stop(t + dur * 1.6 + 0.05);
 }
-function mpad(semi, t, dur, vol = 0.035){
-  const o = AC.createOscillator(); o.type = 'sine'; o.frequency.value = mfreq(semi);
+function mpad(semi, t, dur, vol = 0.035, type = 'sine'){
+  const o = AC.createOscillator(); o.type = type; o.frequency.value = mfreq(semi);
   const g = AC.createGain();
+  const fl = AC.createBiquadFilter(); fl.type = 'lowpass'; fl.frequency.value = type === 'sine' ? 4000 : 500;
   g.gain.setValueAtTime(0.0001, t);
   g.gain.linearRampToValueAtTime(vol, t + dur * 0.35);
   g.gain.linearRampToValueAtTime(0.0001, t + dur);
-  o.connect(g); g.connect(musicGain);
+  o.connect(fl); fl.connect(g); g.connect(musicOut());
   o.start(t); o.stop(t + dur + 0.05);
 }
+function mdrum(t, low, vol){
+  const o = AC.createOscillator(), g = AC.createGain();
+  o.type = 'sine'; o.frequency.setValueAtTime(low ? 90 : 180, t); o.frequency.exponentialRampToValueAtTime(low ? 40 : 90, t + 0.25);
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+  o.connect(g); g.connect(musicGain); o.start(t); o.stop(t + 0.4);
+}
+// a simple echoing room for caves and the End
+function ensureVerb(){
+  if(musicVerb) return;
+  const len = AC.sampleRate * 2.6, buf = AC.createBuffer(2, len, AC.sampleRate);
+  for(let c = 0; c < 2; c++){ const d = buf.getChannelData(c); for(let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.6); }
+  const conv = AC.createConvolver(); conv.buffer = buf;
+  const input = AC.createGain(), wet = AC.createGain(), dry = AC.createGain();
+  wet.gain.value = 0.55; dry.gain.value = 0.7;
+  input.connect(dry).connect(musicGain); input.connect(conv).connect(wet).connect(musicGain);
+  musicVerb = { input, on: false };
+}
+let musicMoodNow = 'day';
 function musicPhrase(){
   musicTimer = null;
   if(!musicOn || !AC) return;
-  const prog = MPROGS[(Math.random() * MPROGS.length) | 0];
+  const moodName = inGame ? musicMood() : 'day', M = MOODS[moodName];
+  musicMoodNow = moodName;
+  ensureVerb(); musicVerb.on = !!M.verb;
+  const prog = M.progs[(Math.random() * M.progs.length) | 0];
   let t = AC.currentTime + 0.2, total = 0.2;
   for(const cn of prog){
-    const chord = MCHORDS[cn];
-    const len = 4.5 + Math.random() * 2;
-    mpad(chord[0] - 12, t, len);
+    const chord = MCHORDS[cn].map(n => n + M.oct);
+    const len = M.len[0] + Math.random() * M.len[1];
+    mpad(chord[0] - 12, t, len, M.drone ? 0.05 : 0.035, M.drone ? 'sawtooth' : 'sine');
     mpad(chord[2] - 12, t, len);
-    const nNotes = 2 + ((Math.random() * 4) | 0);
+    if(M.drone) mpad(chord[0] - 24, t, len, 0.05, 'sawtooth');
+    if(M.pulse) for(let b = 0; b < len; b += 0.5) pnote(chord[0] - 12, t + b, 0.35, 0.05);
+    if(M.drums) for(let b = 0; b < len; b += 0.5) mdrum(t + b, (b * 2) % 2 === 0, (b * 2) % 4 === 0 ? 0.3 : 0.16);
+    const nNotes = M.notes[0] + ((Math.random() * (M.notes[1] - M.notes[0] + 1)) | 0);
     for(let i = 0; i < nNotes; i++){
-      const at = t + 0.2 + Math.random() * Math.max(0.5, len - 2.2);
+      const at = t + 0.2 + Math.random() * Math.max(0.3, len - 1.6);
       const semi = Math.random() < 0.55
         ? chord[(Math.random() * 3) | 0] + (Math.random() < 0.35 ? 12 : 0)
-        : MSCALE[(Math.random() * MSCALE.length) | 0];
-      pnote(semi, at, 2 + Math.random() * 1.6, 0.09 + Math.random() * 0.05);
+        : M.scale[(Math.random() * M.scale.length) | 0] + M.oct;
+      pnote(semi, at, 2 + Math.random() * 1.6, M.vol * (0.8 + Math.random() * 0.4), M.bell);
     }
     t += len; total += len;
   }
-  const gap = Math.random() < 0.35 ? 8000 + Math.random() * 16000 : 700;
+  const gap = Math.random() < M.gap ? 8000 + Math.random() * 16000 : 500;
   musicTimer = setTimeout(musicPhrase, total * 1000 + gap);
+}
+// when the place changes mood sharply (a boss appears, you go underground), change the music soon after
+let moodCheckT = 0;
+function checkMusicMood(dt){
+  if(!musicOn || !AC || !musicTimer || !inGame) return;
+  moodCheckT -= dt;
+  if(moodCheckT > 0) return;
+  moodCheckT = 3;
+  const m = musicMood();
+  if(m !== musicMoodNow && (m === 'boss' || musicMoodNow === 'boss' || m === 'cave' || musicMoodNow === 'cave' || m === 'nether' || m === 'end' || m === 'storm')){
+    clearTimeout(musicTimer);
+    musicGain.gain.setTargetAtTime(0.0001, AC.currentTime, 0.6);
+    musicTimer = setTimeout(() => { musicGain.gain.setTargetAtTime(0.55, AC.currentTime, 0.8); musicPhrase(); }, 2200);
+    musicMoodNow = m;
+  }
 }
 function startMusic(){
   if(!AC || !musicOn || musicTimer) return;
@@ -12045,7 +12166,7 @@ function doBreakInstant(){
 }
 function doPlace(){
   camera.getWorldDirection(_dir);
-  const hit = raycast(camera.position, _dir, REACH,heldId()===BUCKET);
+  const hit = raycast(camera.position, _dir, REACH,heldId()===BUCKET||heldId()===GLASS_BOTTLE);
   // villager trading
   const eh = rayEntity(camera.position, _dir, REACH);
   if(eh&&(!hit||eh.t<hit.t)&&feedFantasy(eh.e))return;
@@ -12064,7 +12185,7 @@ function doPlace(){
     if(isDoor(hit.id)){ toggleDoor(hit.x, hit.y, hit.z); triggerViewSwing(); return; }
     if(hit.id === CHEST){ openChest(hit.x, hit.y, hit.z); return; }
     if(hit.id === TNT){ igniteTNT(hit.x, hit.y, hit.z); return; }
-    if((hit.id === CRAFTT || hit.id === FURN) && mode === 'survival'){ openCraft(); return; }
+    if((hit.id === CRAFTT || hit.id === FURN || hit.id === BREWING) && mode === 'survival'){ openCraft(); return; }
     // buckets: fill from a liquid source, or empty a filled bucket
     const heldB = heldId();
     if(heldB === BUCKET && (hit.id === WATER || hit.id === LAVA)){
@@ -12248,6 +12369,7 @@ function renderHotbar(){
   }
 }
 function flashName(txt){
+  if(xrActive && typeof showSubtitle === 'function') showSubtitle(txt);
   itemnameEl.textContent = txt;
   itemnameEl.style.opacity = 1;
   clearTimeout(nameTimer);
@@ -12576,7 +12698,7 @@ function buildCraftPanel(){
       });
       if(vrRecipe>=0){
         const r=RECIPES[vrRecipe];text(nameOf(r.out[0])+' ×'+r.out[1],710,265,28,'#202020',675);
-        text(r.st==='table'?'Requires nearby crafting table':r.st==='furnace'?'Requires nearby furnace':'Craft anywhere',710,308,22,stationOk(r)?'#28572d':'#8a2424',675);
+        text(r.st==='table'?'Requires nearby crafting table':r.st==='furnace'?'Requires nearby furnace':r.st==='brew'?'Requires nearby brewing stand':'Craft anywhere',710,308,22,stationOk(r)?'#28572d':'#8a2424',675);
         r.in.forEach(([id,n],i)=>text(inName(id)+': '+invCount(id)+' / '+n,710,352+i*34,22,invCount(id)>=n?'#28572d':'#8a2424',675));
         if(!spaceOK(r))text('Inventory full: make space first.',710,560,22,'#8a2424',660);
         button(710,602,300,62,'Craft',()=>vrCraftSelected(false),canCraft(r));
@@ -12847,7 +12969,7 @@ function vrTryBreak(){
 function vrTryPlace(){
   if(!inGame || dead || vrCraftOpen || !rightCtrl.userData.inputSource) return;
   const { o, d } = ctrlOriginDir(rightCtrl);
-  const hit = raycast(o, d, REACH,heldId()===BUCKET);
+  const hit = raycast(o, d, REACH,heldId()===BUCKET||heldId()===GLASS_BOTTLE);
   const eh = rayEntity(o, d, REACH);
   if(eh&&(!hit||eh.t<hit.t)&&feedFantasy(eh.e))return;
   if(eh&&(!hit||eh.t<hit.t)&&!eh.e.puppet&&tryGivePiglin(eh.e))return;
@@ -12870,7 +12992,7 @@ function vrTryPlace(){
     if(isDoor(hit.id)){ toggleDoor(hit.x, hit.y, hit.z); triggerViewSwing(); return; }
     if(hit.id === CHEST){ openChest(hit.x, hit.y, hit.z); return; }
     if(hit.id === TNT){ igniteTNT(hit.x, hit.y, hit.z); return; }
-    if((hit.id === CRAFTT || hit.id === FURN) && mode === 'survival'){ openCraftVR('craft'); return; }
+    if((hit.id === CRAFTT || hit.id === FURN || hit.id === BREWING) && mode === 'survival'){ openCraftVR('craft'); return; }
   }
   const held = heldId();
   if(mode === 'survival' && foodOf(held)){ eatHeld(); return; }
@@ -13177,7 +13299,7 @@ function updateVR(dt){
   const sprintPressed=!!readButtons('left')?.[3]?.pressed;
   if(sprintPressed&&!vrSprintWas)vrSprint=!vrSprint;
   vrSprintWas=sprintPressed;
-  const speed = player.fly ? (vrSprint?26:16) : swimming?2.6:vrSprint?7.2:4.3;
+  const speed = (player.fly ? (vrSprint?26:16) : swimming?2.6:vrSprint?7.2:4.3) * (effects.speed > 0 && !player.fly ? 1.4 : 1);
   const fwdX = -Math.sin(yaw), fwdZ = -Math.cos(yaw);
   const rgtX =  Math.cos(yaw), rgtZ = -Math.sin(yaw);
   const magnitude=Math.max(1,Math.hypot(dx,dz));
@@ -13613,6 +13735,170 @@ function updateNetherAir(dt){
   netherOneShotT -= dt;
   if(netherOneShotT <= 0){ netherOneShotT = 7 + Math.random() * 12; netherMoodSound(bio); }
 }
+/* ============================ AMBIENCE ============================
+   The Overworld's own sounds: birds by day near trees and grass, crickets
+   and the odd owl at night, dripping water and far rumbles in the caves,
+   and wind that rises the higher you climb. */
+let ambT = 3, windSrc = null, windGain = null, windFl = null;
+function ambAt(dx, dy, dz){ return player.pos.clone().add(new THREE.Vector3(dx, dy, dz)); }
+function birdSong(){
+  const at = ambAt((Math.random() - 0.5) * 30, 4 + Math.random() * 6, (Math.random() - 0.5) * 30);
+  const base = 2200 + Math.random() * 1600, n = 2 + ((Math.random() * 4) | 0);
+  for(let i = 0; i < n; i++){
+    const f = base * (0.85 + Math.random() * 0.4);
+    nTone(at, f, f * (Math.random() < 0.5 ? 1.35 : 0.75), 0.07 + Math.random() * 0.06, 'sine', 0.05, 60, i * (0.1 + Math.random() * 0.08));
+  }
+}
+function crickets(){
+  const at = ambAt((Math.random() - 0.5) * 24, 0, (Math.random() - 0.5) * 24);
+  for(let i = 0; i < 6; i++) nTone(at, 4400, 4300, 0.03, 'sine', 0.035, 50, i * 0.06 + (i > 2 ? 0.25 : 0));
+}
+function owl(){
+  const at = ambAt((Math.random() - 0.5) * 40, 8, (Math.random() - 0.5) * 40);
+  nTone(at, 380, 330, 0.35, 'sine', 0.08, 70); nTone(at, 400, 340, 0.5, 'sine', 0.07, 70, 0.55);
+}
+function caveDrip(){
+  const at = ambAt((Math.random() - 0.5) * 16, 2 + Math.random() * 4, (Math.random() - 0.5) * 16);
+  const f = 1500 + Math.random() * 1500;
+  nTone(at, f, f * 0.55, 0.12, 'sine', 0.09, 40);
+  nTone(at, f * 0.8, f * 0.45, 0.1, 'sine', 0.04, 40, 0.28);          // its echo
+}
+function caveRumble(){
+  const at = ambAt((Math.random() - 0.5) * 40, -6, (Math.random() - 0.5) * 40);
+  nNoise(at, 120, 3, 0.18, -50, 80, 0.8);
+  if(Math.random() < 0.5) nTone(at, 70, 45, 2.5, 'sine', 0.1, 80);
+}
+function updateAmbience(dt){
+  if(!AC || AC.state !== 'running' || !inGame || dim !== 0){ if(windGain) windGain.gain.setTargetAtTime(0, AC ? AC.currentTime : 0, 0.5); return; }
+  const la = lightAtPlayer(), day = daylightOf(timeOfDay);
+  const ground = terrainHeight(Math.floor(player.pos.x), Math.floor(player.pos.z));
+  const underground = la.sky < 4 && player.pos.y < ground - 4;
+  // wind, stronger up high and in a storm
+  if(!windSrc){
+    if(!noiseBuf){ noiseBuf = AC.createBuffer(1, AC.sampleRate, AC.sampleRate); const d = noiseBuf.getChannelData(0); for(let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
+    windSrc = AC.createBufferSource(); windSrc.buffer = noiseBuf; windSrc.loop = true;
+    windFl = AC.createBiquadFilter(); windFl.type = 'bandpass'; windFl.Q.value = 0.8; windFl.frequency.value = 300;
+    windGain = AC.createGain(); windGain.gain.value = 0;
+    windSrc.connect(windFl).connect(windGain).connect(AC.destination); windSrc.start();
+  }
+  const high = Math.max(0, Math.min(1, (player.pos.y - SEA - 30) / 60));
+  windGain.gain.setTargetAtTime(underground ? 0 : 0.012 + high * 0.05 + stormAmt * 0.03, AC.currentTime, 1.5);
+  windFl.frequency.setTargetAtTime(250 + high * 250 + Math.sin(performance.now() / 3000) * 80, AC.currentTime, 1);
+  ambT -= dt;
+  if(ambT > 0) return;
+  ambT = 2 + Math.random() * 5;
+  if(underground){
+    if(Math.random() < 0.6) caveDrip();
+    else if(Math.random() < 0.3) caveRumble();
+  } else if(rainAmt < 0.3){
+    if(day > 0.4){ if(Math.random() < 0.7) birdSong(); }
+    else if(day < 0.2){ if(Math.random() < 0.8) crickets(); else if(Math.random() < 0.3) owl(); }
+  }
+}
+/* ============================ POTIONS ============================
+   Drinking one puts an effect on you for a while: fire resistance keeps
+   lava and flame off you, strength adds to every blow, swiftness quickens
+   you, regeneration heals, night vision lights the dark and slow falling
+   floats you down. */
+const effects = { fire: 0, strength: 0, speed: 0, regen: 0, night: 0, slow: 0 };
+const EFFECT_NAMES = { fire: 'Fire Resistance', strength: 'Strength', speed: 'Swiftness', regen: 'Regeneration', night: 'Night Vision', slow: 'Slow Falling' };
+let regenTick = 0;
+const fireproof = () => effects.fire > 0;
+function drinkPotion(id){
+  const P = POTIONS[id];
+  if(!P) return false;
+  consumePlacedItem();
+  if(mode === 'survival') addItem(GLASS_BOTTLE);
+  if(P.fx === 'heal'){ hp = Math.min(20, hp + 8); renderHearts(); }
+  else effects[P.fx] = Math.max(effects[P.fx], P.t);
+  if(P.fx === 'fire') burnT = 0;
+  [440, 560, 700].forEach((f, i) => tone(f, f * 1.2, 0.12, 'sine', 0.07, i * 0.07));
+  const pp = player.pos;
+  const c = new THREE.Color(P.col);
+  burstRGB(pp.x, pp.y + 1.2, pp.z, c.r, c.g, c.b, 16, 0.7);
+  flashName(P.fx === 'heal' ? 'Healed' : EFFECT_NAMES[P.fx] + ' for ' + Math.floor(P.t / 60) + ':' + String(P.t % 60).padStart(2, '0'));
+  return true;
+}
+function fillBottle(hit){
+  if(heldId() !== GLASS_BOTTLE || !hit || hit.id !== WATER) return false;
+  consumePlacedItem();
+  if(mode === 'survival') addItem(WATER_BOTTLE);
+  playN({ f: 600, type: 'bandpass', dur: 0.2, vol: 0.1 });
+  flashName('Water Bottle');
+  return true;
+}
+function updateEffects(dt){
+  for(const k in effects){
+    if(effects[k] <= 0) continue;
+    effects[k] -= dt;
+    if(effects[k] <= 0){ effects[k] = 0; flashName(EFFECT_NAMES[k] + ' has worn off'); }
+    else if(effects[k] < 10 && effects[k] + dt >= 10) flashName(EFFECT_NAMES[k] + ' is wearing off');
+  }
+  if(effects.regen > 0 && !dead){ regenTick -= dt; if(regenTick <= 0){ regenTick = 2.5; if(hp < 20){ hp = Math.min(20, hp + 1); renderHearts(); } } }
+  // a thin coloured shimmer around you shows an effect is on
+  if(Math.random() < dt * 3){
+    const on = Object.keys(effects).filter(k => effects[k] > 0);
+    if(on.length){
+      const pickFx = on[(Math.random() * on.length) | 0];
+      const id = Object.keys(POTIONS).find(q => POTIONS[q].fx === pickFx);
+      const c = new THREE.Color(POTIONS[id].col), pp = player.pos;
+      burstRGB(pp.x + (Math.random() - 0.5), pp.y + Math.random() * 1.8, pp.z + (Math.random() - 0.5), c.r, c.g, c.b, 1, 0.2);
+    }
+  }
+  const el = document.getElementById('effectsbar');
+  if(el){
+    const on = Object.keys(effects).filter(k => effects[k] > 0);
+    el.textContent = on.map(k => EFFECT_NAMES[k] + ' ' + Math.floor(effects[k] / 60) + ':' + String(Math.floor(effects[k] % 60)).padStart(2, '0')).join('   ');
+  }
+}
+{ const el = document.createElement('div'); el.id = 'effectsbar';
+  el.style.cssText = 'position:fixed;left:50%;bottom:92px;transform:translateX(-50%);z-index:6;color:#fff;font:12px system-ui;text-shadow:0 1px 2px #000;pointer-events:none';
+  document.body.appendChild(el); }
+// how bright it is where you stand: the sky's light (by day) and any torchlight
+function lightAtPlayer(){
+  const x = Math.floor(player.pos.x), y = Math.floor(player.pos.y + 1), z = Math.floor(player.pos.z);
+  const c = chunks.get((x >> 4) + ',' + (z >> 4));
+  if(!c || !c.light || y < 0 || y >= HEIGHT) return { sky: 15, block: 0 };
+  const i = c.light.idx(x & 15, y, z & 15);
+  return { sky: c.light.light[i] || 0, block: c.light.block ? c.light.block[i] || 0 : 0 };
+}
+
+/* ============================ VR HELPERS ============================
+   Short messages float just below your view in the headset, where the
+   flat screen's text can't be seen. */
+const subCv = document.createElement('canvas'); subCv.width = 768; subCv.height = 72;
+const subTex = new THREE.CanvasTexture(subCv); subTex.colorSpace = THREE.SRGBColorSpace;
+const subMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.64, 0.06), new THREE.MeshBasicMaterial({ map: subTex, transparent: true, depthTest: false, fog: false }));
+subMesh.position.set(0, -0.2, -0.85); subMesh.renderOrder = 1001; subMesh.visible = false;
+camera.add(subMesh);
+let subTimer = 0;
+function showSubtitle(txt){
+  const g = subCv.getContext('2d');
+  g.clearRect(0, 0, 768, 72);
+  g.font = 'bold 34px system-ui';
+  const w = Math.min(760, g.measureText(txt).width + 40);
+  g.fillStyle = 'rgba(16,16,20,0.78)'; g.fillRect((768 - w) / 2, 6, w, 60);
+  g.fillStyle = '#ffffff'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(txt, 384, 37, 740);
+  subTex.needsUpdate = true;
+  subMesh.visible = true;
+  clearTimeout(subTimer);
+  subTimer = setTimeout(() => { subMesh.visible = false; }, 1800);
+}
+// a boss health bar that floats over the creature, facing you - for the dragon as well as the Wyrm
+function makeBossBar(color){
+  const bar = new THREE.Group();
+  const back = new THREE.Mesh(new THREE.PlaneGeometry(6, 0.35), new THREE.MeshBasicMaterial({ color: 0x101820, depthTest: false, fog: false }));
+  const fill = new THREE.Mesh(new THREE.PlaneGeometry(5.8, 0.22), new THREE.MeshBasicMaterial({ color, depthTest: false, fog: false }));
+  fill.position.z = 0.01; back.renderOrder = 998; fill.renderOrder = 999;
+  bar.add(back, fill); scene.add(bar);
+  return { bar, fill };
+}
+function placeBossBar(b, pos, lift, frac){
+  b.bar.position.set(pos.x, pos.y + lift, pos.z);
+  b.bar.quaternion.copy(camera.getWorldQuaternion(new THREE.Quaternion()));
+  const f = Math.max(0, Math.min(1, frac));
+  b.fill.scale.x = Math.max(0.001, f); b.fill.position.x = -2.9 * (1 - f);
+}
 /* ============================ ADVANCEMENTS ============================
    The road from punching a tree to slaying the Tempest Wyrm, with a hint
    for each step so the way on is never a mystery. They unlock as you go,
@@ -13790,6 +14076,9 @@ function animate(){
   updateWeather(dt);
   updateNetherAir(dt);
   updateAdvancements(dt);
+  if(inGame && !dead) updateEffects(dt);
+  updateAmbience(dt);
+  checkMusicMood(dt);
 
   // day/night (overworld) — Nether is gloomy red, The End is a dark void
   let b;
@@ -13828,6 +14117,13 @@ function animate(){
   matLeaf.color.setScalar(b);
   matItem.color.setScalar(b); matItemSolid.color.setScalar(b);
   cloudMat.color.setScalar(b);
+  if(effects.night > 0){
+    const la = lightAtPlayer(), lit = Math.max(la.sky * (dim === 0 ? daylight : 0.4), la.block) / 15;
+    const nv = Math.min(1, effects.night / 3);                   // it fades in and out
+    const boost = Math.max(b, 1) * (1 + 4 * (1 - lit) * nv) / b;
+    for(const m of [matO, matT, matC, matLeaf]) m.color.multiplyScalar(boost);
+    b *= boost;
+  }
   for(const m of entMats) m.color.copy(m.userData.base).multiplyScalar(Math.max(0.35, b));
 
   // sky
@@ -14128,6 +14424,7 @@ window.__bc = {
                      step: dt => { updateWyrms(dt); updateStormSpawns(dt); updateStormWorld(dt); }, arm: armConduit, light: lightStormPortal, summon: n => summonStormlings(wyrms[0], n), hurt: (n) => hurtWyrm(wyrms[0], n) },
             save: { pack: packEdits, unpack: unpackEdits, packChests, unpackChests, used: storageUsed, exportWorld },
             adv: { list: ADVANCEMENTS, done: advDone, grant: grantAdv, next: nextAdv, tick: () => { advT = 0; updateAdvancements(0); }, guide: toggleGuide, toast: showToast },
+            fx: { clearInv: () => { for(const q of survInv){ q.id = 0; q.count = 0; q.dur = 0; } renderHotbar(); }, effects, drink: id => drinkPotion(id), step: dt => updateEffects(dt), light: lightAtPlayer, mood: () => musicMood(), sub: showSubtitle, POTIONS },
             spawns: dt => updateNetherSpawns(dt), effects: () => ({ burnT, witherT }), heal: () => { hp = 20; dead = false; burnT = 0; witherT = 0; }, give: e => tryGivePiglin(e), lightFire },
 };
 </script>
