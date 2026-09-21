@@ -14019,8 +14019,18 @@ function teleportToBiome(name){
   if(dim !== 0){ flashName('Biomes are in the Overworld'); return false; }
   const at = findBiome(name);
   if(!at){ flashName('No ' + biomeLabel(name) + ' found nearby'); return false; }
-  const [x, z] = at;
-  player.pos.set(x + 0.5, Math.max(terrainHeight(x, z), SEA) + 3, z + 0.5);
+  let [x, z] = at, y = -1;
+  // find a spot whose top block is open to the sky, so you never land inside a trunk or a canopy
+  for(let k = 0; k < 40 && y < 0; k++){
+    const cx = x + (k ? Math.round((Math.random() - 0.5) * 30) : 0), cz = z + (k ? Math.round((Math.random() - 0.5) * 30) : 0);
+    let top = HEIGHT - 2;
+    while(top > 0 && getBlock(cx, top, cz) === AIR) top--;
+    const b = getBlock(cx, top, cz);
+    if(isLeaf(b) || isLog(b) || b === WATER || b === LAVA) continue;
+    x = cx; z = cz; y = top + 1;
+  }
+  if(y < 0){ let top = HEIGHT - 2; while(top > 0 && getBlock(x, top, z) === AIR) top--; y = top + 1; }
+  player.pos.set(x + 0.5, y + 0.02, z + 0.5);
   player.vel.set(0, 0, 0); player.fly = true; fallPeak = player.pos.y;
   curPC = null; updateChunks();
   tone(300, 900, 0.4, 'sine', 0.1);
@@ -14039,7 +14049,7 @@ function toggleTeleport(on = tpEl.style.display === 'none'){
   for(const b of TP_BIOMES){
     const btn = document.createElement('button');
     btn.className = 'mcbtn small'; btn.textContent = biomeLabel(b);
-    btn.onclick = () => { teleportToBiome(b); toggleTeleport(false); };
+    btn.onclick = () => { teleportToBiome(b); toggleTeleport(false); renderer.domElement.requestPointerLock(); };
     box.appendChild(btn);
   }
   document.exitPointerLock();
