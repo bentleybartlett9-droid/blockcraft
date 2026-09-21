@@ -15203,6 +15203,9 @@ const DISCS = [
   { name: 'Stormchase', bpm: 138, scale: [0, 2, 3, 5, 7, 8, 10], prog: [0, 6, 5, 4], lead: 'square',   bass: 'sawtooth', root: -5, drums: true,  seed: 53 },
 ];
 const jukes = new Map();                 // "x,y,z" -> { disc, x, y, z, beat, next, out, pan, rng }
+// discs left in jukeboxes are saved with the world (they come back silent, ready to take out or replay)
+try { for(const r of JSON.parse(localStorage.getItem(SAVE_KEY + '-jukes')) || []) jukes.set(r.x + ',' + r.y + ',' + r.z, { disc: r.disc, x: r.x, y: r.y, z: r.z, dim: r.dim, beat: 9999, next: 0, done: true, rng: () => 0 }); } catch(e){}
+const saveJukes = () => safeSet(SAVE_KEY + '-jukes', JSON.stringify([...jukes.values()].map(j => ({ disc: j.disc, x: j.x, y: j.y, z: j.z, dim: j.dim }))));
 const jfreq = semi => 261.63 * Math.pow(2, semi / 12);
 function jukeOut(j){
   if(j.out || !AC) return;
@@ -15254,7 +15257,7 @@ function jukeSchedule(j){
 function seededRng(seed){ let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 function startJuke(k, x, y, z, disc){
   const j = { disc, x, y, z, beat: 0, next: AC ? AC.currentTime + 0.3 : 0, rng: seededRng(DISCS[disc].seed), step: 2, dim };
-  jukes.set(k, j); jukeOut(j);
+  jukes.set(k, j); jukeOut(j); saveJukes();
   flashName('Now playing: ' + DISCS[disc].name);
 }
 function stopJuke(k, eject){
@@ -15262,7 +15265,7 @@ function stopJuke(k, eject){
   if(!j) return;
   if(j.out){ j.out.gain.setTargetAtTime(0.0001, AC.currentTime, 0.05); const o = j.out; setTimeout(() => o.disconnect(), 400); }
   if(eject) spawnDropAt(j.x + 0.5, j.y + 1.1, j.z + 0.5, DISC_1 + j.disc);
-  jukes.delete(k);
+  jukes.delete(k); saveJukes();
 }
 function useJukebox(hit){
   if(!hit || hit.id !== JUKEBOX) return false;
@@ -15281,7 +15284,9 @@ let jukeNear = false;
 function updateJukes(dt){
   let near = false;
   for(const [k, j] of jukes){
-    if(j.dim !== dim || getBlock(j.x, j.y, j.z) !== JUKEBOX){ stopJuke(k, j.dim === dim); continue; }   // broken: the disc pops out
+    const far = j.dim !== dim || Math.abs(j.x - player.pos.x) > 64 || Math.abs(j.z - player.pos.z) > 64;
+    if(far){ if(j.out) j.out.gain.setTargetAtTime(0, AC.currentTime, 0.2); continue; }                   // out of earshot (or another dimension)
+    if(getBlock(j.x, j.y, j.z) !== JUKEBOX){ stopJuke(k, true); continue; }                                // broken: the disc pops out
     if(!AC || j.done) continue;
     jukeOut(j);
     const c = new THREE.Vector3(j.x + 0.5, j.y + 0.5, j.z + 0.5), d = c.distanceTo(player.pos);
