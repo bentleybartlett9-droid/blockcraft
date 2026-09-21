@@ -781,6 +781,7 @@ const CRYSTALORE=187,GLOWCRYSTAL=188,CRYSTALBRICK=189,CRYSTALSHARD=212,CRYSTALPI
 const MOSS=93, AZALEA=94, AZALEA_F=95, GLOWVINE=96, CAVEVINE=97, DRIPLEAF=98, DRIPSTONE=99,
       DRIP_DOWN=154, DRIP_UP=155, AMETHYST=156, BUDDING=157, AMETHYST_C=158, CALCITE=159,
       TUFF=238, COPPERO=239, COPPERB=240, COPPERI=241, AMETHYST_SHARD=242;
+const SNOWY_GRASS=243, SNOW_LAYER=244;   // grass under a snow blanket, and the blanket itself
 const CAVE_PLANTS = new Set([AZALEA, AZALEA_F, GLOWVINE, CAVEVINE, DRIPLEAF]);
 const CAVE_CROSS = new Set([...CAVE_PLANTS, DRIP_DOWN, DRIP_UP, AMETHYST_C]);
 const BLUEBELL=175,LAVENDER=176,DAISY=177,ORCHID=178,CROCUS=179,DESERTFLOWER=180,FERN=181,REEDS=182,DRYGRASS=183,AMBERFLOWER=184,NETHERSPROUT=185,ENDSPROUT=186;
@@ -960,6 +961,7 @@ BLOCKS[DUSKGRASS] ={name:'Dusk Turf',  top:126, bottom:T.DIRT, side:127};
 BLOCKS[REDSAND]={name:'Red Sand',all:140};
 BLOCKS[TERRA_ORANGE]={name:'Orange Terracotta',all:141};
 BLOCKS[TERRA_PALE]={name:'Pale Terracotta',all:142};
+BLOCKS[SNOWY_GRASS]={name:'Snowy Grass Block',top:T.SNOW,bottom:T.DIRT,side:187};BLOCKS[SNOW_LAYER]={name:'Snow',all:T.SNOW};
 BLOCKS[MOSS]={name:'Moss Block',all:171};BLOCKS[AZALEA]={name:'Azalea',all:172};BLOCKS[AZALEA_F]={name:'Flowering Azalea',all:173};
 BLOCKS[GLOWVINE]={name:'Glow Berries',all:174};BLOCKS[CAVEVINE]={name:'Cave Vines',all:175};BLOCKS[DRIPLEAF]={name:'Small Dripleaf',all:176};
 BLOCKS[DRIPSTONE]={name:'Dripstone Block',all:177};BLOCKS[DRIP_DOWN]={name:'Pointed Dripstone',all:178};BLOCKS[DRIP_UP]={name:'Pointed Dripstone',all:179};
@@ -1048,7 +1050,7 @@ const isPlant  = id => isSapling(id) || FLORA_IDS.has(id) || id === TGRASSB || i
                        id === MUSHROOMR || id === MUSHROOMB ||
                        id === WHEAT0 || id === WHEAT1 || id === WHEAT2 || id === WHEAT3 || CAVE_PLANTS.has(id);
 const isCross  = id => id===GLOWCRYSTAL || isPlant(id) || id === TORCH || id === COBWEB || id === IRONBARS || CAVE_CROSS.has(id);
-const isFlat   = id => id === RAIL;                    // thin plate on the ground
+const isFlat   = id => id === RAIL || id === SNOW_LAYER;   // thin plate on the ground
 const isSlab   = id => id === SLAB_STONE || id === SLAB_WOOD || id === SLAB_BRICK || id === SLAB_SAND || id === SLAB_NBRICK;
 const isStair  = id => id === STAIR_STONE || id === STAIR_WOOD || id === STAIR_BRICK || id === STAIR_SAND || id === STAIR_NBRICK;
 const isPartial = id => isSlab(id) || isStair(id);   // custom-geometry, non-full blocks
@@ -1080,7 +1082,7 @@ function faceVisible(b, n){
   if(b === GLASS) return n === WATER;
   return !isOpaque(n);
 }
-const dropOf = id => id===GLOWVINE?BERRIES:id===AMETHYST_C||id===BUDDING?AMETHYST_SHARD:id===DRIP_DOWN?DRIP_UP:id===BERRYBUSH?BERRIES:id===CRYSTALORE||id===GLOWCRYSTAL?CRYSTALSHARD:id === GRASS || id === SAVGRASS || id === FARMLAND ? DIRT : id === COALO ? COALI : id === DIAMO ? DIAMI :
+const dropOf = id => id===SNOWY_GRASS?DIRT:id===GLOWVINE?BERRIES:id===AMETHYST_C||id===BUDDING?AMETHYST_SHARD:id===DRIP_DOWN?DRIP_UP:id===BERRYBUSH?BERRIES:id===CRYSTALORE||id===GLOWCRYSTAL?CRYSTALSHARD:id === GRASS || id === SAVGRASS || id === FARMLAND ? DIRT : id === COALO ? COALI : id === DIAMO ? DIAMI :
                      id === EMERO ? EMERALD : id === DEADBUSH ? STICK : id;
 function toolClassOf(id){
   if([CRYSTALORE,GLOWCRYSTAL,CRYSTALBRICK].includes(id))return 'pick';
@@ -1088,7 +1090,7 @@ function toolClassOf(id){
   if(id === MOSS) return 'shovel';
   if([MARBLE,MARBLEBRICK,BASALT,BASALTBRICK,MOSAIC,AMBERLAMP].includes(id))return 'pick';
   if(isLog(id) || ANY_PLANK.includes(id) || id === CRAFTT || id === BED || id === CHEST) return 'axe';
-  if(id === GRASS || id === SAVGRASS || id === DIRT || id === SAND || id === SNOW) return 'shovel';
+  if(id === GRASS || id === SAVGRASS || id === DIRT || id === SAND || id === SNOW || id === SNOWY_GRASS || id === SNOW_LAYER) return 'shovel';
   if(id === DEEPSLATE) return 'pick';
   if(id === STONE || id === BRICK || id === SBRICK || id === GLOWB || id === FURN || id === IRONB ||
      id === GOLDB || id === DIAMB || id === COALO || id === IRONO || id === GOLDO || id === DIAMO || id === EMERO) return 'pick';
@@ -1285,11 +1287,13 @@ itemAtlas.width = 128; itemAtlas.height = 256;
     return [base[0]+k, base[1]+Math.floor(k*0.5), base[2]+Math.floor(k*0.5)];
   });
   put(T.SNOW      , (x,y,r) => {
-    if(r() < 0.05) return [255,255,255];                      // sparkling glints
-    if(r() < 0.035) return [216,228,240];                     // tiny shadow dimples
-    const v = tn(x,y,0.5,7) * 0.35 + r() * 0.15;              // very soft drifts
-    const c = 238 + Math.floor(v * 16);
-    return [c, Math.min(255, c + 3), Math.min(255, c + 7)];   // cool blue-white
+    if(r() < 0.04) return [255,255,255];                      // sparkling glints
+    const drift = tn(x, y, 0.32, 7);                          // soft wind-blown drifts
+    const grain = tn(x, y, 1.6, 17);                          // fine crystalline grain
+    if(r() < 0.05) return [196, 208, 226];                    // little shadowed dimples
+    const v = drift * 0.6 + grain * 0.25 + r() * 0.15;
+    const c = 214 + Math.floor(v * 32);                       // 214..246: bright, but it reads as ground
+    return [c - 6, c, Math.min(255, c + 10)];                 // cool blue-white, bluer in the shadows
   });
   put(T.GLASS     , (x,y,r) => {
     if(x===0||x===15||y===0||y===15) return [222,240,246,0.8];
@@ -2062,6 +2066,19 @@ const tileAvg = [];
 }
 /* ---- Caves & Cliffs textures ---- */
 {
+  // snowy grass side: dirt, with the snow blanket hanging over the top edge in drips
+  {
+    const g = atlas.getContext('2d'), src = g.getImageData((T.DIRT % 8) * 16, ((T.DIRT / 8) | 0) * 16, 16, 16);
+    const snow = g.getImageData((T.SNOW % 8) * 16, ((T.SNOW / 8) | 0) * 16, 16, 16);
+    for(let x = 0; x < 16; x++){
+      const drip = 3 + Math.floor(hash(x, 9, 1741) * 3) + (hash(x, 3, 1742) < 0.2 ? 2 : 0);
+      for(let y = 0; y < drip; y++){
+        const o = (y * 16 + x) * 4;
+        for(let k = 0; k < 3; k++) src.data[o + k] = snow.data[o + k] - (y === drip - 1 ? 18 : 0);
+      }
+    }
+    g.putImageData(src, (187 % 8) * 16, ((187 / 8) | 0) * 16);
+  }
   const paint = (cv, ti, fn) => {
     const ctx = cv.getContext('2d');
     let seed = ti * 991 + 7;
@@ -2179,7 +2196,7 @@ addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
 });
-const DAYSKY = new THREE.Color(0x87b5e5), NIGHT = new THREE.Color(0x0a0f26), skyCol = new THREE.Color();
+const DAYSKY = new THREE.Color(0x87b5e5), NIGHT = new THREE.Color(0x0a0f26), skyCol = new THREE.Color(), _stormCol = new THREE.Color();
 scene.fog = new THREE.Fog(0x87b5e5, RD * 16 * 0.55, RD * 16 * 0.95);
 
 const tex = new THREE.CanvasTexture(atlas);
@@ -2511,6 +2528,20 @@ function biomePlant(biome,r,patch,snowy,beach){
        : biome==='outback'?SPINIFEX:TGRASSB;
 }
 function genChunk(cx,cz){return finishSteps(genChunkSteps(cx,cz));}
+// a blanket of snow over snowy plains: on the ground, and on top of the trees
+function snowBlanketOn(data, cx, cz){
+  for(let lz = 0; lz < 16; lz++) for(let lx = 0; lx < 16; lx++){
+    const wx = cx * 16 + lx, wz = cz * 16 + lz;
+    if(biomeAt(wx, wz) !== 'snowy') continue;
+    for(let y = HEIGHT - 2; y > SEA; y--){
+      const b = data[(y << 8) | (lz << 4) | lx];
+      if(b === AIR) continue;
+      if((b === SNOWY_GRASS || isLeaf(b)) && data[((y + 1) << 8) | (lz << 4) | lx] === AIR)
+        data[((y + 1) << 8) | (lz << 4) | lx] = SNOW_LAYER;
+      break;
+    }
+  }
+}
 /* Lush caves: moss floors and ceilings, azalea, dripleaf, clay-bottomed
    pools and glow berry vines hanging from above. Dripstone caves: dripstone
    floors and ceilings bristling with stalactites and stalagmites. */
@@ -2642,7 +2673,7 @@ function* genChunkSteps(cx, cz){
                          : biome === 'amberfield' ? AMBERGRASS
                          : biome === 'frostvale' ? FROSTGRASS
                          : biome === 'duskhollow' ? DUSKGRASS
-                         : sandy ? SAND : (snowyTop ? SNOW
+                         : sandy ? SAND : (biome === 'snowy' && h < SNOW_H ? SNOWY_GRASS : snowyTop ? SNOW
                          : (biome === 'savanna' ? SAVGRASS
                          : (biome === 'taiga' ? taigaFloor(wx, wz) : GRASS)));
       else if(badlands && y > h - 26) b = terraBand(y);   // deep banded clay walls
@@ -2696,6 +2727,8 @@ function* genChunkSteps(cx, cz){
     }
   }
   if(GEN_V >= 2){ yield* decorateCavesSteps(data, cx, cz); stampGeodes(data, cx, cz); }
+  // older worlds only get the new snow where nobody has built yet
+  const snowBlanket = GEN_V >= 2 || !(edits && edits[cx + ',' + cz]);
   for(let tz=-5;tz<21;tz++)for(let tx=-5;tx<21;tx++){
     if((tx+5)%8===0)yield;
     const wx=cx*16+tx,wz=cz*16+tz,t=treeAt(wx,wz);if(!t)continue;
@@ -2794,6 +2827,7 @@ function* genChunkSteps(cx, cz){
        cz * 16 > s.cz + 10 || (cz + 1) * 16 < s.cz - 10) continue;
     stampStronghold(s, set, data, cx, cz);
   }
+  if(snowBlanket) snowBlanketOn(data, cx, cz);
   const ed = edits[cx + ',' + cz];
   if(ed) for(const k in ed){
     const [lx, y, lz] = k.split(',').map(Number);
@@ -3238,6 +3272,7 @@ function replaceBucket(id){
 }
 function setBlock(x, y, z, id){
   if(y < 0 || y >= HEIGHT) return;
+  if(typeof precipTops !== 'undefined' && precipTops.size) precipTops.delete(x + ',' + z);
   const cx = x >> 4, cz = z >> 4, lx = x & 15, lz = z & 15;
   const c = chunkAt(cx, cz); ensureData(c);
   c.data[(y << 8) | (lz << 4) | lx] = id;
@@ -3445,7 +3480,7 @@ function* buildChunkSteps(c,reuseLight=false){
     if(isFlat(b)){                                       // rail: thin plate on the floor
       const nlF = light ? sampleLight(light, lx, y + 1, lz) : 15;
       const llF = 0.15 + (nlF / 15) * 0.85;
-      pushBox(O, tileFor(b, 0), lx, y, lz, lx + 1, y + 0.07, lz + 1, llF);
+      pushBox(O, tileFor(b, 0), lx, y, lz, lx + 1, y + (b === SNOW_LAYER ? 0.125 : 0.07), lz + 1, llF);
       continue;
     }
     const opq = isOpaque(b);
@@ -4497,7 +4532,7 @@ function updateAnimalSpawns(dt){
     return;
   }
   if(h >= SNOW_H) return;
-  if(ground !== GRASS && ground !== SAVGRASS && ground !== SAND && ground !== SNOW &&
+  if(ground !== GRASS && ground !== SAVGRASS && ground !== SAND && ground !== SNOW && ground !== SNOWY_GRASS &&
      ground !== AMBERGRASS && ground !== FROSTGRASS && ground !== DUSKGRASS &&
      ground !== REDSAND && ground !== PODZOL && ground !== TERRACOTTA &&
      ground !== TERRA_ORANGE && ground !== TERRA_PALE) return;
@@ -6573,7 +6608,7 @@ function updateMonsterAmbience(dt){
 function matClass(id){
   if(id === GLASS) return 'glass';
   if(isLog(id) || ANY_PLANK.includes(id) || id === CRAFTT || id === TORCH || id === CHEST) return 'wood';
-  if(id === SNOW) return 'snow';
+  if(id === SNOW || id === SNOWY_GRASS || id === SNOW_LAYER) return 'snow';
   if(id === SAND) return 'sand';
   if(id === GRASS || id === SAVGRASS || id === DIRT || id === TNT) return 'dirt';
   if(id === WOOL || id === BED || id === CACTUS) return 'cloth';
@@ -6978,6 +7013,7 @@ function updateAvatar(m){
   // the host keeps the clock, so everyone shares one sun
   if(!isHost && typeof m.tod === 'number'){
     hostDim = m.dm | 0;                          // only the host sends the clock
+    if(typeof m.wx === 'number') weather = m.wx;
     let d = m.tod - timeOfDay; d -= Math.round(d);
     if(Math.abs(d) > 0.001) timeOfDay = ((m.tod % 1) + 1) % 1;
   }
@@ -7047,7 +7083,7 @@ function updateNet(dt){
     posT = 0.05;
     const msg = Object.assign({ t: 'pos', tag: MYTAG, x: r3(player.pos.x), y: r3(player.pos.y), z: r3(player.pos.z),
                                 yaw: r3(player.yaw) }, myPose());
-    if(isHost) msg.tod = r3(timeOfDay) || 0.0001;
+    if(isHost){ msg.tod = r3(timeOfDay) || 0.0001; msg.wx = weather; }
     mpBroadcast(msg);
   }
   for(const [tag, a] of remotes){
@@ -7866,6 +7902,7 @@ function updateCrops(dt){
   }
 }
 function harvestOk(id){
+  if(id === SNOW_LAYER) return false;            // a dusting of snow leaves nothing behind
   if(id === DIAMO || id === GOLDO || id === EMERO) return pickTierHeld() >= 3;
   if(id === IRONO) return pickTierHeld() >= 2;
   if(toolClassOf(id) === 'pick') return pickTierHeld() >= 1;
@@ -9372,6 +9409,173 @@ const tintEl = document.getElementById('watertint');
 const clock = new THREE.Clock();
 let timeOfDay = 0.32, frames = 0, fps = 0, fpsT = 0, hudT = 0, saveT = 0, fluidWakeT=0;
 
+/* ============================== weather =============================
+   As in Minecraft: long clear spells, then rain, and now and then a
+   thunderstorm with lightning. It snows instead in cold biomes and high on
+   the mountains, and nothing falls in the deserts. Rain stops at roofs and
+   treetops, the sky clouds over, and a storm is dark enough that monsters
+   come out in the daytime. In multiplayer the host's weather is everyone's. */
+let weather = 0;                                  // 0 clear, 1 rain, 2 thunderstorm
+let weatherT = 240 + Math.random() * 480;         // seconds until it changes
+let rainAmt = 0, stormAmt = 0, flashAmt = 0, lightningT = 6;
+const STORM_SKY = new THREE.Color(0x6f7b88), FLASH_SKY = new THREE.Color(0xe8eeff);
+const DRY_BIOMES = new Set(['desert', 'savanna', 'badlands', 'outback', 'amberfield']);
+function precipAt(x, y, z){
+  const bm = biomeAt(x, z);
+  if(DRY_BIOMES.has(bm)) return null;
+  if(bm === 'snowy' || bm === 'frostvale' || y >= SNOW_H - 6) return 'snow';
+  return 'rain';
+}
+// the highest thing in a column that rain lands on; plants let it through
+var precipTops = new Map();              // var: setBlock may ask before this line has run
+function precipTop(x, z){
+  const k = x + ',' + z;
+  let t = precipTops.get(k);
+  if(t !== undefined) return t;
+  t = 0;
+  for(let y = HEIGHT - 1; y > 0; y--){
+    const b = getBlock(x, y, z);
+    if(b !== AIR && !isCross(b)){ t = y + (isFlat(b) ? 0.13 : 1); break; }
+  }
+  if(precipTops.size > 30000) precipTops.clear();
+  precipTops.set(k, t);
+  return t;
+}
+const RAIN_N = QUEST_DEVICE ? 900 : 1500, SNOW_N = QUEST_DEVICE ? 700 : 1100, WX_R = 18;
+// rain: short falling streaks
+const rainPos = new Float32Array(RAIN_N * 6), rainSpd = new Float32Array(RAIN_N), rainTop = new Float32Array(RAIN_N);
+const rainGeo = new THREE.BufferGeometry();
+rainGeo.setAttribute('position', new THREE.BufferAttribute(rainPos, 3));
+const rainLines = new THREE.LineSegments(rainGeo, new THREE.LineBasicMaterial({ color: 0x9fb6d4, transparent: true, opacity: 0.5, depthWrite: false }));
+rainLines.frustumCulled = false; rainLines.visible = false; scene.add(rainLines);
+// snow: soft round flakes that drift as they fall
+const snowPos = new Float32Array(SNOW_N * 3), snowSpd = new Float32Array(SNOW_N), snowTop = new Float32Array(SNOW_N), snowPh = new Float32Array(SNOW_N);
+const snowGeo = new THREE.BufferGeometry();
+snowGeo.setAttribute('position', new THREE.BufferAttribute(snowPos, 3));
+const flakeTex = (() => {
+  const cv = document.createElement('canvas'); cv.width = cv.height = 32;
+  const g = cv.getContext('2d'), gr = g.createRadialGradient(16, 16, 1, 16, 16, 15);
+  gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.5, 'rgba(245,250,255,0.85)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 32, 32);
+  return new THREE.CanvasTexture(cv);
+})();
+const snowPoints = new THREE.Points(snowGeo, new THREE.PointsMaterial({ map: flakeTex, size: 0.14, transparent: true, depthWrite: false, opacity: 0.95 }));
+snowPoints.frustumCulled = false; snowPoints.visible = false; scene.add(snowPoints);
+// a lightning bolt: a jagged line from the clouds to the ground
+const boltGeo = new THREE.BufferGeometry();
+boltGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(26 * 3), 3));
+const bolt = new THREE.Line(boltGeo, new THREE.LineBasicMaterial({ color: 0xf2f6ff, fog: false }));
+bolt.frustumCulled = false; bolt.visible = false; scene.add(bolt);
+let boltT = 0;
+function spawnDrop3(i, c, kind, fresh){
+  // a fresh drop can start anywhere in the column, so a shower begins all at once
+  const a = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random()) * WX_R;
+  const x = c.x + Math.cos(a) * r, z = c.z + Math.sin(a) * r, y = c.y + (fresh ? -6 + Math.random() * 28 : 8 + Math.random() * 14);
+  const top = precipTop(Math.floor(x), Math.floor(z));
+  if(kind === 'rain'){ const o = i * 6; rainPos[o] = rainPos[o + 3] = x; rainPos[o + 2] = rainPos[o + 5] = z; rainPos[o + 1] = y; rainPos[o + 4] = y + 0.55; rainSpd[i] = 15 + Math.random() * 4; rainTop[i] = top; }
+  else { const o = i * 3; snowPos[o] = x; snowPos[o + 1] = y; snowPos[o + 2] = z; snowSpd[i] = 1.1 + Math.random() * 0.9; snowTop[i] = top; snowPh[i] = Math.random() * 6.3; }
+}
+let rainSrc = null, rainGain = null;
+function rainSound(level){
+  if(!AC) return;
+  if(!rainSrc && level > 0.01){
+    if(!noiseBuf) playN({ vol: 0.0001, dur: 0.01 });          // makes the shared noise buffer
+    rainSrc = AC.createBufferSource(); rainSrc.buffer = noiseBuf; rainSrc.loop = true;
+    const hp = AC.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 500;
+    const lp = AC.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 3200;
+    rainGain = AC.createGain(); rainGain.gain.value = 0;
+    rainSrc.connect(hp).connect(lp).connect(rainGain).connect(AC.destination);
+    rainSrc.start();
+  }
+  if(rainGain) rainGain.gain.setTargetAtTime(level * 0.09, AC.currentTime, 0.4);
+}
+function thunder(dist){
+  if(!AC) return;
+  if(!noiseBuf) playN({ vol: 0.0001, dur: 0.01 });
+  const t = AC.currentTime + dist / 340;                    // sound trails the flash
+  const near = Math.max(0, 1 - dist / 120);
+  const s1 = AC.createBufferSource(); s1.buffer = noiseBuf; s1.loop = true;
+  const lp = AC.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.setValueAtTime(260 + near * 900, t); lp.frequency.exponentialRampToValueAtTime(90, t + 3.5);
+  const g = AC.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.35 + near * 0.35, t + 0.08);
+  g.gain.exponentialRampToValueAtTime(0.12, t + 1.2); g.gain.exponentialRampToValueAtTime(0.001, t + 4.5);
+  s1.connect(lp).connect(g).connect(AC.destination); s1.start(t); s1.stop(t + 4.6);
+  if(near > 0.4) playN({ f: 2400, type: 'highpass', dur: 0.25, vol: 0.25 * near, delay: dist / 340 });   // the crack of a close strike
+}
+function strikeLightning(){
+  const p = player.pos, a = Math.random() * Math.PI * 2, d = 30 + Math.random() * 70;
+  const x = p.x + Math.cos(a) * d, z = p.z + Math.sin(a) * d;
+  const gy = precipTop(Math.floor(x), Math.floor(z)), top = Math.max(gy + 60, 170);
+  const arr = boltGeo.attributes.position.array;
+  let bx = x, bz = z;
+  for(let i = 0; i < 26; i++){
+    const y = top - (top - gy) * i / 25;
+    arr[i * 3] = bx; arr[i * 3 + 1] = y; arr[i * 3 + 2] = bz;
+    bx += (Math.random() - 0.5) * 3.2; bz += (Math.random() - 0.5) * 3.2;
+  }
+  boltGeo.attributes.position.needsUpdate = true;
+  bolt.visible = true; boltT = 0.22; flashAmt = 1;
+  thunder(d);
+}
+function updateWeather(dt){
+  // the host (or a player alone) decides; friends follow the host
+  if(!(mpActive() && !isHost)){
+    weatherT -= dt;
+    if(weatherT <= 0){
+      if(weather === 0){ weather = Math.random() < 0.3 ? 2 : 1; weatherT = 120 + Math.random() * 240; }
+      else { weather = 0; weatherT = 300 + Math.random() * 600; }
+    }
+  }
+  const on = inGame && dim === 0;
+  rainAmt += ((on && weather > 0 ? 1 : 0) - rainAmt) * Math.min(1, dt * 0.3);
+  stormAmt += ((on && weather === 2 ? 1 : 0) - stormAmt) * Math.min(1, dt * 0.3);
+  flashAmt = Math.max(0, flashAmt - dt * 4);
+  if(boltT > 0){ boltT -= dt; if(boltT <= 0) bolt.visible = false; }
+  if(stormAmt > 0.6){ lightningT -= dt; if(lightningT <= 0){ lightningT = 7 + Math.random() * 22; strikeLightning(); } }
+  const c = xrActive ? camera.getWorldPosition(new THREE.Vector3()) : player.pos;
+  const kind = rainAmt > 0.02 ? precipAt(Math.floor(c.x), c.y, Math.floor(c.z)) : null;
+  // rain streaks
+  const nRain = kind === 'rain' ? Math.floor(RAIN_N * rainAmt) : 0;
+  rainLines.visible = nRain > 0;
+  if(nRain){
+    for(let i = 0; i < nRain; i++){
+      const o = i * 6;
+      let y = rainPos[o + 1] - rainSpd[i] * dt;
+      if(rainPos[o + 1] === 0 || rainPos[o + 1] === -999){ spawnDrop3(i, c, 'rain', true); continue; }
+      if(y < rainTop[i] || y < c.y - 12 || Math.abs(rainPos[o] - c.x) > WX_R + 4 || Math.abs(rainPos[o + 2] - c.z) > WX_R + 4){ spawnDrop3(i, c, 'rain'); continue; }
+      rainPos[o + 1] = y; rainPos[o + 4] = y + 0.55;
+    }
+    for(let i = nRain; i < RAIN_N; i++){ const o = i * 6; rainPos[o + 1] = rainPos[o + 4] = -999; }
+    rainGeo.attributes.position.needsUpdate = true;
+  }
+  // snowflakes
+  const nSnow = kind === 'snow' ? Math.floor(SNOW_N * rainAmt) : 0;
+  snowPoints.visible = nSnow > 0;
+  if(nSnow){
+    const t = performance.now() / 1000;
+    for(let i = 0; i < nSnow; i++){
+      const o = i * 3;
+      let y = snowPos[o + 1] - snowSpd[i] * dt;
+      if(snowPos[o + 1] === 0 || snowPos[o + 1] === -999){ spawnDrop3(i, c, 'snow', true); continue; }
+      if(y < snowTop[i] || y < c.y - 12 || Math.abs(snowPos[o] - c.x) > WX_R + 4 || Math.abs(snowPos[o + 2] - c.z) > WX_R + 4){ spawnDrop3(i, c, 'snow'); continue; }
+      snowPos[o + 1] = y;
+      snowPos[o] += Math.sin(t * 0.9 + snowPh[i]) * 0.35 * dt;      // flakes drift as they fall
+      snowPos[o + 2] += Math.cos(t * 0.7 + snowPh[i] * 1.3) * 0.35 * dt;
+    }
+    for(let i = nSnow; i < SNOW_N; i++) snowPos[i * 3 + 1] = -999;
+    snowGeo.attributes.position.needsUpdate = true;
+  }
+  // rain closes the view in: the distance fades into grey
+  if(dim === 0 && rainAmt > 0.001){
+    scene.fog.near = RD * 16 * 0.55 * (1 - 0.55 * rainAmt);
+    scene.fog.far = RD * 16 * 0.95 * (1 - 0.3 * rainAmt);
+  }
+  // rain on the roof sounds softer than rain on your head
+  const covered = precipTop(Math.floor(c.x), Math.floor(c.z)) > c.y + 1;
+  rainSound(kind === 'rain' ? rainAmt * (covered ? 0.45 : 1) : 0);
+}
+// daylight as the monsters feel it: a storm is dark enough to hunt in
+const mobDaylight = d => d * (1 - 0.45 * rainAmt - 0.3 * stormAmt);
+
 function animate(){
   const dt = Math.min(clock.getDelta(), 0.05);
   const now = performance.now() / 1000;
@@ -9387,7 +9591,7 @@ function animate(){
       if(mouseHeld[2]){ doPlace(); actCd = now + 0.22; }
       else if(mouseHeld[0] && mode === 'creative'){ doBreakInstant(); actCd = now + 0.22; }
     }
-    runMobWorld(dt, daylight);        // spawns and every mob - shared with friends in multiplayer
+    runMobWorld(dt, mobDaylight(daylight));   // spawns and every mob - shared with friends in multiplayer
     updateMonsterAmbience(dt);
     updateTNT(dt);
     updateDragon(dt);
@@ -9399,7 +9603,7 @@ function animate(){
     updateHunger(dt);
     updateWater(dt);
   } else if(isHost && mpActive() && inGame){
-    runMobWorld(dt, daylight);        // the host's menu or death screen must not freeze everyone's mobs
+    runMobWorld(dt, mobDaylight(daylight));   // the host's menu or death screen must not freeze everyone's mobs
   }
   updateParticles(dt);
   tickLeafDecay(now); tickSaplings(now);
@@ -9407,6 +9611,7 @@ function animate(){
   updateChunks();
   updateNet(dt);
   updateViewModel(dt);
+  updateWeather(dt);
 
   // day/night (overworld) — Nether is gloomy red, The End is a dark void
   let b;
@@ -9423,6 +9628,11 @@ function animate(){
   } else {
     b = 0.22 + 0.78 * Math.pow(daylight, 0.7);
     skyCol.lerpColors(NIGHT, DAYSKY, Math.pow(daylight, 0.6));
+    // overcast: a grey sky and dimmer light, darker still in a storm
+    b *= 1 - 0.36 * rainAmt - 0.2 * stormAmt;
+    _stormCol.copy(STORM_SKY).multiplyScalar(0.25 + 0.75 * Math.pow(daylight, 0.6));
+    skyCol.lerp(_stormCol, 0.75 * rainAmt);
+    if(flashAmt > 0){ b = Math.min(1.1, b + 0.7 * flashAmt); skyCol.lerp(FLASH_SKY, 0.6 * flashAmt); }
     renderer.setClearColor(skyCol);
     scene.fog.color.copy(skyCol);
   }
@@ -9442,8 +9652,10 @@ function animate(){
   sun.lookAt(camera.position);
   moon.lookAt(camera.position);
   stars.position.copy(p);
-  starMat.opacity = dim === 1 ? 0 : Math.pow(1 - daylight, 1.5);
-  sun.visible = moon.visible = cloudGroup.visible = (dim === 0);
+  starMat.opacity = dim === 1 ? 0 : Math.pow(1 - daylight, 1.5) * (1 - rainAmt);
+  sun.visible = moon.visible = (dim === 0 && rainAmt < 0.6);    // the sun hides behind the rain clouds
+  cloudGroup.visible = (dim === 0);
+  cloudMat.opacity = 0.7 + 0.25 * rainAmt;
   for(const c of cloudGroup.children){
     c.position.x += 1.4 * dt;
     if(c.position.x - p.x > 240) c.position.x -= 480;
@@ -9668,7 +9880,10 @@ window.__bc = {
   mpNewCode, MP_ALPHABET, startHost, joinGame, destroyPeer, enableVoice, disableVoice,
   myPose, netMessage: m => onNet({ peer: 'test' }, m), remotes, stepNet: dt => updateNet(dt),
   setHost: v => { isHost = v; }, timeOfDay: () => timeOfDay,
-  stepMobWorld: (dt, dl) => runMobWorld(dt, dl), GEN_V, HEIGHT, blockLightAt, stepZombieSpawns: (dt, dl) => updateZombieSpawns(dt, dl), caveCarve, caveNoise, lushAt, dripAt, geodeDef, genChunk, vnoise3,
+  stepMobWorld: (dt, dl) => runMobWorld(dt, dl), GEN_V, HEIGHT, blockLightAt, runFrames: n => { for(let i = 0; i < n; i++) animate(); },
+  setWeather: w => { weather = w; weatherT = 600; }, stepWeather: dt => updateWeather(dt),
+  weatherState: () => ({ weather, rainAmt, stormAmt, flashAmt, rainOn: rainLines.visible, snowOn: snowPoints.visible, t: weatherT }),
+  precipAt, precipTop, strikeLightning, stepZombieSpawns: (dt, dl) => updateZombieSpawns(dt, dl), caveCarve, caveNoise, lushAt, dripAt, geodeDef, genChunk, vnoise3,
   lightChunk: (cx, cz) => computeLight(chunkAt(cx, cz), (lx, y, lz) => y < 0 ? STONE : y >= HEIGHT ? AIR : getBlock(cx * 16 + lx, y, cz * 16 + lz)),
   puppets, mobsFromHost: () => mobsFromHost(),
   addTestConn: send => { const c = { open: true, send, peer: 'test', close(){} }; conns.push(c); return c; },
