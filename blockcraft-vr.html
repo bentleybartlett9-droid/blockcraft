@@ -6522,7 +6522,10 @@ function updateAnimals(dt){
   for(let i = animals.length - 1; i >= 0; i--){
     const e = animals[i];
     if(e.tamed && !mobCtx){ if(e.hp < 20) e.hp = Math.min(20, e.hp + dt * 0.1); updatePet(e, dt); continue; }
-    if(e.pos.distanceToSquared(player.pos) > 120 * 120){ removeEnt(animals, i); continue; }
+    if(e.pos.distanceToSquared(player.pos) > 120 * 120){ if(e.keepId) stashAnimal(e); removeEnt(animals, i); continue; }
+    if(e.baby > 0) growBaby(e, dt);
+    if(e.love > 0) e.love -= dt;
+    if(e.breedCd > 0) e.breedCd -= dt;
     if(e.flee > 0){
       e.flee -= dt;
       const dx = e.pos.x - player.pos.x, dz = e.pos.z - player.pos.z, l = Math.hypot(dx, dz) || 1;
@@ -6536,6 +6539,7 @@ function updateAnimals(dt){
         else { e.speed = 1.2; e.yaw = Math.random() * Math.PI * 2; }
       }
     }
+    if(!(e.flee > 0) && !mobCtx) steerHerd(e, dt);
     if(e.type==='moonhopper'&&e.onGround&&e.speed>0)e.vel.y=5.5;
     if(e.type==='goat'&&e.onGround&&e.speed>0&&Math.random()<dt*.3)e.vel.y=9.5;   // goats make big leaps
     if(FANTASY.includes(e.type)&&heldId()===BERRIES&&e.pos.distanceToSquared(player.pos)<144){
@@ -9486,6 +9490,7 @@ function useSpawnEgg(hit){
 function useSpecial(o, d, hit, eh){
   const held = heldId();
   if(eh && eh.e.kind === 'animal' && eh.e.type === 'wolf' && !eh.e.puppet && (!hit || eh.t < hit.t) && useOnWolf(eh.e)){ triggerViewSwing(); return true; }
+  if(eh && (!hit || eh.t < hit.t) && useBreed(eh.e)){ triggerViewSwing(); return true; }
   if(useBoneMeal(hit)) return true;
   if(useFarm(hit, eh)) return true;
   if(useCampfire(hit)) return true;
@@ -10547,7 +10552,7 @@ function punchEntity(e){
       animalCall(e.type, e.pos, 'die');
       dropXP(e.pos.x, e.pos.y + 0.5, e.pos.z, 1 + Math.floor(Math.random() * 3));
       playN({ f: 200, type: 'lowpass', q: 1, dur: 0.16, vol: 0.12 });   // soft thud
-      if(mode === 'survival'){
+      if(mode === 'survival' && !(e.baby > 0)){
         const p = e.pos;
         if(FANTASY.includes(e.type)){
           spawnDropAt(e.pos.x,e.pos.y+.4,e.pos.z,e.type==='moonhopper'?MOONFIBER:GLOWDUST,2);
@@ -10574,6 +10579,7 @@ function punchEntity(e){
       }
       const i = animals.indexOf(e);
       if(e.tamed){ pets = pets.filter(r => r.id !== e.petId); savePets(); flashName('Your wolf died'); }
+      if(e.keepId){ herd = herd.filter(r => r.id !== e.keepId); saveHerd(); }
       if(i >= 0) removeEnt(animals, i);
     } else {
       e.flee = 2.5;
@@ -15048,6 +15054,105 @@ function useFarm(hit, eh){
   }
   return false;
 }
+/* ============================== BREEDING ==============================
+   Hold an animal's favourite food and it follows you. Feed two grown ones
+   of a kind and they fall in love, find each other and have a baby, which
+   grows up in a few minutes (feeding it speeds that up). Animals you have
+   fed or bred are remembered: walk away and come back and they're still in
+   their pen. Tamed wolves breed on meat, and their pups are tame too. */
+const BREED_FOOD = { cow: [WHEATITEM], sheep: [WHEATITEM], goat: [WHEATITEM], llama: [WHEATITEM], kangaroo: [WHEATITEM],
+                     pig: [CARROT, POTATO], rabbit: [CARROT], chicken: [SEEDS], horse: [APPLE, GOLDEN_APPLE], fox: [BERRIES] };
+const BABY_TIME = 300;
+let herd = (() => { try { return JSON.parse(localStorage.getItem(SAVE_KEY + '-herd')) || []; } catch(e){ return []; } })();
+let herdScanT = 0, herdSaveT = 0;
+const saveHerd = () => safeSet(SAVE_KEY + '-herd', JSON.stringify(herd));
+function hearts(e){ for(let k = 0; k < 6; k++) burstRGB(e.pos.x + (Math.random() - 0.5) * 0.6, e.pos.y + e.h + Math.random() * 0.4, e.pos.z + (Math.random() - 0.5) * 0.6, 1, 0.3, 0.45, 1, 0.1); }
+function keepAnimal(e){
+  if(e.keepId || e.tamed) return;
+  e.keepId = Date.now().toString(36) + ((Math.random() * 1e6) | 0).toString(36);
+  herd.push({ id: e.keepId, type: e.type, dim, x: e.pos.x, y: e.pos.y, z: e.pos.z, baby: e.baby || 0 });
+  saveHerd();
+}
+function stashAnimal(e){ const r = herd.find(q => q.id === e.keepId); if(r){ r.x = e.pos.x; r.y = e.pos.y; r.z = e.pos.z; r.baby = e.baby || 0; r.dim = dim; saveHerd(); } }
+function makeBaby(e, t){
+  e.baby = t; e.fullW = e.fullW || e.w; e.fullH = e.fullH || e.h;
+  e.w = e.fullW * 0.55; e.h = e.fullH * 0.55; e.group.scale.setScalar(0.55);
+}
+function growBaby(e, dt){
+  e.baby -= dt;
+  if(e.baby <= 0){ e.baby = 0; e.w = e.fullW || e.w; e.h = e.fullH || e.h; e.group.scale.setScalar(1); }
+  else e.group.scale.setScalar(0.55 + 0.45 * Math.max(0, 1 - e.baby / BABY_TIME) * 0.3);        // babies fill out a little as they grow
+}
+function useBreed(e){
+  if(!e || e.kind !== 'animal' || e.puppet || e.tamed) return false;
+  const foods = BREED_FOOD[e.type], held = heldId();
+  if(!foods || !foods.includes(held)) return false;
+  if(e.baby > 0){ consumePlacedItem(); e.baby *= 0.9; hearts(e); keepAnimal(e); return true; }
+  if(e.love > 0 || e.breedCd > 0){ flashName('Not ready yet'); return true; }
+  consumePlacedItem(); e.love = 30; e.flee = 0; hearts(e); keepAnimal(e);
+  playN({ f: 600, type: 'bandpass', dur: 0.1, vol: 0.1 });
+  return true;
+}
+function steerHerd(e, dt){
+  if(e.love > 0){
+    // find a partner that is also in love and walk to it
+    if(!e.mate || !(e.mate.love > 0) || !animals.includes(e.mate)){
+      e.mate = null;
+      let bd = 10 * 10;
+      for(const o of animals) if(o !== e && o.type === e.type && o.love > 0 && !(o.baby > 0) && !!o.tamed === !!e.tamed){ const d = o.pos.distanceToSquared(e.pos); if(d < bd){ bd = d; e.mate = o; } }
+    }
+    if(Math.random() < dt * 1.5) hearts(e);
+    if(e.mate){
+      const dx = e.mate.pos.x - e.pos.x, dz = e.mate.pos.z - e.pos.z, l = Math.hypot(dx, dz);
+      e.yaw = Math.atan2(-dx, -dz); e.speed = l > 1.5 ? 1.4 : 0;
+      if(l < 2.4 && e.mate.love > 0) breed(e, e.mate);
+      return;
+    }
+  }
+  // follow someone holding your food
+  const foods = e.tamed ? null : BREED_FOOD[e.type];
+  if(foods && foods.includes(heldId())){
+    const dx = player.pos.x - e.pos.x, dz = player.pos.z - e.pos.z, l = Math.hypot(dx, dz);
+    if(l < 10 && Math.abs(player.pos.y - e.pos.y) < 4){ e.yaw = Math.atan2(-dx, -dz); e.speed = l > 2.4 ? 1.3 : 0; e.t = 1; }
+  }
+}
+function breed(a, b){
+  a.love = b.love = 0; a.mate = b.mate = null; a.breedCd = b.breedCd = 150;
+  const n = animals.length;
+  spawnAnimal(a.type, (a.pos.x + b.pos.x) / 2, Math.max(a.pos.y, b.pos.y) + 0.2, (a.pos.z + b.pos.z) / 2);
+  if(animals.length <= n) return;
+  const kid = animals[animals.length - 1];
+  makeBaby(kid, BABY_TIME);
+  if(a.tamed){
+    const rec = { id: Date.now() + '' + ((Math.random() * 1e4) | 0), dim, x: kid.pos.x, y: kid.pos.y, z: kid.pos.z, sit: 0, hp: 20 };
+    pets.push(rec); petify(kid, rec); savePets();
+  } else { keepAnimal(a); keepAnimal(b); keepAnimal(kid); herd.find(r => r.id === kid.keepId).baby = BABY_TIME; }
+  hearts(kid); hearts(a); hearts(b);
+  dropXP(kid.pos.x, kid.pos.y + 0.5, kid.pos.z, 1 + ((Math.random() * 7) | 0));
+  animalCall(a.type, kid.pos, 'idle');
+  grantAdv('breed');
+}
+// bring remembered animals back when you're near, and keep their records current
+function updateHerd(dt){
+  if(mobsFromHost()) return;
+  herdScanT -= dt;
+  if(herdScanT > 0) return;
+  herdScanT = 2;
+  const live = new Map();
+  for(const a of animals) if(a.keepId) live.set(a.keepId, a);
+  for(const r of herd){
+    const a = live.get(r.id);
+    if(a){ r.x = a.pos.x; r.y = a.pos.y; r.z = a.pos.z; r.baby = a.baby || 0; r.dim = dim; continue; }
+    if(r.dim !== dim || Math.hypot(r.x - player.pos.x, r.z - player.pos.z) > 80) continue;
+    const c = chunks.get((Math.floor(r.x) >> 4) + ',' + (Math.floor(r.z) >> 4));
+    if(!c || !c.built) continue;
+    const n = animals.length;
+    spawnAnimal(r.type, r.x, r.y + 0.2, r.z);
+    if(animals.length > n){ const e = animals[animals.length - 1]; e.keepId = r.id; if(r.baby > 0) makeBaby(e, r.baby); }
+  }
+  herdSaveT -= 2;
+  if(herdSaveT <= 0){ herdSaveT = 10; saveHerd(); }
+}
 /* ============================ WOLVES & BONES ============================
    Feed a wild wolf bones until it takes to you: it wears a red collar,
    follows you (and through portals, if it's close), fights what you fight
@@ -15077,6 +15182,10 @@ function useOnWolf(e){
     consumePlacedItem();
     if(Math.random() < 1 / 3 || mode === 'creative') tameWolf(e);
     else burstRGB(e.pos.x, e.pos.y + 1.1, e.pos.z, 0.4, 0.4, 0.4, 6, 0.3);              // smoke: not yet
+    return true;
+  }
+  if(PET_MEAT.includes(held) && e.hp >= 20 && !(e.baby > 0) && !(e.breedCd > 0) && !(e.love > 0)){
+    consumePlacedItem(); e.love = 30; hearts(e);
     return true;
   }
   if(PET_MEAT.includes(held) && e.hp < 20){
@@ -15109,6 +15218,9 @@ function petHit(m, dmg){
 }
 function updatePet(e, dt){
   e.atkCd -= dt;
+  if(e.baby > 0) growBaby(e, dt);
+  if(e.love > 0){ e.love -= dt; if(!e.sitting){ steerHerd(e, dt); if(e.love > 0 && e.mate){ stepMob(e, dt, 24); animMob(e, dt); return; } } }
+  if(e.breedCd > 0) e.breedCd -= dt;
   const toP = Math.hypot(player.pos.x - e.pos.x, player.pos.z - e.pos.z);
   if(e.sitting){ e.speed = 0; }
   else {
@@ -15461,6 +15573,7 @@ const ADVANCEMENTS = [
   { ch: 'Overworld', id: 'bounce', title: 'Boing!', how: 'Fall onto a slime block (9 slimeballs from swamp slimes).', icon: SLIMEBALL, check: () => false },
   { ch: 'Overworld', id: 'campfire', title: 'Cookout', how: 'Cook some raw food on a campfire.', icon: CAMPFIRE, check: () => false },
   { ch: 'Overworld', id: 'honey', title: 'Sticky Situation', how: 'Fill a glass bottle with honey from a full beehive (a campfire under it keeps the bees calm).', icon: HONEY_BOTTLE, check: () => hasItem(HONEY_BOTTLE) },
+  { ch: 'Overworld', id: 'breed', title: 'The Parrots and the Bats', how: 'Feed two animals their favourite food (wheat for cows and sheep, carrots for pigs, seeds for chickens) and watch.', icon: WHEATITEM, check: () => false },
   { ch: 'Overworld', id: 'tame', title: 'Best Friends Forever', how: 'Feed bones (from skeletons) to a wild wolf until it wears a red collar.', icon: BONE, check: () => false },
   { ch: 'Overworld', id: 'obsidian', title: 'Hot Stuff', how: 'Pour water on a lava source, then mine the obsidian with a diamond pickaxe.', icon: OBSIDIAN, check: () => hasItem(OBSIDIAN) },
   { ch: 'Nether', id: 'nether', title: 'We Need to Go Deeper', how: 'Build a 4 wide, 5 tall obsidian frame and light it with flint & steel.', icon: NETHERRACK, check: () => dim === 1 },
@@ -15633,6 +15746,7 @@ function animate(){
   updateFishing(dt);
   updateShield(dt);
   if(inGame) updatePetsWorld(dt);
+  if(inGame) updateHerd(dt);
   if(inGame) updateCampfires(dt);
   updateSeaLife(dt);
   updateBees(dt);
@@ -15987,6 +16101,7 @@ window.__bc = {
             fx: { clearInv: () => { for(const q of survInv){ q.id = 0; q.count = 0; q.dur = 0; } renderHotbar(); }, effects, drink: id => drinkPotion(id), step: dt => updateEffects(dt), light: lightAtPlayer, mood: () => musicMood(), sub: showSubtitle, POTIONS },
             xp: { add: addXP, level: () => xpLevel, points: () => xpPoints, drop: dropXP, orbs: xpOrbs, offers: enchantOffers, enchant: doEnchant, setTable: t => { enchantAt = t; }, heldEnch, stackName, armourEnch },
             fence: { gate: useGate },
+            herd: { list: () => herd, feed: useBreed, step: dt => updateHerd(dt), breed },
             bees: { list: bees, hives, seen: hivesSeen, spawn: spawnBee, step: dt => updateBees(dt), use: useHive, broken: hiveBroken },
             sea: { list: seaLife, spawn: spawnSea, step: dt => updateSeaLife(dt), trySpawn: trySpawnSea },
             camp: { use: useCampfire, step: dt => updateCampfires(dt), cooking, fires: campfires },
