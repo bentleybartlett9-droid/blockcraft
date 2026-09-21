@@ -702,10 +702,11 @@ const BLUEBELL=175,LAVENDER=176,DAISY=177,ORCHID=178,CROCUS=179,DESERTFLOWER=180
 const GUMLOG=190, GUMPLANK=191, GUMLEAVES=192, SPINIFEX=193,
       REDSAND=194, TERRA_ORANGE=195, TERRA_PALE=196, BERRYBUSH=197, COARSEDIRT=198,
       DEEPSLATE=199,
-      SUNLOG=200, SUNPLANK=201, SUNLEAVES=202,
-      RIMELOG=203, RIMEPLANK=204, RIMELEAVES=205,
-      DUSKLOG=206, DUSKPLANK=207, DUSKLEAVES=208,
-      AMBERGRASS=209, FROSTGRASS=210, DUSKGRASS=211,
+      // 200-211 belong to armour; these once shared them (see moveBiomeIds)
+      SUNLOG=226, SUNPLANK=227, SUNLEAVES=228,
+      RIMELOG=229, RIMEPLANK=230, RIMELEAVES=231,
+      DUSKLOG=232, DUSKPLANK=233, DUSKLEAVES=234,
+      AMBERGRASS=235, FROSTGRASS=236, DUSKGRASS=237,
       SAP_OAK=215, SAP_BIRCH=216, SAP_SPRUCE=217, SAP_JUNGLE=218,
       SAP_EXTRA0=219, SAP_EXTRA1=220, SAP_EXTRA2=221, SAP_EXTRA3=222,
       SAP_EXTRA4=223, SAP_EXTRA5=224, SAP_EXTRA6=225;
@@ -2110,6 +2111,37 @@ let survInv;
 try { survInv = (JSON.parse(localStorage.getItem(INV_KEY)) || []).map(s => ({ id: s[0] | 0, count: s[1] | 0, dur: s[2] | 0 })); } catch(e){}
 if(!survInv || (survInv.length !== 9 && survInv.length !== 36)) survInv = [];
 while(survInv.length < 36) survInv.push({ id: 0, count: 0, dur: 0 });   // 9 hotbar + 27 backpack
+/* The strange biomes first gave their logs, planks, leaves and turf ids
+   200-211, which armour already had - so a duskwood log in your hand was
+   a pair of iron leggings. They live at 226-237 now. Blocks placed in the
+   world were always blocks, so they move across; in chests and your pack
+   only stacks of two or more do, since armour never comes in a stack and
+   wood nearly always does. Worn armour is left alone. Once per world. */
+(function moveBiomeIds(){
+  const MARK = SAVE_KEY + '-ids';
+  try {
+    if(localStorage.getItem(MARK)) return;
+    const OLD_LO = 200, OLD_HI = 211, SHIFT = 26;
+    let n = 0;
+    for(const obj of [overworldEdits, netherEdits, endEdits])
+      for(const ck in obj) for(const k in obj[ck]){
+        const v = obj[ck][k];
+        if(typeof v === 'number' && v >= OLD_LO && v <= OLD_HI){ obj[ck][k] = v + SHIFT; n++; }
+      }
+    const fixStack = st => { if(st && st.id >= OLD_LO && st.id <= OLD_HI && st.count > 1){ st.id += SHIFT; n++; } };
+    for(const key in chests) if(Array.isArray(chests[key])) chests[key].forEach(fixStack);
+    survInv.forEach(fixStack);
+    if(n){
+      localStorage.setItem(SAVE_KEY, JSON.stringify(overworldEdits));
+      localStorage.setItem(NETHER_KEY, JSON.stringify(netherEdits));
+      localStorage.setItem(END_KEY, JSON.stringify(endEdits));
+      localStorage.setItem(CHEST_KEY, JSON.stringify(chests));
+      localStorage.setItem(INV_KEY, JSON.stringify(survInv.map(st => [st.id, st.count, st.dur])));
+      console.log('[blockcraft] moved ' + n + ' strange-biome blocks off the armour ids');
+    }
+    localStorage.setItem(MARK, '1');
+  } catch(e){ /* a failed migration must never block the game starting */ }
+})();
 document.getElementById('resetBtn').addEventListener('click', () => {
   localStorage.removeItem(SAVE_KEY);
   localStorage.removeItem(INV_KEY);
@@ -7875,10 +7907,10 @@ function buildCraftPanel(){
     const gorilla=vrMoveMode==='gorilla';
     button(50,612,520,70,gorilla?'Gorilla arms: ON':'Gorilla arms: off',()=>{
       setVrMoveMode(gorilla?'stick':'gorilla');
-      vrMenuStatus=vrMoveMode==='gorilla'?'Gorilla arms on: slap a block and push. The stick still walks.':'Gorilla arms off.';
+      vrMenuStatus=vrMoveMode==='gorilla'?'Gorilla arms on: slap a block and push. The stick only turns.':'Gorilla arms off: the stick walks again.';
       buildCraftPanel();
     },true,gorilla);
-    text(gorilla?'Push off blocks with your hands. The stick still walks.':'Adds Gorilla Tag arm movement. The stick keeps working.',600,647,23,'#454545',800);
+    text(gorilla?'Push off blocks with your hands. The stick only turns.':'Gorilla Tag arm movement. The stick will only turn.',600,647,23,'#454545',800);
   }
   text('HOTBAR — select a slot to hold its item',35,726,23,'#454545');
   for(let i=0;i<9;i++)slot(i,35+i*152,755);
@@ -8204,9 +8236,9 @@ function updateDebug(){
 }
 
 /* ---- Gorilla locomotion ------------------------------------------------
-   An optional extra way to get about, after Gorilla Tag, on top of the
-   thumbstick: plant a hand on any block and the world stays put, so
-   pushing moves you instead. Pull along the ground to run, shove down to leap,
+   An optional way to get about, after Gorilla Tag. The left stick stops
+   walking (the right one still turns): plant a hand on any block and the
+   world stays put, so pushing moves you instead. Pull along the ground to run, shove down to leap,
    grab a wall or a tree to climb, and let go mid-swing to keep going. */
 const MOVE_KEY = 'blockcraft-vr-move';
 let vrMoveMode = localStorage.getItem(MOVE_KEY) === 'gorilla' ? 'gorilla' : 'stick';
@@ -8222,7 +8254,7 @@ const GORILLA_THROW = 1.25;      // let go mid-swing and keep a little more than
 const GORILLA_MAX = 9;           // fastest a throw can send you, m/s
 const GORILLA_STEP = 0.35;       // most one frame may move you, so you never tunnel
 const GORILLA_LET_GO = 0.35;     // m/s pulling off a surface that counts as letting go
-const GORILLA_FLOOR = 0.25;      // game ground sits this far above your real floor
+const GORILLA_FLOOR = 0.5;       // game ground sits this far above your real floor
 const gHands = [{ prev: null, anchor: null, n: null, tapT: 0 },
                 { prev: null, anchor: null, n: null, tapT: 0 }];
 const gHist = [];                // body velocity over the last few frames of pushing
@@ -8377,18 +8409,16 @@ function updateVR(dt){
   const magnitude=Math.max(1,Math.hypot(dx,dz));
   const wishX = (fwdX * -dz + rgtX * dx)/magnitude, wishZ = (fwdZ * -dz + rgtZ * dx)/magnitude;
   const crouchMul = vrCrouch ? 0.5 : 1;
-  const stickMoving = dx !== 0 || dz !== 0;
-  const gorilla = gorillaActive(swimming);
-  if(gorilla) gorillaStep(dt);       // arms move you on top of the stick
-  else gorillaReset();
-  // the stick always walks. In gorilla mode it steps aside while a hand is
-  // planted, and leaves a mid-air swing alone once you let go of it.
-  if(!gorilla || (!player.gorillaHold && (stickMoving || player.onGround))){
+  if(gorillaActive(swimming)){
+    gorillaStep(dt);                 // your arms move you; the right stick still turns
+    updateVignette(dt, false);
+  } else {
+    gorillaReset();                  // flying, swimming or riding: back on the stick
     player.vel.x += (wishX * speed * crouchMul - player.vel.x) * Math.min(1, dt * 10);
     player.vel.z += (wishZ * speed * crouchMul - player.vel.z) * Math.min(1, dt * 10);
+    // comfort: tunnel vision while the stick is driving us, ease it off when we stop
+    updateVignette(dt, dx !== 0 || dz !== 0);
   }
-  // comfort: tunnel vision while the stick is driving us, ease it off when we stop
-  updateVignette(dt, stickMoving);
 
   // ---- jump (right A/X button, index 4) & fly-up ----
   const rb = readButtons('right');
@@ -8897,7 +8927,7 @@ window.__bc = {
   openChest, closeChest, chestAt: k => chestSlots(k), moveStack,
   spawnAnimal, spawnZombie, damage, punchEntity, addItem, invCount, eatHeld, trySleep, nearStation,
   selectSlot: i => selectSlot(i, true),
-  calcMineTime, harvestOk: id => harvestOk(id),
+  calcMineTime, harvestOk: id => harvestOk(id), nameOf, itemInfo: id => ITEMS[id], blockInfo: id => BLOCKS[id],
   harvestState: () => harvest && Object.assign({}, harvest),
   tickLeaves: () => { const t = performance.now()/1000; tickLeafDecay(t); tickSaplings(t); },
   sapForLog: id => SAPLING_FOR_LOG[id], leafQueueSize: () => leafQueue.size,
