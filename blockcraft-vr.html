@@ -359,6 +359,20 @@ const seedRaw = new URL(location.href).searchParams.get('seed')
   ?? localStorage.getItem('blockcraft-last-seed') ?? '1337';
 const SEED = parseSeed(seedRaw);
 localStorage.setItem('blockcraft-last-seed', String(SEED));
+/* Which world generator this world was made with. Caves & Cliffs (2) reshapes
+   mountains and everything underground, so a world saved before it keeps the
+   land it was built on (1) and only new worlds get the new terrain. */
+const GEN_V = (() => {
+  const k = 'blockcraft-save-' + SEED + '-gen';
+  try {
+    const v = +localStorage.getItem(k);
+    if(v) return v;
+    const old = localStorage.getItem('blockcraft-save-' + SEED) || localStorage.getItem('blockcraft-save-' + SEED + '-inv');
+    const g = old ? 1 : 2;
+    localStorage.setItem(k, String(g));
+    return g;
+  } catch(e){ return 2; }
+})();
 document.getElementById('seedLabel').textContent = SEED;
 const SPLASHES = ['Punch trees!', 'Now with zombies!', 'Diamonds are deep!', 'One file!', 'Also try Minecraft!',
                   'Craft a bed!', 'Now with biomes!', 'Ouch, cactus!', 'Beware the night!', 'Free concert included!'];
@@ -418,11 +432,68 @@ function terrainHeight(x, z){
     const ridge = 1 - Math.abs(fbm(x * 0.02, z * 0.02, 4, 61) * 2 - 1); // sharp ridgelines
     h += t * t * (34 + ridge * 34);
   }
+  if(GEN_V >= 2){
+    // Caves & Cliffs: jagged peaks where the ranges rise highest...
+    if(mtnMask > 0.62){
+      const t2 = (mtnMask - 0.62) / 0.38;
+      const jag = Math.pow(1 - Math.abs(fbm(x * 0.045, z * 0.045, 3, 67) * 2 - 1), 3);
+      h += t2 * t2 * jag * 26;
+    }
+    // ...and highland slopes that break into shelves above sheer rock faces
+    const cliffMask = fbm(x * 0.006 + 311, z * 0.006 - 97, 2, 71);
+    if(cliffMask > 0.46 && h > SEA + 10){
+      const k = Math.min(1, (cliffMask - 0.46) / 0.06) * Math.min(1, (h - SEA - 10) / 6);
+      const step = 6 + Math.floor(vnoise(x * 0.01, z * 0.01, 73) * 5);   // 6-10 block risers
+      const f = h / step, fl = Math.floor(f);
+      const rise = Math.min(1, Math.max(0, (f - fl - 0.965) / 0.035)); // the whole step climbs in its last sliver
+      const shelf = (fl + rise) * step + (fbm(x * 0.08, z * 0.08, 2, 79) - 0.5) * 2.5;   // shelves stay a little rough
+      h += (shelf - h) * k;
+    }
+  }
   return Math.max(1, Math.min(HEIGHT - 6, Math.floor(h)));
 }
 function caveNoise(x, y, z){
   return 0.62 * vnoise3(x * 0.085, y * 0.12, z * 0.085, 901) +
          0.38 * vnoise3(x * 0.17,  y * 0.24, z * 0.17,  907);
+}
+/* ---- Caves & Cliffs caves ----------------------------------------------
+   Three kinds of cave, as in Minecraft: "cheese" caverns - huge open voids
+   well below ground; "spaghetti" - long winding tunnels that now and then
+   break out at the surface; and "noodles" - thin crawlways. Two thin noise
+   sheets crossing make a tube, which is what gives the tunnels their shape. */
+const CHEESE_T = 0.79, SPAG_T = 0.032, NOODLE_T = 0.02;
+function caveCarve(x, y, z, h){
+  // caverns open wider the deeper you go
+  if(y > 3 && y < h - 7 && y < 80 && vnoise3(x * 0.018, y * 0.032, z * 0.018, 1301) > CHEESE_T - (y < 34 ? 0.035 : 0)) return true;
+  const a = vnoise3(x * 0.021, y * 0.03, z * 0.021, 1311) - 0.5;
+  if(Math.abs(a) < SPAG_T && Math.abs(vnoise3(x * 0.021, y * 0.03, z * 0.021, 1317) - 0.5) < SPAG_T) return true;
+  if(y < h - 3){
+    const c = vnoise3(x * 0.05, y * 0.06, z * 0.05, 1323) - 0.5;
+    if(Math.abs(c) < NOODLE_T && Math.abs(vnoise3(x * 0.05, y * 0.06, z * 0.05, 1329) - 0.5) < NOODLE_T) return true;
+  }
+  return false;
+}
+// cave biomes cover whole regions underground
+const lushAt = (x, z) => vnoise(x * 0.008 + 71, z * 0.008 - 19, 1501) > 0.64;
+const dripAt = (x, z) => !lushAt(x, z) && vnoise(x * 0.008 - 40, z * 0.008 + 90, 1502) > 0.64;
+// about a third of cave basins are flooded to their own water level
+function aquiferLevel(x, z){
+  const gx = Math.floor(x / 40), gz = Math.floor(z / 40);
+  return hash(gx, gz, 1401) < 0.35 ? 18 + Math.floor(hash(gx, gz, 1402) * 30) : -1;
+}
+const geodeCache = new Map();
+function geodeDef(gx, gz){
+  const k = gx + ',' + gz;
+  if(geodeCache.has(k)) return geodeCache.get(k);
+  let g = null;
+  if(hash(gx, gz, 1801) < 0.3){
+    const x = gx * 56 + 10 + Math.floor(hash(gx, gz, 1802) * 36), z = gz * 56 + 10 + Math.floor(hash(gx, gz, 1803) * 36);
+    const r = 4.2 + hash(gx, gz, 1805) * 2;
+    const y = Math.min(12 + Math.floor(hash(gx, gz, 1804) * 34), terrainHeight(x, z) - Math.ceil(r) - 5);
+    if(y > r + 3) g = { x, y, z, r };
+  }
+  geodeCache.set(k, g);
+  return g;
 }
 const cavernCache=new Map();
 function cavernDef(gx,gz){
@@ -464,7 +535,7 @@ function biomeAt(x, z){
   return 'plains';
 }
 function surfaceCarved(x, z, h){
-  return h > SEA + 1 && x*x + z*z >= 24*24 && h > 1 && caveNoise(x,h,z) > 0.76;
+  return h > SEA + 1 && x*x + z*z >= 24*24 && h > 1 && (GEN_V >= 2 ? caveCarve(x, h, z, h) : caveNoise(x,h,z) > 0.76);
 }
 /* Badlands strata: horizontal bands of clay, fixed to world height so the
    stripes line up across a whole canyon wall. */
@@ -698,6 +769,12 @@ const CHERRYLOG=160, CHERRYPLANK=161, CHERRYLEAVES=162,
  WILLOWLOG=166, WILLOWPLANK=167, WILLOWLEAVES=168,
  MARBLE=169, MARBLEBRICK=170, BASALT=171, BASALTBRICK=172, MOSAIC=173, AMBERLAMP=174;
 const CRYSTALORE=187,GLOWCRYSTAL=188,CRYSTALBRICK=189,CRYSTALSHARD=212,CRYSTALPICK=213,CRYSTALSWORD=214;
+/* Caves & Cliffs */
+const MOSS=93, AZALEA=94, AZALEA_F=95, GLOWVINE=96, CAVEVINE=97, DRIPLEAF=98, DRIPSTONE=99,
+      DRIP_DOWN=154, DRIP_UP=155, AMETHYST=156, BUDDING=157, AMETHYST_C=158, CALCITE=159,
+      TUFF=238, COPPERO=239, COPPERB=240, COPPERI=241, AMETHYST_SHARD=242;
+const CAVE_PLANTS = new Set([AZALEA, AZALEA_F, GLOWVINE, CAVEVINE, DRIPLEAF]);
+const CAVE_CROSS = new Set([...CAVE_PLANTS, DRIP_DOWN, DRIP_UP, AMETHYST_C]);
 const BLUEBELL=175,LAVENDER=176,DAISY=177,ORCHID=178,CROCUS=179,DESERTFLOWER=180,FERN=181,REEDS=182,DRYGRASS=183,AMBERFLOWER=184,NETHERSPROUT=185,ENDSPROUT=186;
 const GUMLOG=190, GUMPLANK=191, GUMLEAVES=192, SPINIFEX=193,
       REDSAND=194, TERRA_ORANGE=195, TERRA_PALE=196, BERRYBUSH=197, COARSEDIRT=198,
@@ -875,6 +952,11 @@ BLOCKS[DUSKGRASS] ={name:'Dusk Turf',  top:126, bottom:T.DIRT, side:127};
 BLOCKS[REDSAND]={name:'Red Sand',all:140};
 BLOCKS[TERRA_ORANGE]={name:'Orange Terracotta',all:141};
 BLOCKS[TERRA_PALE]={name:'Pale Terracotta',all:142};
+BLOCKS[MOSS]={name:'Moss Block',all:171};BLOCKS[AZALEA]={name:'Azalea',all:172};BLOCKS[AZALEA_F]={name:'Flowering Azalea',all:173};
+BLOCKS[GLOWVINE]={name:'Glow Berries',all:174};BLOCKS[CAVEVINE]={name:'Cave Vines',all:175};BLOCKS[DRIPLEAF]={name:'Small Dripleaf',all:176};
+BLOCKS[DRIPSTONE]={name:'Dripstone Block',all:177};BLOCKS[DRIP_DOWN]={name:'Pointed Dripstone',all:178};BLOCKS[DRIP_UP]={name:'Pointed Dripstone',all:179};
+BLOCKS[AMETHYST]={name:'Block of Amethyst',all:180};BLOCKS[BUDDING]={name:'Budding Amethyst',all:181};BLOCKS[AMETHYST_C]={name:'Amethyst Cluster',all:182};
+BLOCKS[CALCITE]={name:'Calcite',all:183};BLOCKS[TUFF]={name:'Tuff',all:184};BLOCKS[COPPERO]={name:'Copper Ore',all:185};BLOCKS[COPPERB]={name:'Block of Copper',all:186};
 BLOCKS[CRYSTALORE]={name:'Crystal Ore',all:131};BLOCKS[GLOWCRYSTAL]={name:'Glowing Crystal',all:132};BLOCKS[CRYSTALBRICK]={name:'Crystal Bricks',all:133};
 /* Item IDs and block IDs use explicit registries. */
 const STICK=100, COALI=101, IRONI=102, GOLDI=103, DIAMI=104, PORK=105, PORKC=106, MUTTON=107, MUTTONC=108,
@@ -931,6 +1013,7 @@ const foodOf = id => (ITEMS[id] && ITEMS[id].food) || (id === MUSHROOMR || id ==
     for(let i = 0; i < 4; i++)
       ITEMS[base + i] = { name: mats[i] + ' ' + tname, icon: icon + i, tool: { type, tier: i + 1 } };
 }
+ITEMS[COPPERI]={name:'Copper Ingot',icon:69};ITEMS[AMETHYST_SHARD]={name:'Amethyst Shard',icon:70};
 ITEMS[CRYSTALSHARD]={name:'Crystal Shard',icon:66};ITEMS[CRYSTALPICK]={name:'Crystal Pickaxe',icon:67,tool:{type:'pick',tier:4}};ITEMS[CRYSTALSWORD]={name:'Crystal Sword',icon:68,tool:{type:'sword',tier:4}};
 const ARMOUR_SLOTS=['helmet','chestplate','leggings','boots'];
 const ARMOUR_SETS=[{name:'Leather',material:LEATHER,color:0x986444,points:[1,3,2,1]},{name:'Iron',material:IRONI,color:0xb9c8d2,points:[2,6,5,2]},{name:'Diamond',material:DIAMI,color:0x5cdbd6,points:[3,8,6,3]}];
@@ -955,8 +1038,8 @@ function removeArmour(slot){
 const nameOf = id => BLOCKS[id]?.name || ITEMS[id]?.name || 'Empty';
 const isPlant  = id => isSapling(id) || FLORA_IDS.has(id) || id === TGRASSB || id === POPPYB || id === DANDB || id === DEADBUSH ||
                        id === MUSHROOMR || id === MUSHROOMB ||
-                       id === WHEAT0 || id === WHEAT1 || id === WHEAT2 || id === WHEAT3;
-const isCross  = id => id===GLOWCRYSTAL || isPlant(id) || id === TORCH || id === COBWEB || id === IRONBARS;
+                       id === WHEAT0 || id === WHEAT1 || id === WHEAT2 || id === WHEAT3 || CAVE_PLANTS.has(id);
+const isCross  = id => id===GLOWCRYSTAL || isPlant(id) || id === TORCH || id === COBWEB || id === IRONBARS || CAVE_CROSS.has(id);
 const isFlat   = id => id === RAIL;                    // thin plate on the ground
 const isSlab   = id => id === SLAB_STONE || id === SLAB_WOOD || id === SLAB_BRICK || id === SLAB_SAND || id === SLAB_NBRICK;
 const isStair  = id => id === STAIR_STONE || id === STAIR_WOOD || id === STAIR_BRICK || id === STAIR_SAND || id === STAIR_NBRICK;
@@ -974,7 +1057,7 @@ const isDoor    = id => id === DOOR || id === DOORTOP;
 const isOpaque = id => id !== AIR && id !== WATER && id !== GLASS && id !== LAVA && id !== PORTAL && id !== ENDPORTAL && !isCross(id) && !isPartial(id) && !isDoor(id) && !isFlat(id);
 const isSolid  = id => id !== AIR && id !== WATER && id !== LAVA && id !== PORTAL && id !== ENDPORTAL && !isCross(id) && !isDoor(id) && !isFlat(id);
 const isLiquid = id => id === WATER || id === LAVA;
-const emitsLight = id => id===GLOWCRYSTAL || id === AMBERLAMP || id === GLOWB || id === GLOWSTONE || id === LAVA || id === PORTAL || id === ENDPORTAL || id === ENDCRYSTAL;
+const emitsLight = id => id===GLOWCRYSTAL || id === GLOWVINE || id === AMETHYST_C || id === AMBERLAMP || id === GLOWB || id === GLOWSTONE || id === LAVA || id === PORTAL || id === ENDPORTAL || id === ENDCRYSTAL;
 const occl     = id => isOpaque(id);
 function tileFor(id, face){
   const d = BLOCKS[id];
@@ -989,10 +1072,12 @@ function faceVisible(b, n){
   if(b === GLASS) return n === WATER;
   return !isOpaque(n);
 }
-const dropOf = id => id===BERRYBUSH?BERRIES:id===CRYSTALORE||id===GLOWCRYSTAL?CRYSTALSHARD:id === GRASS || id === SAVGRASS || id === FARMLAND ? DIRT : id === COALO ? COALI : id === DIAMO ? DIAMI :
+const dropOf = id => id===GLOWVINE?BERRIES:id===AMETHYST_C||id===BUDDING?AMETHYST_SHARD:id===DRIP_DOWN?DRIP_UP:id===BERRYBUSH?BERRIES:id===CRYSTALORE||id===GLOWCRYSTAL?CRYSTALSHARD:id === GRASS || id === SAVGRASS || id === FARMLAND ? DIRT : id === COALO ? COALI : id === DIAMO ? DIAMI :
                      id === EMERO ? EMERALD : id === DEADBUSH ? STICK : id;
 function toolClassOf(id){
   if([CRYSTALORE,GLOWCRYSTAL,CRYSTALBRICK].includes(id))return 'pick';
+  if([DRIPSTONE,TUFF,CALCITE,AMETHYST,BUDDING,COPPERO,COPPERB].includes(id))return 'pick';
+  if(id === MOSS) return 'shovel';
   if([MARBLE,MARBLEBRICK,BASALT,BASALTBRICK,MOSAIC,AMBERLAMP].includes(id))return 'pick';
   if(isLog(id) || ANY_PLANK.includes(id) || id === CRAFTT || id === BED || id === CHEST) return 'axe';
   if(id === GRASS || id === SAVGRASS || id === DIRT || id === SAND || id === SNOW) return 'shovel';
@@ -1102,6 +1187,8 @@ RECIPES.push(
  {out:[PUMPKINPIE,1],in:[[PUMPKIN,1],[WHEATITEM,2]],st:'table'},
  {out:[BREAD,1],in:[[WHEATITEM,3]]});
 ARMOUR_SETS.forEach((set,t)=>ARMOUR_SLOTS.forEach((slot,j)=>RECIPES.push({out:[200+t*4+j,1],in:[[set.material,[5,8,7,4][j]]],st:'table'})));
+RECIPES.push({out:[COPPERI,1],in:[[COPPERO,1],[COALI,1]],st:'furnace'},{out:[COPPERB,1],in:[[COPPERI,9]],st:'table'},
+  {out:[COPPERI,9],in:[[COPPERB,1]]},{out:[AMETHYST,1],in:[[AMETHYST_SHARD,4]]},{out:[DRIPSTONE,1],in:[[DRIP_UP,4]]});
 RECIPES.push({out:[CRYSTALPICK,1],in:[[CRYSTALSHARD,4],[STICK,2],[IRONI,1]],st:'table'},{out:[CRYSTALSWORD,1],in:[[CRYSTALSHARD,3],[STICK,1],[IRONI,1]],st:'table'},{out:[GLOWCRYSTAL,1],in:[[CRYSTALSHARD,2]]},{out:[CRYSTALBRICK,4],in:[[CRYSTALSHARD,1],[STONE,4]],st:'table'});
 /* ========================= texture atlases ========================== */
 function mulberry32(a){
@@ -1965,6 +2052,106 @@ const tileAvg = [];
  const i=itemAtlas.getContext('2d');for(const [tile,source] of [[67,12],[68,24]]){const ox=tile%8*16,oy=Math.floor(tile/8)*16;i.drawImage(itemAtlas,source%8*16,Math.floor(source/8)*16,16,16,ox,oy,16,16);const p=i.getImageData(ox,oy,16,16);for(let n=0;n<p.data.length;n+=4)if(p.data[n+1]>p.data[n]*1.1){p.data[n]=177;p.data[n+1]=143;p.data[n+2]=237;}i.putImageData(p,ox,oy);}
  i.fillStyle='#b395ef';const x=66%8*16,y=Math.floor(66/8)*16;i.fillRect(x+6,y+2,4,12);i.fillStyle='#e6dfff';i.fillRect(x+6,y+3,1,10);
 }
+/* ---- Caves & Cliffs textures ---- */
+{
+  const paint = (cv, ti, fn) => {
+    const ctx = cv.getContext('2d');
+    let seed = ti * 991 + 7;
+    const rnd = () => { seed = (seed + 0x6D2B79F5) | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+    const img = ctx.createImageData(16, 16);
+    for(let py = 0; py < 16; py++) for(let px = 0; px < 16; px++){
+      const [r, g, b, a] = fn(px, py, rnd), o = (py * 16 + px) * 4;
+      img.data[o] = r; img.data[o+1] = g; img.data[o+2] = b; img.data[o+3] = Math.round((a ?? 1) * 255);
+    }
+    ctx.putImageData(img, (ti % 8) * 16, ((ti / 8) | 0) * 16);
+  };
+  const put = (ti, fn) => paint(atlas, ti, fn), puti = (ti, fn) => paint(itemAtlas, ti, fn);
+  const n2 = (x, y, sc, salt) => vnoise(x * sc + 13.1, y * sc + 7.7, 7000 + salt);
+  const pick = (v, sh) => sh[Math.max(0, Math.min(sh.length - 1, Math.floor(v * sh.length)))];
+  const jit = (c, r, k = 10) => { const d = Math.floor((r() - .5) * k); return [c[0] + d, c[1] + d, c[2] + d]; };
+  const CLEAR = [0, 0, 0, 0];
+  const stone = (x, y, r) => pick(n2(x, y, .55, 3) * .78 + r() * .22, [[90,90,90],[104,104,104],[118,118,118],[133,133,133]]);
+  // moss block
+  put(171, (x, y, r) => pick(n2(x, y, .7, 1) * .65 + r() * .35, [[64,94,34],[78,110,40],[92,126,46],[108,142,54],[122,156,62]]));
+  // azalea: a round leafy bush on a short stem; the flowering kind is dotted pink
+  const bush = flowers => (x, y, r) => {
+    const d = Math.hypot(x - 7.5, (y - 6.5) * 1.1);
+    if(y >= 12 && (x === 7 || x === 8)) return [98,72,44];
+    if(d > 6.6 || (d > 5.2 && r() < .45)) return CLEAR;
+    if(flowers && hash(x, y, 1702) < .16) return [226, 128 + Math.floor(r() * 30), 196];
+    return pick(n2(x, y, .9, 4) * .6 + r() * .4, [[62,110,40],[76,128,48],[92,146,58],[108,160,66]]);
+  };
+  put(172, bush(false)); put(173, bush(true));
+  // cave vines: a wandering green strand; glow berries carry lit orange fruit
+  const vine = berries => (x, y, r) => {
+    if(berries) for(const [bx, by] of [[4,4],[11,9],[5,13]])
+      if(Math.hypot(x - bx, y - by) < 1.7) return (x - bx + y - by) < 0 ? [255,222,130] : [248,152,40];
+    const cx = 7.5 + Math.sin(y * .7) * 2.2;
+    if(Math.abs(x - cx) < 1.1) return pick(r(), [[58,104,40],[72,124,48],[86,140,56]]);
+    if(Math.abs(x - cx) < 2.6 && hash(x, y, 1703) < .3) return [96,150,60];
+    return CLEAR;
+  };
+  put(174, vine(true)); put(175, vine(false));
+  // small dripleaf: two stalks carrying flat leaves
+  put(176, (x, y) => {
+    for(const [sx, top] of [[5, 3], [10, 6]]){
+      if(x === sx && y >= top + 2) return [70,112,46];
+      if(y >= top && y <= top + 1 && Math.abs(x - sx) <= 3) return y === top ? [112,166,72] : [84,138,56];
+    }
+    return CLEAR;
+  });
+  // dripstone: warm tan rock drawn in vertical streaks
+  const DRIP_SH = [[112,88,74],[128,100,84],[142,112,94],[156,124,104],[168,136,114]];
+  const drip = (x, y, r) => pick(n2(x * .35, y * 1.6, 1, 5) * .7 + r() * .3, DRIP_SH);
+  put(177, drip);
+  // pointed dripstone: a tapering spike, hanging down or rising up
+  const spike = down => (x, y, r) => {
+    const t = down ? y : 15 - y, half = 5.5 * (1 - t / 16), dx = Math.abs(x - 7.5);
+    if(dx > half) return CLEAR;
+    return dx > half - 1 ? pick(r(), [[108,84,70],[120,94,78]]) : drip(x, y, r);
+  };
+  put(178, spike(true)); put(179, spike(false));
+  // amethyst: faceted violet crystal; budding amethyst has dark seed pits
+  const AME = [[92,62,152],[112,78,178],[134,98,204],[158,124,224],[190,160,242]];
+  const ame = (x, y, r) => { const f = ((x + y * 2) % 7 + (x * 3 - y + 30) % 5) / 10; return jit(AME[Math.min(4, Math.floor(f * 3 + r() * 2))], r, 8); };
+  put(180, ame);
+  put(181, (x, y, r) => ((x % 6 === 2 && y % 5 < 3) || (y % 6 === 3 && x % 5 < 2)) ? [54,34,96] : ame(x, y, r));
+  // amethyst cluster: a spray of pale shards
+  put(182, (x, y) => {
+    for(const [cx, top, w] of [[7.5, 1, 2.4], [4, 6, 1.8], [11.5, 5, 1.9]])
+      if(y >= top && Math.abs(x - cx) < w * (y - top + 2) / 14 + .6) return x < cx ? [232,212,255] : [178,140,236];
+    return CLEAR;
+  });
+  // calcite: chalky off-white
+  put(183, (x, y, r) => pick(n2(x, y, .6, 6) * .6 + r() * .4, [[204,206,200],[216,218,212],[226,228,222],[236,237,232]]));
+  // tuff: grey-green volcanic stone with pale flecks
+  put(184, (x, y, r) => r() < .06 ? [150,152,138] : pick(n2(x, y, .5, 7) * .7 + r() * .3, [[84,86,76],[96,98,86],[108,110,96],[118,120,106]]));
+  // copper ore: orange nuggets with a green tarnish
+  put(185, (x, y, r) => {
+    for(let k = 0; k < 6; k++){
+      const sx = 2 + Math.floor(hash(k, 1, 1711) * 12), sy = 2 + Math.floor(hash(k, 7, 1711) * 12);
+      const md = Math.abs(x - sx) + Math.abs(y - sy);
+      if(md === 0) return k % 3 === 0 ? [104,184,148] : [240,158,110];
+      if(md <= 1 + (k & 1)) return jit(k % 4 === 0 ? [84,150,118] : [198,108,66], r, 16);
+    }
+    return stone(x, y, r);
+  });
+  // block of copper: warm metal with a bevelled rim
+  put(186, (x, y, r) => {
+    if(x === 0 || y === 0 || x === 15 || y === 15) return [150,78,50];
+    if(x === 1 || y === 1 || x === 14 || y === 14) return [236,150,106];
+    return jit(pick(n2(x, y, .4, 8) * .8 + r() * .2, [[190,100,66],[204,112,74],[216,124,84]]), r, 6);
+  });
+  // icons: copper ingot and amethyst shard
+  puti(69, (x, y) => {
+    if(y < 5 || y > 11) return CLEAR;
+    const inset = (11 - y) * .5;
+    if(x < 2 + inset || x > 13 - inset) return CLEAR;
+    return y === 5 ? [246,170,124] : y === 11 ? [146,74,46] : [206,116,76];
+  });
+  puti(70, (x, y) => (Math.abs(x - 7.5) + Math.abs(y - 8) * .45 > 4.2) ? CLEAR : x < 7.5 ? [214,188,252] : [150,110,214]);
+}
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(72, innerWidth / innerHeight, 0.1, 420);
 camera.rotation.order = 'YXZ';
@@ -2316,6 +2503,99 @@ function biomePlant(biome,r,patch,snowy,beach){
        : biome==='outback'?SPINIFEX:TGRASSB;
 }
 function genChunk(cx,cz){return finishSteps(genChunkSteps(cx,cz));}
+/* Lush caves: moss floors and ceilings, azalea, dripleaf, clay-bottomed
+   pools and glow berry vines hanging from above. Dripstone caves: dripstone
+   floors and ceilings bristling with stalactites and stalagmites. */
+function* decorateCavesSteps(data, cx, cz){
+  const at = (lx, y, lz) => data[(y << 8) | (lz << 4) | lx];
+  const put = (lx, y, lz, id) => { data[(y << 8) | (lz << 4) | lx] = id; };
+  const rocky = id => id === STONE || id === DEEPSLATE || id === TUFF || id === DIRT || id === MARBLE || id === BASALT;
+  for(let lz = 0; lz < 16; lz++) for(let lx = 0; lx < 16; lx++){
+    const wx = cx * 16 + lx, wz = cz * 16 + lz;
+    const lush = lushAt(wx, wz), drip = !lush && dripAt(wx, wz);
+    if(!lush && !drip) continue;
+    yield;
+    const top = terrainHeight(wx, wz) - 5;
+    const pool = lush && vnoise(wx * 0.25, wz * 0.25, 1904) > 0.72;
+    for(let y = 4; y < top; y++){
+      if(at(lx, y, lz) !== AIR) continue;
+      const below = at(lx, y - 1, lz), above = at(lx, y + 1, lz);
+      const r = hash3(wx, y, wz, 1901);
+      if(rocky(below)){                                         // a cave floor
+        if(lush){
+          // a pool sits in the floor where all four sides hold it in
+          if(pool && lx > 0 && lx < 15 && lz > 0 && lz < 15 &&
+             [[1,0],[-1,0],[0,1],[0,-1]].every(([dx, dz]) => { const n = at(lx + dx, y - 1, lz + dz); return rocky(n) || n === MOSS || n === WATER || n === CLAY; })){
+            put(lx, y - 1, lz, WATER);
+            if(rocky(at(lx, y - 2, lz))) put(lx, y - 2, lz, CLAY);
+            if(r < .3) put(lx, y, lz, DRIPLEAF);
+            continue;
+          }
+          put(lx, y - 1, lz, MOSS);
+          if(r < .05) put(lx, y, lz, AZALEA);
+          else if(r < .08) put(lx, y, lz, AZALEA_F);
+          else if(r < .13) put(lx, y, lz, DRIPLEAF);
+          else if(r < .32) put(lx, y, lz, TGRASSB);
+        } else {
+          if(r < .6) put(lx, y - 1, lz, DRIPSTONE);
+          if(r < .14) put(lx, y, lz, DRIP_UP);
+        }
+      } else if(rocky(above)){                                  // a cave ceiling
+        if(lush){
+          put(lx, y + 1, lz, MOSS);
+          if(r < .14){                                          // vines hang 1-4 blocks
+            const len = 1 + Math.floor(hash3(wx, y, wz, 1902) * 4);
+            for(let k = 0; k < len && y - k > 3 && at(lx, y - k, lz) === AIR; k++)
+              put(lx, y - k, lz, hash3(wx, y - k, wz, 1903) < .38 ? GLOWVINE : CAVEVINE);
+          }
+        } else {
+          if(r < .6) put(lx, y + 1, lz, DRIPSTONE);
+          if(r < .16){
+            put(lx, y, lz, DRIP_DOWN);
+            if(r < .05 && at(lx, y - 1, lz) === AIR) put(lx, y - 1, lz, DRIP_DOWN);
+          }
+        }
+      }
+    }
+  }
+}
+/* Amethyst geodes: a hollow ball in the rock - smooth basalt outside, then
+   calcite, then amethyst, with crystal clusters growing off the budding
+   blocks inside. */
+function stampGeodes(data, cx, cz){
+  const x0 = cx * 16, z0 = cz * 16;
+  const gx0 = Math.floor(x0 / 56), gz0 = Math.floor(z0 / 56);
+  for(let gx = gx0 - 1; gx <= gx0 + 1; gx++) for(let gz = gz0 - 1; gz <= gz0 + 1; gz++){
+    const g = geodeDef(gx, gz);
+    if(!g) continue;
+    const R = g.r, ext = Math.ceil(R + 1);
+    if(g.x + ext < x0 || g.x - ext > x0 + 15 || g.z + ext < z0 || g.z - ext > z0 + 15) continue;
+    const dist = (wx, y, wz) => Math.hypot(wx - g.x, y - g.y, wz - g.z);
+    for(let lx = 0; lx < 16; lx++) for(let lz = 0; lz < 16; lz++) for(let y = g.y - ext; y <= g.y + ext; y++){
+      const wx = x0 + lx, wz = z0 + lz, d = dist(wx, y, wz);
+      let id;
+      if(d <= R - 2.3) id = AIR;
+      else if(d <= R - 1.3) id = hash3(wx, y, wz, 1811) < .12 ? BUDDING : AMETHYST;
+      else if(d <= R - .4) id = CALCITE;
+      else if(d <= R + .5) id = BASALT;
+      else continue;
+      data[(y << 8) | (lz << 4) | lx] = id;
+    }
+    for(let lx = 0; lx < 16; lx++) for(let lz = 0; lz < 16; lz++) for(let y = g.y - ext; y <= g.y + ext; y++){
+      const wx = x0 + lx, wz = z0 + lz;
+      if(dist(wx, y, wz) > R - 2.3) continue;
+      let budding = false, crystal = false;
+      for(const [dx, dy, dz] of [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]]){
+        const nx = lx + dx, nz = lz + dz;
+        if(nx < 0 || nx > 15 || nz < 0 || nz > 15) continue;
+        const n = data[((y + dy) << 8) | (nz << 4) | nx];
+        if(n === BUDDING) budding = true; else if(n === AMETHYST) crystal = true;
+      }
+      const r = hash3(wx, y, wz, 1812);
+      if((budding && r < .6) || (crystal && r < .05)) data[(y << 8) | (lz << 4) | lx] = AMETHYST_C;
+    }
+  }
+}
 function* genChunkSteps(cx, cz){
   if(dim === 1) return yield* genNetherChunkSteps(cx, cz);
   if(dim === 2) return yield* genEndChunkSteps(cx, cz);
@@ -2339,9 +2619,15 @@ function* genChunkSteps(cx, cz){
     const dry = h > SEA + 1;                       // don't open caves under the sea (avoids flooding)
     const cuts=caverns.map(c=>{const r=1-(wx-c.x)**2/(c.rx*c.rx)-(wz-c.z)**2/(c.rz*c.rz);return r>0?[c.y-c.ry*Math.sqrt(r),c.y+c.ry*Math.sqrt(r)]:null;}).filter(Boolean);
     const nearSpawn = (wx * wx + wz * wz) < 24 * 24;  // keep the spawn area solid on top
+    // Caves & Cliffs: steep ground is bare rock, so cliffs read as cliffs
+    const steep = GEN_V >= 2 && h > SEA + 4 && !sandy && !badlands &&
+      Math.max(Math.abs(h - terrainHeight(wx + 1, wz)), Math.abs(h - terrainHeight(wx - 1, wz)),
+               Math.abs(h - terrainHeight(wx, wz + 1)), Math.abs(h - terrainHeight(wx, wz - 1))) >= 3;
+    const aqLevel = GEN_V >= 2 ? aquiferLevel(wx, wz) : -1;
     for(let y = 0; y <= h; y++){
       let b;
       if(y === 0) b = STONE;
+      else if(steep && y > h - 4) b = (y === h && snowyTop) ? SNOW : STONE;
       else if(y === h) b = badlands ? terraBand(y) : outback ? REDSAND
                          : biome === 'amberfield' ? AMBERGRASS
                          : biome === 'frostvale' ? FROSTGRASS
@@ -2356,13 +2642,23 @@ function* genChunkSteps(cx, cz){
       // land so mouths are visible — but never right at the spawn point.
       let carved = false;
       const topLimit = (dry && !nearSpawn) ? h : h - 1;   // spawn/underwater columns stay capped
-      if(y > 1 && y <= topLimit && caveNoise(wx, y, wz) > 0.76) carved = true;
+      if(y > 1 && y <= topLimit && (GEN_V >= 2 ? caveCarve(wx, y, wz, h) : caveNoise(wx, y, wz) > 0.76)) carved = true;
       if(y>3&&y<h-5&&cuts.some(([lo,hi])=>y>lo&&y<hi))carved=true;
-      if(carved){ b = AIR; }
+      if(carved){
+        b = AIR;
+        if(GEN_V >= 2 && y < h - 6){
+          if(y <= 8) b = LAVA;                        // lava lakes pool at the very bottom
+          else if(y <= aqLevel) b = WATER;            // flooded caves
+        }
+      }
       else if(b === STONE && y > 1){
         if(y<40&&hash3(wx,y,wz,9810)<.0024){data[(y<<8)|(lz<<4)|lx]=CRYSTALORE;continue;}
         if(y>20&&y<h-4){const rock=vnoise3(wx*.08,y*.08,wz*.08,822);if(rock>.72)b=MARBLE;else if(rock<.28)b=BASALT;}
         if(b!==STONE){data[(y<<8)|(lz<<4)|lx]=b;continue;}
+        if(GEN_V >= 2){
+          if(y < DEEP_Y + 3 && vnoise3(wx * .07, y * .07, wz * .07, 1601) > .73){ data[(y << 8) | (lz << 4) | lx] = TUFF; continue; }
+          if(y > 36 && y < 112 && hash3(wx, y, wz, 4444) < .011){ data[(y << 8) | (lz << 4) | lx] = COPPERO; continue; }
+        }
         if(y >= 30 && hash3(wx, y, wz, 4343) < 0.0022){ data[(y << 8) | (lz << 4) | lx] = EMERO; continue; }
         const r = hash3(wx, y, wz, 4242);
         if(y < 26 && r < 0.0030) b = DIAMO;              // deep down, a real journey
@@ -2389,6 +2685,7 @@ function* genChunkSteps(cx, cz){
       }else if(plant)set(lx,h+1,lz,plant);
     }
   }
+  if(GEN_V >= 2){ yield* decorateCavesSteps(data, cx, cz); stampGeodes(data, cx, cz); }
   for(let tz=-5;tz<21;tz++)for(let tx=-5;tx<21;tx++){
     if((tx+5)%8===0)yield;
     const wx=cx*16+tx,wz=cz*16+tz,t=treeAt(wx,wz);if(!t)continue;
@@ -2986,6 +3283,8 @@ const LW = 18, LSTRIDE = LW * LW;   // 18x18 columns
 const LIGHT_EMIT = { };   // filled after ids exist
 function emitLevel(id){
   if(id===GLOWCRYSTAL)return 11;
+  if(id === GLOWVINE) return 14;           // glow berries light a lush cave
+  if(id === AMETHYST_C) return 5;
   if(id === AMBERLAMP || id === GLOWB || id === GLOWSTONE || id === ENDCRYSTAL) return 15;
   if(id === LAVA) return 13;
   if(id === TORCH) return 14;
@@ -3916,6 +4215,8 @@ const rabbitMats= { body: entMat(0xbfa78f), belly: entMat(0xe6dccb), head: entMa
 const rooMats   = { body: entMat(0xa8703f), belly: entMat(0xd8b189), head: entMat(0x9c6637), snout: entMat(0x7d4f2a), nose: entMat(0x2a1a10), leg: entMat(0x94602f), ear: entMat(0x8a5730), earIn: entMat(0xd9a68a), eye: entMat(0x1d1209), tail: entMat(0x8f5c2c) };
 const foxMats   = { body: entMat(0xd2762c), belly: entMat(0xf0e4d4), head: entMat(0xdb8137), snout: entMat(0xf2e7d8), nose: entMat(0x241611), leg: entMat(0x5b3a24), ear: entMat(0xb35f22), earIn: entMat(0x33201a), eye: entMat(0x2b1a0d), tail: entMat(0xdc8438) };
 const llamaMats = { body: entMat(0xd6c7ab), belly: entMat(0xe8ddc7), head: entMat(0xe0d3ba), snout: entMat(0xefe6d3), nose: entMat(0x3a2f24), leg: entMat(0xc6b498), ear: entMat(0xcfc0a4), earIn: entMat(0xb5a68c), eye: entMat(0x25190f), tail: entMat(0xcfc0a4) };
+const goatMats  = { body: entMat(0xe6e1d6), belly: entMat(0xd4cebf), head: entMat(0xece8de), horn: entMat(0x9a9286), hoof: entMat(0x3a3530), eye: entMat(0x2a2218), beard: entMat(0xcfc7b6), leg: entMat(0xdcd6c8) };
+const axoMats   = { body: entMat(0xf2a6c0), belly: entMat(0xf8c6d6), gill: entMat(0xd8507a), eye: entMat(0x1a1016), leg: entMat(0xe894b0), fin: entMat(0xf4b4ca) };
 const fantasyMats={moss:entMat(0x70a75b),moon:entMat(0xb7a2dc),crystal:entMat(0x4bc5ba),dark:entMat(0x263345),cap:entMat(0xb86889),glow:entMat(0xcdf88d),
   gild:entMat(0xd9a63c),gildDark:entMat(0x9c6f24),antler:entMat(0xf0dfa8),
   frost:entMat(0xeaf3f9),frostShade:entMat(0xb9d4e6),
@@ -3935,7 +4236,7 @@ function spawnAnimal(type, x, y, z){
   const g = new THREE.Group();
   const legs = [];
   const palettes={pig:pigMats,sheep:sheepMats,cow:cowMats,horse:horseMats,wolf:wolfMats,rabbit:rabbitMats,chicken:chickMats,
-                  kangaroo:rooMats,fox:foxMats,llama:llamaMats};
+                  kangaroo:rooMats,fox:foxMats,llama:llamaMats,goat:goatMats,axolotl:axoMats};
   const m=palettes[type];
   const part=(w,h,d,mat,x,y,z,parent=g)=>box(w,h,d,mat,x,y,z,parent);
   const limb=(x,z,height,width,mat,footMat,footDepth=width)=>{
@@ -3981,6 +4282,33 @@ function spawnAnimal(type, x, y, z){
     part(.08,.06,.05,m.nose,0,1.42,-.51);
     eyes(.1,1.49,-.335,m.eye);
     for(const side of [-1,1])ear(side*.1,1.57,-.12,.09,.27,m.ear,m.earIn,side*.17);
+   } else if(type==='goat'){
+    // a shaggy mountain goat: swept-back horns and a beard
+    part(.5,.56,.92,m.body,0,.86,0);
+    part(.46,.22,.82,m.belly,0,.62,0);
+    const neck=part(.24,.4,.26,m.body,0,1.18,-.44);neck.rotation.x=.35;
+    part(.3,.3,.4,m.head,0,1.36,-.62);
+    part(.14,.14,.18,m.belly,0,1.28,-.86);
+    part(.08,.2,.08,m.beard,0,1.14,-.8);
+    eyes(.1,1.42,-.825,m.eye);
+    for(const side of [-1,1]){
+      const horn=part(.07,.3,.07,m.horn,side*.09,1.6,-.56);horn.rotation.x=.5;
+      ear(side*.17,1.38,-.56,.12,.07,m.head,null,side*1.2);
+    }
+    for(const [side,back] of [[-1,-1],[1,-1],[-1,1],[1,1]])limb(side*.16,back*.3,.62,.13,m.leg,m.hoof);
+    const tail=part(.1,.14,.1,m.body,0,1.02,.48);tail.rotation.x=-.5;
+   } else if(type==='axolotl'){
+    // low and flat, feathery gills fanning off a wide head, a tail fin
+    part(.34,.22,.62,m.body,0,.2,0);
+    part(.3,.08,.54,m.belly,0,.1,0);
+    part(.4,.24,.3,m.body,0,.23,-.42);
+    eyes(.15,.28,-.575,m.eye);
+    for(const side of [-1,1]) for(let i=0;i<3;i++){
+      const p=new THREE.Group();p.position.set(side*.18,.28+(1-i)*.06,-.36+i*.05);p.rotation.z=side*(-.9+i*.45);g.add(p);
+      part(.05,.2,.05,m.gill,0,.1,0,p);
+    }
+    part(.06,.2,.52,m.fin,0,.24,.52);
+    for(const [side,back] of [[-1,-1],[1,-1],[-1,1],[1,1]])limb(side*.15,back*.2,.12,.06,m.leg,m.leg);
    } else {
     const profiles={pig:[.76,.49,1.05,.62,.46,.43,.42,.72,-.68,.34],sheep:[.88,.65,1.18,.81,.35,.4,.38,.9,-.76,.45],cow:[.86,.66,1.28,.94,.44,.45,.45,1.12,-.79,.59],horse:[.67,.69,1.38,1.15,.33,.43,.48,1.58,-.91,.8],wolf:[.44,.44,.85,.64,.36,.35,.38,.84,-.56,.42],rabbit:[.34,.34,.48,.35,.25,.26,.27,.48,-.29,.2],chicken:[.4,.4,.55,.44,.25,.29,.26,.75,-.28,.24],
       fox:[.36,.34,.82,.46,.3,.28,.34,.62,-.52,.26],
@@ -4102,12 +4430,12 @@ function spawnAnimal(type, x, y, z){
   scene.add(g);
   animals.push({
     kind: 'animal', type, group: g, legs,
-    hp: type === 'chicken' ? 4 : type === 'rabbit' ? 3 : type === 'horse' ? 22 : type === 'wolf' ? 8 :
+    hp: type === 'goat' ? 10 : type === 'axolotl' ? 7 : type === 'chicken' ? 4 : type === 'rabbit' ? 3 : type === 'horse' ? 22 : type === 'wolf' ? 8 :
         type === 'kangaroo' ? 12 : type === 'fox' ? 6 : type === 'llama' ? 15 : 10,
     pos: new THREE.Vector3(x, y, z), vel: new THREE.Vector3(),
-    w: type === 'chicken' ? 0.25 : type === 'rabbit' ? 0.2 : type === 'horse' ? 0.45 :
+    w: type === 'goat' ? 0.4 : type === 'axolotl' ? 0.3 : type === 'chicken' ? 0.25 : type === 'rabbit' ? 0.2 : type === 'horse' ? 0.45 :
        type === 'fox' ? 0.3 : type === 'llama' ? 0.42 : 0.4,
-    h: type==='gildhorn'?1.9:type==='frostpaw'?1.1:type==='duskmoth'?1.3:FANTASY.includes(type)?1.5:type === 'pig' ? 0.95 : type === 'sheep' ? 1.2 : type === 'cow' ? 1.4 :
+    h: type==='goat'?1.5:type==='axolotl'?0.42:type==='gildhorn'?1.9:type==='frostpaw'?1.1:type==='duskmoth'?1.3:FANTASY.includes(type)?1.5:type === 'pig' ? 0.95 : type === 'sheep' ? 1.2 : type === 'cow' ? 1.4 :
        type === 'horse' ? 1.6 : type === 'wolf' ? 1.0 : type === 'rabbit' ? 0.5 :
        type === 'kangaroo' ? 1.7 : type === 'fox' ? 0.75 : type === 'llama' ? 2.0 : 0.75,
     yaw: Math.random() * Math.PI * 2, speed: 0, t: 1 + Math.random() * 2,
@@ -4148,8 +4476,13 @@ function updateAnimalSpawns(dt){
   const a = Math.random() * Math.PI * 2, d = 25 + Math.random() * 45;
   const x = Math.floor(player.pos.x + Math.cos(a) * d), z = Math.floor(player.pos.z + Math.sin(a) * d);
   const h = findSurfaceY(x, z);
-  if(h < 0 || h <= SEA + 1 || h >= SNOW_H) return;
+  if(h < 0 || h <= SEA + 1) return;
   const ground = getBlock(x, h, z);
+  if(h >= 96){                                   // high mountains belong to the goats
+    if(ground === STONE || ground === SNOW || ground === GRASS) spawnAnimal('goat', x + 0.5, h + 1.05, z + 0.5);
+    return;
+  }
+  if(h >= SNOW_H) return;
   if(ground !== GRASS && ground !== SAVGRASS && ground !== SAND && ground !== SNOW &&
      ground !== AMBERGRASS && ground !== FROSTGRASS && ground !== DUSKGRASS &&
      ground !== REDSAND && ground !== PODZOL && ground !== TERRACOTTA &&
@@ -4192,6 +4525,7 @@ function updateAnimals(dt){
       }
     }
     if(e.type==='moonhopper'&&e.onGround&&e.speed>0)e.vel.y=5.5;
+    if(e.type==='goat'&&e.onGround&&e.speed>0&&Math.random()<dt*.3)e.vel.y=9.5;   // goats make big leaps
     if(FANTASY.includes(e.type)&&heldId()===BERRIES&&e.pos.distanceToSquared(player.pos)<144){
       const dx=player.pos.x-e.pos.x,dz=player.pos.z-e.pos.z;e.yaw=Math.atan2(-dx,-dz);e.speed=Math.hypot(dx,dz)>2?1.6:0;
     }
@@ -4199,8 +4533,8 @@ function updateAnimals(dt){
     animMob(e, dt);
     e.callT -= dt;
     if(e.callT <= 0){
-      e.callT = (e.type === 'cow' ? 20 : e.type === 'rabbit' ? 10 : e.type === 'wolf' ? 7 : 4)
-                + Math.random() * (e.type === 'cow' ? 18 : 6);
+      e.callT = (e.type === 'cow' ? 45 : e.type === 'rabbit' ? 10 : e.type === 'wolf' ? 7 : 4)
+                + Math.random() * (e.type === 'cow' ? 45 : 6);
       animalCall(e.type, e.pos, 'idle');
     }
   }
@@ -4281,6 +4615,22 @@ function updateZombieSpawns(dt, daylight){
   }
 }
 let netherSpawnT = 0;
+/* Axolotls turn up in the pools of lush caves while you are down there. */
+let caveSpawnT = 6;
+function updateCaveSpawns(dt){
+  caveSpawnT -= dt;
+  if(caveSpawnT > 0 || GEN_V < 2) return;
+  caveSpawnT = 4;
+  const px = Math.floor(player.pos.x), pz = Math.floor(player.pos.z), py = Math.floor(player.pos.y);
+  if(py > terrainHeight(px, pz) - 6) return;
+  if(animals.filter(a => a.type === 'axolotl').length >= 4) return;
+  for(let t = 0; t < 12; t++){
+    const x = px + Math.floor((Math.random() * 2 - 1) * 20), z = pz + Math.floor((Math.random() * 2 - 1) * 20);
+    if(!lushAt(x, z)) continue;
+    for(let y = py - 8; y <= py + 8; y++)
+      if(getBlock(x, y, z) === WATER && isSolid(getBlock(x, y - 1, z))){ spawnAnimal('axolotl', x + .5, y + .1, z + .5); return; }
+  }
+}
 /* Monster spawners: scan for SPAWNER blocks near the player and periodically
    spawn hostiles around them, like a real dungeon spawner. */
 let spawnerT = 0;
@@ -5757,6 +6107,10 @@ function punchEntity(e){
           spawnDropAt(p.x, p.y + 0.5, p.z, LEATHER, 1 + (Math.random() < 0.6 ? 1 : 0));
         } else if(e.type === 'wolf' || e.type === 'rabbit'){
           if(Math.random() < 0.5) spawnDropAt(p.x, p.y + 0.4, p.z, LEATHER);
+        } else if(e.type === 'kangaroo' || e.type === 'llama'){
+          spawnDropAt(p.x, p.y + 0.5, p.z, LEATHER, 1 + (Math.random() < 0.4 ? 1 : 0));
+        } else if(e.type === 'goat' || e.type === 'axolotl' || e.type === 'fox'){
+          // nothing, as in Minecraft
         } else {
           spawnDropAt(p.x, p.y + 0.4, p.z, CHICKENM);
           spawnDropAt(p.x + 0.2, p.y + 0.4, p.z, FEATHER);
@@ -5829,7 +6183,7 @@ function dropGeo(id){
 }
 function spawnDropAt(x, y, z, id, n = 1){
   if(drops.length >= 80){ scene.remove(drops[0].mesh); drops.shift(); }
-  const mat = !!ITEMS[id] ? matItemSolid : isCross(id) ? (id === TORCH || id===GLOWCRYSTAL ? matGC : matC) : isLeaf(id)?matLeaf:matO;
+  const mat = !!ITEMS[id] ? matItemSolid : isCross(id) ? (id === TORCH || emitsLight(id) ? matGC : matC) : isLeaf(id)?matLeaf:matO;
   const mesh = new THREE.Mesh(dropGeo(id), mat);
   scene.add(mesh);
   drops.push({
@@ -6028,12 +6382,14 @@ function loadAnimalAudio(){
   }catch(e){console.warn('Animal sound could not decode:',key);}
  }));return animalAudioLoading;
 }
+let cowQuietUntil=0;
 function animalCall(type,pos,mood='idle'){
  if(!AC||AC.state!=='running')return false;
  const dx=(pos?.x||0)-player.pos.x,dy=(pos?.y??player.pos.y)-player.pos.y,dz=(pos?.z||0)-player.pos.z,d=Math.hypot(dx,dy,dz);
  if(d>40)return false;const idle=mood==='idle';
  if(idle&&(animalVoices>=3||AC.currentTime<animalIdleAt))return false;
- const fantasy={mossling:['cow',.67],moonhopper:['pigHurt',1.65],crystalback:['wolf',.55]};
+ if(idle&&type==='cow'){if(AC.currentTime<cowQuietUntil)return false;cowQuietUntil=AC.currentTime+20;}   // a whole herd shares one moo
+ const fantasy={mossling:['cow',.67],moonhopper:['pigHurt',1.65],crystalback:['wolf',.55],goat:['sheep',.8],axolotl:['chicken',1.7]};
  const spec=fantasy[type];let key=spec?spec[0]:type;
  if(!idle&&type==='pig')key='pigHurt';if(!idle&&type==='wolf')key='wolfHurt';
  if(type==='rabbit'&&!idle)key='wolfHurt';
@@ -6041,7 +6397,7 @@ function animalCall(type,pos,mood='idle'){
  const source=AC.createBufferSource(),gain=AC.createGain(),pan=AC.createStereoPanner(),filter=AC.createBiquadFilter();source.buffer=buffer;
  const pitch=(spec?spec[1]:type==='rabbit'&&!idle?2.1:1)*(idle?1:mood==='die'?.85:1.16)*(.96+Math.random()*.08);
  source.playbackRate.value=pitch;filter.type='lowpass';filter.frequency.value=spec?1800:8000;
- const quiet=type==='cow'?.45:1;                      // moos carry far; keep them in the background
+ const quiet=type==='cow'?.2:1;                       // moos carry far; keep them well in the background
  const volume=(idle?.34:.5)*quiet/(1+d*.085);const duration=Math.min(buffer.duration, idle?3:1.1);
  gain.gain.setValueAtTime(0,AC.currentTime);gain.gain.linearRampToValueAtTime(volume,AC.currentTime+.015);gain.gain.setValueAtTime(volume,AC.currentTime+Math.max(.02,duration/pitch-.05));gain.gain.linearRampToValueAtTime(0,AC.currentTime+duration/pitch);
  pan.pan.value=Math.max(-1,Math.min(1,(dx*Math.cos(player.yaw)-dz*Math.sin(player.yaw))/Math.max(3,d)));
@@ -6423,7 +6779,7 @@ function setupConn(c){
                        : 'Connected! Close this menu and play together.');
     hapticPulse(null, 0.6, 80);
     if(voiceOn) placeVoiceCall(c.peer);
-    if(isHost) c.send(JSON.stringify({ t: 'world', seed: SEED, edits, fluid:[...fluidLevels], doors:[...doorState], tod: timeOfDay }));
+    if(isHost) c.send(JSON.stringify({ t: 'world', seed: SEED, gen: GEN_V, edits, fluid:[...fluidLevels], doors:[...doorState], tod: timeOfDay }));
   });
   c.on('data', d => { try { onNet(c, typeof d === 'string' ? JSON.parse(d) : d); } catch(e){} });
   c.on('close', () => {
@@ -6434,7 +6790,9 @@ function setupConn(c){
 }
 function onNet(c, m){
   if(m.t === 'world'){
-    if(m.seed !== SEED){
+    // the host's world was made with its own generator: build the same land
+    if(typeof m.gen === 'number'){ try { localStorage.setItem('blockcraft-save-' + m.seed + '-gen', String(m.gen)); } catch(e){} }
+    if(m.seed !== SEED || (typeof m.gen === 'number' && m.gen !== GEN_V)){
       // joiner hops into the host's world and reconnects automatically
       localStorage.setItem('blockcraft-last-seed', String(m.seed));
       localStorage.setItem('blockcraft-autojoin', (c.peer || '').replace(/^bcraft-/, ''));
@@ -6526,7 +6884,7 @@ function myPose(){
   return pose;
 }
 function heldItemMesh(id){
-  const mat = !!ITEMS[id] ? matItemSolid : isCross(id) ? (id === TORCH || id===GLOWCRYSTAL ? matGC : matC) : isLeaf(id)?matLeaf:matO;
+  const mat = !!ITEMS[id] ? matItemSolid : isCross(id) ? (id === TORCH || emitsLight(id) ? matGC : matC) : isLeaf(id)?matLeaf:matO;
   const m = new THREE.Mesh(dropGeo(id), mat);
   const tool = ITEMS[id] && ITEMS[id].tool;
   m.scale.setScalar(!!ITEMS[id] && tool ? 1.54 : id === FLINTSTEEL ? 1.26 : !!ITEMS[id] ? 1.8 : 0.76);
@@ -6693,8 +7051,8 @@ function sharedPlayers(){
   return out;
 }
 // spawn timers are per player, so each friend gets their own share of spawns
-const spawnTimers = () => [animalSpawnT, zSpawnT, villagerCheckT, golemCheckT, enderSpawnT, netherSpawnT, crawlerSpawnTimer, spawnerT];
-function setSpawnTimers(t){ [animalSpawnT, zSpawnT, villagerCheckT, golemCheckT, enderSpawnT, netherSpawnT, crawlerSpawnTimer, spawnerT] = t; }
+const spawnTimers = () => [animalSpawnT, zSpawnT, villagerCheckT, golemCheckT, enderSpawnT, netherSpawnT, crawlerSpawnTimer, spawnerT, caveSpawnT];
+function setSpawnTimers(t){ [animalSpawnT, zSpawnT, villagerCheckT, golemCheckT, enderSpawnT, netherSpawnT, crawlerSpawnTimer, spawnerT, caveSpawnT] = t; }
 function asPlayer(ctx, fn){
   if(!ctx) return fn();
   const saved = { pos: player.pos, vel: player.vel, mode, dead, damage, spawnDropAt, heldId, damageTool,
@@ -6705,7 +7063,7 @@ function asPlayer(ctx, fn){
   heldId = () => ctx.held || 0;
   damageTool = () => {};                          // their tool wears on their own machine
   triggerViewSwing = () => {};
-  setSpawnTimers(ctx.timers || [2, 3, 0, 0, 0, 0, 4, 0]);
+  setSpawnTimers(ctx.timers || [2, 3, 0, 0, 0, 0, 4, 0, 6]);
   mobCtx = ctx;
   try { return fn(); }
   finally {
@@ -6730,6 +7088,7 @@ function runMobsFor(dt, daylight){
     updateZombieSpawns(dt, daylight);
     updateVillagerSpawns(dt);
     updateGolemSpawns(dt);
+    updateCaveSpawns(dt);
   } else if(dim === 1){
     updateNetherSpawns(dt);
   }   // The End: no ambient spawns - just the dragon
@@ -6878,8 +7237,8 @@ function stepPuppets(dt){
     if(e.kind === 'animal'){
       e.callT = (e.callT === undefined ? 2 + Math.random() * 6 : e.callT) - dt;
       if(e.callT <= 0){
-        e.callT = (e.type === 'cow' ? 20 : e.type === 'rabbit' ? 10 : e.type === 'wolf' ? 7 : 4)
-                  + Math.random() * (e.type === 'cow' ? 18 : 6);
+        e.callT = (e.type === 'cow' ? 45 : e.type === 'rabbit' ? 10 : e.type === 'wolf' ? 7 : 4)
+                  + Math.random() * (e.type === 'cow' ? 45 : 6);
         animalCall(e.type, e.pos, 'idle');
       }
     } else if(e.kind === 'zombie' || e.kind === 'skeleton'){
@@ -7899,7 +8258,7 @@ function buildViewModel(){
   vmId = id;
   if(vmMesh){ viewModel.remove(vmMesh); vmMesh = null; }
   if(!id) return;                    // empty hand
-  const mat = !!ITEMS[id] ? matItemSolid : isCross(id) ? (id === TORCH || id===GLOWCRYSTAL ? matGC : matC) : isLeaf(id)?matLeaf:matO;
+  const mat = !!ITEMS[id] ? matItemSolid : isCross(id) ? (id === TORCH || emitsLight(id) ? matGC : matC) : isLeaf(id)?matLeaf:matO;
   vmMesh = new THREE.Mesh(dropGeo(id), mat);
   const tool = ITEMS[id] && ITEMS[id].tool;
   if(!!ITEMS[id] && tool){             // tools/weapons: bigger, angled like they're gripped
@@ -8424,7 +8783,7 @@ function vrBuildTool(){
   vrToolId = id;
   if(vrTool){ rightCtrl.remove(vrTool); vrTool = null; }
   if(!id) return;
-  const mat = !!ITEMS[id] ? matItemSolid : isCross(id) ? (id === TORCH || id===GLOWCRYSTAL ? matGC : matC) : isLeaf(id)?matLeaf:matO;
+  const mat = !!ITEMS[id] ? matItemSolid : isCross(id) ? (id === TORCH || emitsLight(id) ? matGC : matC) : isLeaf(id)?matLeaf:matO;
   vrTool = new THREE.Mesh(dropGeo(id), mat);
   const tool = ITEMS[id] && ITEMS[id].tool;
   vrTool.scale.setScalar(!!ITEMS[id] && tool ? 1.54 : id === FLINTSTEEL ? 1.26 : !!ITEMS[id] ? 1.8 : 0.76);
@@ -9271,7 +9630,8 @@ window.__bc = {
   mpNewCode, MP_ALPHABET, startHost, joinGame, destroyPeer, enableVoice, disableVoice,
   myPose, netMessage: m => onNet({ peer: 'test' }, m), remotes, stepNet: dt => updateNet(dt),
   setHost: v => { isHost = v; }, timeOfDay: () => timeOfDay,
-  stepMobWorld: (dt, dl) => runMobWorld(dt, dl), puppets, mobsFromHost: () => mobsFromHost(),
+  stepMobWorld: (dt, dl) => runMobWorld(dt, dl), GEN_V, caveCarve, caveNoise, lushAt, dripAt, geodeDef, genChunk, vnoise3,
+  puppets, mobsFromHost: () => mobsFromHost(),
   addTestConn: send => { const c = { open: true, send, peer: 'test', close(){} }; conns.push(c); return c; },
   dropTestConns: () => { conns = conns.filter(c => c.peer !== 'test'); },
   mobLists: () => Object.fromEntries(MOB_LISTS.map(([k, l]) => [k, l.length])),
