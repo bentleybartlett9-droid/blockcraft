@@ -888,7 +888,7 @@ const BONE=455, BONE_MEAL=456, SHIELD=454, ROD=447, COD=448, SALMON=449, COOKED_
 const EGG_RUN = 37, EGG_EXTRA = 479;          // eggs past the first 37 carry on from 479
 const eggId = i => i < EGG_RUN ? EGG_BASE + i : EGG_EXTRA + i - EGG_RUN, eggIcon = i => i < EGG_RUN ? 120 + i : i === EGG_RUN ? 175 : 180 + i - EGG_RUN;
 const eggMob = id => { const i = id >= EGG_BASE && id < EGG_BASE + EGG_RUN ? id - EGG_BASE : id >= EGG_EXTRA ? EGG_RUN + id - EGG_EXTRA : -1; return i >= 0 && i < SPAWN_EGGS.length ? SPAWN_EGGS[i][0] : null; };
-const SLIMEBALL=477, SLIME_BLOCK=478, LANTERN=490, CAMPFIRE=491, BEEHIVE=492, BEEHIVE_FULL=493, HONEY_BOTTLE=494, HONEYCOMB=495, FENCE=496, GATE=497, GATE_OPEN=498, SHEARS=499, TRIDENT=500, JUKEBOX=501, DISC_1=502;   // 502-505: music discs
+const SLIMEBALL=477, SLIME_BLOCK=478, LANTERN=490, CAMPFIRE=491, BEEHIVE=492, BEEHIVE_FULL=493, HONEY_BOTTLE=494, HONEYCOMB=495, FENCE=496, GATE=497, GATE_OPEN=498, SHEARS=499, TRIDENT=500, JUKEBOX=501, DISC_1=502, MAP=506;   // 502-505: music discs
 const isFenceish = id => id === FENCE || id === GATE || id === GATE_OPEN;
 const hivesSeen = new Set();           // "x,y,z" of overworld hives the mesher has seen
 const campfires = new Set();            // "dim:x,y,z" of campfires the mesher has seen
@@ -1179,6 +1179,7 @@ ITEMS[SADDLE]={name:'Saddle',icon:100};
 SPAWN_EGGS.forEach(([, name], i) => { ITEMS[eggId(i)] = { name: name + ' Spawn Egg', icon: eggIcon(i) }; });
 ITEMS[SLIMEBALL]={name:'Slimeball',icon:176};BLOCKS[LANTERN]={name:'Lantern',all:273};BLOCKS[FENCE]={name:'Fence',all:279};BLOCKS[GATE]={name:'Fence Gate',all:280};BLOCKS[GATE_OPEN]={name:'Fence Gate',all:280};BLOCKS[BEEHIVE]={name:'Beehive',top:277,bottom:277,side:276};BLOCKS[BEEHIVE_FULL]={name:'Beehive',top:277,bottom:277,side:278};
 ITEMS[HONEY_BOTTLE]={name:'Honey Bottle',icon:177,food:6};ITEMS[SHEARS]={name:'Shears',icon:179,tool:{type:'shears',tier:2}};BLOCKS[JUKEBOX]={name:'Jukebox',top:282,bottom:281,side:281};
+ITEMS[MAP]={name:'Map',icon:188};
 ['Meadow','Caverns','Lanterns','Stormchase'].forEach((n, i) => { ITEMS[DISC_1 + i] = { name: 'Music Disc - ' + n, icon: 184 + i }; });ITEMS[TRIDENT]={name:'Trident',icon:180,tool:{type:'trident',tier:3}};ITEMS[HONEYCOMB]={name:'Honeycomb',icon:178};BLOCKS[CAMPFIRE]={name:'Campfire',top:275,bottom:275,side:274};BLOCKS[SLIME_BLOCK]={name:'Slime Block',all:272};
 ITEMS[APPLE]={name:'Apple',icon:167,food:4};ITEMS[GOLDEN_APPLE]={name:'Golden Apple',icon:168,food:4};ITEMS[CARROT]={name:'Carrot',icon:169,food:3,plant:CARROT0};
 ITEMS[POTATO]={name:'Potato',icon:170,food:1,plant:POTATO0};ITEMS[BAKED_POTATO]={name:'Baked Potato',icon:171,food:5};ITEMS[MILK]={name:'Milk Bucket',icon:172};
@@ -1409,7 +1410,7 @@ RECIPES.push({out:[SHIELD,1],in:[[ANY_PLANK,6],[IRONI,1]],st:'table'},{out:[ROD,
   {out:[COOKED_SALMON,1],in:[[SALMON,1],[COALI,1]],st:'furnace'});
 RECIPES.push({out:[CAKE,1],in:[[MILK,3],[SUGAR,2],[EGG,1],[WHEATITEM,3]],st:'table',back:[[BUCKET,3]]},{out:[SUGAR,1],in:[[REEDS,1]]},
   {out:[GOLDEN_APPLE,1],in:[[APPLE,1],[GOLDI,8]],st:'table'},{out:[BAKED_POTATO,1],in:[[POTATO,1],[COALI,1]],st:'furnace'});
-RECIPES.push({out:[SHEARS,1],in:[[IRONI,2]],st:'table'},{out:[JUKEBOX,1],in:[[ANY_PLANK,8],[DIAMI,1]],st:'table'});
+RECIPES.push({out:[MAP,1],in:[[PAPER,8],[IRONI,1]],st:'table'},{out:[SHEARS,1],in:[[IRONI,2]],st:'table'},{out:[JUKEBOX,1],in:[[ANY_PLANK,8],[DIAMI,1]],st:'table'});
 RECIPES.push({out:[FENCE,3],in:[[ANY_PLANK,4],[STICK,2]],st:'table'},{out:[GATE,1],in:[[STICK,4],[ANY_PLANK,2]],st:'table'});
 RECIPES.push({out:[BEEHIVE,1],in:[[ANY_PLANK,6],[HONEYCOMB,3]],st:'table'});
 RECIPES.push({out:[LANTERN,1],in:[[IRONI,1],[TORCH,1]],st:'table'},
@@ -1447,7 +1448,7 @@ function mulberry32(a){
 const atlas = document.createElement('canvas');
 atlas.width = ATLAS_W; atlas.height = ATLAS_H;
 const itemAtlas = document.createElement('canvas');
-itemAtlas.width = 128; itemAtlas.height = 384;
+itemAtlas.width = 128; itemAtlas.height = 512;   // 256 icons
 {
   const tn = (x, y, s, salt) => vnoise(x * s + 37.7, y * s + 11.3, 5000 + salt);
   const pick = (v, shades) => shades[Math.max(0, Math.min(shades.length - 1, Math.floor(v * shades.length)))];
@@ -2934,6 +2935,8 @@ const tileAvg = [];
     for(let y = 0; y < 16; y++) for(let x = 0; x < 16; x++){ const d = Math.hypot(x - 7.5, y - 7.5); if(d < 7.2 && d >= 3) ring.push([x, y]); else if(d < 3 && d >= 1) lab.push([x, y]); }
     px(184 + i, [['#1c1c20', ring], [c, lab], [l, [[5, 6], [6, 5]]], ['#44444c', [[3, 5], [4, 4], [11, 11], [10, 12]]]]);
   });
+  px(188, [['#e8dcb8', [[2, 2, 12, 12]]], ['#c8b890', [[2, 2, 12, 1], [2, 13, 12, 1], [2, 2, 1, 12], [13, 2, 1, 12]]], ['#5a9a48', [[4, 4, 4, 3], [9, 8, 3, 4], [4, 9, 2, 2]]],
+            ['#4a7ac8', [[8, 4, 4, 3], [4, 7, 3, 2]]], ['#d03030', [[7, 7, 2, 2]]]]);
   px(179, [['#c8ccd2', [[3, 2, 2, 7], [5, 3, 1, 5], [11, 2, 2, 7], [10, 3, 1, 5]]], ['#e8ecf0', [[4, 2, 1, 5], [11, 3, 1, 4]]], ['#8a8f96', [[7, 8, 2, 2]]],
             ['#a03028', [[3, 10, 4, 4], [9, 10, 4, 4]]], ['#c84a3a', [[4, 11, 2, 2], [10, 11, 2, 2]]]]);
   px(177, [['#c8e0e8', [[5, 3, 6, 2], [4, 5, 8, 9], [5, 14, 6, 1]]], ['#f0a820', [[5, 7, 6, 7]]], ['#ffd050', [[6, 8, 2, 3]]], ['#8a6030', [[6, 1, 4, 2]]]]);
@@ -14877,6 +14880,118 @@ function updateBees(dt){
   hiveSaveT -= dt;
   if(hiveSaveT <= 0){ hiveSaveT = 10; if(hivesDirty) saveHives(); }
 }
+/* ================================ MAPS ================================
+   A map (8 paper and an iron ingot) shows the land around you from above,
+   north at the top, redrawn as you walk. Hold it: in VR it lies in your
+   hand, on a screen it sits at the bottom of your view. The white arrow is
+   you, the red dot your bed, blue dots other players, gold dots your wolves. */
+const MAP_N = 128;
+const mapBase = document.createElement('canvas'); mapBase.width = mapBase.height = MAP_N;
+const mapShow = document.createElement('canvas'); mapShow.width = mapShow.height = MAP_N;
+const mapTmp = document.createElement('canvas'); mapTmp.width = mapTmp.height = MAP_N;
+const mbx = mapBase.getContext('2d'), msx = mapShow.getContext('2d');
+mbx.fillStyle = '#6b5a3c'; mbx.fillRect(0, 0, MAP_N, MAP_N);
+const mapTex = new THREE.CanvasTexture(mapShow);
+mapTex.magFilter = THREE.NearestFilter; mapTex.minFilter = THREE.NearestFilter; mapTex.colorSpace = THREE.SRGBColorSpace;
+function makeMapMesh(){
+  const g = new THREE.Group();
+  g.add(new THREE.Mesh(new THREE.PlaneGeometry(1.08, 1.08), new THREE.MeshBasicMaterial({ color: 0xd8c898 })));
+  const face = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: mapTex }));
+  face.position.z = 0.003; g.add(face);
+  return g;
+}
+const mapFlat = makeMapMesh(); mapFlat.scale.setScalar(0.3); mapFlat.position.set(0, -0.2, -0.5); mapFlat.rotation.x = -0.55; mapFlat.visible = false;
+camera.add(mapFlat);
+const mapVR = makeMapMesh(); mapVR.scale.setScalar(0.2); mapVR.visible = false;
+let mapVRAttached = false, mapCx = null, mapCz = null, mapRow = 0, mapImg = null;
+const mapCols = new Map();
+// a block's colour on the map: the average of its top texture
+function mapColour(id){
+  let c = mapCols.get(id);
+  if(c) return c;
+  if(!mapImg) mapImg = atlas.getContext('2d').getImageData(0, 0, atlas.width, atlas.height).data;
+  const t = BLOCKS[id] ? tileFor(id, 3) : 0, ox = (t % 8) * 16, oy = ((t / 8) | 0) * 16;
+  let r = 0, g = 0, b = 0, n = 0;
+  for(let y = 0; y < 16; y++) for(let x = 0; x < 16; x++){
+    const o = ((oy + y) * atlas.width + ox + x) * 4;
+    if(mapImg[o + 3] < 40) continue;
+    r += mapImg[o]; g += mapImg[o + 1]; b += mapImg[o + 2]; n++;
+  }
+  c = n ? [r / n, g / n, b / n] : [120, 120, 120];
+  if(id === WATER) c = [52, 92, 200];
+  if(id === LAVA) c = [230, 110, 20];
+  mapCols.set(id, c);
+  return c;
+}
+const mapH = new Int16Array(MAP_N * MAP_N);
+// draw n rows of the map, reading only chunks that are loaded; the map remembers the rest as you explore
+function mapRows(n){
+  const img = mbx.getImageData(0, mapRow, MAP_N, n), d = img.data;
+  const py = Math.floor(player.pos.y), top = Math.min(HEIGHT - 1, py + 40), bot = Math.max(1, py - 48);
+  for(let ry = 0; ry < n; ry++){
+    const row = mapRow + ry, wz = mapCz - MAP_N / 2 + row, lz = (wz & 15) << 4;
+    let lastCx = null, data = null;
+    for(let rx = 0; rx < MAP_N; rx++){
+      const wx = mapCx - MAP_N / 2 + rx, o = (ry * MAP_N + rx) * 4, cx = wx >> 4;
+      if(cx !== lastCx){ lastCx = cx; const c = chunks.get(cx + ',' + (wz >> 4)); data = c && c.data; }
+      if(!data){ mapH[row * MAP_N + rx] = -1; continue; }                     // not loaded: keep whatever was drawn there before
+      const col = lz | (wx & 15);
+      let y = top, id = AIR;
+      for(; y >= bot; y--){ id = data[(y << 8) | col]; if(id !== AIR && !isCross(id)) break; }
+      mapH[row * MAP_N + rx] = y;
+      let c = mapColour(id), k = 1;
+      if(id === WATER){ let dep = 0; while(dep < 8 && y - dep - 1 > 0 && data[((y - dep - 1) << 8) | col] === WATER) dep++; k = 1.15 - dep * 0.07; }
+      else {
+        const nh = row > 0 ? mapH[(row - 1) * MAP_N + rx] : y;           // shade by the slope to the north, as Minecraft maps do
+        k = nh < 0 ? 1 : y > nh ? 1.12 : y < nh ? 0.82 : 1;
+      }
+      d[o] = Math.min(255, c[0] * k); d[o + 1] = Math.min(255, c[1] * k); d[o + 2] = Math.min(255, c[2] * k); d[o + 3] = 255;
+    }
+  }
+  mbx.putImageData(img, 0, mapRow);
+  mapRow = (mapRow + n) % MAP_N;
+}
+function mapDot(wx, wz, col, r){
+  const x = wx - mapCx + MAP_N / 2, y = wz - mapCz + MAP_N / 2;
+  if(x < 0 || y < 0 || x >= MAP_N || y >= MAP_N) return;
+  msx.fillStyle = '#000'; msx.fillRect(x - r - 0.5, y - r - 0.5, r * 2 + 1, r * 2 + 1);
+  msx.fillStyle = col; msx.fillRect(x - r, y - r, r * 2, r * 2);
+}
+function updateMap(dt){
+  const holding = inGame && !dead && heldId() === MAP && dim !== 1;
+  if(xrActive){
+    if(!mapVRAttached && rightCtrl){ rightCtrl.add(mapVR); mapVR.position.set(0, 0.04, -0.14); mapVR.rotation.set(-1.1, 0, 0); mapVRAttached = true; }
+    mapVR.visible = holding; mapFlat.visible = false;
+    if(typeof vrTool !== 'undefined' && vrTool) vrTool.visible = !holding;
+  } else {
+    mapFlat.visible = holding; mapVR.visible = false;
+    if(vmMesh) vmMesh.visible = !holding;
+  }
+  if(!holding) return;
+  const cx = Math.floor(player.pos.x), cz = Math.floor(player.pos.z);
+  if(mapCx === null || Math.abs(cx - mapCx) > MAP_N / 2 || Math.abs(cz - mapCz) > MAP_N / 2){ mapCx = cx; mapCz = cz; mapRow = 0; mapRows(MAP_N / 4); }
+  else if(cx !== mapCx || cz !== mapCz){
+    // slide what we already drew, so only the new edge needs filling in
+    const tx = mapTmp.getContext('2d');
+    tx.clearRect(0, 0, MAP_N, MAP_N); tx.drawImage(mapBase, 0, 0);
+    mbx.fillStyle = '#3c3226'; mbx.fillRect(0, 0, MAP_N, MAP_N);
+    mbx.drawImage(mapTmp, mapCx - cx, mapCz - cz);
+    mapCx = cx; mapCz = cz;
+  }
+  mapRows(xrActive ? 3 : 4);
+  // the markers
+  msx.drawImage(mapBase, 0, 0);
+  if(bedSpawn) mapDot(bedSpawn.x, bedSpawn.z, '#e03030', 2);
+  for(const a of animals) if(a.tamed) mapDot(a.pos.x, a.pos.z, '#f0c040', 1);
+  for(const r of remotes.values()) if(r.t && (r.dim | 0) === dim) mapDot(r.t.x, r.t.z, '#4a8af0', 2);
+  const look = camera.getWorldDirection(new THREE.Vector3());               // where your head points, VR or not
+  msx.save(); msx.translate(MAP_N / 2, MAP_N / 2); msx.rotate(Math.atan2(look.x, -look.z));
+  msx.fillStyle = '#000'; msx.beginPath(); msx.moveTo(0, -6); msx.lineTo(4.5, 4.5); msx.lineTo(0, 2.5); msx.lineTo(-4.5, 4.5); msx.closePath(); msx.fill();
+  msx.fillStyle = '#fff'; msx.beginPath(); msx.moveTo(0, -5); msx.lineTo(3.5, 3.5); msx.lineTo(0, 1.8); msx.lineTo(-3.5, 3.5); msx.closePath(); msx.fill();
+  msx.restore();
+  msx.fillStyle = '#b02020'; msx.font = 'bold 9px sans-serif'; msx.fillText('N', MAP_N / 2 - 3, 9);
+  mapTex.needsUpdate = true;
+}
 /* ============================== JUKEBOX ==============================
    A jukebox (8 planks and a diamond) plays music discs - found in dungeon
    chests, or now and then dropped by a creeper. Each disc is its own tune,
@@ -16013,6 +16128,7 @@ function animate(){
   updateSeaLife(dt);
   updateBees(dt);
   updateJukes(dt);
+  updateMap(dt);
   if(inGame && ((xpT = (xpT || 0) - dt) <= 0)){ xpT = 1; renderXP(); }
   updateAmbience(dt);
   checkMusicMood(dt);
@@ -16364,6 +16480,7 @@ window.__bc = {
             fx: { clearInv: () => { for(const q of survInv){ q.id = 0; q.count = 0; q.dur = 0; } renderHotbar(); }, effects, drink: id => drinkPotion(id), step: dt => updateEffects(dt), light: lightAtPlayer, mood: () => musicMood(), sub: showSubtitle, POTIONS },
             xp: { add: addXP, level: () => xpLevel, points: () => xpPoints, drop: dropXP, orbs: xpOrbs, offers: enchantOffers, enchant: doEnchant, setTable: t => { enchantAt = t; }, heldEnch, stackName, armourEnch },
             fence: { gate: useGate },
+            map: { step: dt => updateMap(dt), canvas: mapShow, base: mapBase },
             juke: { use: useJukebox, list: jukes, step: dt => updateJukes(dt), DISCS },
             trident: { throw: throwTrident, mesh: makeTridentMesh },
             shears: { use: useShears, regrow: regrowWool },
