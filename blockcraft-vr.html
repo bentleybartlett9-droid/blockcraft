@@ -365,17 +365,20 @@ const SEED = parseSeed(seedRaw);
 localStorage.setItem('blockcraft-last-seed', String(SEED));
 /* Which world generator this world was made with. Caves & Cliffs (2) reshapes
    mountains and everything underground, so a world saved before it keeps the
-   land it was built on (1) and only new worlds get the new terrain. */
+   land it was built on (1) and only new worlds get the new terrain. Generator
+   3 lays biomes out as regions you can walk between and fills in the woods;
+   a world made before it keeps its biomes and trees, so nothing grows into
+   anyone's house. */
 const GEN_V = (() => {
   const k = 'blockcraft-save-' + SEED + '-gen';
   try {
     const v = +localStorage.getItem(k);
     if(v) return v;
     const old = localStorage.getItem('blockcraft-save-' + SEED) || localStorage.getItem('blockcraft-save-' + SEED + '-inv');
-    const g = old ? 1 : 2;
+    const g = old ? 1 : 3;
     localStorage.setItem(k, String(g));
     return g;
-  } catch(e){ return 2; }
+  } catch(e){ return 3; }
 })();
 // Caves & Cliffs worlds are 224 tall so mountains can climb past the clouds;
 // older worlds stay 144 tall with the snow line where it always was
@@ -516,7 +519,44 @@ function cavernDef(gx,gz){
  cavernCache.set(key,c);return c;
 }
 function cavernsNear(x,z){const result=[];const gx=Math.floor(x/80),gz=Math.floor(z/80);for(let dx=-1;dx<=1;dx++)for(let dz=-1;dz<=1;dz++){const c=cavernDef(gx+dx,gz+dz);if(c)result.push(c);}return result;}
+/* Generator 3: the world is split into regions a few hundred blocks across,
+   each one biome, with wavy borders. Climate still decides the neighbours -
+   snow beside taiga, jungle beside savanna - but within each climate every
+   biome gets its fair share, so there is always another one over the hill. */
+const BIOME_CELL = 290;
+const BIOME_GROUPS = {
+  cold: [['snowy', 2.2], ['taiga', 3], ['frostvale', 2.2]],
+  mild: [['plains', 3.4], ['forest', 2.5], ['birch', 2], ['cherry-grove', 2], ['maple-woods', 2], ['willow-marsh', 1.6], ['swamp', 1.6], ['duskhollow', 1.8]],
+  hot:  [['desert', 2.2], ['savanna', 2.2], ['jungle', 2.4], ['badlands', 0.45], ['outback', 1.6], ['amberfield', 1.8]],
+};
+const biomeCells = new Map();
+function biomeCell(gx, gz){
+  const k = gx + ',' + gz;
+  let c = biomeCells.get(k);
+  if(c) return c;
+  const x = (gx + 0.15 + hash(gx, gz, 8101) * 0.7) * BIOME_CELL, z = (gz + 0.15 + hash(gx, gz, 8102) * 0.7) * BIOME_CELL;
+  const t = vnoise(x * 0.0011 + 17, z * 0.0011 - 5, 8103);
+  const group = BIOME_GROUPS[t < 0.37 ? 'cold' : t > 0.62 ? 'hot' : 'mild'];
+  let r = hash(gx, gz, 8104) * group.reduce((a, g) => a + g[1], 0), biome = group[0][0];
+  for(const [name, w] of group){ if((r -= w) < 0){ biome = name; break; } }
+  c = { x, z, biome };
+  if(biomeCells.size > 20000) biomeCells.clear();
+  biomeCells.set(k, c);
+  return c;
+}
 function biomeAt(x, z){
+  if(GEN_V < 3) return biomeAtOld(x, z);
+  const wx = x + (vnoise(x * 0.006, z * 0.006, 91) - 0.5) * 110 + (vnoise(x * 0.02, z * 0.02, 95) - 0.5) * 24;
+  const wz = z + (vnoise(x * 0.006 + 77, z * 0.006 - 31, 93) - 0.5) * 110 + (vnoise(x * 0.02 + 9, z * 0.02 + 3, 97) - 0.5) * 24;
+  const gx = Math.floor(wx / BIOME_CELL), gz = Math.floor(wz / BIOME_CELL);
+  let best = null, bd = Infinity;
+  for(let a = -1; a <= 1; a++) for(let b = -1; b <= 1; b++){
+    const c = biomeCell(gx + a, gz + b), d = (c.x - wx) ** 2 + (c.z - wz) ** 2;
+    if(d < bd){ bd = d; best = c; }
+  }
+  return best.biome;
+}
+function biomeAtOld(x, z){
   // low-frequency smooth fields -> large contiguous regions; domain warp -> organic borders
   const wx = x + (vnoise(x * 0.004, z * 0.004, 91) - 0.5) * 160;
   const wz = z + (vnoise(x * 0.004 + 77, z * 0.004 - 31, 93) - 0.5) * 160;
@@ -575,6 +615,7 @@ function terraBand(y){
 function clearing(x, z, wooded){
   const n = vnoise(x * 0.0045 + 419, z * 0.0045 - 257, 611);
   // real woods only open into the odd small glade; the grasslands get the wide meadows
+  if(GEN_V < 3){ if(n < 0.44) return 0; return Math.min(1, (n - 0.44) / 0.16); }   // as older worlds were made
   const edge = wooded === 2 ? 0.22 : wooded === 1 ? 0.32 : 0.4, soft = wooded === 2 ? 0.08 : 0.14;
   if(n < edge) return 0;                            // open meadow
   return Math.min(1, (n - edge) / soft);            // soft edge into the trees
@@ -589,20 +630,21 @@ function treeAt(x, z){
   const b = biomeAt(x, z);
   const open = clearing(x, z, WOODED.has(b) ? 2 : TREED.has(b) ? 1 : 0);
   if(open <= 0) return null;
-  const p = b === 'amberfield' ? 0.018 : b === 'frostvale' ? 0.020 : b === 'duskhollow' ? 0.026 :
+  const v3 = GEN_V >= 3;
+  const p = b === 'amberfield' ? (v3 ? 0.018 : 0.012) : b === 'frostvale' ? 0.020 : b === 'duskhollow' ? 0.026 :
             ['cherry-grove','maple-woods','willow-marsh'].includes(b) ? .024 : b === 'jungle' ? 0.028 : b === 'forest' ? 0.022 : b === 'birch' ? 0.016 :
-            b === 'taiga' ? 0.026 : b === 'outback' ? 0.009 :
-            b === 'snowy' ? 0.013 : b === 'swamp' ? 0.02 : b === 'plains' ? TREE_P :
-            b === 'savanna' ? 0.006 : 0;
+            b === 'taiga' ? 0.026 : b === 'outback' ? (v3 ? 0.009 : 0.006) :
+            b === 'snowy' ? (v3 ? 0.013 : 0.008) : b === 'swamp' ? (v3 ? 0.02 : 0.007) : b === 'plains' ? (v3 ? TREE_P : 0.005) :
+            b === 'savanna' ? (v3 ? 0.006 : 0.003) : 0;
   if(r >= p * open) return null;
   const type = b==='amberfield'?'sunwood':b==='frostvale'?'rimewood':b==='duskhollow'?'duskwood':
-               b==='cherry-grove'?'cherry':b==='maple-woods'?'maple':b==='willow-marsh'?'willow':b==='outback'?'gum':
+               b==='cherry-grove'?'cherry':b==='maple-woods'?'maple':b==='willow-marsh'?'willow':b==='outback'?(GEN_V >= 3 && hash(x, z, 8511) < 0.4 ? 'boab' : 'gum'):
                b === 'snowy' || b === 'taiga' ? 'spruce' : b === 'birch' ? 'birch' :
                b === 'jungle' ? 'jungle' : b === 'savanna' ? 'savanna' : 'oak';
   const th = type==='sunwood'?5+Math.floor(hash(x,z,778)*2):
              type==='rimewood'?6+Math.floor(hash(x,z,778)*3):
              type==='duskwood'?7+Math.floor(hash(x,z,778)*3):
-             type==='gum'?6+Math.floor(hash(x,z,778)*3):type==='willow'?6:type==='cherry'?4:type==='maple'?7:type === 'jungle' ? 7 + Math.floor(hash(x, z, 778) * 4) :
+             type==='boab'?3+Math.floor(hash(x,z,778)*2):type==='gum'?6+Math.floor(hash(x,z,778)*3):type==='willow'?6:type==='cherry'?4:type==='maple'?7:type === 'jungle' ? 7 + Math.floor(hash(x, z, 778) * 4) :
              type === 'savanna' ? 4 + Math.floor(hash(x, z, 778) * 2) :
              4 + Math.floor(hash(x, z, 778) * 3) + (type === 'spruce' ? 1 : 0);
   return { h, th, type };
@@ -807,7 +849,7 @@ const PURPUR=335, PURPUR_PILLAR=336, ENDSTONE_BRICK=337, END_ROD=338, CHORUS_PLA
 const STORMSTONE=347, SKYGRASS=348, CLOUD=349, VOLTITE_ORE=350, STORM_PORTAL=351, CONDUIT=352, CONDUIT_LIT=353, STORM_BRICK=354;
 const STORMKEY_I=391, VOLTITE=392, TEMPEST_HEART=393, STORMBREAKER=394, VOLT_PICK=395;
 /* Brewing */
-const BREWING=355;
+const BREWING=355, BOAB_LOG=356;
 const GLASS_BOTTLE=396, WATER_BOTTLE=397, AWKWARD=398, POT_HEAL=399, POT_FIRE=400, POT_STR=401, POT_SPEED=402,
       POT_REGEN=403, POT_NIGHT=404, POT_SLOW=405;
 // what each potion does, for how long (seconds), and its colour
@@ -865,7 +907,7 @@ const EXTRA_WOODS=[{log:CHERRYLOG,plank:CHERRYPLANK,leaves:CHERRYLEAVES,name:'Ch
  {log:RIMELOG,plank:RIMEPLANK,leaves:RIMELEAVES,name:'Rimewood',bark:[206,216,226],wood:[224,232,240],leaf:[158,214,232]},
  {log:DUSKLOG,plank:DUSKPLANK,leaves:DUSKLEAVES,name:'Duskwood',bark:[68,52,86],wood:[118,96,140],leaf:[186,96,196]}];
 const isLeaf=id=>id===LEAVES||id===SPRUCELEAVES||EXTRA_WOODS.some(w=>w.leaves===id);
-const isLog=id=>[LOG,BIRCHLOG,SPRUCELOG,JUNGLELOG,...EXTRA_WOODS.map(w=>w.log)].includes(id);
+const isLog=id=>id===356||[LOG,BIRCHLOG,SPRUCELOG,JUNGLELOG,...EXTRA_WOODS.map(w=>w.log)].includes(id);   // 356: boab
 const ANY_PLANK = [7, 39, 40, 41, CHERRYPLANK, MAPLEPLANK, WILLOWPLANK, GUMPLANK, SUNPLANK, RIMEPLANK, DUSKPLANK, CRIM_PLANK, WARP_PLANK];   // oak, birch, spruce, jungle planks (recipe group)
 const T = {GRASS_TOP:0,GRASS_SIDE:1,DIRT:2,STONE:3,SAND:4,LOG_SIDE:5,LOG_TOP:6,LEAVES:7,PLANK:8,BRICK:9,SNOW:10,GLASS:11,WATER:12,
            GLOW:13,COAL:14,IRON:15,GOLD:16,DIAMOND:17,TGRASS:18,POPPY:19,DANDELION:20,DIAMB:21,
@@ -882,7 +924,7 @@ const T = {GRASS_TOP:0,GRASS_SIDE:1,DIRT:2,STONE:3,SAND:4,LOG_SIDE:5,LOG_TOP:6,L
            DOOR_T:82,DOORTOP_T:83,
            ENDSTONE_T:84,ENDPORTAL_T:85,DRAGONEGG_T:86,ENDCRYSTAL_T:87,
            SPAWNER_T:88,RAIL_T:89,COBWEB_T:90,CRACKED_T:91,MOSSYBRICK_T:92,IRONBARS_T:93};
-const ATLAS_COLS = 8, ATLAS_W = 128, ATLAS_H = 512;
+const ATLAS_COLS = 8, ATLAS_W = 128, ATLAS_H = 640;
 const BLOCKS = {
   [GRASS]:{name:'Grass',  top:T.GRASS_TOP, bottom:T.DIRT, side:T.GRASS_SIDE},
   [DIRT] :{name:'Dirt',   all:T.DIRT},
@@ -988,6 +1030,7 @@ EXTRA_WOODS.forEach((w,i)=>{
 const SAPLING_OF={[LEAVES]:SAP_OAK,[SPRUCELEAVES]:SAP_SPRUCE};
 const SAPLING_FOR_LOG={[LOG]:SAP_OAK,[BIRCHLOG]:SAP_BIRCH,[SPRUCELOG]:SAP_SPRUCE,[JUNGLELOG]:SAP_JUNGLE};
 const SAPLING_TREE={[SAP_OAK]:'oak',[SAP_BIRCH]:'birch',[SAP_SPRUCE]:'spruce',[SAP_JUNGLE]:'jungle'};
+SAPLING_FOR_LOG[356]=EXTRA_WOODS.find(w=>w.log===GUMLOG).sapling;   // a felled boab leaves gum saplings, from the gum leaves it carries
 EXTRA_WOODS.forEach(w=>{ SAPLING_OF[w.leaves]=w.sapling; SAPLING_FOR_LOG[w.log]=w.sapling;
                          SAPLING_TREE[w.sapling]=w.name.toLowerCase(); });
 const isSapling=id=>id===SAP_OAK||id===SAP_BIRCH||id===SAP_SPRUCE||id===SAP_JUNGLE||EXTRA_SAPS.includes(id);
@@ -1030,7 +1073,7 @@ BLOCKS[CRYING_OBSIDIAN]={name:'Crying Obsidian',all:241};
 BLOCKS[STORMSTONE]={name:'Stormstone',all:246};BLOCKS[SKYGRASS]={name:'Skygrass',top:247,bottom:246,side:248};BLOCKS[CLOUD]={name:'Cloud',all:249};
 BLOCKS[VOLTITE_ORE]={name:'Voltite Ore',all:250};BLOCKS[STORM_PORTAL]={name:'Storm Portal',all:251};
 BLOCKS[CONDUIT]={name:'Storm Conduit',all:252};BLOCKS[CONDUIT_LIT]={name:'Armed Storm Conduit',all:253};BLOCKS[STORM_BRICK]={name:'Stormstone Bricks',all:254};
-BLOCKS[BREWING]={name:'Brewing Stand',all:255};
+BLOCKS[BREWING]={name:'Brewing Stand',all:255};BLOCKS[BOAB_LOG]={name:'Boab Log',top:257,bottom:257,side:256};
 BLOCKS[ANCHOR]={name:'Respawn Anchor',top:243,bottom:242,side:242};BLOCKS[ANCHOR_LIT]={name:'Respawn Anchor',top:244,bottom:242,side:245};
 BLOCKS[MOSS]={name:'Moss Block',all:171};BLOCKS[AZALEA]={name:'Azalea',all:172};BLOCKS[AZALEA_F]={name:'Flowering Azalea',all:173};
 BLOCKS[GLOWVINE]={name:'Glow Berries',all:174};BLOCKS[CAVEVINE]={name:'Cave Vines',all:175};BLOCKS[DRIPLEAF]={name:'Small Dripleaf',all:176};
@@ -1311,6 +1354,7 @@ RECIPES.push({out:[COPPERI,1],in:[[COPPERO,1],[COALI,1]],st:'furnace'},{out:[COP
 RECIPES.push({out:[STORMKEY_I,1],in:[[NETHERITE,1],[EYE_ENDER,1],[COPPERI,4]],st:'table'},
   {out:[STORMBREAKER,1],in:[[NSWORD,1],[TEMPEST_HEART,1],[VOLTITE,4]],st:'table'},{out:[VOLT_PICK,1],in:[[NPICK,1],[VOLTITE,6]],st:'table'},
   {out:[STORM_BRICK,4],in:[[STORMSTONE,4]]},{out:[CONDUIT,1],in:[[COPPERB,1],[VOLTITE,2]],st:'table'});
+RECIPES.push({out:[GUMPLANK,4],in:[[BOAB_LOG,1]]});
 RECIPES.push({out:[BREWING,1],in:[[BLAZEROD,1],[STONE,3]],st:'table'},{out:[GLASS_BOTTLE,3],in:[[GLASS,3]]},
   {out:[AWKWARD,1],in:[[WATER_BOTTLE,1],[NWART,1]],st:'brew'},
   {out:[POT_HEAL,1],in:[[AWKWARD,1],[MELONSLICE,1],[GNUGGET,4]],st:'brew'},{out:[POT_FIRE,1],in:[[AWKWARD,1],[MAGMACREAM,1]],st:'brew'},
@@ -2678,6 +2722,29 @@ const tileAvg = [];
     px(105, [['#3a78c0', blade], ['#dff8ff', edge], ['#c07048', [[2, 12, 3, 2], [3, 11, 1, 4]]], ['#4a3a2a', [[1, 13, 2, 2]]]]); }
   // voltite pickaxe
   px(106, [['#6a4a2a', [[4, 11], [5, 10], [6, 9], [7, 8], [8, 7], [9, 6], [3, 12]]], ['#3aa8d8', [[5, 2, 7, 2], [11, 3, 2, 3], [4, 3, 2, 2]]], ['#9aeaff', [[6, 2, 5, 1]]]]);
+}
+/* ---- the boab: smooth, wrinkled grey-pink bark ---- */
+{
+  const ctx = atlas.getContext('2d');
+  const paint = (ti, fn) => {
+    const img = ctx.createImageData(16, 16);
+    for(let y = 0; y < 16; y++) for(let x = 0; x < 16; x++){
+      const [r, g, b] = fn(x, y), o = (y * 16 + x) * 4;
+      img.data[o] = r; img.data[o + 1] = g; img.data[o + 2] = b; img.data[o + 3] = 255;
+    }
+    ctx.putImageData(img, (ti % 8) * 16, ((ti / 8) | 0) * 16);
+  };
+  const BARK = [[150,132,124],[162,144,134],[172,154,142],[182,164,150]];
+  paint(256, (x, y) => {
+    const wr = Math.abs(((y + Math.sin(x * 0.8) * 1.2) % 5) - 2.5) < 0.45;     // wavy horizontal wrinkles
+    const v = hash(x, y, 8501);
+    return wr ? [126, 110, 104] : BARK[(v * 4) | 0];
+  });
+  paint(257, (x, y) => {
+    const d = Math.hypot(x - 7.5, y - 7.5);
+    if(d > 7) return [150, 132, 124];
+    return Math.floor(d) % 2 ? [196, 170, 132] : [214, 188, 148];
+  });
 }
 /* ---- brewing: the stand and the bottles ---- */
 {
@@ -4224,8 +4291,8 @@ function* genChunkSteps(cx, cz){
     if((tx+5)%8===0)yield;
     const wx=cx*16+tx,wz=cz*16+tz,t=treeAt(wx,wz);if(!t)continue;
     const extra=EXTRA_WOODS.find(w=>w.name.toLowerCase()===t.type);
-    const log=extra?extra.log:t.type==='spruce'?SPRUCELOG:t.type==='birch'?BIRCHLOG:t.type==='jungle'?JUNGLELOG:LOG;
-    const leaf=extra?extra.leaves:t.type==='spruce'?SPRUCELEAVES:LEAVES;
+    const log=t.type==='boab'?BOAB_LOG:extra?extra.log:t.type==='spruce'?SPRUCELOG:t.type==='birch'?BIRCHLOG:t.type==='jungle'?JUNGLELOG:LOG;
+    const leaf=t.type==='boab'?GUMLEAVES:extra?extra.leaves:t.type==='spruce'?SPRUCELEAVES:LEAVES;
     const crown=(ox,oy,oz,rx,ry,rz)=>{
       for(let dx=-Math.ceil(rx);dx<=rx;dx++)for(let dy=-Math.ceil(ry);dy<=ry;dy++)for(let dz=-Math.ceil(rz);dz<=rz;dz++){
         const shape=dx*dx/(rx*rx)+dy*dy/(ry*ry)+dz*dz/(rz*rz);
@@ -4265,6 +4332,22 @@ function* genChunkSteps(cx, cz){
       for(let dx=-3;dx<=3;dx++)for(let dz=-3;dz<=3;dz++)
         if(Math.abs(dx)+Math.abs(dz)>=3&&Math.abs(dx)+Math.abs(dz)<=4&&hash(wx+dx,wz+dz,994)<.5)
           set(tx+dx,t.h+t.th-1,tz+dz,leaf,true);
+    }else if(t.type==='boab'){
+      // a boab: a squat bottle of a trunk that swells out and narrows, crowned with a tangle of short limbs
+      const top=t.th+2;
+      for(let k=1;k<=top;k++){
+        const r=k<=1?1:k<=t.th?1.6:k===t.th+1?1:0.5;
+        for(let dx=-2;dx<=2;dx++)for(let dz=-2;dz<=2;dz++)
+          if(dx*dx+dz*dz<=r*r+0.3)set(tx+dx,t.h+k,tz+dz,log);
+      }
+      const limbs=[[3,1,0],[-3,1,1],[0,1,3],[1,2,-3],[-2,2,-2],[2,2,2]];
+      for(let i=0;i<limbs.length;i++){
+        if(hash(wx+i,wz,995)<0.2)continue;
+        const [ox,oy,oz]=limbs[i];
+        const n=Math.max(Math.abs(ox),Math.abs(oz));
+        for(let j=1;j<=n;j++)set(tx+Math.round(ox*j/n),t.h+top+Math.round(oy*j/n),tz+Math.round(oz*j/n),log);
+        crown(ox,top+oy+1,oz,1.4,0.8,1.4);
+      }
     }else if(t.type==='gum'){
       branch(turn*2,t.th-1,0);branch(-turn,t.th,turn);
       crown(turn*2,t.th,0,1.9,1.1,1.9);crown(-turn,t.th+1,turn,1.7,1,1.7);crown(0,t.th+1,0,1.6,1.2,1.6);
