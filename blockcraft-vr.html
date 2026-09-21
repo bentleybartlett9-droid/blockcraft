@@ -1596,15 +1596,31 @@ itemAtlas.width = 128; itemAtlas.height = 256;
   const TOOLPAL = [[168,122,68],[138,138,138],[224,224,226],[96,226,218]];
   const HANDLE = [116,86,52];
   const toolMap = {
-    pick: ['......MMMMM.....','....MM.....MM...','...M.........M..','..M.......HH.M..','..M......HH..M..','.M......HH......','.M.....HH.......','.M....HH........','......HH........','.....HH.........','.....HH.........','....HH..........','...HH...........','..HH............','.HH.............','HH..............'],
-    axe:  ['....MMMM........','..MMMMMMM.......','..MMM..MMM......','..MM....HH......','..MM...HH.......','.......HH.......','......HH........','......HH........','.....HH.........','.....HH.........','....HH..........','...HH...........','...HH...........','..HH............','.HH.............','HH..............'],
-    shovel:['......MMM.......','.....MMMMM......','.....MMMMM......','.....MMMMM......','......MMM.......','......HH........','......HH........','.....HH.........','.....HH.........','....HH..........','....HH..........','...HH...........','...HH...........','..HH............','.HH.............','HH..............'],
-    sword:['............MM..','...........MMM..','..........MMM...','.........MMM....','........MMM.....','.......MMM......','......MMM.......','.....MMM........','..H.MMM.........','..HHMM..........','..HHH...........','.HHHH...........','HH..HH..........','HH...H..........','................','................'],
+    // M = material, D = its darker edge, H = haft, G = guard
+    pick: ['....DMMMMMMD....','...DMMDDDDMMD...','..DMMD....DMMD..','..MMD..HH..DMM..',
+           '..DD...HH...DD..','.......HH.......','......HH........','......HH........',
+           '.....HH.........','.....HH.........','....HH..........','....HH..........',
+           '...HH...........','...HH...........','..HH............','..DD............'],
+    axe:  ['..DMMMMD........','.DMMMMMMD.......','.DMMMMMMMD......','.DMMMDDMMD......',
+           '.DMMD..HH.......','..DD...HH.......','.......HH.......','......HH........',
+           '......HH........','.....HH.........','.....HH.........','....HH..........',
+           '....HH..........','...HH...........','..HH............','..DD............'],
+    shovel:['......DMMD......','.....DMMMMD.....','.....DMMMMD.....','.....DMMMMD.....',
+           '......DMMD......','.......HH.......','.......HH.......','......HH........',
+           '......HH........','.....HH.........','.....HH.........','....HH..........',
+           '....HH..........','...HH...........','..HH............','..DD............'],
+    sword:['...........DMD..','..........DMMD..','.........DMMD...','........DMMD....',
+           '.......DMMD.....','......DMMD......','.....DMMD.......','....DMMD........',
+           '....DMMD........','...GGMD.........','..GGGG..........','..HGG...........',
+           '.HH.............','HD..............','................','................'],
   };
   const toolPx = (map, mat) => (x, y, r) => {
     const ch = map[y][x];
-    if(ch === 'M'){ const k = Math.floor((r()-0.5)*18); return [mat[0]+k, mat[1]+k, mat[2]+k, 1]; }
-    if(ch === 'H'){ const k = Math.floor((r()-0.5)*12); return [HANDLE[0]+k, HANDLE[1]+k, HANDLE[2]+k, 1]; }
+    const k = Math.floor((r()-0.5)*14);
+    if(ch === 'M') return [mat[0]+k, mat[1]+k, mat[2]+k, 1];
+    if(ch === 'D') return [mat[0]*0.62+k, mat[1]*0.62+k, mat[2]*0.62+k, 1];   // shaded edge
+    if(ch === 'G') return [86+k, 74+k, 52+k, 1];                              // sword guard
+    if(ch === 'H') return [HANDLE[0]+k, HANDLE[1]+k, HANDLE[2]+k, 1];
     return [0,0,0,0];
   };
   puti(0, (x,y,r) => {   // stick
@@ -1904,6 +1920,7 @@ const foliageTime={value:0};
 const matG = new THREE.MeshBasicMaterial({ map: tex, vertexColors: true });
 const matGC = new THREE.MeshBasicMaterial({ map: tex, vertexColors: true, alphaTest: 0.5, side: THREE.DoubleSide });
 const matItem = new THREE.MeshBasicMaterial({ map: itemTex, alphaTest: 0.5, side: THREE.DoubleSide });
+const matItemSolid = new THREE.MeshBasicMaterial({ vertexColors: true });
 
 /* ============================ sky objects =========================== */
 const sun  = new THREE.Mesh(new THREE.PlaneGeometry(30, 30), new THREE.MeshBasicMaterial({ color: 0xffdf6e, fog: false }));
@@ -5556,11 +5573,39 @@ function dropGeo(id){
   let g = dropGeos.get(id);
   if(g) return g;
   if(!!ITEMS[id]){
-    g = new THREE.PlaneGeometry(0.5, 0.5);
     const ic = ITEMS[id].icon, ix = (ic % 8) * 16, iy = ((ic / 8) | 0) * 16;
-    const uv = g.attributes.uv;
-    for(let i = 0; i < uv.count; i++)
-      uv.setXY(i, (ix + 0.3 + uv.getX(i) * 15.4) / 128, 1 - (iy + 0.3 + (1 - uv.getY(i)) * 15.4) / itemAtlas.height);
+    const px = itemAtlas.getContext('2d').getImageData(ix, iy, 16, 16).data;
+    const solid = (x, y) => (x < 0 || y < 0 || x > 15 || y > 15) ? null
+      : (px[(y * 16 + x) * 4 + 3] > 40 ? [px[(y*16+x)*4], px[(y*16+x)*4+1], px[(y*16+x)*4+2]] : null);
+    const S = 0.5 / 16, TH = S * 2;                    // pixel size, and two pixels of depth
+    const pos = [], col = [], idx = [];
+    const quad = (a, bq, c, d, rgb, shade) => {
+      const o = pos.length / 3;
+      for(const v of [a, bq, c, d]){
+        pos.push(v[0], v[1], v[2]);
+        col.push(rgb[0] / 255 * shade, rgb[1] / 255 * shade, rgb[2] / 255 * shade);
+      }
+      idx.push(o, o + 1, o + 2, o, o + 2, o + 3);
+    };
+    for(let y = 0; y < 16; y++) for(let x = 0; x < 16; x++){
+      const c = solid(x, y);
+      if(!c) continue;
+      // sprite space -> object space, centred, y flipped
+      const x0 = (x - 8) * S, x1 = x0 + S;
+      const y1 = (8 - y) * S, y0 = y1 - S;
+      const z0 = -TH / 2, z1 = TH / 2;
+      quad([x0,y0,z1],[x1,y0,z1],[x1,y1,z1],[x0,y1,z1], c, 1);      // front
+      quad([x1,y0,z0],[x0,y0,z0],[x0,y1,z0],[x1,y1,z0], c, 0.78);   // back
+      if(!solid(x-1,y)) quad([x0,y0,z0],[x0,y0,z1],[x0,y1,z1],[x0,y1,z0], c, 0.66);
+      if(!solid(x+1,y)) quad([x1,y0,z1],[x1,y0,z0],[x1,y1,z0],[x1,y1,z1], c, 0.66);
+      if(!solid(x,y-1)) quad([x0,y1,z1],[x1,y1,z1],[x1,y1,z0],[x0,y1,z0], c, 0.92);
+      if(!solid(x,y+1)) quad([x0,y0,z0],[x1,y0,z0],[x1,y0,z1],[x0,y0,z1], c, 0.5);
+    }
+    g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    g.setIndex(idx);
+    g.computeBoundingSphere();
   } else {
     const B = {pos:[],uv:[],col:[],idx:[]};
     if(isCross(id)) pushCross(B, 0, 0, 0, tileFor(id, 0));
@@ -5578,7 +5623,7 @@ function dropGeo(id){
 }
 function spawnDropAt(x, y, z, id, n = 1){
   if(drops.length >= 80){ scene.remove(drops[0].mesh); drops.shift(); }
-  const mat = !!ITEMS[id] ? matItem : isCross(id) ? (id === TORCH || id===GLOWCRYSTAL ? matGC : matC) : isLeaf(id)?matLeaf:matO;
+  const mat = !!ITEMS[id] ? matItemSolid : isCross(id) ? (id === TORCH || id===GLOWCRYSTAL ? matGC : matC) : isLeaf(id)?matLeaf:matO;
   const mesh = new THREE.Mesh(dropGeo(id), mat);
   scene.add(mesh);
   drops.push({
@@ -7147,7 +7192,7 @@ function buildViewModel(){
   vmId = id;
   if(vmMesh){ viewModel.remove(vmMesh); vmMesh = null; }
   if(!id) return;                    // empty hand
-  const mat = !!ITEMS[id] ? matItem : isCross(id) ? (id === TORCH || id===GLOWCRYSTAL ? matGC : matC) : isLeaf(id)?matLeaf:matO;
+  const mat = !!ITEMS[id] ? matItemSolid : isCross(id) ? (id === TORCH || id===GLOWCRYSTAL ? matGC : matC) : isLeaf(id)?matLeaf:matO;
   vmMesh = new THREE.Mesh(dropGeo(id), mat);
   const tool = ITEMS[id] && ITEMS[id].tool;
   if(!!ITEMS[id] && tool){             // tools/weapons: bigger, angled like they're gripped
@@ -7661,7 +7706,7 @@ function vrBuildTool(){
   vrToolId = id;
   if(vrTool){ rightCtrl.remove(vrTool); vrTool = null; }
   if(!id) return;
-  const mat = !!ITEMS[id] ? matItem : isCross(id) ? (id === TORCH || id===GLOWCRYSTAL ? matGC : matC) : isLeaf(id)?matLeaf:matO;
+  const mat = !!ITEMS[id] ? matItemSolid : isCross(id) ? (id === TORCH || id===GLOWCRYSTAL ? matGC : matC) : isLeaf(id)?matLeaf:matO;
   vrTool = new THREE.Mesh(dropGeo(id), mat);
   const tool = ITEMS[id] && ITEMS[id].tool;
   vrTool.scale.setScalar(!!ITEMS[id] && tool ? 1.54 : id === FLINTSTEEL ? 1.26 : !!ITEMS[id] ? 1.8 : 0.76);
@@ -8166,7 +8211,7 @@ function animate(){
   matT.color.setScalar(b);
   matC.color.setScalar(b);
   matLeaf.color.setScalar(b);
-  matItem.color.setScalar(b);
+  matItem.color.setScalar(b); matItemSolid.color.setScalar(b);
   cloudMat.color.setScalar(b);
   for(const m of entMats) m.color.copy(m.userData.base).multiplyScalar(Math.max(0.35, b));
 
@@ -8399,6 +8444,7 @@ window.__bc = {
                     voiceOn, vrMpMode, vrJoinCode, remotes: remotes.size }),
   setVrMp: (mode, code) => { vrMpMode = mode; if(code !== undefined) vrJoinCode = code; },
   golems, spawnGolem, stepGolems: dt => updateGolems(dt), VIL_PROF,
+  dropGeo, spawnDropAt, matItemSolid,
   villagerVoice, golemVoice, healGolem, golemTarget,
   stepVillagersAI: dt => updateVillagers(dt), setTimeOfDay: t => { timeOfDay = t; },
   vrMenuState: () => ({ tab: vrMenuTab, status: vrMenuStatus,
