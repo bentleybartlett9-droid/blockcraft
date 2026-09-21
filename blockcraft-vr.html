@@ -888,7 +888,7 @@ const BONE=455, BONE_MEAL=456, SHIELD=454, ROD=447, COD=448, SALMON=449, COOKED_
 const EGG_RUN = 37, EGG_EXTRA = 479;          // eggs past the first 37 carry on from 479
 const eggId = i => i < EGG_RUN ? EGG_BASE + i : EGG_EXTRA + i - EGG_RUN, eggIcon = i => i < EGG_RUN ? 120 + i : i === EGG_RUN ? 175 : 180 + i - EGG_RUN;
 const eggMob = id => { const i = id >= EGG_BASE && id < EGG_BASE + EGG_RUN ? id - EGG_BASE : id >= EGG_EXTRA ? EGG_RUN + id - EGG_EXTRA : -1; return i >= 0 && i < SPAWN_EGGS.length ? SPAWN_EGGS[i][0] : null; };
-const SLIMEBALL=477, SLIME_BLOCK=478, LANTERN=490, CAMPFIRE=491, BEEHIVE=492, BEEHIVE_FULL=493, HONEY_BOTTLE=494, HONEYCOMB=495, FENCE=496, GATE=497, GATE_OPEN=498, SHEARS=499, TRIDENT=500, JUKEBOX=501, DISC_1=502, MAP=506, ANVIL=507, CARVED_PUMPKIN=508, JACK_O_LANTERN=509;   // 502-505: music discs
+const SLIMEBALL=477, SLIME_BLOCK=478, LANTERN=490, CAMPFIRE=491, BEEHIVE=492, BEEHIVE_FULL=493, HONEY_BOTTLE=494, HONEYCOMB=495, FENCE=496, GATE=497, GATE_OPEN=498, SHEARS=499, TRIDENT=500, JUKEBOX=501, DISC_1=502, MAP=506, ANVIL=507, CARVED_PUMPKIN=508, JACK_O_LANTERN=509, PAINTING=510;   // 502-505: music discs
 const isFenceish = id => id === FENCE || id === GATE || id === GATE_OPEN;
 const hivesSeen = new Set();           // "x,y,z" of overworld hives the mesher has seen
 const campfires = new Set();            // "dim:x,y,z" of campfires the mesher has seen
@@ -1179,7 +1179,7 @@ ITEMS[SADDLE]={name:'Saddle',icon:100};
 SPAWN_EGGS.forEach(([, name], i) => { ITEMS[eggId(i)] = { name: name + ' Spawn Egg', icon: eggIcon(i) }; });
 ITEMS[SLIMEBALL]={name:'Slimeball',icon:176};BLOCKS[LANTERN]={name:'Lantern',all:273};BLOCKS[FENCE]={name:'Fence',all:279};BLOCKS[GATE]={name:'Fence Gate',all:280};BLOCKS[GATE_OPEN]={name:'Fence Gate',all:280};BLOCKS[BEEHIVE]={name:'Beehive',top:277,bottom:277,side:276};BLOCKS[BEEHIVE_FULL]={name:'Beehive',top:277,bottom:277,side:278};
 ITEMS[HONEY_BOTTLE]={name:'Honey Bottle',icon:177,food:6};ITEMS[SHEARS]={name:'Shears',icon:179,tool:{type:'shears',tier:2}};BLOCKS[JUKEBOX]={name:'Jukebox',top:282,bottom:281,side:281};
-ITEMS[MAP]={name:'Map',icon:188};BLOCKS[ANVIL]={name:'Anvil',all:283};BLOCKS[CARVED_PUMPKIN]={name:'Carved Pumpkin',top:T.PUMPKIN_TOP,bottom:T.PUMPKIN_TOP,side:T.PUMPKIN_FACE};
+ITEMS[MAP]={name:'Map',icon:188};BLOCKS[ANVIL]={name:'Anvil',all:283};BLOCKS[PAINTING]={name:'Painting',all:285};BLOCKS[CARVED_PUMPKIN]={name:'Carved Pumpkin',top:T.PUMPKIN_TOP,bottom:T.PUMPKIN_TOP,side:T.PUMPKIN_FACE};
 BLOCKS[JACK_O_LANTERN]={name:"Jack o'Lantern",top:T.PUMPKIN_TOP,bottom:T.PUMPKIN_TOP,side:284};
 ['Meadow','Caverns','Lanterns','Stormchase'].forEach((n, i) => { ITEMS[DISC_1 + i] = { name: 'Music Disc - ' + n, icon: 184 + i }; });ITEMS[TRIDENT]={name:'Trident',icon:180,tool:{type:'trident',tier:3}};ITEMS[HONEYCOMB]={name:'Honeycomb',icon:178};BLOCKS[CAMPFIRE]={name:'Campfire',top:275,bottom:275,side:274};BLOCKS[SLIME_BLOCK]={name:'Slime Block',all:272};
 ITEMS[APPLE]={name:'Apple',icon:167,food:4};ITEMS[GOLDEN_APPLE]={name:'Golden Apple',icon:168,food:4};ITEMS[CARROT]={name:'Carrot',icon:169,food:3,plant:CARROT0};
@@ -1228,7 +1228,7 @@ const isPlant  = id => isSapling(id) || FLORA_IDS.has(id) || id === TGRASSB || i
                        id === MUSHROOMR || id === MUSHROOMB ||
                        id === WHEAT0 || id === WHEAT1 || id === WHEAT2 || id === WHEAT3 || (id >= CARROT0 && id <= POTATO3) || CAVE_PLANTS.has(id) || NETHER_PLANTS.has(id);
 const isCross  = id => id===GLOWCRYSTAL || isPlant(id) || id === TORCH || id === COBWEB || id === IRONBARS || CAVE_CROSS.has(id) || NETHER_CROSS.has(id);
-const isFlat   = id => id === RAIL || id === SNOW_LAYER || id === LADDER || isCake(id) || id === LANTERN || id === CAMPFIRE;   // thin plate on the ground (or, for a ladder, on a wall)
+const isFlat   = id => id === RAIL || id === SNOW_LAYER || id === LADDER || id === PAINTING || isCake(id) || id === LANTERN || id === CAMPFIRE;   // thin plate on the ground (or, for a ladder, on a wall)
 const isSlab   = id => id === SLAB_STONE || id === SLAB_WOOD || id === SLAB_BRICK || id === SLAB_SAND || id === SLAB_NBRICK;
 const isStair  = id => id === STAIR_STONE || id === STAIR_WOOD || id === STAIR_BRICK || id === STAIR_SAND || id === STAIR_NBRICK;
 const isPartial = id => isSlab(id) || isStair(id);   // custom-geometry, non-full blocks
@@ -1266,7 +1266,7 @@ function toolClassOf(id){
   if([STORMSTONE,VOLTITE_ORE,STORM_BRICK,CONDUIT,CONDUIT_LIT].includes(id)) return 'pick';
   if(id === SKYGRASS || id === CLOUD) return 'shovel';
   if(id === ENCH_TABLE) return 'pick';
-  if(id === LADDER || id === CAMPFIRE) return 'axe';
+  if(id === LADDER || id === CAMPFIRE || id === PAINTING) return 'axe';
   if(id === LANTERN || id === ANVIL) return 'pick';
   if(id === BEEHIVE || id === BEEHIVE_FULL || isFenceish(id) || id === JUKEBOX) return 'axe';
   if([PURPUR,PURPUR_PILLAR,ENDSTONE_BRICK,ENDSTONE,CRYING_OBSIDIAN,ANCHOR,ANCHOR_LIT].includes(id)) return 'pick';
@@ -1411,6 +1411,7 @@ RECIPES.push({out:[SHIELD,1],in:[[ANY_PLANK,6],[IRONI,1]],st:'table'},{out:[ROD,
   {out:[COOKED_SALMON,1],in:[[SALMON,1],[COALI,1]],st:'furnace'});
 RECIPES.push({out:[CAKE,1],in:[[MILK,3],[SUGAR,2],[EGG,1],[WHEATITEM,3]],st:'table',back:[[BUCKET,3]]},{out:[SUGAR,1],in:[[REEDS,1]]},
   {out:[GOLDEN_APPLE,1],in:[[APPLE,1],[GOLDI,8]],st:'table'},{out:[BAKED_POTATO,1],in:[[POTATO,1],[COALI,1]],st:'furnace'});
+RECIPES.push({out:[PAINTING,1],in:[[STICK,8],[WOOL,1]],st:'table'});
 RECIPES.push({out:[JACK_O_LANTERN,1],in:[[CARVED_PUMPKIN,1],[TORCH,1]]});
 RECIPES.push({out:[ANVIL,1],in:[[IRONB,3],[IRONI,4]],st:'table'});
 RECIPES.push({out:[MAP,1],in:[[PAPER,8],[IRONI,1]],st:'table'},{out:[SHEARS,1],in:[[IRONI,2]],st:'table'},{out:[JUKEBOX,1],in:[[ANY_PLANK,8],[DIAMI,1]],st:'table'});
@@ -1796,6 +1797,21 @@ itemAtlas.width = 128; itemAtlas.height = 512;   // 256 icons
     const k = Math.floor((r() - 0.5) * 10);
     return ((x * 5 + y * 3) % 11 === 0 && x > 1 && x < 14 && y > 1 && y < 14) ? [210, 34, 44] : [248 + k / 2, 244 + k / 2, 240 + k / 2];
   });
+  {
+    const frame = (x, y) => x === 0 || y === 0 || x === 15 || y === 15;
+    const FR = [120, 84, 50];
+    const pics = [
+      (x, y) => y < 9 ? [120 + y * 10, 170 + y * 6, 230] : y < 11 ? [90, 150, 70] : [70, 120, 60],                                      // a meadow under sky
+      (x, y) => { const d = Math.hypot(x - 10, y - 5); return d < 3 ? [255, 220, 90] : y > 10 ? [40, 60, 120] : [240 - y * 12, 130 + y * 4, 90 + y * 10]; },   // sunset over the sea
+      (x, y) => { const m = Math.abs(x - 8) + (15 - y) * 0.9; return m < 9 ? (y < 6 && m < 4 ? [240, 240, 250] : [110, 110, 124]) : [150, 190, 240]; },   // a mountain
+      (x, y) => (x >> 2) % 2 === (y >> 2) % 2 ? [200, 60, 60] : [240, 220, 190],                                                                        // a checked cloth
+      (x, y) => { const d = Math.hypot(x - 7.5, y - 7.5); return d < 3 ? [30, 30, 36] : d < 6 ? [60, 160, 90] : [230, 225, 205]; },                    // an eye
+      (x, y) => y > 11 ? [70, 110, 50] : (x === 7 || x === 8) && y > 6 ? [100, 70, 40] : Math.hypot(x - 7.5, y - 4.5) < 4.5 ? [60, 140, 60] : [170, 210, 240],   // a lone tree
+      (x, y) => { const k = (x + y) % 6; return k < 2 ? [60, 90, 200] : k < 4 ? [240, 200, 60] : [230, 90, 120]; },                                    // stripes
+      (x, y) => y > 10 ? [30, 30, 60] : Math.hypot(x - 5, y - 4) < 2.5 ? [245, 245, 220] : ((x * 7 + y * 13) % 17 === 0 ? [255, 255, 255] : [20, 24, 60]),     // a night sky
+    ];
+    pics.forEach((f, i) => put(285 + i, (x, y, r) => { if(frame(x, y)) return FR; const c = f(x, y), k = (r() - 0.5) * 16; return [c[0] + k, c[1] + k, c[2] + k]; }));
+  }
   put(284, (x, y, r) => {                                   // jack o'lantern: the carved face, lit from inside
     const k = Math.floor((r() - 0.5) * 14);
     const eye = y >= 4 && y <= 6 && ((x >= 3 && x <= 5) || (x >= 10 && x <= 12));
@@ -5351,6 +5367,14 @@ function* buildChunkSteps(c,reuseLight=false){
     if(isPartial(b)){ pushPartial(O, lx, y, lz, b, light); continue; }
     if(isDoor(b)){ pushDoor(O, lx, y, lz, b, wx0 + lx, wz0 + lz, light); continue; }
     if(b === LADDER){ pushLadder(O, lx, y, lz, gb, light); continue; }
+    if(b === PAINTING){
+      const nlP = light ? sampleLight(light, lx, y, lz) : 15, llP = 0.25 + (nlP / 15) * 0.75, w = ladderWall(gb, lx, y, lz), t = 285 + ((hash3(wx0 + lx, y, wz0 + lz, 8641) * 8) | 0), d = 0.06;
+      if(w === 0) pushBox(O, t, lx, y, lz, lx + 1, y + 1, lz + d, llP);
+      else if(w === 1) pushBox(O, t, lx, y, lz + 1 - d, lx + 1, y + 1, lz + 1, llP);
+      else if(w === 2) pushBox(O, t, lx, y, lz, lx + d, y + 1, lz + 1, llP);
+      else pushBox(O, t, lx + 1 - d, y, lz, lx + 1, y + 1, lz + 1, llP);
+      continue;
+    }
     if(b === ANVIL){
       const llA = light ? 0.2 + (sampleLight(light, lx, y, lz) / 15) * 0.8 : 1;
       pushBox(O, 283, lx + 0.125, y, lz + 0.125, lx + 0.875, y + 0.25, lz + 0.875, llA);
@@ -5578,11 +5602,11 @@ function onLadder(p){
   const x = Math.floor(p.x), z = Math.floor(p.z);
   return getBlock(x, Math.floor(p.y + 0.1), z) === LADDER || getBlock(x, Math.floor(p.y + 1), z) === LADDER;
 }
-function placeLadder(x, y, z, hit){
+function placeLadder(x, y, z, hit, id = LADDER){
   // hangs on the block you clicked, if that's a wall; otherwise on any solid wall beside it
   const f = hit && hit.face;
   if(!(f && f[1] === 0 && isSolid(hit.id)) && ![[0, -1], [0, 1], [-1, 0], [1, 0]].some(([dx, dz]) => isSolid(getBlock(x + dx, y, z + dz)))) return false;
-  setBlock(x, y, z, LADDER);
+  setBlock(x, y, z, id);
   blockSfx(PLANK, 'place'); triggerViewSwing(); consumePlacedItem();
   return true;
 }
@@ -12872,6 +12896,7 @@ function doPlace(){
   if(!held || !BLOCKS[held]) return;                 // only blocks are placeable
   if(held===DOOR){placeDoor(x,y,z);return;}
   if(held===LADDER){placeLadder(x,y,z,hit);return;}
+  if(held===PAINTING){placeLadder(x,y,z,hit,PAINTING);return;}
   if(held===TORCH){placeTorch(x,y,z);return;}
   triggerViewSwing();
   setBlock(x, y, z, held);
@@ -13627,6 +13652,7 @@ function vrTryPlace(){
   if(aabbHitsCell(x, y, z)) return;
   if(held===DOOR){placeDoor(x,y,z);return;}
   if(held===LADDER){placeLadder(x,y,z,hit);return;}
+  if(held===PAINTING){placeLadder(x,y,z,hit,PAINTING);return;}
   if(held===TORCH){placeTorch(x,y,z);return;}
   triggerViewSwing();
   setBlock(x, y, z, held);
