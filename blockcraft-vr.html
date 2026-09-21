@@ -888,7 +888,7 @@ const BONE=455, BONE_MEAL=456, SHIELD=454, ROD=447, COD=448, SALMON=449, COOKED_
 const EGG_RUN = 37, EGG_EXTRA = 479;          // eggs past the first 37 carry on from 479
 const eggId = i => i < EGG_RUN ? EGG_BASE + i : EGG_EXTRA + i - EGG_RUN, eggIcon = i => i < EGG_RUN ? 120 + i : i === EGG_RUN ? 175 : 180 + i - EGG_RUN;
 const eggMob = id => { const i = id >= EGG_BASE && id < EGG_BASE + EGG_RUN ? id - EGG_BASE : id >= EGG_EXTRA ? EGG_RUN + id - EGG_EXTRA : -1; return i >= 0 && i < SPAWN_EGGS.length ? SPAWN_EGGS[i][0] : null; };
-const SLIMEBALL=477, SLIME_BLOCK=478, LANTERN=490, CAMPFIRE=491, BEEHIVE=492, BEEHIVE_FULL=493, HONEY_BOTTLE=494, HONEYCOMB=495, FENCE=496, GATE=497, GATE_OPEN=498, SHEARS=499, TRIDENT=500;
+const SLIMEBALL=477, SLIME_BLOCK=478, LANTERN=490, CAMPFIRE=491, BEEHIVE=492, BEEHIVE_FULL=493, HONEY_BOTTLE=494, HONEYCOMB=495, FENCE=496, GATE=497, GATE_OPEN=498, SHEARS=499, TRIDENT=500, JUKEBOX=501, DISC_1=502;   // 502-505: music discs
 const isFenceish = id => id === FENCE || id === GATE || id === GATE_OPEN;
 const hivesSeen = new Set();           // "x,y,z" of overworld hives the mesher has seen
 const campfires = new Set();            // "dim:x,y,z" of campfires the mesher has seen
@@ -1178,7 +1178,8 @@ ITEMS[POPPED_CHORUS]={name:'Popped Chorus Fruit',icon:98};ITEMS[SHULKER_SHELL]={
 ITEMS[SADDLE]={name:'Saddle',icon:100};
 SPAWN_EGGS.forEach(([, name], i) => { ITEMS[eggId(i)] = { name: name + ' Spawn Egg', icon: eggIcon(i) }; });
 ITEMS[SLIMEBALL]={name:'Slimeball',icon:176};BLOCKS[LANTERN]={name:'Lantern',all:273};BLOCKS[FENCE]={name:'Fence',all:279};BLOCKS[GATE]={name:'Fence Gate',all:280};BLOCKS[GATE_OPEN]={name:'Fence Gate',all:280};BLOCKS[BEEHIVE]={name:'Beehive',top:277,bottom:277,side:276};BLOCKS[BEEHIVE_FULL]={name:'Beehive',top:277,bottom:277,side:278};
-ITEMS[HONEY_BOTTLE]={name:'Honey Bottle',icon:177,food:6};ITEMS[SHEARS]={name:'Shears',icon:179,tool:{type:'shears',tier:2}};ITEMS[TRIDENT]={name:'Trident',icon:180,tool:{type:'trident',tier:3}};ITEMS[HONEYCOMB]={name:'Honeycomb',icon:178};BLOCKS[CAMPFIRE]={name:'Campfire',top:275,bottom:275,side:274};BLOCKS[SLIME_BLOCK]={name:'Slime Block',all:272};
+ITEMS[HONEY_BOTTLE]={name:'Honey Bottle',icon:177,food:6};ITEMS[SHEARS]={name:'Shears',icon:179,tool:{type:'shears',tier:2}};BLOCKS[JUKEBOX]={name:'Jukebox',top:282,bottom:281,side:281};
+['Meadow','Caverns','Lanterns','Stormchase'].forEach((n, i) => { ITEMS[DISC_1 + i] = { name: 'Music Disc - ' + n, icon: 184 + i }; });ITEMS[TRIDENT]={name:'Trident',icon:180,tool:{type:'trident',tier:3}};ITEMS[HONEYCOMB]={name:'Honeycomb',icon:178};BLOCKS[CAMPFIRE]={name:'Campfire',top:275,bottom:275,side:274};BLOCKS[SLIME_BLOCK]={name:'Slime Block',all:272};
 ITEMS[APPLE]={name:'Apple',icon:167,food:4};ITEMS[GOLDEN_APPLE]={name:'Golden Apple',icon:168,food:4};ITEMS[CARROT]={name:'Carrot',icon:169,food:3,plant:CARROT0};
 ITEMS[POTATO]={name:'Potato',icon:170,food:1,plant:POTATO0};ITEMS[BAKED_POTATO]={name:'Baked Potato',icon:171,food:5};ITEMS[MILK]={name:'Milk Bucket',icon:172};
 ITEMS[EGG]={name:'Egg',icon:173};ITEMS[SUGAR]={name:'Sugar',icon:174};
@@ -1265,7 +1266,7 @@ function toolClassOf(id){
   if(id === ENCH_TABLE) return 'pick';
   if(id === LADDER || id === CAMPFIRE) return 'axe';
   if(id === LANTERN) return 'pick';
-  if(id === BEEHIVE || id === BEEHIVE_FULL || isFenceish(id)) return 'axe';
+  if(id === BEEHIVE || id === BEEHIVE_FULL || isFenceish(id) || id === JUKEBOX) return 'axe';
   if([PURPUR,PURPUR_PILLAR,ENDSTONE_BRICK,ENDSTONE,CRYING_OBSIDIAN,ANCHOR,ANCHOR_LIT].includes(id)) return 'pick';
   if(id === CHORUS_PLANT || id === CHORUS_FLOWER) return 'axe';
   if([NETHERRACK,NBRICK,SLAB_NBRICK,STAIR_NBRICK,OBSIDIAN,CRIM_NYL,WARP_NYL,BASALT_N,BLACKSTONE,BSTONE_BRICK,GILDED,MAGMA,
@@ -1408,7 +1409,7 @@ RECIPES.push({out:[SHIELD,1],in:[[ANY_PLANK,6],[IRONI,1]],st:'table'},{out:[ROD,
   {out:[COOKED_SALMON,1],in:[[SALMON,1],[COALI,1]],st:'furnace'});
 RECIPES.push({out:[CAKE,1],in:[[MILK,3],[SUGAR,2],[EGG,1],[WHEATITEM,3]],st:'table',back:[[BUCKET,3]]},{out:[SUGAR,1],in:[[REEDS,1]]},
   {out:[GOLDEN_APPLE,1],in:[[APPLE,1],[GOLDI,8]],st:'table'},{out:[BAKED_POTATO,1],in:[[POTATO,1],[COALI,1]],st:'furnace'});
-RECIPES.push({out:[SHEARS,1],in:[[IRONI,2]],st:'table'});
+RECIPES.push({out:[SHEARS,1],in:[[IRONI,2]],st:'table'},{out:[JUKEBOX,1],in:[[ANY_PLANK,8],[DIAMI,1]],st:'table'});
 RECIPES.push({out:[FENCE,3],in:[[ANY_PLANK,4],[STICK,2]],st:'table'},{out:[GATE,1],in:[[STICK,4],[ANY_PLANK,2]],st:'table'});
 RECIPES.push({out:[BEEHIVE,1],in:[[ANY_PLANK,6],[HONEYCOMB,3]],st:'table'});
 RECIPES.push({out:[LANTERN,1],in:[[IRONI,1],[TORCH,1]],st:'table'},
@@ -1790,6 +1791,17 @@ itemAtlas.width = 128; itemAtlas.height = 384;
   put(262, (x, y, r) => {                                    // cake top: white icing, red dots
     const k = Math.floor((r() - 0.5) * 10);
     return ((x * 5 + y * 3) % 11 === 0 && x > 1 && x < 14 && y > 1 && y < 14) ? [210, 34, 44] : [248 + k / 2, 244 + k / 2, 240 + k / 2];
+  });
+  put(281, (x, y, r) => {                                   // jukebox side: dark wood, a brighter rim
+    const k = Math.floor((r() - 0.5) * 14);
+    if(x < 2 || x > 13 || y < 2 || y > 13) return [120 + k, 80 + k, 56 + k];
+    return (y % 4 === 0) ? [70 + k, 44 + k, 30 + k] : [92 + k, 60 + k, 42 + k];
+  });
+  put(282, (x, y, r) => {                                   // jukebox top: the disc slot
+    const k = Math.floor((r() - 0.5) * 14);
+    if(y >= 7 && y <= 8 && x >= 3 && x <= 12) return [20, 14, 10];
+    if(x < 2 || x > 13 || y < 2 || y > 13) return [120 + k, 80 + k, 56 + k];
+    return [96 + k, 64 + k, 44 + k];
   });
   put(279, (x, y, r) => {                                   // fence icon: two posts and two rails
     const k = Math.floor((r() - 0.5) * 16), post = (x >= 2 && x <= 4) || (x >= 11 && x <= 13), rail = (y >= 4 && y <= 5) || (y >= 9 && y <= 10);
@@ -2917,6 +2929,11 @@ const tileAvg = [];
   px(174, [['#f4f4f8', [[4, 8, 8, 5], [5, 6, 6, 2], [6, 5, 4, 1]]], ['#ffffff', [[6, 7, 2, 2], [9, 9, 1, 1]]], ['#d8d8e0', [[5, 11, 6, 2]]]]);
   { const sh = []; for(let i = 0; i < 10; i++) sh.push([2 + i, 13 - i]);
     px(180, [['#3a8a80', sh], ['#5cc0b0', [[11, 1, 1, 4], [11, 1, 4, 1], [13, 1, 1, 3], [14, 3, 1, 1], [12, 3, 1, 1]]], ['#2a6a62', [[1, 14, 2, 1]]]]); }
+  [['#40c060', '#a0f0b0'], ['#6a4ac8', '#c0a8ff'], ['#e8a020', '#fff0a0'], ['#3a7ae0', '#a8e0ff']].forEach(([c, l], i) => {
+    const ring = [], lab = [];
+    for(let y = 0; y < 16; y++) for(let x = 0; x < 16; x++){ const d = Math.hypot(x - 7.5, y - 7.5); if(d < 7.2 && d >= 3) ring.push([x, y]); else if(d < 3 && d >= 1) lab.push([x, y]); }
+    px(184 + i, [['#1c1c20', ring], [c, lab], [l, [[5, 6], [6, 5]]], ['#44444c', [[3, 5], [4, 4], [11, 11], [10, 12]]]]);
+  });
   px(179, [['#c8ccd2', [[3, 2, 2, 7], [5, 3, 1, 5], [11, 2, 2, 7], [10, 3, 1, 5]]], ['#e8ecf0', [[4, 2, 1, 5], [11, 3, 1, 4]]], ['#8a8f96', [[7, 8, 2, 2]]],
             ['#a03028', [[3, 10, 4, 4], [9, 10, 4, 4]]], ['#c84a3a', [[4, 11, 2, 2], [10, 11, 2, 2]]]]);
   px(177, [['#c8e0e8', [[5, 3, 6, 2], [4, 5, 8, 9], [5, 14, 6, 1]]], ['#f0a820', [[5, 7, 6, 7]]], ['#ffd050', [[6, 8, 2, 3]]], ['#8a6030', [[6, 1, 4, 2]]]]);
@@ -4668,6 +4685,7 @@ function stockPyramidChest(x, y, z, key){
     [BREAD, 1 + Math.floor(Math.random() * 3)],
     [SEEDS, 2 + Math.floor(Math.random() * 4)],
     [GUNPOWDER, 1 + Math.floor(Math.random() * 4)],
+    [DISC_1 + ((Math.random() * 4) | 0), Math.random() < 0.35 ? 1 : 0],
   ];
   let si = 0;
   for(const [id, n] of loot){ if(n > 0){ slots[si] = { id, count: n, dur: 0 }; si += 2; } }
@@ -8273,6 +8291,7 @@ function killCreeper(i, exploded){
   if(!exploded){
     monsterCall(c,'die');
     if(mode === 'survival') spawnDropAt(c.pos.x, c.pos.y + 0.5, c.pos.z, GUNPOWDER, 1 + (Math.random() < 0.5 ? 1 : 0));
+    if(mode === 'survival' && Math.random() < 0.05) spawnDropAt(c.pos.x, c.pos.y + 0.5, c.pos.z, DISC_1 + ((Math.random() * 4) | 0));
   }
   removeEnt(creepers, i);
 }
@@ -9532,6 +9551,7 @@ function useSpecial(o, d, hit, eh){
   if(useCampfire(hit)) return true;
   if(useHive(hit)) return true;
   if(useGate(hit)) return true;
+  if(useJukebox(hit)) return true;
   if(heldId() === TRIDENT) return throwTrident(o, d);
   if(held === ROD) return useRod(o, d);
   if(eggMob(held)) return useSpawnEgg(hit) || true;
@@ -10684,7 +10704,7 @@ function dropGeo(id){
 }
 function spawnDropAt(x, y, z, id, n = 1){
   if(drops.length >= 80){ scene.remove(drops[0].mesh); drops.shift(); }
-  const mat = !!ITEMS[id] ? matItemSolid : isCross(id) ? (id === TORCH || emitsLight(id) ? matGC : matC) : isLeaf(id)?matLeaf:matO;
+  const mat = !!ITEMS[id] ? matItemSolid : isCross(id) ? (id === TORCH || emitsLight(id) ? matGC : matC) : isLeaf(id)||isFenceish(id)?matLeaf:matO;
   const mesh = new THREE.Mesh(dropGeo(id), mat);
   scene.add(mesh);
   drops.push({
@@ -11450,7 +11470,7 @@ function myPose(){
   return pose;
 }
 function heldItemMesh(id){
-  const mat = !!ITEMS[id] ? matItemSolid : isCross(id) ? (id === TORCH || emitsLight(id) ? matGC : matC) : isLeaf(id)?matLeaf:matO;
+  const mat = !!ITEMS[id] ? matItemSolid : isCross(id) ? (id === TORCH || emitsLight(id) ? matGC : matC) : isLeaf(id)||isFenceish(id)?matLeaf:matO;
   const m = new THREE.Mesh(dropGeo(id), mat);
   const tool = ITEMS[id] && ITEMS[id].tool;
   m.scale.setScalar(!!ITEMS[id] && tool ? 1.54 : id === FLINTSTEEL ? 1.26 : !!ITEMS[id] ? 1.8 : 0.76);
@@ -12969,7 +12989,7 @@ function buildViewModel(){
   vmId = id;
   if(vmMesh){ viewModel.remove(vmMesh); vmMesh = null; }
   if(!id) return;                    // empty hand
-  const mat = !!ITEMS[id] ? matItemSolid : isCross(id) ? (id === TORCH || emitsLight(id) ? matGC : matC) : isLeaf(id)?matLeaf:matO;
+  const mat = !!ITEMS[id] ? matItemSolid : isCross(id) ? (id === TORCH || emitsLight(id) ? matGC : matC) : isLeaf(id)||isFenceish(id)?matLeaf:matO;
   vmMesh = new THREE.Mesh(dropGeo(id), mat);
   const tool = ITEMS[id] && ITEMS[id].tool;
   if(!!ITEMS[id] && tool){             // tools/weapons: bigger, angled like they're gripped
@@ -13506,7 +13526,7 @@ function vrBuildTool(){
   vrToolId = id;
   if(vrTool){ rightCtrl.remove(vrTool); vrTool = null; }
   if(!id) return;
-  const mat = !!ITEMS[id] ? matItemSolid : isCross(id) ? (id === TORCH || emitsLight(id) ? matGC : matC) : isLeaf(id)?matLeaf:matO;
+  const mat = !!ITEMS[id] ? matItemSolid : isCross(id) ? (id === TORCH || emitsLight(id) ? matGC : matC) : isLeaf(id)||isFenceish(id)?matLeaf:matO;
   vrTool = new THREE.Mesh(dropGeo(id), mat);
   const tool = ITEMS[id] && ITEMS[id].tool;
   vrTool.scale.setScalar(!!ITEMS[id] && tool ? 1.54 : id === FLINTSTEEL ? 1.26 : !!ITEMS[id] ? 1.8 : 0.76);
@@ -14857,6 +14877,117 @@ function updateBees(dt){
   hiveSaveT -= dt;
   if(hiveSaveT <= 0){ hiveSaveT = 10; if(hivesDirty) saveHives(); }
 }
+/* ============================== JUKEBOX ==============================
+   A jukebox (8 planks and a diamond) plays music discs - found in dungeon
+   chests, or now and then dropped by a creeper. Each disc is its own tune,
+   heard from the jukebox itself: walk away and it fades, turn your head and
+   it moves. The background music hushes while one plays nearby. */
+const DISCS = [
+  { name: 'Meadow',     bpm: 104, scale: [0, 2, 4, 5, 7, 9, 11], prog: [0, 5, 3, 4], lead: 'triangle', bass: 'square',   root: 0,  drums: false, seed: 11 },
+  { name: 'Caverns',    bpm: 76,  scale: [0, 2, 3, 5, 7, 8, 10], prog: [0, 5, 3, 6], lead: 'sine',     bass: 'sine',     root: -3, drums: false, seed: 23, bell: true },
+  { name: 'Lanterns',   bpm: 118, scale: [0, 2, 4, 7, 9],        prog: [0, 3, 4, 3], lead: 'sawtooth', bass: 'triangle', root: 2,  drums: true,  seed: 37, pluck: true },
+  { name: 'Stormchase', bpm: 138, scale: [0, 2, 3, 5, 7, 8, 10], prog: [0, 6, 5, 4], lead: 'square',   bass: 'sawtooth', root: -5, drums: true,  seed: 53 },
+];
+const jukes = new Map();                 // "x,y,z" -> { disc, x, y, z, beat, next, out, pan, rng }
+const jfreq = semi => 261.63 * Math.pow(2, semi / 12);
+function jukeOut(j){
+  if(j.out || !AC) return;
+  j.out = AC.createGain(); j.pan = AC.createStereoPanner();
+  j.out.gain.value = 0; j.out.connect(j.pan).connect(AC.destination);
+}
+function jNote(j, semi, t, dur, type, vol, pluck){
+  const o = AC.createOscillator(), g = AC.createGain(), f = AC.createBiquadFilter();
+  o.type = type; o.frequency.value = jfreq(semi);
+  f.type = 'lowpass'; f.frequency.value = type === 'sine' || type === 'triangle' ? 5000 : 1400;
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.linearRampToValueAtTime(vol, t + (pluck ? 0.01 : 0.03));
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(f).connect(g).connect(j.out);
+  o.start(t); o.stop(t + dur + 0.05);
+}
+function jDrum(j, t, low, vol){
+  const o = AC.createOscillator(), g = AC.createGain();
+  o.type = 'sine'; o.frequency.setValueAtTime(low ? 110 : 320, t); o.frequency.exponentialRampToValueAtTime(low ? 45 : 140, t + 0.15);
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.2);
+  o.connect(g).connect(j.out); o.start(t); o.stop(t + 0.25);
+}
+const SONG_BEATS = 128;
+function jukeSchedule(j){
+  const D = DISCS[j.disc], spb = 60 / D.bpm;
+  while(j.next < AC.currentTime + 1.2 && j.beat < SONG_BEATS){
+    const b = j.beat, t = j.next, bar = Math.floor(b / 4), inBar = b % 4;
+    const chordRoot = D.scale[D.prog[bar % 4] % D.scale.length] + D.root;
+    const sec = Math.floor(b / 32);                                             // four sections: build, tune, variation, wind down
+    // bass on the beat
+    if(inBar === 0 || inBar === 2 || (D.drums && sec > 0)) jNote(j, chordRoot - 24, t, spb * 0.9, D.bass, 0.09, true);
+    // a pad under each bar
+    if(inBar === 0 && sec !== 0){ for(const k of [0, 2, 4]) jNote(j, D.scale[(D.prog[bar % 4] + k) % D.scale.length] + D.root - 12 + (D.prog[bar % 4] + k >= D.scale.length ? 12 : 0), t, spb * 4, 'sine', 0.025); }
+    // the melody: a seeded walk through the scale, the same every time for a given disc
+    if(sec > 0 && sec < 3 || (sec === 3 && b < 112)){
+      for(const half of [0, 0.5]){
+        const r = j.rng();
+        if(r < (half ? 0.45 : 0.85)){
+          j.step = Math.max(-3, Math.min(9, (j.step || 2) + Math.round((j.rng() - 0.5) * 4)));
+          const deg = ((j.step % D.scale.length) + D.scale.length) % D.scale.length, oct = Math.floor(j.step / D.scale.length);
+          jNote(j, D.scale[deg] + D.root + oct * 12 + (sec === 2 ? 12 : 0), t + half * spb, spb * (D.bell ? 2.2 : 0.55), D.lead, D.bell ? 0.07 : 0.05, D.pluck);
+        }
+      }
+    }
+    if(D.drums && sec > 0){ jDrum(j, t, inBar % 2 === 0, inBar === 0 ? 0.22 : 0.12); if(sec === 2) jDrum(j, t + spb / 2, false, 0.06); }
+    j.beat++; j.next += spb;
+  }
+}
+function seededRng(seed){ let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+function startJuke(k, x, y, z, disc){
+  const j = { disc, x, y, z, beat: 0, next: AC ? AC.currentTime + 0.3 : 0, rng: seededRng(DISCS[disc].seed), step: 2, dim };
+  jukes.set(k, j); jukeOut(j);
+  flashName('Now playing: ' + DISCS[disc].name);
+}
+function stopJuke(k, eject){
+  const j = jukes.get(k);
+  if(!j) return;
+  if(j.out){ j.out.gain.setTargetAtTime(0.0001, AC.currentTime, 0.05); const o = j.out; setTimeout(() => o.disconnect(), 400); }
+  if(eject) spawnDropAt(j.x + 0.5, j.y + 1.1, j.z + 0.5, DISC_1 + j.disc);
+  jukes.delete(k);
+}
+function useJukebox(hit){
+  if(!hit || hit.id !== JUKEBOX) return false;
+  const k = hit.x + ',' + hit.y + ',' + hit.z, held = heldId();
+  if(jukes.has(k)){ stopJuke(k, true); return true; }
+  if(held >= DISC_1 && held < DISC_1 + DISCS.length){
+    if(!AC){ flashName('Turn the sound on first'); return true; }
+    consumePlacedItem(); startJuke(k, hit.x, hit.y, hit.z, held - DISC_1);
+    triggerViewSwing(); grantAdv('juke');
+    return true;
+  }
+  flashName('Put a music disc in it');
+  return true;
+}
+let jukeNear = false;
+function updateJukes(dt){
+  let near = false;
+  for(const [k, j] of jukes){
+    if(j.dim !== dim || getBlock(j.x, j.y, j.z) !== JUKEBOX){ stopJuke(k, j.dim === dim); continue; }   // broken: the disc pops out
+    if(!AC || j.done) continue;
+    jukeOut(j);
+    const c = new THREE.Vector3(j.x + 0.5, j.y + 0.5, j.z + 0.5), d = c.distanceTo(player.pos);
+    const vol = d > 56 ? 0 : 0.9 / (1 + d * 0.12) * Math.min(1, (56 - d) / 12);
+    j.out.gain.setTargetAtTime(vol, AC.currentTime, 0.1);
+    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.getWorldQuaternion(new THREE.Quaternion()));
+    j.pan.pan.setTargetAtTime(Math.max(-0.9, Math.min(0.9, right.dot(c.clone().sub(player.pos)) / Math.max(3, d))), AC.currentTime, 0.1);
+    if(d < 32) near = true;
+    const before = j.beat;
+    jukeSchedule(j);
+    if(j.beat > before && Math.random() < 0.6){
+      const hue = (j.beat * 0.13) % 1, col = new THREE.Color().setHSL(hue, 0.8, 0.6);
+      burstRGB(j.x + 0.5, j.y + 1.2, j.z + 0.5, col.r, col.g, col.b, 1, 0.3);          // little music notes
+    }
+    if(j.beat >= SONG_BEATS && AC.currentTime > j.next + 1){ j.done = true; j.out.gain.setTargetAtTime(0.0001, AC.currentTime, 0.3); }
+  }
+  // hush the background music near a playing jukebox
+  if(musicGain && AC && musicTimer && near !== jukeNear) musicGain.gain.setTargetAtTime(near ? 0.04 : 0.55, AC.currentTime, 0.8);
+  jukeNear = near;
+}
 /* ============================== TRIDENTS ==============================
    Drowned sometimes carry a trident, and sometimes drop it. Stab with it,
    or use it to throw it - it flies true, even through water, and once it
@@ -15704,6 +15835,7 @@ const ADVANCEMENTS = [
   { ch: 'Overworld', id: 'honey', title: 'Sticky Situation', how: 'Fill a glass bottle with honey from a full beehive (a campfire under it keeps the bees calm).', icon: HONEY_BOTTLE, check: () => hasItem(HONEY_BOTTLE) },
   { ch: 'Overworld', id: 'breed', title: 'The Parrots and the Bats', how: 'Feed two animals their favourite food (wheat for cows and sheep, carrots for pigs, seeds for chickens) and watch.', icon: WHEATITEM, check: () => false },
   { ch: 'Overworld', id: 'trident', title: 'A Throwaway Joke', how: 'Get a trident from a drowned (they rise out of deep water at night) and throw it at something.', icon: TRIDENT, check: () => false },
+  { ch: 'Overworld', id: 'juke', title: 'Sound of Music', how: 'Craft a jukebox (8 planks, 1 diamond) and play a music disc from a dungeon chest or a creeper.', icon: JUKEBOX, check: () => false },
   { ch: 'Overworld', id: 'tame', title: 'Best Friends Forever', how: 'Feed bones (from skeletons) to a wild wolf until it wears a red collar.', icon: BONE, check: () => false },
   { ch: 'Overworld', id: 'obsidian', title: 'Hot Stuff', how: 'Pour water on a lava source, then mine the obsidian with a diamond pickaxe.', icon: OBSIDIAN, check: () => hasItem(OBSIDIAN) },
   { ch: 'Nether', id: 'nether', title: 'We Need to Go Deeper', how: 'Build a 4 wide, 5 tall obsidian frame and light it with flint & steel.', icon: NETHERRACK, check: () => dim === 1 },
@@ -15880,6 +16012,7 @@ function animate(){
   if(inGame) updateCampfires(dt);
   updateSeaLife(dt);
   updateBees(dt);
+  updateJukes(dt);
   if(inGame && ((xpT = (xpT || 0) - dt) <= 0)){ xpT = 1; renderXP(); }
   updateAmbience(dt);
   checkMusicMood(dt);
@@ -16231,6 +16364,7 @@ window.__bc = {
             fx: { clearInv: () => { for(const q of survInv){ q.id = 0; q.count = 0; q.dur = 0; } renderHotbar(); }, effects, drink: id => drinkPotion(id), step: dt => updateEffects(dt), light: lightAtPlayer, mood: () => musicMood(), sub: showSubtitle, POTIONS },
             xp: { add: addXP, level: () => xpLevel, points: () => xpPoints, drop: dropXP, orbs: xpOrbs, offers: enchantOffers, enchant: doEnchant, setTable: t => { enchantAt = t; }, heldEnch, stackName, armourEnch },
             fence: { gate: useGate },
+            juke: { use: useJukebox, list: jukes, step: dt => updateJukes(dt), DISCS },
             trident: { throw: throwTrident, mesh: makeTridentMesh },
             shears: { use: useShears, regrow: regrowWool },
             herd: { list: () => herd, feed: useBreed, step: dt => updateHerd(dt), breed },
