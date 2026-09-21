@@ -795,6 +795,9 @@ const QUARTZ=360, NSCRAP=361, NETHERITE=362, GNUGGET=363, BLAZEROD=364, GHASTTEA
 /* The End update */
 const PURPUR=335, PURPUR_PILLAR=336, ENDSTONE_BRICK=337, END_ROD=338, CHORUS_PLANT=339, CHORUS_FLOWER=340,
       END_GATEWAY=341, END_FRAME=342, END_FRAME_EYE=343, CRYING_OBSIDIAN=344, ANCHOR=345, ANCHOR_LIT=346;
+/* The Stormlands */
+const STORMSTONE=347, SKYGRASS=348, CLOUD=349, VOLTITE_ORE=350, STORM_PORTAL=351, CONDUIT=352, CONDUIT_LIT=353, STORM_BRICK=354;
+const STORMKEY_I=391, VOLTITE=392, TEMPEST_HEART=393, STORMBREAKER=394, VOLT_PICK=395;
 const NETH_ARMOUR=376,   // 376-379: netherite armour
       BOW=380, ARROW_I=381, EYE_ENDER=382, ELYTRA=383, FIREWORK=384, PAPER=385, CHORUS_FRUIT=386,
       POPPED_CHORUS=387, SHULKER_SHELL=388, SADDLE=389, FUNGUS_STICK=390;
@@ -1002,6 +1005,9 @@ BLOCKS[CHORUS_PLANT]={name:'Chorus Plant',all:235};BLOCKS[CHORUS_FLOWER]={name:'
 BLOCKS[END_GATEWAY]={name:'End Gateway',all:237};
 BLOCKS[END_FRAME]={name:'End Portal Frame',top:239,bottom:T.ENDSTONE_T,side:238};BLOCKS[END_FRAME_EYE]={name:'End Portal Frame',top:240,bottom:T.ENDSTONE_T,side:238};
 BLOCKS[CRYING_OBSIDIAN]={name:'Crying Obsidian',all:241};
+BLOCKS[STORMSTONE]={name:'Stormstone',all:246};BLOCKS[SKYGRASS]={name:'Skygrass',top:247,bottom:246,side:248};BLOCKS[CLOUD]={name:'Cloud',all:249};
+BLOCKS[VOLTITE_ORE]={name:'Voltite Ore',all:250};BLOCKS[STORM_PORTAL]={name:'Storm Portal',all:251};
+BLOCKS[CONDUIT]={name:'Storm Conduit',all:252};BLOCKS[CONDUIT_LIT]={name:'Armed Storm Conduit',all:253};BLOCKS[STORM_BRICK]={name:'Stormstone Bricks',all:254};
 BLOCKS[ANCHOR]={name:'Respawn Anchor',top:243,bottom:242,side:242};BLOCKS[ANCHOR_LIT]={name:'Respawn Anchor',top:244,bottom:242,side:245};
 BLOCKS[MOSS]={name:'Moss Block',all:171};BLOCKS[AZALEA]={name:'Azalea',all:172};BLOCKS[AZALEA_F]={name:'Flowering Azalea',all:173};
 BLOCKS[GLOWVINE]={name:'Glow Berries',all:174};BLOCKS[CAVEVINE]={name:'Cave Vines',all:175};BLOCKS[DRIPLEAF]={name:'Small Dripleaf',all:176};
@@ -1018,8 +1024,8 @@ const STICK=100, COALI=101, IRONI=102, GOLDI=103, DIAMI=104, PORK=105, PORKC=106
       WHEATITEM=134, SEEDS=135, BREAD=136, WOODHOE=137, STONEHOE=138, IRONHOE=139, MELONSLICE=140, PUMPKINPIE=141,
       FLINTSTEEL=142, BOAT=143, MINECART=144, BUCKET=145, WATERBUCKET=146, LAVABUCKET=147,
       ENDERPEARL=148, BERRIES=149, BERRYPIE=150, VEGSTEW=151, GLOWDUST=152, MOONFIBER=153;
-const TIER_SPEED = [3.5, 6, 9, 14, 17];
-const TIER_DUR   = [60, 132, 250, 1000, 2031];
+const TIER_SPEED = [3.5, 6, 9, 14, 17, 22];
+const TIER_DUR   = [60, 132, 250, 1000, 2031, 3200];
 const ITEMS = {
   [STICK]:{name:'Stick', icon:0},
   [COALI]:{name:'Coal', icon:1},
@@ -1073,7 +1079,9 @@ ITEMS[NAXE]={name:'Netherite Axe',icon:81,tool:{type:'axe',tier:5}};ITEMS[ROTTEN
 ITEMS[BOW]={name:'Bow',icon:91};ITEMS[ARROW_I]={name:'Arrow',icon:92};ITEMS[EYE_ENDER]={name:'Eye of Ender',icon:93};
 ITEMS[FIREWORK]={name:'Firework Rocket',icon:95};ITEMS[PAPER]={name:'Paper',icon:96};ITEMS[CHORUS_FRUIT]={name:'Chorus Fruit',icon:97,food:4};
 ITEMS[POPPED_CHORUS]={name:'Popped Chorus Fruit',icon:98};ITEMS[SHULKER_SHELL]={name:'Shulker Shell',icon:99};
-ITEMS[SADDLE]={name:'Saddle',icon:100};ITEMS[FUNGUS_STICK]={name:'Warped Fungus on a Stick',icon:101};
+ITEMS[SADDLE]={name:'Saddle',icon:100};ITEMS[STORMKEY_I]={name:'Storm Key',icon:102};ITEMS[VOLTITE]={name:'Voltite Shard',icon:103};
+ITEMS[TEMPEST_HEART]={name:'Tempest Heart',icon:104};ITEMS[STORMBREAKER]={name:'Stormbreaker',icon:105,tool:{type:'sword',tier:6}};
+ITEMS[VOLT_PICK]={name:'Voltite Pickaxe',icon:106,tool:{type:'pick',tier:6}};ITEMS[FUNGUS_STICK]={name:'Warped Fungus on a Stick',icon:101};
 ITEMS[CRYSTALSHARD]={name:'Crystal Shard',icon:66};ITEMS[CRYSTALPICK]={name:'Crystal Pickaxe',icon:67,tool:{type:'pick',tier:4}};ITEMS[CRYSTALSWORD]={name:'Crystal Sword',icon:68,tool:{type:'sword',tier:4}};
 const ARMOUR_SLOTS=['helmet','chestplate','leggings','boots'];
 const ARMOUR_SETS=[{name:'Leather',material:LEATHER,color:0x986444,points:[1,3,2,1],base:200,icon:54},{name:'Iron',material:IRONI,color:0xb9c8d2,points:[2,6,5,2],base:204,icon:58},{name:'Diamond',material:DIAMI,color:0x5cdbd6,points:[3,8,6,3],base:208,icon:62},
@@ -1118,10 +1126,10 @@ const partialTile = id => {
   return T.STONE;
 };
 const isDoor    = id => id === DOOR || id === DOORTOP;
-const isOpaque = id => id !== AIR && id !== WATER && id !== GLASS && id !== LAVA && id !== PORTAL && id !== ENDPORTAL && id !== END_GATEWAY && !isCross(id) && !isPartial(id) && !isDoor(id) && !isFlat(id);
-const isSolid  = id => id !== AIR && id !== WATER && id !== LAVA && id !== PORTAL && id !== ENDPORTAL && id !== END_GATEWAY && !isCross(id) && !isDoor(id) && !isFlat(id);
+const isOpaque = id => id !== AIR && id !== WATER && id !== GLASS && id !== LAVA && id !== PORTAL && id !== ENDPORTAL && id !== END_GATEWAY && id !== STORM_PORTAL && !isCross(id) && !isPartial(id) && !isDoor(id) && !isFlat(id);
+const isSolid  = id => id !== AIR && id !== WATER && id !== LAVA && id !== PORTAL && id !== ENDPORTAL && id !== END_GATEWAY && id !== STORM_PORTAL && !isCross(id) && !isDoor(id) && !isFlat(id);
 const isLiquid = id => id === WATER || id === LAVA;
-const emitsLight = id => id===GLOWCRYSTAL || id === END_ROD || id === END_GATEWAY || id === CRYING_OBSIDIAN || id === ANCHOR_LIT || id === SHROOMLIGHT || id === MAGMA || isFire(id) || id === SOUL_TORCH || id === GLOWVINE || id === AMETHYST_C || id === AMBERLAMP || id === GLOWB || id === GLOWSTONE || id === LAVA || id === PORTAL || id === ENDPORTAL || id === ENDCRYSTAL;
+const emitsLight = id => id===GLOWCRYSTAL || id === STORM_PORTAL || id === CONDUIT_LIT || id === VOLTITE_ORE || id === END_ROD || id === END_GATEWAY || id === CRYING_OBSIDIAN || id === ANCHOR_LIT || id === SHROOMLIGHT || id === MAGMA || isFire(id) || id === SOUL_TORCH || id === GLOWVINE || id === AMETHYST_C || id === AMBERLAMP || id === GLOWB || id === GLOWSTONE || id === LAVA || id === PORTAL || id === ENDPORTAL || id === ENDCRYSTAL;
 const occl     = id => isOpaque(id);
 function tileFor(id, face){
   const d = BLOCKS[id];
@@ -1132,13 +1140,15 @@ function faceVisible(b, n){
   if(n === AIR || isCross(n)) return true;
   if(b === WATER) return n === GLASS;
   if(b === LAVA) return n !== LAVA && !isOpaque(n);
-  if(b === PORTAL) return n !== PORTAL;
+  if(b === PORTAL || b === STORM_PORTAL) return n !== b;
   if(b === GLASS) return n === WATER;
   return !isOpaque(n);
 }
-const dropOf = id => id===CHORUS_PLANT?CHORUS_FRUIT:id===ANCHOR_LIT?ANCHOR:id===CRIM_NYL||id===WARP_NYL?NETHERRACK:id===QUARTZ_ORE?QUARTZ:id===NGOLD_ORE?GNUGGET:id===GILDED?(Math.random()<.1?GNUGGET:GILDED):id===SNOWY_GRASS?DIRT:id===GLOWVINE?BERRIES:id===AMETHYST_C||id===BUDDING?AMETHYST_SHARD:id===DRIP_DOWN?DRIP_UP:id===BERRYBUSH?BERRIES:id===CRYSTALORE||id===GLOWCRYSTAL?CRYSTALSHARD:id === GRASS || id === SAVGRASS || id === FARMLAND ? DIRT : id === COALO ? COALI : id === DIAMO ? DIAMI :
+const dropOf = id => id===SKYGRASS?STORMSTONE:id===VOLTITE_ORE?VOLTITE:id===CONDUIT_LIT?CONDUIT:id===CHORUS_PLANT?CHORUS_FRUIT:id===ANCHOR_LIT?ANCHOR:id===CRIM_NYL||id===WARP_NYL?NETHERRACK:id===QUARTZ_ORE?QUARTZ:id===NGOLD_ORE?GNUGGET:id===GILDED?(Math.random()<.1?GNUGGET:GILDED):id===SNOWY_GRASS?DIRT:id===GLOWVINE?BERRIES:id===AMETHYST_C||id===BUDDING?AMETHYST_SHARD:id===DRIP_DOWN?DRIP_UP:id===BERRYBUSH?BERRIES:id===CRYSTALORE||id===GLOWCRYSTAL?CRYSTALSHARD:id === GRASS || id === SAVGRASS || id === FARMLAND ? DIRT : id === COALO ? COALI : id === DIAMO ? DIAMI :
                      id === EMERO ? EMERALD : id === DEADBUSH ? STICK : id;
 function toolClassOf(id){
+  if([STORMSTONE,VOLTITE_ORE,STORM_BRICK,CONDUIT,CONDUIT_LIT].includes(id)) return 'pick';
+  if(id === SKYGRASS || id === CLOUD) return 'shovel';
   if([PURPUR,PURPUR_PILLAR,ENDSTONE_BRICK,ENDSTONE,CRYING_OBSIDIAN,ANCHOR,ANCHOR_LIT].includes(id)) return 'pick';
   if(id === CHORUS_PLANT || id === CHORUS_FLOWER) return 'axe';
   if([NETHERRACK,NBRICK,SLAB_NBRICK,STAIR_NBRICK,OBSIDIAN,CRIM_NYL,WARP_NYL,BASALT_N,BLACKSTONE,BSTONE_BRICK,GILDED,MAGMA,
@@ -1157,7 +1167,10 @@ function toolClassOf(id){
   return null;
 }
 function handTime(id){
-  if(id === BEDROCK || id === END_GATEWAY || id === END_FRAME || id === END_FRAME_EYE || id === ENDPORTAL) return mode === 'creative' ? 0.05 : Infinity;
+  if(id === CLOUD) return 0.35;
+  if(id === SKYGRASS) return 0.8;
+  if(id === VOLTITE_ORE) return 8;
+  if(id === BEDROCK || id === STORM_PORTAL || id === END_GATEWAY || id === END_FRAME || id === END_FRAME_EYE || id === ENDPORTAL) return mode === 'creative' ? 0.05 : Infinity;
   if(id === CHORUS_PLANT || id === CHORUS_FLOWER) return 1.2;
   if(id === CRYING_OBSIDIAN || id === ANCHOR || id === ANCHOR_LIT) return 60;
   if(id === NETHERRACK || id === CRIM_NYL || id === WARP_NYL) return 1.2;
@@ -1270,6 +1283,9 @@ RECIPES.push(
 ARMOUR_SETS.forEach((set,t)=>ARMOUR_SLOTS.forEach((slot,j)=>RECIPES.push(set.upgrade?{out:[set.base+j,1],in:[[set.upgrade+j,1],[set.material,1]],st:'table'}:{out:[set.base+j,1],in:[[set.material,[5,8,7,4][j]]],st:'table'})));
 RECIPES.push({out:[COPPERI,1],in:[[COPPERO,1],[COALI,1]],st:'furnace'},{out:[COPPERB,1],in:[[COPPERI,9]],st:'table'},
   {out:[COPPERI,9],in:[[COPPERB,1]]},{out:[AMETHYST,1],in:[[AMETHYST_SHARD,4]]},{out:[DRIPSTONE,1],in:[[DRIP_UP,4]]});
+RECIPES.push({out:[STORMKEY_I,1],in:[[NETHERITE,1],[EYE_ENDER,1],[COPPERI,4]],st:'table'},
+  {out:[STORMBREAKER,1],in:[[NSWORD,1],[TEMPEST_HEART,1],[VOLTITE,4]],st:'table'},{out:[VOLT_PICK,1],in:[[NPICK,1],[VOLTITE,6]],st:'table'},
+  {out:[STORM_BRICK,4],in:[[STORMSTONE,4]]},{out:[CONDUIT,1],in:[[COPPERB,1],[VOLTITE,2]],st:'table'});
 RECIPES.push({out:[BOW,1],in:[[STICK,3],[STRING,3]],st:'table'},{out:[ARROW_I,4],in:[[STICK,1],[FEATHER,1],[GRAVEL,1]]},
   {out:[EYE_ENDER,1],in:[[ENDERPEARL,1],[BLAZEPOWDER,1]]},{out:[PAPER,3],in:[[REEDS,3]]},{out:[FIREWORK,3],in:[[PAPER,1],[GUNPOWDER,1]]},
   {out:[POPPED_CHORUS,1],in:[[CHORUS_FRUIT,1],[COALI,1]],st:'furnace'},{out:[PURPUR,4],in:[[POPPED_CHORUS,4]]},
@@ -2575,6 +2591,63 @@ const tileAvg = [];
   { const st = []; for(let i = 0; i < 9; i++) st.push([3 + i, 13 - i]);
     px(101, [['#7a5230', st], ['#1a9a8a', [[10, 2, 5, 3], [11, 1, 3, 1]]], ['#f0a040', [[11, 3], [13, 2]]], ['#d8d8d8', [[12, 5, 1, 4]]]]); }
 }
+/* ---- The Stormlands: textures ---- */
+{
+  const paint = (ti, fn) => {
+    const ctx = atlas.getContext('2d');
+    let seed = ti * 4441 + 3;
+    const rnd = () => { seed = (seed + 0x6D2B79F5) | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+    const img = ctx.createImageData(16, 16);
+    for(let py = 0; py < 16; py++) for(let px = 0; px < 16; px++){
+      const [r, g, b, a] = fn(px, py, rnd), o = (py * 16 + px) * 4;
+      img.data[o] = r; img.data[o+1] = g; img.data[o+2] = b; img.data[o+3] = Math.round((a ?? 1) * 255);
+    }
+    ctx.putImageData(img, (ti % 8) * 16, ((ti / 8) | 0) * 16);
+  };
+  const pick = (v, sh) => sh[Math.max(0, Math.min(sh.length - 1, Math.floor(v * sh.length)))];
+  const STONE = [[54,62,78],[62,72,90],[70,80,98],[80,90,108]];
+  const stone = (x, y, r) => (Math.abs(Math.sin(x * 0.7 + y * 1.3)) < 0.08 ? [44, 50, 64] : pick(r(), STONE));
+  paint(246, stone);
+  const GRASS = [[150,200,210],[168,214,222],[184,226,232],[138,188,200]];
+  paint(247, (x, y, r) => r() < 0.06 ? [214, 244, 250] : pick(r(), GRASS));
+  paint(248, (x, y, r) => { const drip = 3 + ((x * 7) % 3); return y < drip ? pick(r(), GRASS) : stone(x, y, r); });
+  paint(249, (x, y, r) => pick(r() * 0.5 + (Math.sin(x * 0.6) * Math.sin(y * 0.5) + 1) * 0.25, [[214,222,232],[226,232,240],[236,240,246],[246,248,252]]));
+  paint(250, (x, y, r) => {
+    for(const [px, py] of [[3,4],[11,3],[6,11],[12,12],[8,7]]) if(Math.abs(x - px) + Math.abs(y - py) <= 1) return x === px && y === py ? [230, 252, 255] : [110, 220, 250];
+    return stone(x, y, r);
+  });
+  paint(251, (x, y, r) => {
+    const sw = Math.sin((x - y) * 0.8 + Math.sin(y * 0.5) * 2) * 0.5 + 0.5;
+    return r() < 0.05 ? [255, 255, 255] : [60 + sw * 80, 130 + sw * 90, 200 + sw * 50];
+  });
+  const conduit = lit => (x, y, r) => {
+    const d = Math.max(Math.abs(x - 7.5), Math.abs(y - 7.5));
+    if(d > 6.4) return pick(r(), [[180,110,70],[196,122,78],[166,100,62]]);
+    if(d > 3.4) return pick(r(), [[60,70,86],[70,80,98]]);
+    return lit ? pick(r(), [[200,250,255],[140,230,255],[255,255,255]]) : pick(r(), [[40,70,96],[50,84,110]]);
+  };
+  paint(252, conduit(false)); paint(253, conduit(true));
+  paint(254, (x, y, r) => {
+    const row = y >> 2, bx = (x + (row % 2) * 4) % 8;
+    if(y % 4 === 3 || bx === 7) return [40, 46, 58];
+    return pick(r(), STONE);
+  });
+  const I = itemAtlas.getContext('2d');
+  const px = (ti, list) => { const ox = ti % 8 * 16, oy = Math.floor(ti / 8) * 16;
+    for(const [c, pts] of list){ I.fillStyle = c; for(const [x, y, w = 1, h = 1] of pts) I.fillRect(ox + x, oy + y, w, h); } };
+  // storm key: a copper key with a crackling blue bit
+  px(102, [['#c07048', [[3, 3, 5, 5], [7, 7, 2, 7], [9, 11, 3, 2], [9, 8, 2, 2]]], ['#1a1418', [[4, 4, 3, 3]]], ['#8ae8ff', [[7, 13, 2, 1], [11, 11, 1, 2]]], ['#e8a070', [[3, 3, 1, 1]]]]);
+  // voltite shard
+  px(103, [['#3aa8d8', [[6, 2, 4, 12], [5, 4, 6, 8]]], ['#9aeaff', [[7, 3, 2, 9]]], ['#ffffff', [[7, 4, 1, 4]]]]);
+  // tempest heart: a storm caught in a crystal
+  px(104, [['#2a3a5a', [[4, 3, 8, 10], [3, 5, 10, 6]]], ['#5a8ad0', [[5, 4, 6, 8]]], ['#c8f4ff', [[7, 5, 1, 2], [8, 7, 1, 2], [7, 9, 1, 2]]], ['#ffffff', [[6, 5, 1, 1]]]]);
+  // stormbreaker: a long blue-white blade
+  { const blade = [], edge = []; for(let i = 0; i < 10; i++){ blade.push([4 + i, 11 - i, 2, 2]); edge.push([5 + i, 11 - i]); }
+    px(105, [['#3a78c0', blade], ['#dff8ff', edge], ['#c07048', [[2, 12, 3, 2], [3, 11, 1, 4]]], ['#4a3a2a', [[1, 13, 2, 2]]]]); }
+  // voltite pickaxe
+  px(106, [['#6a4a2a', [[4, 11], [5, 10], [6, 9], [7, 8], [8, 7], [9, 6], [3, 12]]], ['#3aa8d8', [[5, 2, 7, 2], [11, 3, 2, 3], [4, 3, 2, 2]]], ['#9aeaff', [[6, 2, 5, 1]]]]);
+}
 /* ---- Caves & Cliffs textures ---- */
 {
   // snowy grass side: dirt, with the snow blanket hanging over the top edge in drips
@@ -2773,20 +2846,22 @@ const FACES = [
 // Two dimensions: 0 = overworld, 1 = nether. Each has its own chunk cache
 // and edits. The active `chunks`/`edits` pointers swap on portal travel.
 let dim = 0;
-const overworldChunks = new Map(), netherChunks = new Map(), endChunks = new Map();
+const overworldChunks = new Map(), netherChunks = new Map(), endChunks = new Map(), stormChunks = new Map();
 let chunks = overworldChunks;
 const SAVE_KEY = 'blockcraft-save-' + SEED;
 const INV_KEY = SAVE_KEY + '-inv';
 const CHEST_KEY = SAVE_KEY + '-chests';
 const NETHER_KEY = SAVE_KEY + '-nether';
 const END_KEY = SAVE_KEY + '-end';
+const STORM_SAVE = SAVE_KEY + '-storm';
 let editsDirty = false, invDirty = false, chestsDirty = false;
-let overworldEdits = {}, netherEdits = {}, endEdits = {};
+let overworldEdits = {}, netherEdits = {}, endEdits = {}, stormEdits = {};
 let edits = overworldEdits;
 let chests = {};
 try { overworldEdits = JSON.parse(localStorage.getItem(SAVE_KEY)) || {}; edits = overworldEdits; } catch(e){ overworldEdits = {}; edits = overworldEdits; }
 try { netherEdits = JSON.parse(localStorage.getItem(NETHER_KEY)) || {}; } catch(e){ netherEdits = {}; }
 try { endEdits = JSON.parse(localStorage.getItem(END_KEY)) || {}; } catch(e){ endEdits = {}; }
+try { stormEdits = JSON.parse(localStorage.getItem(STORM_SAVE)) || {}; } catch(e){ stormEdits = {}; }
 try { chests = JSON.parse(localStorage.getItem(CHEST_KEY)) || {}; } catch(e){ chests = {}; }
 /* This build raised the terrain by WORLD_LIFT. Worlds saved before that
    store their blocks at the old heights, so lift them to match rather
@@ -2876,6 +2951,7 @@ document.getElementById('resetBtn').addEventListener('click', () => {
   localStorage.removeItem(SAVE_KEY + '-endstate'); localStorage.removeItem(SAVE_KEY + '-anchors'); localStorage.removeItem(SAVE_KEY + '-anchor');
   localStorage.removeItem(NETHER_KEY);
   localStorage.removeItem(END_KEY);
+  localStorage.removeItem(STORM_SAVE); localStorage.removeItem(SAVE_KEY + '-stormstate');
   location.reload();
 });
 function saveNow(){
@@ -2883,6 +2959,7 @@ function saveNow(){
     localStorage.setItem(SAVE_KEY, JSON.stringify(overworldEdits));
     localStorage.setItem(NETHER_KEY, JSON.stringify(netherEdits));
     localStorage.setItem(END_KEY, JSON.stringify(endEdits));
+    localStorage.setItem(STORM_SAVE, JSON.stringify(stormEdits));
     localStorage.setItem(INV_KEY, JSON.stringify(survInv.map(s => [s.id, s.count, s.dur])));
     localStorage.setItem(CHEST_KEY, JSON.stringify(chests));
     localStorage.setItem(SAVE_KEY + '-doors', JSON.stringify([...doorState]));
@@ -3874,6 +3951,7 @@ function stampGeodes(data, cx, cz){
 function* genChunkSteps(cx, cz){
   if(dim === 1) return yield* genNetherChunkSteps(cx, cz);
   if(dim === 2) return yield* genEndChunkSteps(cx, cz);
+  if(dim === 3) return yield* genStormChunkSteps(cx, cz);
   const caverns=cavernsNear(cx*16+8,cz*16+8);
   const data = new Uint16Array(CHUNK * CHUNK * HEIGHT);
   const set = (lx, y, lz, id, keep) => {
@@ -4605,6 +4683,10 @@ function emitLevel(id){
   if(id===GLOWCRYSTAL)return 11;
   if(id === SHROOMLIGHT || id === FIRE || id === END_GATEWAY || id === ANCHOR_LIT) return 15;
   if(id === END_ROD) return 14;
+  if(id === CONDUIT_LIT) return 15;
+  if(id === STORM_PORTAL) return 11;
+  if(id === VOLTITE_ORE) return 5;
+  if(id === CONDUIT) return 4;
   if(id === CRYING_OBSIDIAN) return 10;
   if(id === END_FRAME_EYE) return 1;
   if(id === SOULFIRE || id === SOUL_TORCH) return 10;
@@ -6418,6 +6500,8 @@ const NETHER_TYPES = {
   magma:   { hp: 1, w: 0.26, h: 0.52, build: buildMagma },
   wskel:   { hp: 20, w: 0.35, h: 2.4, build: buildWither },
   strider: { hp: 20, w: 0.45, h: 1.7, build: buildStrider },
+  wisp:     { hp: 10, w: 0.35, h: 0.8, build: buildWisp },
+  stormling:{ hp: 6, w: 0.25, h: 1.15, build: buildStormling },
 };
 function spawnNetherMob(type, x, y, z, opt = {}){
   const T = NETHER_TYPES[type];
@@ -6532,6 +6616,12 @@ function netherVoice(e, mood = 'idle'){
     }
     case 'wskel':
       nSample('monsterBones', p, mood === 'die' ? 0.5 : 0.66, idle ? 0.22 : 0.4, 2600);
+      break;
+    case 'wisp':
+      nNoise(p, mood === 'shoot' ? 3200 : 2400, mood === 'die' ? 0.6 : 0.2, idle ? 0.12 : 0.25, mood === 'die' ? -1800 : 600, 40, 3);
+      break;
+    case 'stormling':
+      nTone(p, mood === 'die' ? 1400 : 1100, mood === 'die' ? 500 : 1500, mood === 'die' ? 0.35 : 0.12, 'square', idle ? 0.05 : 0.09);
       break;
     case 'strider':
       if(mood === 'die') nTone(p, 700, 240, 0.5, 'triangle', 0.25);
@@ -6707,6 +6797,13 @@ function updateNetherMob(e, dt){
       const l = toP || 1;
       player.vel.x += (player.pos.x - e.pos.x) / l * 4; player.vel.z += (player.pos.z - e.pos.z) / l * 4;
     }
+  } else if(T === 'wisp'){
+    updateWisp(e, dt, toP, canHunt);
+    return;
+  } else if(T === 'stormling'){
+    // small and spiteful: they rush you, but go down in a couple of hits
+    if(canHunt && toP < 24){ faceTo(e, player.pos.x, player.pos.z); e.speed = 3.8; netherMelee(e, 2, 1.3, 3, 3); }
+    else wander(e, dt, 1.2);
   } else if(T === 'ghast'){
     updateGhast(e, dt, toP, canHunt);
     return;
@@ -6806,6 +6903,7 @@ function setStriderCold(e, cold){
 /* ---- how they move ---- */
 function animNether(e, dt){
   const T = e.type;
+  if(T === 'wisp'){ animWisp(e, dt); return; }
   if(T === 'ghast'){
     e.group.position.copy(e.pos);
     e.group.position.y += Math.sin(e.anim * 0.9) * 0.15;
@@ -6846,7 +6944,7 @@ function animNether(e, dt){
   }
   animMob(e, dt);
   const sp = Math.min(1, Math.hypot(e.vel.x, e.vel.z));
-  if(T === 'zpiglin' || T === 'piglin' || T === 'brute' || T === 'wskel'){
+  if(T === 'zpiglin' || T === 'piglin' || T === 'brute' || T === 'wskel' || T === 'stormling'){
     const walk = Math.sin(e.anim * 3) * 0.5 * sp;
     const aggro = (e.angry > 0 || T === 'brute' || T === 'wskel') && e.speed > 2;
     const slash = e.swing > 0 ? -Math.sin((1 - e.swing / 0.35) * Math.PI) * 1.4 : 0;
@@ -6889,6 +6987,7 @@ function killNether(e){
     case 'blaze': if(Math.random() < 0.6) drop(BLAZEROD, 1, 1); break;
     case 'magma': if(e.size > 1 && Math.random() < 0.5) drop(MAGMACREAM, 1, 1); break;
     case 'wskel': if(Math.random() < 0.33) drop(COALI, 1, 1); break;
+    case 'wisp': if(Math.random() < 0.3) drop(VOLTITE, 1, 1); break;
     case 'strider': drop(STRING, 2, 5); if(e.saddled) drop(SADDLE, 1, 1); break;
   }
   const big = e.type === 'ghast' ? 3 : 1;
@@ -6922,7 +7021,7 @@ const fireGeo = new THREE.BoxGeometry(1, 1, 1);
 function spawnFireball(type, from, vel, owner){
   const g = new THREE.Group();
   const s = type === 'ghast' ? 1 : 0.32;
-  const m = new THREE.Mesh(fireGeo, NMAT.fire); m.scale.setScalar(s); g.add(m);
+  const m = new THREE.Mesh(fireGeo, type === 'spark' ? SPARK_MAT : NMAT.fire); m.scale.setScalar(s); g.add(m);
   g.position.copy(from);
   scene.add(g);
   const f = { kind: 'fireball', type, group: g, mesh: m, pos: from.clone(), vel: vel.clone(), w: s * 0.5, h: s, age: 0, owner, byPlayer: false, yaw: 0 };
@@ -6931,6 +7030,7 @@ function spawnFireball(type, from, vel, owner){
 }
 function fireballBurst(f){
   const p = f.pos;
+  if(f.type === 'spark'){ burstRGB(p.x, p.y, p.z, 0.7, 0.9, 1, 8, 0.4); return; }
   if(f.type === 'ghast'){
     explode(p.x, p.y, p.z, 1.6, 6);                                  // a small blast that breaks blocks
     for(let k = 0; k < 6; k++){                                      // and leaves fires burning
@@ -6961,12 +7061,14 @@ function updateFireballs(dt){
       const pp = player.pos;
       if(!f.byPlayer && Math.abs(f.pos.x - pp.x) < 0.5 + f.w && Math.abs(f.pos.z - pp.z) < 0.5 + f.w && f.pos.y > pp.y - f.w && f.pos.y < pp.y + 1.9 + f.w){
         if(f.type === 'blaze'){ damage(5); setBurn(5); }
+        else if(f.type === 'spark') damage(3);
         hit = true;
       }
     }
     // creatures - a deflected ghast fireball is deadly to ghasts
     if(!hit) for(const e of netherMobs){
       if(e === f.owner && !f.byPlayer) continue;
+      if(f.type === 'spark' && !f.byPlayer && (e.type === 'wisp' || e.type === 'stormling')) continue;   // the storm spares its own
       if(Math.abs(f.pos.x - e.pos.x) < e.w + f.w && Math.abs(f.pos.z - e.pos.z) < e.w + f.w && f.pos.y > e.pos.y - f.w && f.pos.y < e.pos.y + e.h + f.w){
         if(e.type !== 'blaze' && e.type !== 'magma') hurtNether(e, f.type === 'ghast' ? (e.type === 'ghast' && f.byPlayer ? 1000 : 6) : 5, f.byPlayer);
         hit = true; break;
@@ -8566,6 +8668,7 @@ function updateEndWorld(dt){
   if(!dragons.length) hideDragonBar();
 }
 function resetEndEntities(){
+  resetStormEntities();
   for(const d of dragons.slice()) removeDragon(d);
   for(const c of endCrystals){ scene.remove(c.group); scene.remove(c.beam); }
   endCrystals.length = 0;
@@ -8632,6 +8735,7 @@ function updateShots(dt){
     }
     if(bh || getBlock(Math.floor(s.pos.x), Math.floor(s.pos.y), Math.floor(s.pos.z)) === IRONBARS){
       if(s.kind === 'arrow'){
+        if(bh && bh.id === CONDUIT) armConduit(bh.x, bh.y, bh.z);   // a shot can arm a spire
         s.stuck = true; s.age = 0;
         if(bh) s.pos.addScaledVector(dir, bh.t);
         s.mesh.position.copy(s.pos);
@@ -8723,6 +8827,8 @@ function launchFirework(){
 // right-click / grip with one of the new items; returns true if it was used
 function useSpecial(o, d, hit, eh){
   const held = heldId();
+  if(hit && hit.id === CONDUIT){ armConduit(hit.x, hit.y, hit.z); triggerViewSwing(); return true; }
+  if(held === STORMKEY_I && hit){ lightStormPortal(hit.x + hit.face[0], hit.y + hit.face[1], hit.z + hit.face[2]); triggerViewSwing(); return true; }
   const survival = mode === 'survival';
   // respawn anchors
   if(hit && (hit.id === ANCHOR || hit.id === ANCHOR_LIT)) return useAnchor(hit, held);
@@ -8870,8 +8976,8 @@ function switchDim(t){
   dimReturn[dim] = { x: player.pos.x, y: player.pos.y, z: player.pos.z };
   for(const c of chunks.values()){ unloadMeshes(c); c.built = false; }
   dim = t;
-  chunks = [overworldChunks, netherChunks, endChunks][t];
-  edits = [overworldEdits, netherEdits, endEdits][t];
+  chunks = [overworldChunks, netherChunks, endChunks, stormChunks][t];
+  edits = [overworldEdits, netherEdits, endEdits, stormEdits][t];
   for(const list of [animals, zombies, skeletons, creepers, spiders, villagers, golems, endermen, drops, netherMobs, fireballs]){
     while(list.length){ const e = list.pop(); if(e.group) scene.remove(e.group); else if(e.mesh) scene.remove(e.mesh); }
   }
@@ -8942,6 +9048,526 @@ function buildEndPlatform(){
     for(let y = END_Y - 10; y <= END_Y - 8; y++) if(getBlock(100 + dx, y, dz) !== AIR) setBlock(100 + dx, y, dz, AIR);
   }
 }
+/* ========================== THE STORMLANDS ==========================
+   A fourth dimension: islands of stormstone and pale skygrass adrift in
+   a sky that never stops raining, split by lightning, over a sea of cloud.
+   Reached through a frame of copper blocks lit with a Storm Key. Its lord
+   is the Tempest Wyrm, a serpent of stormcloud far stronger than the
+   dragon - it can only be brought down by arming the arena's copper
+   spires, so their lightning strikes it out of the sky. */
+const STORM_ARENA = { x: 0, z: -150, top: 96, r: 34 };
+const STORM_LAND = { x: 0, z: 0, top: 92, r: 16 };
+const stormState = { bossDead: false };
+try { Object.assign(stormState, JSON.parse(localStorage.getItem(SAVE_KEY + '-stormstate')) || {}); } catch(e){}
+function saveStormState(){ try { localStorage.setItem(SAVE_KEY + '-stormstate', JSON.stringify(stormState)); } catch(e){} }
+const STORM_SPIRES = [0, 1, 2, 3].map(i => {
+  const a = Math.PI / 4 + i * Math.PI / 2;
+  return { x: STORM_ARENA.x + Math.round(Math.cos(a) * 24), z: STORM_ARENA.z + Math.round(Math.sin(a) * 24), top: STORM_ARENA.top + 10 };
+});
+// the island stone in one column: [bottom, top] or null
+function stormColumn(x, z){
+  const da = Math.hypot(x - STORM_ARENA.x, z - STORM_ARENA.z);
+  const ra = STORM_ARENA.r * (0.94 + 0.12 * fbm(x * 0.05, z * 0.05, 2, 5111));
+  if(da < ra){
+    const t = 1 - da / ra;
+    return [STORM_ARENA.top - Math.round(4 + Math.pow(t, 0.6) * 42 + fbm(x * 0.08, z * 0.08, 2, 5113) * 5), STORM_ARENA.top];
+  }
+  const dl = Math.hypot(x - STORM_LAND.x, z - STORM_LAND.z);
+  const rl = STORM_LAND.r * (0.9 + 0.2 * fbm(x * 0.06, z * 0.06, 2, 5115));
+  if(dl < rl){
+    const t = 1 - dl / rl;
+    return [STORM_LAND.top - Math.round(3 + Math.pow(t, 0.6) * 24), STORM_LAND.top + Math.round(t * 2)];
+  }
+  if(da < ra + 26 || dl < rl + 10) return null;              // keep open sky around the landing and the arena
+  const m = fbm(x * 0.011, z * 0.011, 3, 5101), t = (m - 0.57) / 0.3;
+  if(t <= 0) return null;
+  const n = fbm(x * 0.03, z * 0.03, 2, 5103);
+  const top = 82 + Math.round(n * 22 + t * 5);
+  return [top - Math.round(2 + Math.pow(t, 0.7) * 26 + fbm(x * 0.07, z * 0.07, 2, 5105) * 4), top];
+}
+function genStormChunk(cx, cz){ return finishSteps(genStormChunkSteps(cx, cz)); }
+function* genStormChunkSteps(cx, cz){
+  const data = new Uint16Array(CHUNK * CHUNK * HEIGHT);
+  const I = (lx, y, lz) => (y << 8) | (lz << 4) | lx;
+  const setW = (wx, y, wz, id) => { const lx = wx - cx * 16, lz = wz - cz * 16; if(lx >= 0 && lx < 16 && lz >= 0 && lz < 16 && y > 0 && y < HEIGHT) data[I(lx, y, lz)] = id; };
+  for(let lz = 0; lz < 16; lz++) for(let lx = 0; lx < 16; lx++){
+    yield;
+    const wx = cx * 16 + lx, wz = cz * 16 + lz;
+    // a sea of cloud far below, and wisps of it drifting between the islands
+    if(fbm(wx * 0.02 + 70, wz * 0.02, 3, 5121) > 0.6){ data[I(lx, 60, lz)] = CLOUD; data[I(lx, 61, lz)] = CLOUD; }
+    if(fbm(wx * 0.025 - 40, wz * 0.025 + 11, 3, 5123) > 0.72) data[I(lx, 116, lz)] = CLOUD;
+    const c = stormColumn(wx, wz);
+    if(!c) continue;
+    const arena = Math.hypot(wx - STORM_ARENA.x, wz - STORM_ARENA.z) < STORM_ARENA.r + 2;
+    for(let y = Math.max(1, c[0]); y <= c[1]; y++){
+      let b = y === c[1] ? SKYGRASS : STORMSTONE;
+      if(b === STORMSTONE && y < c[1] - 2 && hash3(wx, y, wz, 5131) < 0.004) b = VOLTITE_ORE;
+      data[I(lx, y, lz)] = b;
+    }
+    if(arena){
+      // the ritual ring and centre paving of the arena
+      const d = Math.hypot(wx - STORM_ARENA.x, wz - STORM_ARENA.z);
+      if((d > 19 && d < 22) || d < 5) data[I(lx, c[1], lz)] = STORM_BRICK;
+    } else if(hash(wx, wz, 5133) < 0.12) data[I(lx, c[1] + 1, lz)] = TGRASSB;
+  }
+  // the cloud bridge from the landing to the arena
+  if(Math.abs(cx * 16 + 8) < 20 && cz * 16 < 0 && cz * 16 > -140){
+    for(let wz = -12; wz >= -120; wz--){
+      const y = STORM_LAND.top + Math.round((-12 - wz) / 108 * (STORM_ARENA.top - STORM_LAND.top));
+      for(let dx = -2; dx <= 2; dx++){
+        const cur = Math.abs(dx) === 2 ? CLOUD : STORM_BRICK;
+        setW(dx, y, wz, cur);
+        for(let k = 1; k <= 3; k++) setW(dx, y + k, wz, AIR);
+      }
+    }
+  }
+  // four copper spires ring the arena, each crowned with a conduit you can arm
+  for(const s of STORM_SPIRES){
+    if(s.x + 3 < cx * 16 || s.x - 3 > cx * 16 + 15 || s.z + 3 < cz * 16 || s.z - 3 > cz * 16 + 15) continue;
+    for(let dx = -1; dx <= 1; dx++) for(let dz = -1; dz <= 1; dz++) for(let y = STORM_ARENA.top + 1; y < s.top; y++) setW(s.x + dx, y, s.z + dz, COPPERB);
+    setW(s.x, s.top, s.z, CONDUIT);
+    // copper steps spiral up around it
+    const ring = [[-2, -1], [-2, 0], [-2, 1], [-1, 2], [0, 2], [1, 2], [2, 1], [2, 0], [2, -1], [1, -2], [0, -2], [-1, -2]];
+    for(let k = 0; k < 9; k++){ const [a, b] = ring[k % ring.length]; setW(s.x + a, STORM_ARENA.top + 1 + k, s.z + b, STORM_BRICK); }
+  }
+  const ed = stormEdits[cx + ',' + cz];
+  if(ed) for(const k in ed){ const [lx, y, lz] = k.split(',').map(Number); data[I(lx, y, lz)] = ed[k]; }
+  return data;
+}
+
+/* ---- getting there: a copper frame lit with the Storm Key ---- */
+function scanFrameOf(frameId, sx, sy, sz, axis){
+  const dirs = axis === 'x' ? [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0]] : [[0,0,1],[0,0,-1],[0,1,0],[0,-1,0]];
+  if(getBlock(sx, sy, sz) !== AIR) return null;
+  const seen = new Set(), cells = [], stack = [[sx, sy, sz]];
+  while(stack.length){
+    const [x, y, z] = stack.pop(), k = x + ',' + y + ',' + z;
+    if(seen.has(k)) continue;
+    seen.add(k);
+    const b = getBlock(x, y, z);
+    if(b === frameId) continue;
+    if(b !== AIR) return null;
+    cells.push([x, y, z]);
+    if(cells.length > 12) return null;
+    for(const [dx, dy, dz] of dirs) stack.push([x + dx, y + dy, z + dz]);
+  }
+  const u = cells.map(c => axis === 'x' ? c[0] : c[2]), v = cells.map(c => c[1]);
+  const w = Math.max(...u) - Math.min(...u) + 1, h = Math.max(...v) - Math.min(...v) + 1;
+  return w >= 2 && w <= 3 && h >= 3 && h <= 4 && cells.length === w * h ? cells : null;
+}
+function lightStormPortal(x, y, z){
+  for(const axis of ['x', 'z']){
+    const cells = scanFrameOf(COPPERB, x, y, z, axis);
+    if(cells){
+      for(const [px, py, pz] of cells) setBlock(px, py, pz, STORM_PORTAL);
+      boltAt(x + 0.5, y + 4, z + 0.5, true);
+      flashName('The storm answers');
+      return true;
+    }
+  }
+  flashName('Use inside a 4 wide × 5 tall frame of copper blocks');
+  return false;
+}
+function buildStormPortal(x, y, z){
+  for(let dx = -1; dx <= 2; dx++) for(let dy = 0; dy <= 4; dy++){
+    const edge = dx === -1 || dx === 2 || dy === 0 || dy === 4;
+    setBlock(x + dx, y + dy, z, edge ? COPPERB : STORM_PORTAL);
+  }
+}
+function travelStorm(){
+  const going = dim !== 3;
+  if(going){
+    dimReturn[0] = { x: player.pos.x, y: player.pos.y, z: player.pos.z };
+    switchDim(3);
+    const top = stormColumn(STORM_LAND.x, STORM_LAND.z + 4)[1];
+    if(getBlock(-6, top + 2, 4) !== STORM_PORTAL) buildStormPortal(-6, top + 1, 4);
+    player.pos.set(0.5, top + 1.02, 4.5);
+    flashName('Entering the Stormlands');
+  } else {
+    switchDim(0);
+    const d = dimReturn[0] || { x: SPAWN.x, y: SPAWN.y, z: SPAWN.z };
+    player.pos.set(d.x + 1.2, d.y, d.z);
+    flashName('Returning to the Overworld');
+  }
+  player.vel.set(0, 0, 0); fallPeak = player.pos.y;
+  curPC = null; updateChunks();
+  tone(300, 900, 0.8, 'sawtooth', 0.12);
+}
+
+/* ---- lightning you can aim ---- */
+function boltAt(x, gy, z, sound){
+  const top = gy + 70, arr = boltGeo.attributes.position.array;
+  let bx = x, bz = z;
+  for(let i = 0; i < 26; i++){
+    const y = top - (top - gy) * i / 25;
+    arr[i * 3] = bx; arr[i * 3 + 1] = y; arr[i * 3 + 2] = bz;
+    bx += (Math.random() - 0.5) * 2.4; bz += (Math.random() - 0.5) * 2.4;
+    if(i === 24){ bx = x; bz = z; }
+  }
+  boltGeo.attributes.position.needsUpdate = true;
+  bolt.visible = true; boltT = 0.25; flashAmt = 1;
+  burstRGB(x, gy + 0.5, z, 0.8, 0.9, 1, 24, 1.5);
+  if(sound !== false) thunder(Math.hypot(player.pos.x - x, player.pos.z - z));
+  if(!mobCtx && conns.length && isHost) mpBroadcast({ t: 'bolt', x: r2(x), y: r2(gy), z: r2(z) });
+}
+// a ring of sparks on the ground warns where the next strike will fall
+function strikeMark(x, y, z){
+  for(let k = 0; k < 14; k++){ const a = k / 14 * Math.PI * 2; burstRGB(x + Math.cos(a) * 2.2, y + 0.2, z + Math.sin(a) * 2.2, 0.6, 0.85, 1, 1, 0.1); }
+}
+
+/* ======================== THE TEMPEST WYRM ======================== */
+const wyrms = [];
+const WYRM_MAX_HP = 500;
+const WYRM_PHASES = ['circle', 'lightning', 'barrage', 'dive', 'stunned', 'rising', 'dying'];
+const WM = {
+  hide: nSkinMat(16, 16, ({ fill, px }) => { fill(['#26324a', '#2c3a54', '#222c42', '#30405c']); for(let y = 1; y < 16; y += 4) for(let x = (y % 8) ? 0 : 2; x < 16; x += 4) px(x, y, '#3a4c6a', 2, 2); }),
+  belly: nSkinMat(8, 8, ({ fill }) => fill(['#5a6a84', '#62728c', '#56667e'])),
+  fin: nSkinMat(8, 8, ({ fill, px }) => { fill(['#3a5a8a', '#42649a', '#345080']); for(let x = 0; x < 8; x += 3) px(x, 0, '#6a9ad8', 1, 8); }),
+  rune: nSkinMat(4, 4, ({ fill }) => fill(['#8ae8ff', '#b8f4ff', '#6ad0f0']), true),
+  eye: nSkinMat(4, 4, ({ fill, px }) => { fill(['#c8f8ff', '#a0f0ff']); px(1, 1, '#ffffff', 2, 2); }, true),
+  horn: nSkinMat(4, 4, ({ fill }) => fill(['#c8ccd6', '#b4b8c4', '#dadee6'])),
+  face: nSkinMat(16, 16, ({ fill, px }) => { fill(['#26324a', '#2c3a54']); px(3, 11, '#0a0e16', 10, 2); for(let x = 3; x < 13; x += 2) px(x, 10, '#e8ecf4'); }),
+};
+function spawnWyrm(){
+  if(wyrms.length) return wyrms[0];
+  const g = new THREE.Group(), H = WM.hide;
+  const e = { kind: 'wyrm', group: g, pos: new THREE.Vector3(STORM_ARENA.x, STORM_ARENA.top + 30, STORM_ARENA.z + 40), vel: new THREE.Vector3(),
+    hp: WYRM_MAX_HP, yaw: 0, pitch: 0, bank: 0, phase: 'circle', phaseT: 6, ang: 0, anim: 0, atkCd: 0, rage: 0, jaw: 0,
+    strikes: 0, strikeT: 0, marks: [], shots: 0, hurtT: 0, w: 1.4, h: 1.8 };
+  // the head: a long armoured skull, swept horns, whisker fins and burning white eyes
+  box(2.2, 1.6, 2.8, faces(H, H, H, WM.face), 0, 0, 0, g);
+  box(1.6, 0.9, 1.8, H, 0, -0.2, -2.1, g);
+  for(const s of [-1, 1]){
+    box(0.3, 0.35, 0.5, WM.eye, s * 1.12, 0.3, -0.6, g);
+    const horn = new THREE.Group(); horn.position.set(s * 0.7, 0.8, 0.6); horn.rotation.set(0.7, s * 0.3, 0); g.add(horn);
+    box(0.3, 0.3, 2.2, WM.horn, 0, 0, 1.0, horn);
+    const whisk = new THREE.Group(); whisk.position.set(s * 0.8, -0.4, -2.6); whisk.rotation.set(0.4, s * 0.6, 0); g.add(whisk);
+    box(0.1, 0.1, 1.8, WM.rune, 0, 0, 0.9, whisk);
+    box(0.08, 0.9, 1.4, WM.fin, s * 1.15, 0.1, 0.6, g);
+  }
+  const jaw = new THREE.Group(); jaw.position.set(0, -0.8, -0.8); g.add(jaw);
+  box(1.4, 0.35, 2.4, faces(H, H, WM.belly, H), 0, -0.15, -0.9, jaw);
+  e.jawG = jaw;
+  g.rotation.order = 'YXZ';
+  scene.add(g);
+  // the body: twenty-six segments, each following the one ahead, finned and lit along the spine
+  e.group2 = new THREE.Group(); scene.add(e.group2);
+  e.segs = [];
+  for(let i = 0; i < 26; i++){
+    const t = new THREE.Group(), w = 1.9 - i * 0.05;
+    box(w, w * 0.85, 1.35, faces(H, H, H, H, H), 0, 0, 0, t);
+    box(w * 0.7, 0.08, 1.2, WM.belly, 0, -w * 0.43, 0, t);
+    if(i % 2 === 0) box(0.12, 0.7 + (i < 13 ? 0.3 : 0), 1.0, WM.fin, 0, w * 0.6, 0, t);
+    box(0.22, 0.12, 0.9, WM.rune, 0, w * 0.44, 0, t);
+    if(i % 4 === 1) for(const s of [-1, 1]) box(1.2, 0.08, 0.8, WM.fin, s * (w * 0.5 + 0.55), 0, 0, t);   // side fins
+    if(i === 25) box(0.1, 1.6, 1.6, WM.fin, 0, 0, 0.8, t);                                                // the tail fan
+    e.group2.add(t);
+    e.segs.push({ g: t, p: e.pos.clone().add(new THREE.Vector3(0, 0, 2 + i * 1.3)) });
+  }
+  // a health bar that floats over it, readable in a headset
+  const bar = new THREE.Group();
+  const back = new THREE.Mesh(new THREE.PlaneGeometry(6, 0.35), new THREE.MeshBasicMaterial({ color: 0x101820, depthTest: false, fog: false }));
+  const fill = new THREE.Mesh(new THREE.PlaneGeometry(5.8, 0.22), new THREE.MeshBasicMaterial({ color: 0x6ad8ff, depthTest: false, fog: false }));
+  fill.position.z = 0.01; back.renderOrder = 998; fill.renderOrder = 999;
+  bar.add(back, fill); scene.add(bar);
+  e.bar = bar; e.barFill = fill;
+  e.headHit = { kind: 'wyrmHead', wyrm: e, pos: new THREE.Vector3(), w: 1.2, h: 1.7 };
+  e.bodyHits = [4, 9, 14, 19].map(i => ({ kind: 'wyrmBody', wyrm: e, seg: i, pos: new THREE.Vector3(), w: 1.0, h: 1.6 }));
+  wyrms.push(e);
+  dragonRoar(e, true);
+  flashName('The Tempest Wyrm rises!');
+  return e;
+}
+function removeWyrm(e){
+  scene.remove(e.group); scene.remove(e.group2); scene.remove(e.bar);
+  const i = wyrms.indexOf(e); if(i >= 0) wyrms.splice(i, 1);
+}
+function animWyrm(e, dt){
+  e.anim += dt;
+  e.group.position.copy(e.pos);
+  e.group.rotation.set(e.pitch, e.yaw, e.bank);
+  const open = e.phase === 'lightning' || e.phase === 'barrage' || e.phase === 'dying' || e.phase === 'stunned';
+  e.jaw += ((open ? 1 : 0) - e.jaw) * Math.min(1, dt * 5);
+  e.jawG.rotation.x = e.jaw * 0.55;
+  // each segment trails the one ahead, with a sinuous sway
+  const anchor = new THREE.Vector3(0, 0, 1.9).applyEuler(e.group.rotation).add(e.pos);
+  let prev = anchor;
+  e.segs.forEach((s, i) => {
+    const d = s.p.clone().sub(prev), l = d.length() || 1;
+    s.p.copy(prev).addScaledVector(d, 1.3 / l);
+    if(e.phase === 'stunned') s.p.y += (STORM_ARENA.top + 1.4 - s.p.y) * Math.min(1, dt * 3);   // it lies along the ground
+    else s.p.y += Math.sin(e.anim * 3 - i * 0.5) * dt * 0.6;
+    s.g.position.copy(s.p);
+    s.g.lookAt(prev);
+    prev = s.p;
+  });
+  // storm crackles along it
+  if(Math.random() < (e.rage ? 0.6 : 0.3)){ const s = e.segs[(Math.random() * e.segs.length) | 0]; burstRGB(s.p.x, s.p.y + 0.8, s.p.z, 0.7, 0.9, 1, 1, 0.5); }
+  const red = e.hurtT > 0; e.hurtT = Math.max(0, e.hurtT - dt);
+  WM.hide.userData.base.setRGB(1, red ? 0.5 : 1, red ? 0.5 : 1);
+  // hit boxes and the floating bar
+  e.headHit.pos.copy(e.pos); e.headHit.pos.y -= 0.9;
+  for(const h of e.bodyHits){ h.pos.copy(e.segs[h.seg].p); h.pos.y -= 0.8; }
+  if(e.puppet){ e.headHit.puppet = true; e.headHit.nid = e.nid; for(const h of e.bodyHits){ h.puppet = true; h.nid = e.nid; } }
+  e.bar.position.set(e.pos.x, e.pos.y + 3.2, e.pos.z);
+  e.bar.quaternion.copy(camera.getWorldQuaternion(new THREE.Quaternion()));
+  const f = Math.max(0, e.hp / WYRM_MAX_HP);
+  e.barFill.scale.x = Math.max(0.001, f); e.barFill.position.x = -2.9 * (1 - f);
+  e.barFill.material.color.setHex(e.rage >= 2 ? 0xff6a8a : e.rage ? 0xffd46a : 0x6ad8ff);
+}
+function hurtWyrm(e, amount){
+  if(!e || e.phase === 'dying') return;
+  e.hp -= amount; e.hurtT = 0.25;
+  burstRGB(e.pos.x, e.pos.y, e.pos.z, 0.7, 0.9, 1, 6, 0.8);
+  if(e.hp <= 0){ e.hp = 0; e.phase = 'dying'; e.phaseT = 6; dragonRoar(e, true); flashName('The Tempest Wyrm is breaking apart!'); return; }
+  if(amount >= 4 && Math.random() < 0.3) dragonRoar(e, false);
+  // it grows wilder as it weakens
+  const rage = e.hp < WYRM_MAX_HP * 0.25 ? 2 : e.hp < WYRM_MAX_HP * 0.6 ? 1 : 0;
+  if(rage > e.rage){
+    e.rage = rage;
+    flashName(rage === 2 ? 'The Tempest Wyrm is enraged!' : 'The storm grows fiercer!');
+    dragonRoar(e, true);
+    summonStormlings(e, 3 + rage);
+  }
+}
+function finishWyrm(e){
+  removeWyrm(e);
+  for(let k = 0; k < 6; k++) boltAt(e.pos.x + (Math.random() - 0.5) * 16, STORM_ARENA.top + 1, e.pos.z + (Math.random() - 0.5) * 16, k === 0);
+  burstRGB(e.pos.x, e.pos.y, e.pos.z, 0.7, 0.9, 1, 70, 7);
+  flashName('The Tempest Wyrm is defeated!');
+  tone(300, 800, 0.8, 'triangle', 0.16); tone(450, 1200, 1, 'sine', 0.12, 0.3);
+  stormState.bossDead = true; saveStormState();
+  if(mode === 'survival'){
+    const y = STORM_ARENA.top + 2;
+    spawnDropAt(STORM_ARENA.x + 0.5, y, STORM_ARENA.z + 0.5, TEMPEST_HEART, 1);
+    spawnDropAt(STORM_ARENA.x + 1.5, y, STORM_ARENA.z + 0.5, VOLTITE, 8);
+    spawnDropAt(STORM_ARENA.x - 0.5, y, STORM_ARENA.z + 0.5, DIAMI, 6);
+  }
+}
+function wyrmFly(e, target, speed, dt, turn = 1.3){
+  const to = target.clone().sub(e.pos), l = to.length() || 1;
+  e.vel.lerp(to.multiplyScalar(speed / l), Math.min(1, dt * turn));
+  e.pos.addScaledVector(e.vel, dt);
+  const hv = Math.hypot(e.vel.x, e.vel.z);
+  if(hv > 0.5){
+    const want = Math.atan2(-e.vel.x, -e.vel.z);
+    const dy = ((want - e.yaw + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+    e.yaw += dy * Math.min(1, dt * 3);
+    e.bank += (-dy * 0.9 - e.bank) * Math.min(1, dt * 2);
+  }
+  e.pitch += (Math.max(-0.6, Math.min(0.6, e.vel.y * 0.05)) - e.pitch) * Math.min(1, dt * 3);
+}
+function faceWyrm(e, x, z, dt){
+  const want = Math.atan2(-(x - e.pos.x), -(z - e.pos.z));
+  const dy = ((want - e.yaw + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+  e.yaw += dy * Math.min(1, dt * 2.5);
+}
+function updateWyrms(dt){
+  for(const e of wyrms.slice()){
+    if(e.puppet) continue;
+    const A = STORM_ARENA, fast = 1 + e.rage * 0.25;
+    const alive = mode === 'survival' && !dead && Math.hypot(player.pos.x - A.x, player.pos.z - A.z) < 90;
+    e.phaseT -= dt; e.atkCd -= dt;
+    // every so often it looses a pack of stormlings at you
+    e.summonT = (e.summonT === undefined ? 10 : e.summonT) - dt;
+    if(alive && e.summonT <= 0 && e.phase !== 'dying' && e.phase !== 'stunned'){ e.summonT = 16 - e.rage * 3 + Math.random() * 6; summonStormlings(e, 2 + e.rage); }
+    const pick = () => {
+      if(!alive){ e.phase = 'circle'; e.phaseT = 6; return; }
+      const r = Math.random();
+      if(r < 0.4){ e.phase = 'lightning'; e.phaseT = 6; e.strikes = 3 + e.rage * 2; e.strikeT = 0.6; dragonRoar(e, true); }
+      else if(r < 0.7){ e.phase = 'barrage'; e.phaseT = 4; e.shots = 5 + e.rage * 3; e.atkCd = 0.6; }
+      else { e.phase = 'dive'; e.phaseT = 4; e.diveHit = false; dragonRoar(e, true); }
+    };
+    if(e.phase === 'circle'){
+      e.ang += dt * 0.35 * fast;
+      wyrmFly(e, new THREE.Vector3(A.x + Math.cos(e.ang) * 30, A.top + 18 + Math.sin(e.anim * 0.8) * 5, A.z + Math.sin(e.ang) * 30), 13 * fast, dt);
+      if(e.phaseT <= 0) pick();
+    } else if(e.phase === 'lightning'){
+      // hang in the air, and call down lightning where you stand - move!
+      wyrmFly(e, new THREE.Vector3(e.pos.x, A.top + 24, e.pos.z), 4, dt);
+      faceWyrm(e, player.pos.x, player.pos.z, dt);
+      e.strikeT -= dt;
+      if(e.strikes > 0 && e.strikeT <= 0){
+        e.strikes--; e.strikeT = e.rage >= 2 ? 0.45 : 0.7;
+        const gy = Math.max(A.top, precipTop(Math.floor(player.pos.x), Math.floor(player.pos.z)));
+        e.marks.push({ x: player.pos.x + player.vel.x * 0.3, y: gy, z: player.pos.z + player.vel.z * 0.3, t: 1.1 });
+      }
+      if(e.strikes <= 0 && !e.marks.length){ e.phase = 'circle'; e.phaseT = 5 + Math.random() * 4 / fast; }
+    } else if(e.phase === 'barrage'){
+      wyrmFly(e, player.pos.clone().add(new THREE.Vector3(Math.cos(e.ang) * 18, 10, Math.sin(e.ang) * 18)), 10, dt);
+      faceWyrm(e, player.pos.x, player.pos.z, dt);
+      if(e.atkCd <= 0 && e.shots > 0){
+        e.shots--; e.atkCd = 0.28;
+        const mouth = e.pos.clone().add(new THREE.Vector3(0, -0.4, -2.8).applyEuler(e.group.rotation));
+        const dir = player.pos.clone().setY(player.pos.y + 1.2).sub(mouth).normalize();
+        dir.x += (Math.random() - 0.5) * 0.14; dir.y += (Math.random() - 0.5) * 0.1; dir.z += (Math.random() - 0.5) * 0.14;
+        spawnFireball('spark', mouth, dir.normalize().multiplyScalar(20), null);
+        nNoise(e.pos, 2600, 0.2, 0.25, -1800, 90);
+      }
+      if(e.shots <= 0 && e.atkCd <= -1){ e.phase = 'circle'; e.phaseT = 5 / fast; }
+    } else if(e.phase === 'dive'){
+      // a charge straight through you that can throw you from the island
+      wyrmFly(e, player.pos.clone().setY(player.pos.y + 1), 24 * fast, dt, 2.4);
+      const pd = e.pos.distanceTo(player.pos.clone().setY(player.pos.y + 1));
+      if(!e.diveHit && pd < 3.5 && alive){
+        e.diveHit = true; damage(9);
+        const kb = e.vel.clone().setY(0).normalize().multiplyScalar(16);
+        player.vel.x += kb.x; player.vel.z += kb.z; player.vel.y = Math.max(player.vel.y, 7);
+      }
+      if(e.diveHit && pd > 10 || e.phaseT <= 0){ e.phase = 'circle'; e.phaseT = 6 / fast; e.vel.y += 10; }
+    } else if(e.phase === 'stunned'){
+      // struck by a spire: it lies on the arena, head within reach
+      e.pos.lerp(e.stunAt, Math.min(1, dt * 3)); e.vel.set(0, 0, 0);
+      e.pitch *= 0.9; e.bank *= 0.9;
+      if(Math.random() < 0.25) burstRGB(e.pos.x, e.pos.y + 1, e.pos.z, 0.8, 0.9, 1, 2, 1);
+      if(e.phaseT <= 0){ e.phase = 'rising'; e.phaseT = 2; dragonRoar(e, true); }
+    } else if(e.phase === 'rising'){
+      wyrmFly(e, new THREE.Vector3(e.pos.x, A.top + 20, e.pos.z), 10, dt);
+      if(e.phaseT <= 0){ e.phase = 'circle'; e.phaseT = 5; }
+    } else if(e.phase === 'dying'){
+      e.pos.y += dt * 1.5; e.yaw += dt * 2;
+      if(Math.random() < dt * 3) boltAt(e.pos.x + (Math.random() - 0.5) * 20, A.top + 1, e.pos.z + (Math.random() - 0.5) * 20, true);
+      if(e.phaseT <= 0){ finishWyrm(e); continue; }
+    }
+    // pending strikes: sparks on the ground, then the bolt
+    for(let i = e.marks.length - 1; i >= 0; i--){
+      const m = e.marks[i];
+      m.t -= dt;
+      if(Math.random() < 0.5) strikeMark(m.x, m.y, m.z);
+      if(m.t <= 0){
+        e.marks.splice(i, 1);
+        boltAt(m.x, m.y, m.z);
+        if(Math.hypot(player.pos.x - m.x, player.pos.z - m.z) < 2.4 && Math.abs(player.pos.y - m.y) < 4){ damage(5); player.vel.y = Math.max(player.vel.y, 6); }
+      }
+    }
+    // armed spires strike it when it strays close
+    if(e.phase !== 'stunned' && e.phase !== 'dying'){
+      for(const s of STORM_SPIRES){
+        if(getBlock(s.x, s.top, s.z) !== CONDUIT_LIT) continue;
+        if(Math.hypot(e.pos.x - s.x, e.pos.z - s.z) > 14 || Math.abs(e.pos.y - s.top) > 18) continue;
+        setBlock(s.x, s.top, s.z, CONDUIT);
+        boltAt(s.x + 0.5, s.top + 1, s.z + 0.5);
+        e.phase = 'stunned'; e.phaseT = 9; e.marks.length = 0;
+        const d = new THREE.Vector3(e.pos.x - A.x, 0, e.pos.z - A.z);
+        if(d.length() > 20) d.setLength(20);
+        e.stunAt = new THREE.Vector3(A.x + d.x, A.top + 2.2, A.z + d.z);
+        hurtWyrm(e, 25);
+        flashName('The spire strikes the Wyrm down!');
+        break;
+      }
+    }
+    // brushing against it hurts
+    if(e.phase !== 'stunned' && e.phase !== 'dying' && e.pos.distanceTo(player.pos) < 3 && !(e.touchCd > 0) && alive){ damage(5); e.touchCd = 1; }
+    if(e.touchCd > 0) e.touchCd -= dt;
+    animWyrm(e, dt);
+  }
+}
+function armConduit(x, y, z){
+  if(getBlock(x, y, z) !== CONDUIT) return false;
+  setBlock(x, y, z, CONDUIT_LIT);
+  burstRGB(x + 0.5, y + 1, z + 0.5, 0.6, 0.9, 1, 16, 0.8);
+  tone(500, 1400, 0.5, 'sawtooth', 0.1);
+  flashName('Spire armed');
+  return true;
+}
+
+/* ---- the storm wisp: a crackling ball of charge ---- */
+const WISP_CORE = nSkinMat(4, 4, ({ fill, px }) => { fill(['#b8f4ff', '#8ae8ff']); px(1, 1, '#ffffff', 2, 2); }, true);
+const WISP_SHELL = new THREE.MeshBasicMaterial({ color: 0x6ad0ff, transparent: true, opacity: 0.35, depthWrite: false });
+const SPARK_MAT = new THREE.MeshBasicMaterial({ color: 0xc8f4ff });
+function buildWisp(g, e){
+  box(0.45, 0.45, 0.45, WISP_CORE, 0, 0.4, 0, g);
+  const shell = new THREE.Mesh(crystalGeo, WISP_SHELL); shell.scale.setScalar(0.8); shell.position.y = 0.4; g.add(shell);
+  e.orbit = [];
+  for(let k = 0; k < 3; k++){ const o = box(0.14, 0.14, 0.14, WISP_CORE, 0, 0.4, 0, g); e.orbit.push(o); }
+  e.shell = shell;
+  e.legs = [];
+}
+function updateWisp(e, dt, toP, canHunt){
+  let ground = e.pos.y;
+  for(let k = 0; k < 10; k++) if(isSolid(getBlock(Math.floor(e.pos.x), Math.floor(e.pos.y) - k, Math.floor(e.pos.z)))){ ground = Math.floor(e.pos.y) - k + 1; break; }
+  const hunt = canHunt && toP < 22;
+  const wantY = hunt ? player.pos.y + 2.5 + Math.sin(e.anim) * 0.8 : ground + 2 + Math.sin(e.anim * 0.7);
+  e.vel.y += ((wantY - e.pos.y) * 1.5 - e.vel.y) * Math.min(1, dt * 2);
+  if(hunt){
+    const l = faceTo(e, player.pos.x, player.pos.z), want = l > 9 ? 3 : l < 5 ? -2 : 0.5;
+    e.vel.x += (-Math.sin(e.yaw) * want - e.vel.x) * Math.min(1, dt * 2);
+    e.vel.z += (-Math.cos(e.yaw) * want - e.vel.z) * Math.min(1, dt * 2);
+    if(e.atkCd <= 0){
+      e.atkCd = 2.2 + Math.random() * 1.5;
+      const from = e.pos.clone().setY(e.pos.y + 0.4), dir = player.pos.clone().setY(player.pos.y + 1.2).sub(from).normalize();
+      spawnFireball('spark', from.addScaledVector(dir, 0.5), dir.multiplyScalar(16), e);
+      netherVoice(e, 'shoot');
+    }
+  } else {
+    wander(e, dt, 1);
+    e.vel.x += (-Math.sin(e.yaw) * e.speed - e.vel.x) * Math.min(1, dt * 2);
+    e.vel.z += (-Math.cos(e.yaw) * e.speed - e.vel.z) * Math.min(1, dt * 2);
+  }
+  stepEntity(e, dt);
+}
+function animWisp(e, dt){
+  e.anim += dt;
+  e.group.position.copy(e.pos);
+  e.shell.rotation.set(e.anim * 2, e.anim * 1.4, 0);
+  e.orbit.forEach((o, k) => { const a = e.anim * 3 + k * 2.1; o.position.set(Math.cos(a) * 0.55, 0.4 + Math.sin(a * 1.3) * 0.25, Math.sin(a) * 0.55); });
+  if(Math.random() < 0.3) burstRGB(e.pos.x, e.pos.y + 0.4, e.pos.z, 0.7, 0.9, 1, 1, 0.4);
+}
+
+/* ---- spawns, sky and the void below ---- */
+let stormSpawnT = 0, stormKeepT = 0, stormVoidT = 0;
+function updateStormSpawns(dt){
+  const A = STORM_ARENA;
+  if(!mobCtx && !mobsFromHost() && (stormKeepT -= dt) <= 0){
+    stormKeepT = 1;
+    if(!stormState.bossDead && !wyrms.length && Math.hypot(player.pos.x - A.x, player.pos.z - A.z) < 70) spawnWyrm();
+  }
+  stormSpawnT -= dt;
+  if(stormSpawnT > 0) return;
+  stormSpawnT = 3;
+  if(netherMobs.filter(m => m.type === 'wisp').length >= 6) return;
+  const a = Math.random() * Math.PI * 2, d = 16 + Math.random() * 26;
+  const x = Math.floor(player.pos.x + Math.cos(a) * d), z = Math.floor(player.pos.z + Math.sin(a) * d);
+  const c = stormColumn(x, z);
+  if(!c || Math.hypot(x - STORM_LAND.x, z - STORM_LAND.z) < 20) return;
+  spawnNetherMob('wisp', x + 0.5, c[1] + 3, z + 0.5);
+}
+function updateStormWorld(dt){
+  if(dim === 3 && player.pos.y < 20 && mode === 'survival' && !dead){ stormVoidT -= dt; if(stormVoidT <= 0){ stormVoidT = 0.5; damage(4); } }
+  if(dim !== 3 && wyrms.length) resetStormEntities();
+}
+function resetStormEntities(){ for(const e of wyrms.slice()) removeWyrm(e); }
+
+/* ---- stormlings: the Wyrm's little minions. Quick and spiteful, but frail ---- */
+const STL = {
+  body: nSkinMat(8, 8, ({ fill, px }) => { fill(['#2c3a54', '#34445e', '#26324a']); px(2, 3, '#8ae8ff', 4, 1); }),
+  face: nSkinMat(8, 8, ({ fill, px }) => { fill(['#2c3a54', '#34445e']); px(1, 3, '#e8fbff', 2, 2); px(5, 3, '#e8fbff', 2, 2); px(3, 6, '#0a0e16', 2, 1); }),
+  glow: nSkinMat(2, 2, ({ fill }) => fill(['#8ae8ff', '#c8f8ff']), true),
+};
+function buildStormling(g, e){
+  e.legs = [limb(0.14, 0.35, 0.14, STL.body, -0.1, 0.35, 0, g), limb(0.14, 0.35, 0.14, STL.body, 0.1, 0.35, 0, g)];
+  box(0.4, 0.4, 0.3, STL.body, 0, 0.55, 0, g);
+  e.arms = [limb(0.1, 0.35, 0.1, STL.body, -0.26, 0.72, 0, g), limb(0.1, 0.35, 0.1, STL.body, 0.26, 0.72, 0, g)];
+  const head = new THREE.Group(); head.position.set(0, 0.75, 0); g.add(head);
+  box(0.42, 0.38, 0.38, faces(STL.body, STL.body, STL.body, STL.face), 0, 0.19, 0, head);
+  for(const s of [-1, 1]){ const h = box(0.06, 0.28, 0.06, STL.glow, s * 0.14, 0.48, 0, head); h.rotation.z = -s * 0.4; }   // little lightning horns
+  e.head = head;
+}
+function summonStormlings(e, n){
+  const A = STORM_ARENA;
+  if(netherMobs.filter(m => m.type === 'stormling').length >= 8) return;
+  for(let k = 0; k < n; k++){
+    const a = Math.random() * Math.PI * 2, r = 5 + Math.random() * 5;
+    let x = player.pos.x + Math.cos(a) * r, z = player.pos.z + Math.sin(a) * r;
+    if(Math.hypot(x - A.x, z - A.z) > A.r - 4){ x = A.x + Math.cos(a) * 12; z = A.z + Math.sin(a) * 12; }
+    const y = Math.max(A.top, precipTop(Math.floor(x), Math.floor(z))) + 0.02;
+    spawnNetherMob('stormling', x, y, z);
+    burstRGB(x, y + 0.5, z, 0.7, 0.9, 1, 12, 0.6);
+  }
+  boltAt(player.pos.x + 6, A.top + 1, player.pos.z + 6, true);
+  flashName('Stormlings!');
+}
+
 function updateGolems(dt){
   for(let i = golems.length - 1; i >= 0; i--){
     const e = golems[i];
@@ -9087,6 +9713,7 @@ function rayEntity(o, d, max){
   for(const f of fireballs){ const y = f.pos.y; f.pos.y -= f.h / 2; check(f); f.pos.y = y; }   // fireballs sit on their centre
   for(const g of dragons) if(g.phase !== 'dying'){ check(g.headHit); check(g.bodyHit); }
   for(const c of endCrystals) check(c);
+  for(const w of wyrms) if(w.phase !== 'dying'){ check(w.headHit); for(const h of w.bodyHits) check(h); }
   for(const q of shulkers) check(q);
   for(const b of sbullets){ const y = b.pos.y; b.pos.y -= 0.25; check(b); b.pos.y = y; }       // the boss is targetable
   return best && bt <= max ? { e: best, t: bt } : null;
@@ -9099,8 +9726,8 @@ function heldDamage(){
   const it = ITEMS[heldId()];
   const t = it && it.tool;
   if(t){
-    if(t.type === 'sword') return [5, 6, 7, 8, 9][t.tier - 1];
-    if(t.type === 'axe') return [4, 5, 6, 7, 8][t.tier - 1];
+    if(t.type === 'sword') return [5, 6, 7, 8, 9, 12][t.tier - 1];
+    if(t.type === 'axe') return [4, 5, 6, 7, 8, 10][t.tier - 1];
   }
   return 3;
 }
@@ -9120,7 +9747,9 @@ function damageTool(types){
   renderHotbar();
 }
 function punchEntity(e){
+  if(heldId() === STORMBREAKER && !mobCtx && e.pos && !e.puppet && e.kind !== 'fireball') boltAt(e.pos.x, e.pos.y, e.pos.z, true);   // Stormbreaker calls lightning
   if(e.dragon && e.dragon.puppet) e = e.dragon;
+  if(e.wyrm && e.wyrm.puppet) e = e.wyrm;
   if(e.puppet && mobsFromHost()){
     triggerViewSwing();
     damageTool(['sword', 'axe']);
@@ -9140,6 +9769,14 @@ function punchEntity(e){
     return;
   }
   if(e.kind === 'crystal'){ destroyCrystal(e); return; }
+  if(e.kind === 'wyrm' || e.kind === 'wyrmHead' || e.kind === 'wyrmBody'){
+    // its hide shrugs off most blows: strike the head, and strike it when a spire has brought it down
+    const W = e.wyrm || e, stunned = W.phase === 'stunned';
+    const mult = e.kind === 'wyrmHead' ? (stunned ? 1 : 0.3) : (stunned ? 0.3 : 0.06);
+    damageTool(['sword', 'axe']);
+    hurtWyrm(W, heldDamage() * mult);
+    return;
+  }
   if(e.kind === 'sbullet'){ popSBullet(e); return; }
   if(e.kind === 'shulker'){ hurtShulker(e, heldDamage()); damageTool(['sword', 'axe']); return; }
   if(e.kind === 'fireball'){ deflectFireball(e); return; }
@@ -9959,6 +10596,8 @@ function onNet(c, m){
     if(isHost) mpBroadcast(m, c);
   } else if(m.t === 'mobs'){
     if(!isHost){ hostDim = m.dim | 0; if(hostDim === dim && Array.isArray(m.list)) applyMobSnapshot(m.list); }
+  } else if(m.t === 'bolt'){
+    if(!isHost && dim === 3) boltAt(m.x, m.y, m.z);
   } else if(m.t === 'hit'){
     // a friend struck one of our mobs: land it as them, with their weapon
     if(!isHost) return;
@@ -10171,7 +10810,7 @@ function updateNet(dt){
 const MOB_LISTS = [['animal', animals], ['zombie', zombies], ['skeleton', skeletons], ['creeper', creepers],
                    ['spider', spiders], ['enderman', endermen], ['villager', villagers], ['golem', golems],
                    ['arrow', arrows], ['nether', netherMobs], ['fireball', fireballs],
-                   ['dragon', dragons], ['crystal', endCrystals], ['shulker', shulkers], ['sbullet', sbullets]];
+                   ['dragon', dragons], ['crystal', endCrystals], ['shulker', shulkers], ['sbullet', sbullets], ['wyrm', wyrms]];
 let mobCtx = null, nidSeq = 0, mobSnapT = 0, hostDim = -1;
 const puppets = new Map();                        // nid -> copy of one of the host's mobs
 const r2 = v => Math.round(v * 100) / 100;
@@ -10232,6 +10871,8 @@ function runMobsFor(dt, daylight){
     updateNetherSpawns(dt);
   } else if(dim === 2){
     updateEndSpawns(dt);
+  } else if(dim === 3){
+    updateStormSpawns(dt);
   }
   updateAnimals(dt);
   updateZombies(dt, daylight);
@@ -10251,6 +10892,7 @@ function runMobsFor(dt, daylight){
   updateCrystals(dt);
   updateShulkers(dt);
   updateSBullets(dt);
+  updateWyrms(dt);
 }
 function runMobWorld(dt, daylight){
   if(mobsFromHost()){ purgeLocalMobs(); stepPuppets(dt); return; }
@@ -10293,6 +10935,7 @@ function mobExtra(kind, e){
   if(kind === 'fireball') return e.type;
   if(kind === 'dragon') return [Math.round(e.hp), DRAGON_PHASES.indexOf(e.phase), e.landed ? 1 : 0, e.breathT > 0 ? 1 : 0, r2(e.pitch), r2(e.bank)];
   if(kind === 'crystal') return e.idx;
+  if(kind === 'wyrm') return [Math.round(e.hp), WYRM_PHASES.indexOf(e.phase), e.rage];
   if(kind === 'shulker') return r2(e.want);
   return 0;
 }
@@ -10348,6 +10991,7 @@ function makePuppet(kind, row){
     else if(kind === 'nether') spawnNetherMob(extra[0], x, y, z, { size: extra[1], crossbow: !!(extra[2] & 8) });
     else if(kind === 'fireball') spawnFireball(extra, new THREE.Vector3(x, y, z), new THREE.Vector3(), null);
     else if(kind === 'dragon') spawnDragon();
+    else if(kind === 'wyrm') spawnWyrm();
     else if(kind === 'crystal') spawnCrystal(extra);
     else if(kind === 'shulker') spawnShulker(x, y, z, null);
     else if(kind === 'sbullet') spawnSBullet(new THREE.Vector3(x, y, z));
@@ -10382,6 +11026,7 @@ function applyMobSnapshot(list){
         dragon = e; updateDragonBar();
       }
       if(kind === 'shulker') e.want = +row[6] || 0;
+      if(kind === 'wyrm' && Array.isArray(row[6])){ e.hp = row[6][0]; e.phase = WYRM_PHASES[row[6][1]] || 'circle'; e.rage = row[6][2] | 0; }
       {
       }
     }
@@ -10409,11 +11054,12 @@ function stepPuppets(dt){
       if(Math.random() < 0.6) burstRGB(e.pos.x, e.pos.y, e.pos.z, 1, 0.6, 0.1, 1, 0.3);
       continue;
     }
-    if(e.kind === 'dragon' || e.kind === 'crystal' || e.kind === 'shulker' || e.kind === 'sbullet'){
+    if(e.kind === 'dragon' || e.kind === 'crystal' || e.kind === 'shulker' || e.kind === 'sbullet' || e.kind === 'wyrm'){
       const px = e.pos.x, py = e.pos.y, pz = e.pos.z;
       e.pos.lerp(e.netPos, k);
       e.vel.set((e.pos.x - px) / Math.max(dt, 1e-3), (e.pos.y - py) / Math.max(dt, 1e-3), (e.pos.z - pz) / Math.max(dt, 1e-3));
       if(e.kind === 'dragon') animDragon(e, dt);
+      else if(e.kind === 'wyrm') animWyrm(e, dt);
       else if(e.kind === 'crystal') animCrystal(e, dt);
       else if(e.kind === 'shulker') animShulker(e, dt);
       else { e.group.position.copy(e.pos); e.group.rotation.y += dt * 6; }
@@ -10890,14 +11536,16 @@ function updatePortal(dt){
   const inNether = b1 === PORTAL || b2 === PORTAL;
   const inEnd = b1 === ENDPORTAL || b2 === ENDPORTAL;
   if((b1 === END_GATEWAY || b2 === END_GATEWAY) && portalCooldown <= 0){ gatewayJump(); portalCooldown = 3; return; }
-  const inPortal = inNether || inEnd;
+  const inStorm = b1 === STORM_PORTAL || b2 === STORM_PORTAL;
+  const inPortal = inNether || inEnd || inStorm;
   const pt = document.getElementById('portaltint');
-  const col = inEnd ? '20,10,50' : '120,40,190';
+  const col = inEnd ? '20,10,50' : inStorm ? '60,140,210' : '120,40,190';
   if(inPortal){
     portalTimer += dt;
     if(pt) pt.style.background = 'rgba(' + col + ',' + Math.min(0.6, portalTimer * 0.34) + ')';
     if(portalTimer > 1.6 && portalCooldown <= 0){
       if(inEnd) travelToEnd();
+      else if(inStorm) travelStorm();
       else travelDimension();
       portalTimer = 0; portalCooldown = 3;
     }
@@ -11031,6 +11679,9 @@ function applySkyForDim(){
     scene.fog.color.setHex(0x0d0716);
     scene.background && scene.background.setHex && scene.background.setHex(0x0d0716);
     scene.fog.near = RD * 16 * 0.5; scene.fog.far = RD * 16 * 1.1;    // deep End void
+  } else if(dim === 3){
+    scene.fog.color.setHex(0x3a4452);
+    scene.fog.near = RD * 16 * 0.3; scene.fog.far = RD * 16 * 0.85;    // driving rain
   } else {
     scene.fog.near = RD * 16 * 0.55; scene.fog.far = RD * 16 * 0.95;
   }
@@ -11063,7 +11714,8 @@ function updateCrops(dt){
 function harvestOk(id){
   if(isFire(id) || id === BEDROCK) return false;
   if(id === DEBRIS || id === OBSIDIAN || id === CRYING_OBSIDIAN || id === ANCHOR || id === ANCHOR_LIT) return pickTierHeld() >= 4;
-  if(id === END_GATEWAY || id === END_FRAME || id === END_FRAME_EYE) return false;
+  if(id === END_GATEWAY || id === END_FRAME || id === END_FRAME_EYE || id === STORM_PORTAL) return false;
+  if(id === VOLTITE_ORE) return pickTierHeld() >= 5;
   if(id === SNOW_LAYER) return false;            // a dusting of snow leaves nothing behind
   if(id === DIAMO || id === GOLDO || id === EMERO) return pickTierHeld() >= 3;
   if(id === IRONO) return pickTierHeld() >= 2;
@@ -12590,6 +13242,7 @@ let rainAmt = 0, stormAmt = 0, flashAmt = 0, lightningT = 6;
 const STORM_SKY = new THREE.Color(0x6f7b88), FLASH_SKY = new THREE.Color(0xe8eeff);
 const DRY_BIOMES = new Set(['desert', 'savanna', 'badlands', 'outback', 'amberfield']);
 function precipAt(x, y, z){
+  if(dim === 3) return 'rain';
   const bm = biomeAt(x, z);
   if(DRY_BIOMES.has(bm)) return null;
   if(bm === 'snowy' || bm === 'frostvale' || y >= SNOW_H - 6) return 'snow';
@@ -12694,12 +13347,12 @@ function updateWeather(dt){
       else { weather = 0; weatherT = 300 + Math.random() * 600; }
     }
   }
-  const on = inGame && dim === 0;
-  rainAmt += ((on && weather > 0 ? 1 : 0) - rainAmt) * Math.min(1, dt * 0.3);
-  stormAmt += ((on && weather === 2 ? 1 : 0) - stormAmt) * Math.min(1, dt * 0.3);
+  const on = inGame && (dim === 0 || dim === 3), always = dim === 3;   // in the Stormlands it never stops
+  rainAmt += ((on && (weather > 0 || always) ? 1 : 0) - rainAmt) * Math.min(1, dt * 0.3);
+  stormAmt += ((on && (weather === 2 || always) ? 1 : 0) - stormAmt) * Math.min(1, dt * 0.3);
   flashAmt = Math.max(0, flashAmt - dt * 4);
   if(boltT > 0){ boltT -= dt; if(boltT <= 0) bolt.visible = false; }
-  if(stormAmt > 0.6){ lightningT -= dt; if(lightningT <= 0){ lightningT = 7 + Math.random() * 22; strikeLightning(); } }
+  if(stormAmt > 0.6){ lightningT -= dt; if(lightningT <= 0){ lightningT = dim === 3 ? 3 + Math.random() * 7 : 7 + Math.random() * 22; strikeLightning(); } }
   const c = xrActive ? camera.getWorldPosition(new THREE.Vector3()) : player.pos;
   const kind = rainAmt > 0.02 ? precipAt(Math.floor(c.x), c.y, Math.floor(c.z)) : null;
   // rain streaks
@@ -12828,7 +13481,7 @@ function animate(){
   const dt = Math.min(clock.getDelta(), 0.05);
   const now = performance.now() / 1000;
   foliageTime.value=now;
-  const daylight = (dim === 1 || dim === 2) ? 0 : daylightOf(timeOfDay);
+  const daylight = dim !== 0 ? 0 : daylightOf(timeOfDay);
 
   if(locked && dead && xrActive) updateVR(dt);   // menu only: updateVR bails before movement
   if(locked && !dead){
@@ -12843,6 +13496,7 @@ function animate(){
     updateMonsterAmbience(dt);
     updateTNT(dt);
     updateEndWorld(dt);
+    updateStormWorld(dt);
     updateShots(dt);
     if(bowCd > 0) bowCd -= dt;
     if(levT > 0) levT -= dt;
@@ -12876,6 +13530,13 @@ function animate(){
   } else if(dim === 2){
     b = 0.55;
     skyCol.setHex(0x0d0716);
+    renderer.setClearColor(skyCol);
+    scene.fog.color.copy(skyCol);
+  } else if(dim === 3){
+    // the Stormlands: a dark sky of rain, lit white by each strike
+    b = 0.52 + 0.5 * flashAmt;
+    skyCol.setHex(0x3a4452);
+    if(flashAmt > 0) skyCol.lerp(FLASH_SKY, 0.55 * flashAmt);
     renderer.setClearColor(skyCol);
     scene.fog.color.copy(skyCol);
   } else {
@@ -12952,7 +13613,7 @@ function animate(){
     const hrs = String(Math.floor(((timeOfDay + 0.25) % 1) * 24)).padStart(2, '0');
     hudEl.textContent = inGame
       ? `${fps} fps · XYZ ${Math.floor(p.x)} ${Math.floor(p.y)} ${Math.floor(p.z)} · ${hrs}:00 · ` +
-        `${dim === 2 ? 'The End' : dim === 1 ? NETHER_BIOME_NAMES[netherBiome(Math.floor(p.x), Math.floor(p.z))] : biomeAt(Math.floor(p.x), Math.floor(p.z))} · ${mode}` +
+        `${dim === 3 ? 'The Stormlands' : dim === 2 ? 'The End' : dim === 1 ? NETHER_BIOME_NAMES[netherBiome(Math.floor(p.x), Math.floor(p.z))] : biomeAt(Math.floor(p.x), Math.floor(p.z))} · ${mode}` +
         (player.fly ? ' · FLY' : '') + (zombies.length ? ` · ${zombies.length} 🧟` : '') +
         (skeletons.length ? ` · ${skeletons.length} 💀` : '') +
         (creepers.length ? ` · ${creepers.length} 💥` : '') +
@@ -13191,6 +13852,8 @@ window.__bc = {
                    gateway: () => gatewayJump(), use: (o, d, hit, eh) => useSpecial(o, d, hit, eh), shots, stepShots: dt => updateShots(dt),
                    glide: () => ({ gliding, boostT, levT }), portalRoom: portalRoomOf, strongsNear, fillFrame: fillPortalFrame,
                    ride: () => rideStrider, saddle: saddleStrider, mount: mountStrider, respawnAt, anchor: () => anchorSpawn, useAnchor, switchDim, kill: () => { if(dragon) dragon.hp = 1; hurtDragon(5); }, wear: id => { armour.chestplate = id; }, physics: dt => physics(dt) },
+            storm: { travel: () => travelStorm(), state: stormState, wyrms, spawnWyrm, column: stormColumn, arena: STORM_ARENA, spires: STORM_SPIRES,
+                     step: dt => { updateWyrms(dt); updateStormSpawns(dt); updateStormWorld(dt); }, arm: armConduit, light: lightStormPortal, summon: n => summonStormlings(wyrms[0], n), hurt: (n) => hurtWyrm(wyrms[0], n) },
             spawns: dt => updateNetherSpawns(dt), effects: () => ({ burnT, witherT }), heal: () => { hp = 20; dead = false; burnT = 0; witherT = 0; }, give: e => tryGivePiglin(e), lightFire },
 };
 </script>
