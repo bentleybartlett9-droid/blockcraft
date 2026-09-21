@@ -6410,7 +6410,7 @@ function setupConn(c){
                        : 'Connected! Close this menu and play together.');
     hapticPulse(null, 0.6, 80);
     if(voiceOn) placeVoiceCall(c.peer);
-    if(isHost) c.send(JSON.stringify({ t: 'world', seed: SEED, edits, fluid:[...fluidLevels] }));
+    if(isHost) c.send(JSON.stringify({ t: 'world', seed: SEED, edits, fluid:[...fluidLevels], doors:[...doorState], tod: timeOfDay }));
   });
   c.on('data', d => { try { onNet(c, typeof d === 'string' ? JSON.parse(d) : d); } catch(e){} });
   c.on('close', () => {
@@ -6430,6 +6430,8 @@ function onNet(c, m){
       return;
     }
     if(Array.isArray(m.fluid))for(const [k,v] of m.fluid)if(v>=1&&v<=7)fluidLevels.set(k,v);
+    if(Array.isArray(m.doors))for(const [k,v] of m.doors)if(v&&typeof v==='object')doorState.set(k,v);
+    if(typeof m.tod==='number')timeOfDay=((m.tod%1)+1)%1;
     for(const ck in m.edits){
       edits[ck] = Object.assign(edits[ck] || {}, m.edits[ck]);
       const ch = chunks.get(ck);
@@ -6447,61 +6449,185 @@ function onNet(c, m){
   } else if(m.t === 'pos'){
     if(m.tag !== MYTAG) updateAvatar(m);
     if(isHost) mpBroadcast(m, c);
+  } else if(m.t === 'door'){
+    const k = doorKey(m.x, m.y, m.z);
+    const info = doorState.get(k) || { facing: 0, open: false };
+    if(info.open !== !!m.open){
+      info.open = !!m.open; doorState.set(k, info); editsDirty = true;
+      rebuild(chunkAt(m.x >> 4, m.z >> 4));
+      blockSfx(PLANK, info.open ? 'break' : 'place');
+    }
+    if(isHost) mpBroadcast(m, c);
   } else if(m.t === 'boom'){
     explode(m.x, m.y, m.z, m.r, m.d, true);
     if(isHost) mpBroadcast(m, c);
   }
 }
+/* ---- other players ----------------------------------------------------
+   Everyone sends their head, both hands and what they are holding twenty
+   times a second, so a friend in VR is seen turning their head and moving
+   their arms for real, and a desktop player swings an arm as they mine.
+   Offsets are relative to the player's feet, so they survive the lerp. */
+let mySwing = 0;
+const _np = new THREE.Vector3(), _nq = new THREE.Quaternion(), _ne = new THREE.Euler();
+const r3 = v => Math.round(v * 1000) / 1000;
+function myPose(){
+  const p = player.pos;
+  const pose = { held: heldId(), g: xrActive && vrMoveMode === 'gorilla' ? 1 : 0,
+                 c: player.crouching ? 1 : 0, sw: mySwing, vr: xrActive ? 1 : 0 };
+  const pack = () => [r3(_np.x - p.x), r3(_np.y - p.y), r3(_np.z - p.z), r3(_nq.x), r3(_nq.y), r3(_nq.z), r3(_nq.w)];
+  if(xrActive){
+    camera.getWorldPosition(_np); camera.getWorldQuaternion(_nq);
+    pose.hd = pack();
+    const hand = c => {
+      const i = controllers.indexOf(c), grip = controllerGrips[i];
+      if(!c.userData.inputSource || !grip) return null;
+      grip.getWorldPosition(_np); c.getWorldQuaternion(_nq);
+      return pack();
+    };
+    pose.lh = hand(leftCtrl); pose.rh = hand(rightCtrl);
+  } else {
+    _nq.setFromEuler(_ne.set(player.pitch, player.yaw, 0, 'YXZ'));
+    _np.set(p.x, p.y + player.eye - (player.crouchDrop || 0), p.z);
+    pose.hd = pack();
+  }
+  return pose;
+}
+function heldItemMesh(id){
+  const mat = !!ITEMS[id] ? matItemSolid : isCross(id) ? (id === TORCH || id===GLOWCRYSTAL ? matGC : matC) : isLeaf(id)?matLeaf:matO;
+  const m = new THREE.Mesh(dropGeo(id), mat);
+  const tool = ITEMS[id] && ITEMS[id].tool;
+  m.scale.setScalar(!!ITEMS[id] && tool ? 1.54 : id === FLINTSTEEL ? 1.26 : !!ITEMS[id] ? 1.8 : 0.76);
+  m.position.set(0, 0, -0.12);
+  m.rotation.set(-0.4, 0, 0);
+  return m;
+}
+function makeRemoteAvatar(tagText){
+  const g = new THREE.Group();
+  const head = new THREE.Group(); g.add(head);
+  box(0.5, 0.5, 0.5, avMats.head, 0, 0.02, 0.06, head);         // eyes near the front face
+  const body = new THREE.Group(); g.add(body);                   // sits under the head, turned with it
+  box(0.5, 0.72, 0.26, avMats.body, 0, -0.55, 0, body);
+  const legs = [box(0.2, 0.8, 0.2, avMats.leg, -0.11, -1.3, 0, body),
+                box(0.2, 0.8, 0.2, avMats.leg,  0.11, -1.3, 0, body)];
+  const arm = () => ({ upper: box(0.17, 0.5, 0.17, avMats.arm, 0, 0, 0, body),
+                       fore:  box(0.15, 0.3, 0.15, avMats.arm, 0, 0, 0, body) });
+  const arms = { left: arm(), right: arm() };
+  const grip = new THREE.Group(); g.add(grip);                   // the held item rides the right hand
+  // name tag, drawn once and billboarded above the head each frame
+  const nc = document.createElement('canvas');
+  nc.width = 256; nc.height = 64;
+  const ng = nc.getContext('2d');
+  ng.fillStyle = 'rgba(0,0,0,0.55)'; ng.fillRect(0, 0, 256, 64);
+  ng.font = 'bold 38px system-ui'; ng.fillStyle = '#ffffff';
+  ng.textAlign = 'center'; ng.textBaseline = 'middle';
+  ng.fillText(tagText, 128, 34);
+  const tag = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.225),
+    new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(nc), transparent: true, depthTest: false, fog: false }));
+  tag.renderOrder = 9000;
+  g.add(tag);
+  scene.add(g);
+  return { group: g, head, body, legs, arms, grip, tag, held: 0, heldMesh: null };
+}
+const poseVec = a => a ? new THREE.Vector3(a[0], a[1], a[2]) : null;
+const poseQuat = a => a ? new THREE.Quaternion(a[3], a[4], a[5], a[6]).normalize() : null;
 function updateAvatar(m){
   let a = remotes.get(m.tag);
   if(!a){
-    const g = new THREE.Group();
-    box(0.5, 0.5, 0.5, avMats.head, 0, 1.62, 0, g);
-    box(0.5, 0.72, 0.26, avMats.body, 0, 1.02, 0, g);
-    box(0.2, 0.66, 0.2, avMats.leg, -0.13, 0.33, 0, g);
-    box(0.2, 0.66, 0.2, avMats.leg, 0.13, 0.33, 0, g);
-    box(0.17, 0.64, 0.17, avMats.arm, -0.34, 1.02, 0, g);
-    box(0.17, 0.64, 0.17, avMats.arm, 0.34, 1.02, 0, g);
-    // name tag, drawn once and billboarded at the head each frame
-    const nc = document.createElement('canvas');
-    nc.width = 256; nc.height = 64;
-    const ng = nc.getContext('2d');
-    ng.fillStyle = 'rgba(0,0,0,0.55)'; ng.fillRect(0, 0, 256, 64);
-    ng.font = 'bold 38px system-ui'; ng.fillStyle = '#ffffff';
-    ng.textAlign = 'center'; ng.textBaseline = 'middle';
-    ng.fillText('Player ' + String(m.tag).slice(0, 3).toUpperCase(), 128, 34);
-    const tex = new THREE.CanvasTexture(nc);
-    const tag = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.225),
-      new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthTest: false, fog: false }));
-    tag.position.set(0, 2.25, 0);
-    tag.renderOrder = 9000;
-    g.add(tag);
-    scene.add(g);
-    a = { group: g, tag, t: new THREE.Vector3(m.x, m.y, m.z), yaw: m.yaw || 0, seen: 0 };
+    a = makeRemoteAvatar('Player ' + String(m.tag).slice(0, 3).toUpperCase());
+    Object.assign(a, { t: new THREE.Vector3(m.x, m.y, m.z), yaw: m.yaw || 0, seen: 0, sw: m.sw, swingT: 0,
+                       headP: new THREE.Vector3(0, 1.75, 0), headQ: new THREE.Quaternion(),
+                       hands: { left: null, right: null }, handQ: new THREE.Quaternion() });
     a.group.position.copy(a.t);
     remotes.set(m.tag, a);
   }
   a.t.set(m.x, m.y, m.z);
   a.yaw = m.yaw || 0;
   a.seen = 0;
+  a.pose = m;                                    // older builds send no pose: the avatar just stands
+  if(m.sw !== undefined && m.sw !== a.sw){ a.sw = m.sw; a.swingT = 0.3; }
+  // the host keeps the clock, so everyone shares one sun
+  if(!isHost && typeof m.tod === 'number'){
+    let d = m.tod - timeOfDay; d -= Math.round(d);
+    if(Math.abs(d) > 0.001) timeOfDay = ((m.tod % 1) + 1) % 1;
+  }
+}
+const _upY = new THREE.Vector3(0, 1, 0);
+function poseRemote(a, dt){
+  const m = a.pose || {};
+  const k = Math.min(1, dt * 14);
+  // head: position and full rotation, so nods and tilts show
+  const hp = poseVec(m.hd), hq = poseQuat(m.hd);
+  if(hp) a.headP.lerp(hp, k); else a.headP.lerp(_np.set(0, 1.75, 0), k);
+  if(hq) a.headQ.slerp(hq, k); else a.headQ.slerp(_nq.setFromEuler(_ne.set(0, a.yaw, 0)), k);
+  a.head.position.copy(a.headP);
+  a.head.quaternion.copy(a.headQ);
+  // body: hangs under the head and turns with it, but stays upright
+  const yaw = _ne.setFromQuaternion(a.headQ, 'YXZ').y;
+  a.body.position.copy(a.headP);
+  a.body.rotation.set(0, yaw, 0);
+  const legs = !m.g;                             // gorilla arms: no legs, same as they see themselves
+  a.legs.forEach(l => { l.visible = legs; });
+  a.group.updateMatrixWorld(true);             // worldToLocal below needs fresh matrices
+  // hands: tracked in VR; on desktop they hang, and the right one swings when they mine
+  a.swingT = Math.max(0, a.swingT - dt);
+  const sw = Math.sin(Math.PI * (a.swingT / 0.3));
+  for(const [hand, side] of [['left', -1], ['right', 1]]){
+    const tracked = poseVec(m[hand === 'left' ? 'lh' : 'rh']);
+    let wrist;                                   // in body space
+    if(tracked){
+      wrist = a.body.worldToLocal(a.group.localToWorld(tracked.clone()));
+    } else {
+      wrist = new THREE.Vector3(side * 0.3, -0.86, 0.04);
+      if(side > 0 && sw > 0){ wrist.y += 0.5 * sw; wrist.z -= 0.45 * sw; }
+    }
+    const prev = a.hands[hand];
+    a.hands[hand] = prev ? prev.lerp(wrist, k) : wrist;
+    const w = a.hands[hand];
+    const shoulder = new THREE.Vector3(side * 0.27, -0.24, 0);
+    const elbow = shoulder.clone().lerp(w, 0.52);
+    elbow.x += side * 0.08; elbow.y -= 0.12; elbow.z += 0.08;
+    const arm = a.arms[hand];
+    for(const [mesh, from, to, base] of [[arm.upper, shoulder, elbow, 0.5], [arm.fore, elbow, w, 0.3]]){
+      const d = to.clone().sub(from);
+      mesh.position.copy(from).add(to).multiplyScalar(0.5);
+      mesh.scale.y = Math.max(0.001, d.length()) / base;
+      mesh.quaternion.setFromUnitVectors(_upY, d.normalize());
+    }
+  }
+  // held item in the right hand
+  const held = m.held | 0;
+  if(held !== a.held){
+    if(a.heldMesh){ a.grip.remove(a.heldMesh); a.heldMesh = null; }
+    a.held = held;
+    if(held && (BLOCKS[held] || ITEMS[held])) try { a.heldMesh = heldItemMesh(held); a.grip.add(a.heldMesh); } catch(e){}
+  }
+  a.body.updateMatrixWorld(true);
+  a.grip.position.copy(a.group.worldToLocal(a.body.localToWorld(a.hands.right.clone())));
+  const rq = poseQuat(m.rh);
+  if(rq) a.handQ.slerp(rq, k);
+  else a.handQ.setFromEuler(_ne.set(-0.9 + sw * 1.2, yaw, 0, 'YXZ'));
+  a.grip.quaternion.copy(a.handQ);
+  // name tag floats above the head, facing you
+  a.tag.position.set(a.headP.x, a.headP.y + 0.6, a.headP.z);
 }
 function updateNet(dt){
-  if(!peer) return;
   posT -= dt;
-  if(posT <= 0 && mpActive() && inGame){
-    posT = 0.1;
-    mpBroadcast({ t: 'pos', tag: MYTAG, x: player.pos.x, y: player.pos.y, z: player.pos.z, yaw: player.yaw });
+  if(peer && posT <= 0 && mpActive() && inGame){
+    posT = 0.05;
+    const msg = Object.assign({ t: 'pos', tag: MYTAG, x: r3(player.pos.x), y: r3(player.pos.y), z: r3(player.pos.z),
+                                yaw: r3(player.yaw) }, myPose());
+    if(isHost) msg.tod = r3(timeOfDay) || 0.0001;
+    mpBroadcast(msg);
   }
   for(const [tag, a] of remotes){
     a.seen += dt;
     if(a.seen > 6){ scene.remove(a.group); remotes.delete(tag); continue; }
     a.group.position.lerp(a.t, Math.min(1, dt * 10));
-    if(a.tag){                                   // billboard, and fade in close quarters
-      a.tag.lookAt(camera.getWorldPosition(new THREE.Vector3()));
-      const dist = a.group.position.distanceTo(player.pos);
-      a.tag.visible = dist > 2.5 && dist < 60;
-    }
-    a.group.rotation.y += (((a.yaw - a.group.rotation.y + Math.PI * 3) % (Math.PI * 2)) - Math.PI) * Math.min(1, dt * 10);
+    poseRemote(a, dt);
+    a.tag.lookAt(camera.getWorldPosition(new THREE.Vector3()));
+    const dist = a.group.position.distanceTo(player.pos);
+    a.tag.visible = dist > 2.5 && dist < 60;
   }
 }
 
@@ -6796,6 +6922,7 @@ function toggleDoor(x, y, z){
   info.open = !info.open;
   doorState.set(k, info);
   editsDirty=true;
+  if(!netApplying && conns.length) mpBroadcast({ t: 'door', x, y: ly, z, open: info.open });
   // re-mesh both halves' chunk
   rebuild(chunkAt(x >> 4, z >> 4));
   blockSfx(PLANK, info.open ? 'break' : 'place');
@@ -7529,7 +7656,7 @@ function buildViewModel(){
   }
   viewModel.add(vmMesh);
 }
-function triggerViewSwing(){ vmSwingT = 0.24; }   // called on break/place/attack
+function triggerViewSwing(){ vmSwingT = 0.24; mySwing = (mySwing + 1) % 1000; }   // called on break/place/attack; friends see it too
 function updateViewModel(dt){
   buildViewModel();
   // In VR the model rides the controller instead (positioned in the VR block).
@@ -8901,6 +9028,8 @@ window.__bc = {
   camera, scene, hapticPulse, vignetteMesh, updateVignette,
   openCraftVR, closeCraftVR, buildCraftPanel, spawnVillagerAt: spawnVillager,
   mpNewCode, MP_ALPHABET, startHost, joinGame, destroyPeer, enableVoice, disableVoice,
+  myPose, netMessage: m => onNet({ peer: 'test' }, m), remotes, stepNet: dt => updateNet(dt),
+  setHost: v => { isHost = v; }, timeOfDay: () => timeOfDay,
   mpState: () => ({ code: mpRoomCode, status: mpStatusText, conns: conns.length,
                     voiceOn, vrMpMode, vrJoinCode, remotes: remotes.size }),
   setVrMp: (mode, code) => { vrMpMode = mode; if(code !== undefined) vrJoinCode = code; },
