@@ -176,7 +176,7 @@
   <button class="mcbtn" id="btnMusic">Music: On</button>
   <button class="mcbtn" id="btnRender">Render Distance: 5</button>
   <button class="mcbtn" id="btnVignette">VR Comfort: On</button>
-  <button class="mcbtn" id="btnMove">VR Movement: Thumbstick</button>
+  <button class="mcbtn" id="btnMove">VR Gorilla Arms: Off</button>
   <button class="mcbtn" id="btnQuit">Save &amp; Quit to Title</button>
   <div class="ctrl">
     <div><b>W A S D</b> move</div><div><b>Mouse</b> look</div>
@@ -7873,12 +7873,12 @@ function buildCraftPanel(){
     const lines=['X (left controller): open / close inventory','Point RIGHT controller + trigger: select menu buttons','Inventory: select backpack item, then a hotbar slot to equip','Crafting: select recipe, then Craft or Craft & equip','Right grip: place / use / eat food / fill or pour bucket','Right trigger: hold to mine / attack','Wrist: point + trigger on a slot to equip; Inventory opens all items','A: jump / swim up / fly up • B: swim down / fly down / close menu','Left stick click: sprint / flight boost • Right stick click: flight • Y: crouch'];
     lines.forEach((line,i)=>text(line,50,215+i*44,25,'#333333',1330));
     const gorilla=vrMoveMode==='gorilla';
-    button(50,612,520,70,gorilla?'Movement: Gorilla':'Movement: Thumbstick',()=>{
+    button(50,612,520,70,gorilla?'Gorilla arms: ON':'Gorilla arms: off',()=>{
       setVrMoveMode(gorilla?'stick':'gorilla');
-      vrMenuStatus=vrMoveMode==='gorilla'?'Gorilla movement: slap a block and push. The stick only turns.':'Thumbstick movement.';
+      vrMenuStatus=vrMoveMode==='gorilla'?'Gorilla arms on: slap a block and push. The stick still walks.':'Gorilla arms off.';
       buildCraftPanel();
     },true,gorilla);
-    text(gorilla?'Plant a hand on any block and push. Let go mid-swing to fly.':'Select to swap to Gorilla Tag style arm movement.',600,647,23,'#454545',800);
+    text(gorilla?'Push off blocks with your hands. The stick still walks.':'Adds Gorilla Tag arm movement. The stick keeps working.',600,647,23,'#454545',800);
   }
   text('HOTBAR — select a slot to hold its item',35,726,23,'#454545');
   for(let i=0;i<9;i++)slot(i,35+i*152,755);
@@ -8200,9 +8200,9 @@ function updateDebug(){
 }
 
 /* ---- Gorilla locomotion ------------------------------------------------
-   An optional way to get about, after Gorilla Tag. There is no stick
-   walking: plant a hand on any block and the world stays put, so pushing
-   moves you instead. Pull along the ground to run, shove down to leap,
+   An optional extra way to get about, after Gorilla Tag, on top of the
+   thumbstick: plant a hand on any block and the world stays put, so
+   pushing moves you instead. Pull along the ground to run, shove down to leap,
    grab a wall or a tree to climb, and let go mid-swing to keep going. */
 const MOVE_KEY = 'blockcraft-vr-move';
 let vrMoveMode = localStorage.getItem(MOVE_KEY) === 'gorilla' ? 'gorilla' : 'stick';
@@ -8211,7 +8211,7 @@ function setVrMoveMode(m){
   try { localStorage.setItem(MOVE_KEY, vrMoveMode); } catch(e){}
   gorillaReset();
   const b = document.getElementById('btnMove');
-  if(b) b.textContent = 'VR Movement: ' + (vrMoveMode === 'gorilla' ? 'Gorilla' : 'Thumbstick');
+  if(b) b.textContent = 'VR Gorilla Arms: ' + (vrMoveMode === 'gorilla' ? 'On' : 'Off');
 }
 const GORILLA_G = 16;            // floatier than walking gravity, so a good shove carries
 const GORILLA_THROW = 1.25;      // let go mid-swing and keep a little more than you put in
@@ -8372,16 +8372,18 @@ function updateVR(dt){
   const magnitude=Math.max(1,Math.hypot(dx,dz));
   const wishX = (fwdX * -dz + rgtX * dx)/magnitude, wishZ = (fwdZ * -dz + rgtZ * dx)/magnitude;
   const crouchMul = vrCrouch ? 0.5 : 1;
-  if(gorillaActive(swimming)){
-    gorillaStep(dt);                 // your arms drive you; the stick only turns
-    updateVignette(dt, false);
-  } else {
-    gorillaReset();                  // flying, swimming or riding: back on the stick
+  const stickMoving = dx !== 0 || dz !== 0;
+  const gorilla = gorillaActive(swimming);
+  if(gorilla) gorillaStep(dt);       // arms move you on top of the stick
+  else gorillaReset();
+  // the stick always walks. In gorilla mode it steps aside while a hand is
+  // planted, and leaves a mid-air swing alone once you let go of it.
+  if(!gorilla || (!player.gorillaHold && (stickMoving || player.onGround))){
     player.vel.x += (wishX * speed * crouchMul - player.vel.x) * Math.min(1, dt * 10);
     player.vel.z += (wishZ * speed * crouchMul - player.vel.z) * Math.min(1, dt * 10);
-    // comfort: tunnel vision while the stick is driving us, ease it off when we stop
-    updateVignette(dt, dx !== 0 || dz !== 0);
   }
+  // comfort: tunnel vision while the stick is driving us, ease it off when we stop
+  updateVignette(dt, stickMoving);
 
   // ---- jump (right A/X button, index 4) & fly-up ----
   const rb = readButtons('right');
@@ -8724,8 +8726,8 @@ btnVignette.addEventListener('click', () => {
   uiClick();
 });
 
-/* VR movement: thumbstick or gorilla arms */
-document.getElementById('btnMove').textContent = 'VR Movement: ' + (vrMoveMode === 'gorilla' ? 'Gorilla' : 'Thumbstick');
+/* VR gorilla arms: on top of the thumbstick */
+document.getElementById('btnMove').textContent = 'VR Gorilla Arms: ' + (vrMoveMode === 'gorilla' ? 'On' : 'Off');
 document.getElementById('btnMove').addEventListener('click', () => {
   setVrMoveMode(vrMoveMode === 'gorilla' ? 'stick' : 'gorilla');
   uiClick();
