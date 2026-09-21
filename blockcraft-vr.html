@@ -888,7 +888,8 @@ const BONE=455, BONE_MEAL=456, SHIELD=454, ROD=447, COD=448, SALMON=449, COOKED_
 const EGG_RUN = 37, EGG_EXTRA = 479;          // eggs past the first 37 carry on from 479
 const eggId = i => i < EGG_RUN ? EGG_BASE + i : EGG_EXTRA + i - EGG_RUN, eggIcon = i => i < EGG_RUN ? 120 + i : 175 + i - EGG_RUN;
 const eggMob = id => { const i = id >= EGG_BASE && id < EGG_BASE + EGG_RUN ? id - EGG_BASE : id >= EGG_EXTRA ? EGG_RUN + id - EGG_EXTRA : -1; return i >= 0 && i < SPAWN_EGGS.length ? SPAWN_EGGS[i][0] : null; };
-const SLIMEBALL=477, SLIME_BLOCK=478, LANTERN=490, CAMPFIRE=491, BEEHIVE=492, BEEHIVE_FULL=493, HONEY_BOTTLE=494, HONEYCOMB=495;
+const SLIMEBALL=477, SLIME_BLOCK=478, LANTERN=490, CAMPFIRE=491, BEEHIVE=492, BEEHIVE_FULL=493, HONEY_BOTTLE=494, HONEYCOMB=495, FENCE=496, GATE=497, GATE_OPEN=498;
+const isFenceish = id => id === FENCE || id === GATE || id === GATE_OPEN;
 const hivesSeen = new Set();           // "x,y,z" of overworld hives the mesher has seen
 const campfires = new Set();            // "dim:x,y,z" of campfires the mesher has seen
 const NETH_ARMOUR=376,   // 376-379: netherite armour
@@ -1176,7 +1177,7 @@ ITEMS[FIREWORK]={name:'Firework Rocket',icon:95};ITEMS[PAPER]={name:'Paper',icon
 ITEMS[POPPED_CHORUS]={name:'Popped Chorus Fruit',icon:98};ITEMS[SHULKER_SHELL]={name:'Shulker Shell',icon:99};
 ITEMS[SADDLE]={name:'Saddle',icon:100};
 SPAWN_EGGS.forEach(([, name], i) => { ITEMS[eggId(i)] = { name: name + ' Spawn Egg', icon: eggIcon(i) }; });
-ITEMS[SLIMEBALL]={name:'Slimeball',icon:176};BLOCKS[LANTERN]={name:'Lantern',all:273};BLOCKS[BEEHIVE]={name:'Beehive',top:277,bottom:277,side:276};BLOCKS[BEEHIVE_FULL]={name:'Beehive',top:277,bottom:277,side:278};
+ITEMS[SLIMEBALL]={name:'Slimeball',icon:176};BLOCKS[LANTERN]={name:'Lantern',all:273};BLOCKS[FENCE]={name:'Fence',all:279};BLOCKS[GATE]={name:'Fence Gate',all:280};BLOCKS[GATE_OPEN]={name:'Fence Gate',all:280};BLOCKS[BEEHIVE]={name:'Beehive',top:277,bottom:277,side:276};BLOCKS[BEEHIVE_FULL]={name:'Beehive',top:277,bottom:277,side:278};
 ITEMS[HONEY_BOTTLE]={name:'Honey Bottle',icon:177,food:6};ITEMS[HONEYCOMB]={name:'Honeycomb',icon:178};BLOCKS[CAMPFIRE]={name:'Campfire',top:275,bottom:275,side:274};BLOCKS[SLIME_BLOCK]={name:'Slime Block',all:272};
 ITEMS[APPLE]={name:'Apple',icon:167,food:4};ITEMS[GOLDEN_APPLE]={name:'Golden Apple',icon:168,food:4};ITEMS[CARROT]={name:'Carrot',icon:169,food:3,plant:CARROT0};
 ITEMS[POTATO]={name:'Potato',icon:170,food:1,plant:POTATO0};ITEMS[BAKED_POTATO]={name:'Baked Potato',icon:171,food:5};ITEMS[MILK]={name:'Milk Bucket',icon:172};
@@ -1238,8 +1239,8 @@ const partialTile = id => {
   return T.STONE;
 };
 const isDoor    = id => id === DOOR || id === DOORTOP;
-const isOpaque = id => id !== AIR && id !== WATER && id !== GLASS && id !== LAVA && id !== PORTAL && id !== ENDPORTAL && id !== END_GATEWAY && id !== STORM_PORTAL && !isCross(id) && !isPartial(id) && !isDoor(id) && !isFlat(id);
-const isSolid  = id => id !== AIR && id !== WATER && id !== LAVA && id !== PORTAL && id !== ENDPORTAL && id !== END_GATEWAY && id !== STORM_PORTAL && !isCross(id) && !isDoor(id) && !isFlat(id);
+const isOpaque = id => !isFenceish(id) && id !== AIR && id !== WATER && id !== GLASS && id !== LAVA && id !== PORTAL && id !== ENDPORTAL && id !== END_GATEWAY && id !== STORM_PORTAL && !isCross(id) && !isPartial(id) && !isDoor(id) && !isFlat(id);
+const isSolid  = id => id !== GATE_OPEN && id !== AIR && id !== WATER && id !== LAVA && id !== PORTAL && id !== ENDPORTAL && id !== END_GATEWAY && id !== STORM_PORTAL && !isCross(id) && !isDoor(id) && !isFlat(id);
 const isLiquid = id => id === WATER || id === LAVA;
 const emitsLight = id => id===GLOWCRYSTAL || id === LANTERN || id === CAMPFIRE || id === STORM_PORTAL || id === CONDUIT_LIT || id === VOLTITE_ORE || id === END_ROD || id === END_GATEWAY || id === CRYING_OBSIDIAN || id === ANCHOR_LIT || id === SHROOMLIGHT || id === MAGMA || isFire(id) || id === SOUL_TORCH || id === GLOWVINE || id === AMETHYST_C || id === AMBERLAMP || id === GLOWB || id === GLOWSTONE || id === LAVA || id === PORTAL || id === ENDPORTAL || id === ENDCRYSTAL;
 const occl     = id => isOpaque(id);
@@ -1256,7 +1257,7 @@ function faceVisible(b, n){
   if(b === GLASS) return n === WATER;
   return !isOpaque(n);
 }
-const dropOf = id => id===BEEHIVE_FULL?BEEHIVE:id===SKYGRASS?STORMSTONE:id===VOLTITE_ORE?VOLTITE:id===CONDUIT_LIT?CONDUIT:id===CHORUS_PLANT?CHORUS_FRUIT:id===ANCHOR_LIT?ANCHOR:id===CRIM_NYL||id===WARP_NYL?NETHERRACK:id===QUARTZ_ORE?QUARTZ:id===NGOLD_ORE?GNUGGET:id===GILDED?(Math.random()<.1?GNUGGET:GILDED):id===SNOWY_GRASS?DIRT:id===GLOWVINE?BERRIES:id===AMETHYST_C||id===BUDDING?AMETHYST_SHARD:id===DRIP_DOWN?DRIP_UP:id===BERRYBUSH?BERRIES:id===CRYSTALORE||id===GLOWCRYSTAL?CRYSTALSHARD:id === GRASS || id === SAVGRASS || id === FARMLAND ? DIRT : id === COALO ? COALI : id === DIAMO ? DIAMI :
+const dropOf = id => id===BEEHIVE_FULL?BEEHIVE:id===GATE_OPEN?GATE:id===SKYGRASS?STORMSTONE:id===VOLTITE_ORE?VOLTITE:id===CONDUIT_LIT?CONDUIT:id===CHORUS_PLANT?CHORUS_FRUIT:id===ANCHOR_LIT?ANCHOR:id===CRIM_NYL||id===WARP_NYL?NETHERRACK:id===QUARTZ_ORE?QUARTZ:id===NGOLD_ORE?GNUGGET:id===GILDED?(Math.random()<.1?GNUGGET:GILDED):id===SNOWY_GRASS?DIRT:id===GLOWVINE?BERRIES:id===AMETHYST_C||id===BUDDING?AMETHYST_SHARD:id===DRIP_DOWN?DRIP_UP:id===BERRYBUSH?BERRIES:id===CRYSTALORE||id===GLOWCRYSTAL?CRYSTALSHARD:id === GRASS || id === SAVGRASS || id === FARMLAND ? DIRT : id === COALO ? COALI : id === DIAMO ? DIAMI :
                      id === EMERO ? EMERALD : id === DEADBUSH ? STICK : id;
 function toolClassOf(id){
   if([STORMSTONE,VOLTITE_ORE,STORM_BRICK,CONDUIT,CONDUIT_LIT].includes(id)) return 'pick';
@@ -1264,7 +1265,7 @@ function toolClassOf(id){
   if(id === ENCH_TABLE) return 'pick';
   if(id === LADDER || id === CAMPFIRE) return 'axe';
   if(id === LANTERN) return 'pick';
-  if(id === BEEHIVE || id === BEEHIVE_FULL) return 'axe';
+  if(id === BEEHIVE || id === BEEHIVE_FULL || isFenceish(id)) return 'axe';
   if([PURPUR,PURPUR_PILLAR,ENDSTONE_BRICK,ENDSTONE,CRYING_OBSIDIAN,ANCHOR,ANCHOR_LIT].includes(id)) return 'pick';
   if(id === CHORUS_PLANT || id === CHORUS_FLOWER) return 'axe';
   if([NETHERRACK,NBRICK,SLAB_NBRICK,STAIR_NBRICK,OBSIDIAN,CRIM_NYL,WARP_NYL,BASALT_N,BLACKSTONE,BSTONE_BRICK,GILDED,MAGMA,
@@ -1407,6 +1408,7 @@ RECIPES.push({out:[SHIELD,1],in:[[ANY_PLANK,6],[IRONI,1]],st:'table'},{out:[ROD,
   {out:[COOKED_SALMON,1],in:[[SALMON,1],[COALI,1]],st:'furnace'});
 RECIPES.push({out:[CAKE,1],in:[[MILK,3],[SUGAR,2],[EGG,1],[WHEATITEM,3]],st:'table',back:[[BUCKET,3]]},{out:[SUGAR,1],in:[[REEDS,1]]},
   {out:[GOLDEN_APPLE,1],in:[[APPLE,1],[GOLDI,8]],st:'table'},{out:[BAKED_POTATO,1],in:[[POTATO,1],[COALI,1]],st:'furnace'});
+RECIPES.push({out:[FENCE,3],in:[[ANY_PLANK,4],[STICK,2]],st:'table'},{out:[GATE,1],in:[[STICK,4],[ANY_PLANK,2]],st:'table'});
 RECIPES.push({out:[BEEHIVE,1],in:[[ANY_PLANK,6],[HONEYCOMB,3]],st:'table'});
 RECIPES.push({out:[LANTERN,1],in:[[IRONI,1],[TORCH,1]],st:'table'},
   {out:[CAMPFIRE,1],in:[[STICK,3],[COALI,1],[[LOG, BIRCHLOG, SPRUCELOG, JUNGLELOG, CHERRYLOG, MAPLELOG, WILLOWLOG, BOAB_LOG],3]],st:'table'});
@@ -1787,6 +1789,14 @@ itemAtlas.width = 128; itemAtlas.height = 384;
   put(262, (x, y, r) => {                                    // cake top: white icing, red dots
     const k = Math.floor((r() - 0.5) * 10);
     return ((x * 5 + y * 3) % 11 === 0 && x > 1 && x < 14 && y > 1 && y < 14) ? [210, 34, 44] : [248 + k / 2, 244 + k / 2, 240 + k / 2];
+  });
+  put(279, (x, y, r) => {                                   // fence icon: two posts and two rails
+    const k = Math.floor((r() - 0.5) * 16), post = (x >= 2 && x <= 4) || (x >= 11 && x <= 13), rail = (y >= 4 && y <= 5) || (y >= 9 && y <= 10);
+    return post || rail ? [170 + k, 132 + k, 80 + k, 1] : [0, 0, 0, 0];
+  });
+  put(280, (x, y, r) => {                                   // gate icon: end posts, rails and a middle brace
+    const k = Math.floor((r() - 0.5) * 16), post = (x <= 1 || x >= 14) && y >= 2, rail = ((y >= 4 && y <= 5) || (y >= 10 && y <= 11)) || ((x === 7 || x === 8) && y >= 4 && y <= 11);
+    return post || rail ? [170 + k, 132 + k, 80 + k, 1] : [0, 0, 0, 0];
   });
   put(276, (x, y, r) => {                                   // beehive side: planks round a dark entrance
     const k = Math.floor((r() - 0.5) * 16);
@@ -5301,6 +5311,36 @@ function* buildChunkSteps(c,reuseLight=false){
     if(isPartial(b)){ pushPartial(O, lx, y, lz, b, light); continue; }
     if(isDoor(b)){ pushDoor(O, lx, y, lz, b, wx0 + lx, wz0 + lz, light); continue; }
     if(b === LADDER){ pushLadder(O, lx, y, lz, gb, light); continue; }
+    if(b === FENCE){
+      const llW = light ? 0.2 + (sampleLight(light, lx, y, lz) / 15) * 0.8 : 1;
+      pushBox(O, T.PLANK, lx + 0.375, y, lz + 0.375, lx + 0.625, y + 1, lz + 0.625, llW);
+      for(const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]){
+        const n = gb(lx + dx, y, lz + dz);
+        if(!isFenceish(n) && !isOpaque(n)) continue;
+        const x0 = dx > 0 ? 0.625 : dx < 0 ? 0 : 0.4375, x1 = dx > 0 ? 1 : dx < 0 ? 0.375 : 0.5625;
+        const z0 = dz > 0 ? 0.625 : dz < 0 ? 0 : 0.4375, z1 = dz > 0 ? 1 : dz < 0 ? 0.375 : 0.5625;
+        pushBox(O, T.PLANK, lx + x0, y + 0.375, lz + z0, lx + x1, y + 0.5625, lz + z1, llW);
+        pushBox(O, T.PLANK, lx + x0, y + 0.75, lz + z0, lx + x1, y + 0.9375, lz + z1, llW);
+      }
+      continue;
+    }
+    if(b === GATE || b === GATE_OPEN){
+      const llW = light ? 0.2 + (sampleLight(light, lx, y, lz) / 15) * 0.8 : 1;
+      const alongX = isFenceish(gb(lx + 1, y, lz)) || isFenceish(gb(lx - 1, y, lz)) || !(isFenceish(gb(lx, y, lz + 1)) || isFenceish(gb(lx, y, lz - 1)));
+      // a piece given across the gateway (a) and through it (d)
+      const piece = (a0, a1, y0, y1, d0, d1) => alongX ? pushBox(O, T.PLANK, lx + a0, y + y0, lz + d0, lx + a1, y + y1, lz + d1, llW)
+                                                       : pushBox(O, T.PLANK, lx + d0, y + y0, lz + a0, lx + d1, y + y1, lz + a1, llW);
+      piece(0, 0.125, 0.3125, 1, 0.4375, 0.5625); piece(0.875, 1, 0.3125, 1, 0.4375, 0.5625);             // the posts
+      if(b === GATE){
+        piece(0.125, 0.875, 0.375, 0.5625, 0.4375, 0.5625); piece(0.125, 0.875, 0.75, 0.9375, 0.4375, 0.5625);
+        piece(0.4375, 0.5625, 0.5625, 0.75, 0.4375, 0.5625);
+      } else {
+        for(const a0 of [0, 0.875]){                                                                  // swung open, flat against the posts
+          piece(a0, a0 + 0.125, 0.375, 0.5625, 0.5625, 0.9375); piece(a0, a0 + 0.125, 0.75, 0.9375, 0.5625, 0.9375);
+        }
+      }
+      continue;
+    }
     if(b === LANTERN){
       const hang = isSolid(gb(lx, y + 1, lz)) && !isSolid(gb(lx, y - 1, lz)), y0 = hang ? 0.28 : 0;
       pushBox(G, 273, lx + 0.3125, y + y0, lz + 0.3125, lx + 0.6875, y + y0 + 0.44, lz + 0.6875, 1);
@@ -5617,7 +5657,8 @@ function moveAxis(ent, axis, amt){
   const z0 = Math.floor(p.z - w + e), z1 = Math.floor(p.z + w - e);
   for(let y = y0; y <= y1; y++) for(let z = z0; z <= z1; z++) for(let x = x0; x <= x1; x++){
     const block=getBlock(x,y,z);
-    if(!isSolid(block) && !(isDoor(block) && !getDoorInfo(x,y,z).open)) continue;
+    if(!isSolid(block) && !(isDoor(block) && !getDoorInfo(x,y,z).open) &&
+       !(axis !== 1 && y === y0 && p.y < y + 0.5 && (getBlock(x, y - 1, z) === FENCE || getBlock(x, y - 1, z) === GATE))) continue;
     if(axis === 0){ p.x = amt > 0 ? x - w - 2*e : x + 1 + w + 2*e; ent.vel.x = 0; }
     else if(axis === 1){
       if(amt > 0) p.y = y - h - 2*e;
@@ -9449,6 +9490,7 @@ function useSpecial(o, d, hit, eh){
   if(useFarm(hit, eh)) return true;
   if(useCampfire(hit)) return true;
   if(useHive(hit)) return true;
+  if(useGate(hit)) return true;
   if(held === ROD) return useRod(o, d);
   if(eggMob(held)) return useSpawnEgg(hit) || true;
   if(POTIONS[held]){ drinkPotion(held); triggerViewSwing(); return true; }
@@ -14566,6 +14608,15 @@ function drawEnchantVR(g, text, button){
     button(35, 330 + i * 110, 1340, 95, offerText(o) + '   -   needs level ' + o.req + ', costs ' + o.cost, () => { doEnchant(i); }, xpLevel >= o.req);
   });
 }
+/* ---- fence gates open and shut ---- */
+function useGate(hit){
+  if(!hit || (hit.id !== GATE && hit.id !== GATE_OPEN)) return false;
+  if(hit.id === GATE_OPEN && aabbHitsCell(hit.x, hit.y, hit.z)) return true;          // not shut on top of someone
+  setBlock(hit.x, hit.y, hit.z, hit.id === GATE ? GATE_OPEN : GATE);
+  blockSfx(PLANK, 'place'); tone(hit.id === GATE ? 300 : 220, 180, 0.08, 'square', 0.06);
+  triggerViewSwing();
+  return true;
+}
 /* ================================ BEES ================================
    Bees live in hives (on some oak, birch and cherry trees, or ones you craft
    from honeycomb bought off a farmer). By day they fly out to flowers and
@@ -15935,6 +15986,7 @@ window.__bc = {
             adv: { list: ADVANCEMENTS, done: advDone, grant: grantAdv, next: nextAdv, tick: () => { advT = 0; updateAdvancements(0); }, guide: toggleGuide, toast: showToast },
             fx: { clearInv: () => { for(const q of survInv){ q.id = 0; q.count = 0; q.dur = 0; } renderHotbar(); }, effects, drink: id => drinkPotion(id), step: dt => updateEffects(dt), light: lightAtPlayer, mood: () => musicMood(), sub: showSubtitle, POTIONS },
             xp: { add: addXP, level: () => xpLevel, points: () => xpPoints, drop: dropXP, orbs: xpOrbs, offers: enchantOffers, enchant: doEnchant, setTable: t => { enchantAt = t; }, heldEnch, stackName, armourEnch },
+            fence: { gate: useGate },
             bees: { list: bees, hives, seen: hivesSeen, spawn: spawnBee, step: dt => updateBees(dt), use: useHive, broken: hiveBroken },
             sea: { list: seaLife, spawn: spawnSea, step: dt => updateSeaLife(dt), trySpawn: trySpawnSea },
             camp: { use: useCampfire, step: dt => updateCampfires(dt), cooking, fires: campfires },
