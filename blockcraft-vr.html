@@ -888,7 +888,8 @@ const BONE=455, BONE_MEAL=456, SHIELD=454, ROD=447, COD=448, SALMON=449, COOKED_
 const EGG_RUN = 37, EGG_EXTRA = 479;          // eggs past the first 37 carry on from 479
 const eggId = i => i < EGG_RUN ? EGG_BASE + i : EGG_EXTRA + i - EGG_RUN, eggIcon = i => i < EGG_RUN ? 120 + i : 175 + i - EGG_RUN;
 const eggMob = id => { const i = id >= EGG_BASE && id < EGG_BASE + EGG_RUN ? id - EGG_BASE : id >= EGG_EXTRA ? EGG_RUN + id - EGG_EXTRA : -1; return i >= 0 && i < SPAWN_EGGS.length ? SPAWN_EGGS[i][0] : null; };
-const SLIMEBALL=477, SLIME_BLOCK=478, LANTERN=490, CAMPFIRE=491;
+const SLIMEBALL=477, SLIME_BLOCK=478, LANTERN=490, CAMPFIRE=491, BEEHIVE=492, BEEHIVE_FULL=493, HONEY_BOTTLE=494, HONEYCOMB=495;
+const hivesSeen = new Set();           // "x,y,z" of overworld hives the mesher has seen
 const campfires = new Set();            // "dim:x,y,z" of campfires the mesher has seen
 const NETH_ARMOUR=376,   // 376-379: netherite armour
       BOW=380, ARROW_I=381, EYE_ENDER=382, ELYTRA=383, FIREWORK=384, PAPER=385, CHORUS_FRUIT=386,
@@ -1175,7 +1176,8 @@ ITEMS[FIREWORK]={name:'Firework Rocket',icon:95};ITEMS[PAPER]={name:'Paper',icon
 ITEMS[POPPED_CHORUS]={name:'Popped Chorus Fruit',icon:98};ITEMS[SHULKER_SHELL]={name:'Shulker Shell',icon:99};
 ITEMS[SADDLE]={name:'Saddle',icon:100};
 SPAWN_EGGS.forEach(([, name], i) => { ITEMS[eggId(i)] = { name: name + ' Spawn Egg', icon: eggIcon(i) }; });
-ITEMS[SLIMEBALL]={name:'Slimeball',icon:176};BLOCKS[LANTERN]={name:'Lantern',all:273};BLOCKS[CAMPFIRE]={name:'Campfire',top:275,bottom:275,side:274};BLOCKS[SLIME_BLOCK]={name:'Slime Block',all:272};
+ITEMS[SLIMEBALL]={name:'Slimeball',icon:176};BLOCKS[LANTERN]={name:'Lantern',all:273};BLOCKS[BEEHIVE]={name:'Beehive',top:277,bottom:277,side:276};BLOCKS[BEEHIVE_FULL]={name:'Beehive',top:277,bottom:277,side:278};
+ITEMS[HONEY_BOTTLE]={name:'Honey Bottle',icon:177,food:6};ITEMS[HONEYCOMB]={name:'Honeycomb',icon:178};BLOCKS[CAMPFIRE]={name:'Campfire',top:275,bottom:275,side:274};BLOCKS[SLIME_BLOCK]={name:'Slime Block',all:272};
 ITEMS[APPLE]={name:'Apple',icon:167,food:4};ITEMS[GOLDEN_APPLE]={name:'Golden Apple',icon:168,food:4};ITEMS[CARROT]={name:'Carrot',icon:169,food:3,plant:CARROT0};
 ITEMS[POTATO]={name:'Potato',icon:170,food:1,plant:POTATO0};ITEMS[BAKED_POTATO]={name:'Baked Potato',icon:171,food:5};ITEMS[MILK]={name:'Milk Bucket',icon:172};
 ITEMS[EGG]={name:'Egg',icon:173};ITEMS[SUGAR]={name:'Sugar',icon:174};
@@ -1254,7 +1256,7 @@ function faceVisible(b, n){
   if(b === GLASS) return n === WATER;
   return !isOpaque(n);
 }
-const dropOf = id => id===SKYGRASS?STORMSTONE:id===VOLTITE_ORE?VOLTITE:id===CONDUIT_LIT?CONDUIT:id===CHORUS_PLANT?CHORUS_FRUIT:id===ANCHOR_LIT?ANCHOR:id===CRIM_NYL||id===WARP_NYL?NETHERRACK:id===QUARTZ_ORE?QUARTZ:id===NGOLD_ORE?GNUGGET:id===GILDED?(Math.random()<.1?GNUGGET:GILDED):id===SNOWY_GRASS?DIRT:id===GLOWVINE?BERRIES:id===AMETHYST_C||id===BUDDING?AMETHYST_SHARD:id===DRIP_DOWN?DRIP_UP:id===BERRYBUSH?BERRIES:id===CRYSTALORE||id===GLOWCRYSTAL?CRYSTALSHARD:id === GRASS || id === SAVGRASS || id === FARMLAND ? DIRT : id === COALO ? COALI : id === DIAMO ? DIAMI :
+const dropOf = id => id===BEEHIVE_FULL?BEEHIVE:id===SKYGRASS?STORMSTONE:id===VOLTITE_ORE?VOLTITE:id===CONDUIT_LIT?CONDUIT:id===CHORUS_PLANT?CHORUS_FRUIT:id===ANCHOR_LIT?ANCHOR:id===CRIM_NYL||id===WARP_NYL?NETHERRACK:id===QUARTZ_ORE?QUARTZ:id===NGOLD_ORE?GNUGGET:id===GILDED?(Math.random()<.1?GNUGGET:GILDED):id===SNOWY_GRASS?DIRT:id===GLOWVINE?BERRIES:id===AMETHYST_C||id===BUDDING?AMETHYST_SHARD:id===DRIP_DOWN?DRIP_UP:id===BERRYBUSH?BERRIES:id===CRYSTALORE||id===GLOWCRYSTAL?CRYSTALSHARD:id === GRASS || id === SAVGRASS || id === FARMLAND ? DIRT : id === COALO ? COALI : id === DIAMO ? DIAMI :
                      id === EMERO ? EMERALD : id === DEADBUSH ? STICK : id;
 function toolClassOf(id){
   if([STORMSTONE,VOLTITE_ORE,STORM_BRICK,CONDUIT,CONDUIT_LIT].includes(id)) return 'pick';
@@ -1262,6 +1264,7 @@ function toolClassOf(id){
   if(id === ENCH_TABLE) return 'pick';
   if(id === LADDER || id === CAMPFIRE) return 'axe';
   if(id === LANTERN) return 'pick';
+  if(id === BEEHIVE || id === BEEHIVE_FULL) return 'axe';
   if([PURPUR,PURPUR_PILLAR,ENDSTONE_BRICK,ENDSTONE,CRYING_OBSIDIAN,ANCHOR,ANCHOR_LIT].includes(id)) return 'pick';
   if(id === CHORUS_PLANT || id === CHORUS_FLOWER) return 'axe';
   if([NETHERRACK,NBRICK,SLAB_NBRICK,STAIR_NBRICK,OBSIDIAN,CRIM_NYL,WARP_NYL,BASALT_N,BLACKSTONE,BSTONE_BRICK,GILDED,MAGMA,
@@ -1404,6 +1407,7 @@ RECIPES.push({out:[SHIELD,1],in:[[ANY_PLANK,6],[IRONI,1]],st:'table'},{out:[ROD,
   {out:[COOKED_SALMON,1],in:[[SALMON,1],[COALI,1]],st:'furnace'});
 RECIPES.push({out:[CAKE,1],in:[[MILK,3],[SUGAR,2],[EGG,1],[WHEATITEM,3]],st:'table',back:[[BUCKET,3]]},{out:[SUGAR,1],in:[[REEDS,1]]},
   {out:[GOLDEN_APPLE,1],in:[[APPLE,1],[GOLDI,8]],st:'table'},{out:[BAKED_POTATO,1],in:[[POTATO,1],[COALI,1]],st:'furnace'});
+RECIPES.push({out:[BEEHIVE,1],in:[[ANY_PLANK,6],[HONEYCOMB,3]],st:'table'});
 RECIPES.push({out:[LANTERN,1],in:[[IRONI,1],[TORCH,1]],st:'table'},
   {out:[CAMPFIRE,1],in:[[STICK,3],[COALI,1],[[LOG, BIRCHLOG, SPRUCELOG, JUNGLELOG, CHERRYLOG, MAPLELOG, WILLOWLOG, BOAB_LOG],3]],st:'table'});
 RECIPES.push({out:[SLIME_BLOCK,1],in:[[SLIMEBALL,9]]},{out:[SLIMEBALL,9],in:[[SLIME_BLOCK,1]]});
@@ -1783,6 +1787,24 @@ itemAtlas.width = 128; itemAtlas.height = 384;
   put(262, (x, y, r) => {                                    // cake top: white icing, red dots
     const k = Math.floor((r() - 0.5) * 10);
     return ((x * 5 + y * 3) % 11 === 0 && x > 1 && x < 14 && y > 1 && y < 14) ? [210, 34, 44] : [248 + k / 2, 244 + k / 2, 240 + k / 2];
+  });
+  put(276, (x, y, r) => {                                   // beehive side: planks round a dark entrance
+    const k = Math.floor((r() - 0.5) * 16);
+    if(x >= 6 && x <= 9 && y >= 8 && y <= 10) return [40 + k / 2, 28 + k / 2, 16];
+    if(y === 3 || y === 12) return [150 + k, 108 + k, 50 + k];
+    return [196 + k, 150 + k, 84 + k];
+  });
+  put(277, (x, y, r) => {                                   // beehive top: honey-coloured boards
+    const k = Math.floor((r() - 0.5) * 16);
+    if(x === 0 || y === 0 || x === 15 || y === 15) return [150 + k, 108 + k, 50 + k];
+    return x % 5 === 0 ? [176 + k, 132 + k, 70 + k] : [206 + k, 162 + k, 90 + k];
+  });
+  put(278, (x, y, r) => {                                   // a full hive: honey oozing from the entrance
+    const k = Math.floor((r() - 0.5) * 16);
+    if(x >= 6 && x <= 9 && y >= 8 && y <= 10) return [250, 180 + k / 2, 30];
+    if(y > 10 && y < 14 && (x === 7 || (x === 8 && y < 13))) return [246, 172, 26];
+    if(y === 3 || y === 12) return [150 + k, 108 + k, 50 + k];
+    return [196 + k, 150 + k, 84 + k];
   });
   put(273, (x, y, r) => {                                   // lantern: iron frame round warm glass
     const frame = x < 2 || x > 13 || y < 2 || y > 13 || x === 7 || x === 8;
@@ -2882,6 +2904,8 @@ const tileAvg = [];
   px(172, [['#8a8f96', [[3, 4, 10, 10], [4, 14, 8, 1]]], ['#f6f6f6', [[4, 4, 8, 3]]], ['#b0b4ba', [[4, 8, 8, 5]]], ['#5a5f66', [[2, 3, 12, 1]]]]);
   px(173, [['#f0e2c4', [[5, 4, 6, 9], [4, 6, 8, 6]]], ['#fff6e4', [[6, 5, 2, 3]]], ['#d8c4a0', [[9, 10, 2, 2]]]]);
   px(174, [['#f4f4f8', [[4, 8, 8, 5], [5, 6, 6, 2], [6, 5, 4, 1]]], ['#ffffff', [[6, 7, 2, 2], [9, 9, 1, 1]]], ['#d8d8e0', [[5, 11, 6, 2]]]]);
+  px(177, [['#c8e0e8', [[5, 3, 6, 2], [4, 5, 8, 9], [5, 14, 6, 1]]], ['#f0a820', [[5, 7, 6, 7]]], ['#ffd050', [[6, 8, 2, 3]]], ['#8a6030', [[6, 1, 4, 2]]]]);
+  px(178, [['#e8a020', [[3, 4, 10, 8], [5, 3, 6, 10]]], ['#c07810', [[5, 6, 2, 2], [9, 6, 2, 2], [7, 9, 2, 2]]], ['#ffd060', [[4, 5, 1, 2], [6, 4, 2, 1]]]]);
   px(176, [['#5cb04a', [[4, 5, 8, 7], [3, 6, 10, 5], [5, 12, 6, 1], [5, 4, 6, 1]]], ['#9ade84', [[5, 6, 3, 2]]], ['#3c8030', [[9, 10, 2, 1], [10, 8, 1, 2]]]]);
   px(166, [['#f4f2ea', [[4, 8, 8, 5], [5, 7, 6, 7], [6, 6, 4, 1]]], ['#dcd8c8', [[5, 11, 6, 2], [7, 9, 2, 1]]], ['#ffffff', [[6, 8, 2, 1]]]]);
   px(164, [['#8a8f96', [[3, 1, 10, 13], [4, 14, 8, 1]]], ['#9c6a3c', [[4, 2, 8, 11], [5, 13, 6, 1]]], ['#b8844e', [[5, 3, 2, 9], [9, 3, 2, 9]]], ['#c8ccd2', [[7, 6, 2, 3]]], ['#6a6f76', [[7, 2, 2, 11]]]]);
@@ -4473,6 +4497,10 @@ function* genChunkSteps(cx, cz){
       for(let i=0;i<=n;i++)set(tx+Math.round(ox*i/n),t.h+base+Math.round((oy-base)*i/n),tz+Math.round(oz*i/n),log);
     };
     for(let k=1;k<=t.th;k++)set(tx,t.h+k,tz,log);
+    if(GEN_V >= 3 && (t.type === 'oak' || t.type === 'birch' || t.type === 'cherry') && hash(wx, wz, 8631) < 0.07){
+      const [hx, hz] = [[1, 0], [-1, 0], [0, 1], [0, -1]][(hash(wx, wz, 8632) * 4) | 0];
+      set(tx + hx, t.h + t.th - 2, tz + hz, BEEHIVE);                                  // a hive hanging off the trunk
+    }
     const turn=hash(wx,wz,991)<.5?-1:1;
     if(t.type==='spruce'){
       for(let dy=2;dy<=t.th+1;dy++){
@@ -5280,6 +5308,7 @@ function* buildChunkSteps(c,reuseLight=false){
       if(hang) pushBox(O, 274, lx + 0.47, y + y0 + 0.52, lz + 0.47, lx + 0.53, y + 1, lz + 0.53, 0.4);     // its chain
       continue;
     }
+    if((b === BEEHIVE || b === BEEHIVE_FULL) && dim === 0) hivesSeen.add((wx0 + lx) + ',' + y + ',' + (wz0 + lz));
     if(b === CAMPFIRE){
       if(dim === 0 || dim === 1 || dim === 3) campfires.add(dim + ':' + (wx0 + lx) + ',' + y + ',' + (wz0 + lz));
       const nlF = light ? sampleLight(light, lx, y + 1, lz) : 15, llF = 0.3 + (nlF / 15) * 0.7;
@@ -6087,6 +6116,7 @@ function eatHeld(){
   tone(300, 180, 0.1, 'sine', 0.1, 0.36);
   flashName('Ate ' + ateName);
   if(ateId === CHORUS_FRUIT) chorusTeleport();
+  if(ateId === HONEY_BOTTLE) addItem(GLASS_BOTTLE);
   if(ateId === GOLDEN_APPLE){ effects.regen = Math.max(effects.regen, 12); hp = Math.min(20, hp + 4); renderHearts(); }
   return true;
 }
@@ -8309,7 +8339,8 @@ const vilMats = { skin: entMat(0xbd8f68), robe: entMat(0x7a5b3a), arms: entMat(0
 const VIL_PROF = [
   { id:'farmer', name:'Farmer', robe:0x8a6a3f, badge:0xd9c06a, hat:0xd9c06a, voice:210, trades:[
       {in:[[WHEATITEM,16]],out:[EMERALD,1]}, {in:[[MELONSLICE,10]],out:[EMERALD,1]},
-      {in:[[EMERALD,1]],out:[BREAD,6]}, {in:[[EMERALD,1]],out:[MELONSLICE,4]} ]},
+      {in:[[EMERALD,1]],out:[BREAD,6]}, {in:[[EMERALD,1]],out:[MELONSLICE,4]},
+      {in:[[CARROT,20]],out:[EMERALD,1]}, {in:[[EMERALD,2]],out:[HONEYCOMB,3]} ]},
   { id:'librarian', name:'Librarian', robe:0xd6d0c0, badge:0x6d5f8a, hat:0, voice:250, trades:[
       {in:[[STRING,12]],out:[EMERALD,1]}, {in:[[EMERALD,1]],out:[GLASS,6]},
       {in:[[EMERALD,3]],out:[BOOKSHELF,2]}, {in:[[EMERALD,1]],out:[TORCH,8]} ]},
@@ -9417,6 +9448,7 @@ function useSpecial(o, d, hit, eh){
   if(useBoneMeal(hit)) return true;
   if(useFarm(hit, eh)) return true;
   if(useCampfire(hit)) return true;
+  if(useHive(hit)) return true;
   if(held === ROD) return useRod(o, d);
   if(eggMob(held)) return useSpawnEgg(hit) || true;
   if(POTIONS[held]){ drinkPotion(held); triggerViewSwing(); return true; }
@@ -10313,6 +10345,7 @@ function rayEntity(o, d, max){
   for(const w of wyrms) if(w.phase !== 'dying'){ check(w.headHit); for(const h of w.bodyHits) check(h); }
   for(const q of shulkers) check(q);
   for(const q of seaLife) check(q);
+  for(const q of bees) check(q);
   for(const b of sbullets){ const y = b.pos.y; b.pos.y -= 0.25; check(b); b.pos.y = y; }       // the boss is targetable
   return best && bt <= max ? { e: best, t: bt } : null;
 }
@@ -10385,6 +10418,7 @@ function punchEntity(e){
   if(e.kind === 'shulker'){ hurtShulker(e, heldDamage()); damageTool(['sword', 'axe']); return; }
   if(e.kind === 'fireball'){ deflectFireball(e); return; }
   if(e.kind === 'sea'){ hurtSea(e, heldDamage()); damageTool(['sword', 'axe']); return; }
+  if(e.kind === 'bee'){ hurtBee(e, heldDamage()); damageTool(['sword', 'axe']); return; }
   const dx = e.pos.x - player.pos.x, dz = e.pos.z - player.pos.z, l = Math.hypot(dx, dz) || 1;
   const heavy = e.kind === 'nether' && (e.type === 'ghast' || e.type === 'hoglin');
   e.vel.x += dx / l * (heavy ? 2 : 6); e.vel.z += dz / l * (heavy ? 2 : 6);
@@ -14532,6 +14566,179 @@ function drawEnchantVR(g, text, button){
     button(35, 330 + i * 110, 1340, 95, offerText(o) + '   -   needs level ' + o.req + ', costs ' + o.cost, () => { doEnchant(i); }, xpLevel >= o.req);
   });
 }
+/* ================================ BEES ================================
+   Bees live in hives (on some oak, birch and cherry trees, or ones you craft
+   from honeycomb bought off a farmer). By day they fly out to flowers and
+   bring pollen home; five trips fill a hive with honey. Take it with a glass
+   bottle (honey bottle) or empty-handed (3 honeycomb) - but the bees will
+   swarm you unless a campfire smokes beneath the hive. Break a hive or hit
+   a bee and they sting; a bee that stings soon dies. */
+const bees = [];
+const hives = (() => { try { return new Map(JSON.parse(localStorage.getItem(SAVE_KEY + '-hives')) || []); } catch(e){ return new Map(); } })();
+let hiveT = 0, hiveSaveT = 0, hivesDirty = false;
+const FLOWER_IDS = new Set([...FLORA_IDS, POPPYB, DANDB]);
+const beeMats = { body: entMat(0xf0c030), stripe: entMat(0x2a1c10), eye: entMat(0x101010), sting: entMat(0x8a8a8a),
+                  wing: new THREE.MeshBasicMaterial({ color: 0xe8f4ff, transparent: true, opacity: 0.55, depthWrite: false }) };
+const hiveOf = k => { let h = hives.get(k); if(!h){ h = { honey: 0, inside: 2 }; hives.set(k, h); hivesDirty = true; } return h; };
+const saveHives = () => { if(!mobsFromHost()) safeSet(SAVE_KEY + '-hives', JSON.stringify([...hives])); hivesDirty = false; };
+function hiveDoor(x, y, z){
+  for(const [dx, dy, dz] of [[0, 0, -1], [0, 0, 1], [-1, 0, 0], [1, 0, 0], [0, -1, 0], [0, 1, 0]])
+    if(getBlock(x + dx, y + dy, z + dz) === AIR) return [x + dx + 0.5, y + dy + 0.3, z + dz + 0.5];
+  return null;
+}
+function spawnBee(x, y, z, home){
+  const g = new THREE.Group(); g.rotation.order = 'YXZ';
+  const M = beeMats;
+  box(0.3, 0.28, 0.44, M.body, 0, 0.2, 0, g);
+  box(0.31, 0.29, 0.07, M.stripe, 0, 0.2, 0.02, g); box(0.31, 0.29, 0.07, M.stripe, 0, 0.2, 0.14, g);
+  box(0.06, 0.08, 0.02, M.eye, -0.08, 0.24, -0.225, g); box(0.06, 0.08, 0.02, M.eye, 0.08, 0.24, -0.225, g);
+  const sting = box(0.04, 0.04, 0.1, M.sting, 0, 0.18, 0.26, g);
+  const wl = new THREE.Group(); wl.position.set(-0.08, 0.35, 0); g.add(wl); box(0.24, 0.01, 0.16, M.wing, -0.12, 0, 0, wl);
+  const wr = new THREE.Group(); wr.position.set(0.08, 0.35, 0); g.add(wr); box(0.24, 0.01, 0.16, M.wing, 0.12, 0, 0, wr);
+  const e = { kind: 'bee', group: g, wings: [wl, wr], sting, pos: new THREE.Vector3(x, y, z), vel: new THREE.Vector3(), yaw: 0, w: 0.2, h: 0.4, hp: 10,
+              home, state: 'seek', target: null, t: 0, pollen: false, angry: 0, stung: false, dieT: 0, anim: Math.random() * 9, atkCd: 0, life: 0 };
+  scene.add(g); g.position.copy(e.pos);
+  bees.push(e);
+  return e;
+}
+function removeBee(i, goHome){
+  const e = bees[i];
+  if(goHome && e.home && hives.has(e.home) && !e.stung) hives.get(e.home).inside++;
+  scene.remove(e.group); bees.splice(i, 1);
+}
+// make every bee from a hive (and any still inside it) turn on the player
+function angerHive(k, x, y, z){
+  const h = hives.get(k);
+  for(const b of bees) if(b.home === k || b.pos.distanceTo(player.pos) < 6){ b.angry = 25; b.state = 'angry'; }
+  if(h && h.inside > 0){
+    const d = hiveDoor(x, y, z) || [x + 0.5, y + 1.3, z + 0.5];
+    while(h.inside > 0){ h.inside--; const b = spawnBee(d[0], d[1], d[2], k); b.angry = 25; b.state = 'angry'; }
+    hivesDirty = true;
+  }
+}
+const smokedHive = (x, y, z) => { for(let dy = 1; dy <= 5; dy++) if(getBlock(x, y - dy, z) === CAMPFIRE) return true; return false; };
+function useHive(hit){
+  if(!hit || (hit.id !== BEEHIVE && hit.id !== BEEHIVE_FULL) || dim !== 0) return false;
+  const k = hit.x + ',' + hit.y + ',' + hit.z, h = hiveOf(k);
+  if(hit.id !== BEEHIVE_FULL){ flashName('Honey: ' + h.honey + '/5' + (h.inside ? ' - ' + h.inside + ' bee' + (h.inside > 1 ? 's' : '') + ' inside' : '')); return true; }
+  const held = heldId();
+  if(held === GLASS_BOTTLE){ consumePlacedItem(); addItem(HONEY_BOTTLE); flashName('+ Honey Bottle'); }
+  else { spawnDropAt(hit.x + 0.5, hit.y + 1.1, hit.z + 0.5, HONEYCOMB, 3); flashName('+ 3 Honeycomb'); }
+  h.honey = 0; hivesDirty = true;
+  setBlock(hit.x, hit.y, hit.z, BEEHIVE);
+  playN({ f: 700, type: 'lowpass', dur: 0.3, vol: 0.18 }); triggerViewSwing();
+  if(!smokedHive(hit.x, hit.y, hit.z)){ angerHive(k, hit.x, hit.y, hit.z); flashName('The bees are angry!'); }
+  return true;
+}
+function hiveBroken(x, y, z){
+  const k = x + ',' + y + ',' + z;
+  if(!hives.has(k) && !hivesSeen.has(k)) return;
+  if(!smokedHive(x, y, z)) angerHive(k, x, y, z);
+  hives.delete(k); hivesSeen.delete(k); hivesDirty = true;
+  for(const b of bees) if(b.home === k) b.home = null;
+}
+function hurtBee(e, dmg){
+  e.hp -= dmg;
+  burstRGB(e.pos.x, e.pos.y + 0.2, e.pos.z, 0.9, 0.7, 0.1, 4, 0.2);
+  for(const b of bees) if(b === e || (b.home && b.home === e.home && b.pos.distanceTo(e.pos) < 12)){ b.angry = 25; b.state = 'angry'; }
+}
+function findFlower(k){
+  const [hx, hy, hz] = k.split(',').map(Number);
+  for(let t = 0; t < 24; t++){
+    const x = hx + Math.floor((Math.random() * 2 - 1) * 11), z = hz + Math.floor((Math.random() * 2 - 1) * 11);
+    for(let y = hy + 3; y >= hy - 10; y--){ const b = getBlock(x, y, z); if(FLOWER_IDS.has(b)) return new THREE.Vector3(x + 0.5, y + 0.55, z + 0.5); if(b !== AIR && !isPlant(b) && !isLeaf(b)) break; }
+  }
+  return null;
+}
+function flyTo(e, tx, ty, tz, speed, dt){
+  const d = new THREE.Vector3(tx - e.pos.x, ty - e.pos.y, tz - e.pos.z), l = d.length();
+  if(l > 1e-3) d.multiplyScalar(speed / l);
+  e.vel.lerp(d, Math.min(1, dt * 3));
+  let nx = e.pos.x + e.vel.x * dt, ny = e.pos.y + e.vel.y * dt, nz = e.pos.z + e.vel.z * dt;
+  if(isSolid(getBlock(Math.floor(nx), Math.floor(ny + 0.2), Math.floor(nz)))){ ny = e.pos.y + 2 * dt; nx = e.pos.x; nz = e.pos.z; e.vel.y = 1.5; }   // over the top of it
+  e.pos.set(nx, ny, nz);
+  if(Math.hypot(e.vel.x, e.vel.z) > 0.2) e.yaw = Math.atan2(-e.vel.x, -e.vel.z);
+  return l;
+}
+function updateBees(dt){
+  if(dim !== 0 || !inGame){ while(bees.length) removeBee(bees.length - 1, true); return; }
+  const day = daylightOf(timeOfDay) > 0.45 && !(rainAmt > 0.3);
+  // hives send bees out by day
+  hiveT -= dt;
+  if(hiveT <= 0){
+    hiveT = 3;
+    for(const k of hivesSeen){
+      const [x, y, z] = k.split(',').map(Number);
+      if(Math.abs(x - player.pos.x) > 48 || Math.abs(z - player.pos.z) > 48) continue;
+      const b = getBlock(x, y, z);
+      if(b !== BEEHIVE && b !== BEEHIVE_FULL){ hiveBroken(x, y, z); continue; }
+      const h = hiveOf(k);
+      if(b === BEEHIVE && h.honey >= 5) setBlock(x, y, z, BEEHIVE_FULL);
+      if(day && h.inside > 0 && Math.random() < 0.5 && bees.length < 20){
+        const d = hiveDoor(x, y, z);
+        if(d){ h.inside--; hivesDirty = true; spawnBee(d[0], d[1], d[2], k); }
+      }
+    }
+  }
+  for(let i = bees.length - 1; i >= 0; i--){
+    const e = bees[i];
+    e.life += dt; e.anim += dt; e.atkCd -= dt;
+    if(e.pos.distanceToSquared(player.pos) > 80 * 80){ removeBee(i, true); continue; }
+    if(e.hp <= 0 || (e.stung && (e.dieT -= dt) <= 0)){ burstRGB(e.pos.x, e.pos.y + 0.2, e.pos.z, 0.9, 0.8, 0.2, 8, 0.3); dropXP(e.pos.x, e.pos.y, e.pos.z, 1); removeBee(i, false); continue; }
+    if(e.angry > 0 && !e.stung){
+      e.angry -= dt;
+      const l = flyTo(e, player.pos.x, player.pos.y + 1.2, player.pos.z, 4.6, dt);
+      if(l < 1.1 && e.atkCd <= 0 && mode === 'survival' && !dead){
+        e.atkCd = 1;
+        if(!shieldBlocks(e.pos)){ damage(2); e.stung = true; e.dieT = 4 + Math.random() * 4; e.sting.visible = false; e.angry = 0; e.state = 'wander'; }
+      }
+      if(e.angry <= 0) e.state = 'home';
+    } else if(e.state === 'seek'){
+      if(!day || !e.home){ e.state = e.home ? 'home' : 'wander'; }
+      else {
+        if(!e.target && (e.t -= dt) <= 0){ e.t = 1; e.target = findFlower(e.home); if(!e.target && e.life > 40) e.state = 'home'; }
+        if(e.target){
+          if(flyTo(e, e.target.x, e.target.y, e.target.z, 2.4, dt) < 0.35){ e.state = 'pollinate'; e.t = 3 + Math.random() * 3; }
+        } else flyTo(e, e.pos.x + Math.sin(e.anim) * 2, e.pos.y + Math.sin(e.anim * 1.7) * 0.5, e.pos.z + Math.cos(e.anim) * 2, 1.4, dt);
+      }
+    } else if(e.state === 'pollinate'){
+      e.vel.multiplyScalar(0.8); e.pos.y = e.target.y + Math.sin(e.anim * 5) * 0.06;
+      if(Math.random() < dt * 2) burstRGB(e.pos.x, e.pos.y, e.pos.z, 1, 0.9, 0.3, 1, 0.1);
+      if((e.t -= dt) <= 0){ e.pollen = true; e.state = 'home'; e.target = null; }
+    } else if(e.state === 'home'){
+      if(!e.home || !hives.has(e.home)){ e.state = 'wander'; continue; }
+      const [x, y, z] = e.home.split(',').map(Number), d = hiveDoor(x, y, z);
+      if(!d){ e.state = 'wander'; continue; }
+      if(flyTo(e, d[0], d[1], d[2], 2.6, dt) < 0.5){
+        const h = hiveOf(e.home);
+        h.inside++; if(e.pollen && Math.random() < 0.5) h.honey = Math.min(5, h.honey + 1); e.pollen = false; hivesDirty = true;
+        if(h.honey >= 5 && getBlock(x, y, z) === BEEHIVE) setBlock(x, y, z, BEEHIVE_FULL);
+        scene.remove(e.group); bees.splice(i, 1);
+        continue;
+      }
+    } else {
+      // wandering: homeless bees look for a hive with room nearby
+      flyTo(e, e.pos.x + Math.sin(e.anim * 0.7) * 3, e.pos.y + Math.sin(e.anim * 1.3) * 0.4, e.pos.z + Math.cos(e.anim * 0.7) * 3, 1.4, dt);
+      if((e.t -= dt) <= 0 && !e.stung){
+        e.t = 2;
+        let best = null, bd = 16 * 16;
+        for(const k of hivesSeen){ const [x, y, z] = k.split(',').map(Number), d2 = (x - e.pos.x) ** 2 + (y - e.pos.y) ** 2 + (z - e.pos.z) ** 2; if(d2 < bd && hiveOf(k).inside < 3){ bd = d2; best = k; } }
+        if(best){ e.home = best; e.state = 'home'; }
+        else if(e.home && hives.has(e.home)) e.state = day ? 'seek' : 'home';
+      }
+    }
+    const g = e.group;
+    g.position.copy(e.pos);
+    g.position.y += Math.sin(e.anim * 6) * 0.04;
+    let dyaw = ((e.yaw - g.rotation.y + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+    g.rotation.y += dyaw * Math.min(1, dt * 8);
+    const flap = Math.sin(e.anim * 60) * 0.6;
+    e.wings[0].rotation.z = flap; e.wings[1].rotation.z = -flap;
+    if(Math.random() < dt * 0.3 && e.pos.distanceTo(player.pos) < 8) tone(220 + Math.random() * 40, 230, 0.4, 'sawtooth', e.angry > 0 ? 0.03 : 0.012);   // the buzz
+  }
+  hiveSaveT -= dt;
+  if(hiveSaveT <= 0){ hiveSaveT = 10; if(hivesDirty) saveHives(); }
+}
 /* ============================== SEA LIFE ==============================
    The water is alive: schools of cod and salmon, bright tropical fish in
    warm water, squid pulsing in the deep, and dolphins that leap and like
@@ -14836,12 +15043,14 @@ function petFoe(m){
   if(!m || m.hp <= 0) return false;
   if(m.kind === 'zombie' || m.kind === 'skeleton' || m.kind === 'spider') return true;
   if(m.kind === 'enderman') return !!m.angry;
+  if(m.kind === 'bee') return m.angry > 0;
   if(m.kind === 'nether') return PET_FOES.has(m.type) || ((m.type === 'zpiglin' || m.type === 'piglin') && m.angry > 0);
   return false;
 }
-function stillThere(m){ return [zombies, skeletons, spiders, endermen, netherMobs].some(l => l.includes(m)); }
+function stillThere(m){ return [zombies, skeletons, spiders, endermen, netherMobs, bees].some(l => l.includes(m)); }
 function petHit(m, dmg){
   if(m.kind === 'nether') hurtNether(m, dmg, false);
+  else if(m.kind === 'bee') m.hp -= dmg;
   else { m.hp -= dmg; if(m.kind === 'enderman') m.angry = true; }
   const dx = m.pos.x - player.pos.x, dz = m.pos.z - player.pos.z, l = Math.hypot(dx, dz) || 1;
   if(m.vel){ m.vel.x += dx / l * 3; m.vel.z += dz / l * 3; }
@@ -14858,7 +15067,7 @@ function updatePet(e, dt){
     if(!petTarget && e.scanT <= 0){
       e.scanT = 0.5;
       let best = null, bd = 10 * 10;
-      for(const l of [zombies, skeletons, spiders, endermen, netherMobs]) for(const m of l){
+      for(const l of [zombies, skeletons, spiders, endermen, netherMobs, bees]) for(const m of l){
         if(!petFoe(m)) continue;
         const d = m.pos.distanceToSquared(player.pos);
         if(d < bd){ bd = d; best = m; }
@@ -15200,6 +15409,7 @@ const ADVANCEMENTS = [
   { ch: 'Overworld', id: 'cake', title: 'The Cake Is Real', how: 'Bake a cake (milk, sugar from reeds, an egg, wheat) and eat a slice.', icon: CAKE, check: () => false },
   { ch: 'Overworld', id: 'bounce', title: 'Boing!', how: 'Fall onto a slime block (9 slimeballs from swamp slimes).', icon: SLIMEBALL, check: () => false },
   { ch: 'Overworld', id: 'campfire', title: 'Cookout', how: 'Cook some raw food on a campfire.', icon: CAMPFIRE, check: () => false },
+  { ch: 'Overworld', id: 'honey', title: 'Sticky Situation', how: 'Fill a glass bottle with honey from a full beehive (a campfire under it keeps the bees calm).', icon: HONEY_BOTTLE, check: () => hasItem(HONEY_BOTTLE) },
   { ch: 'Overworld', id: 'tame', title: 'Best Friends Forever', how: 'Feed bones (from skeletons) to a wild wolf until it wears a red collar.', icon: BONE, check: () => false },
   { ch: 'Overworld', id: 'obsidian', title: 'Hot Stuff', how: 'Pour water on a lava source, then mine the obsidian with a diamond pickaxe.', icon: OBSIDIAN, check: () => hasItem(OBSIDIAN) },
   { ch: 'Nether', id: 'nether', title: 'We Need to Go Deeper', how: 'Build a 4 wide, 5 tall obsidian frame and light it with flint & steel.', icon: NETHERRACK, check: () => dim === 1 },
@@ -15374,6 +15584,7 @@ function animate(){
   if(inGame) updatePetsWorld(dt);
   if(inGame) updateCampfires(dt);
   updateSeaLife(dt);
+  updateBees(dt);
   if(inGame && ((xpT = (xpT || 0) - dt) <= 0)){ xpT = 1; renderXP(); }
   updateAmbience(dt);
   checkMusicMood(dt);
@@ -15724,6 +15935,7 @@ window.__bc = {
             adv: { list: ADVANCEMENTS, done: advDone, grant: grantAdv, next: nextAdv, tick: () => { advT = 0; updateAdvancements(0); }, guide: toggleGuide, toast: showToast },
             fx: { clearInv: () => { for(const q of survInv){ q.id = 0; q.count = 0; q.dur = 0; } renderHotbar(); }, effects, drink: id => drinkPotion(id), step: dt => updateEffects(dt), light: lightAtPlayer, mood: () => musicMood(), sub: showSubtitle, POTIONS },
             xp: { add: addXP, level: () => xpLevel, points: () => xpPoints, drop: dropXP, orbs: xpOrbs, offers: enchantOffers, enchant: doEnchant, setTable: t => { enchantAt = t; }, heldEnch, stackName, armourEnch },
+            bees: { list: bees, hives, seen: hivesSeen, spawn: spawnBee, step: dt => updateBees(dt), use: useHive, broken: hiveBroken },
             sea: { list: seaLife, spawn: spawnSea, step: dt => updateSeaLife(dt), trySpawn: trySpawnSea },
             camp: { use: useCampfire, step: dt => updateCampfires(dt), cooking, fires: campfires },
             farm: { use: useFarm, crops: () => crops, grow: dt => updateCrops(dt), hunger: v => { if(v !== undefined){ hunger = v; renderHearts(); } return hunger; } },
