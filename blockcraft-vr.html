@@ -161,6 +161,10 @@
   <button class="mcbtn" id="btnWorlds">Worlds</button>
   <button class="mcbtn" id="btnMp">Multiplayer</button>
   <button class="mcbtn small" id="resetBtn">Reset This World</button>
+  <button class="mcbtn small" id="backupBtn">Back Up World</button>
+  <button class="mcbtn small" id="restoreBtn">Restore Backup</button>
+  <input type="file" id="restoreFile" accept=".json,application/json" style="display:none">
+  <p id="storageNote" class="meta" style="margin:2px 0"></p>
   <button class="mcbtn small" id="fsBtn">Fullscreen</button>
   <p id="vrnote" style="display:none;color:#ffcf6b;font-size:12px;margin:6px 0 0">VR headset not detected — open this build in a WebXR headset browser (e.g. Meta Quest Browser) over https.</p>
   <p style="max-width:580px;font-size:13px;line-height:1.6">VR controls: Left stick: move / click for sprint or flight boost · Right stick: turn / select<br>Right trigger: hold to mine / attack · Right grip: place / use<br>A: jump / fly up · B: fly down · Right stick click: creative flight<br>X: inventory / crafting · Point at wrist + trigger: equip · Y: crouch</p>
@@ -2855,14 +2859,136 @@ const NETHER_KEY = SAVE_KEY + '-nether';
 const END_KEY = SAVE_KEY + '-end';
 const STORM_SAVE = SAVE_KEY + '-storm';
 let editsDirty = false, invDirty = false, chestsDirty = false;
+/* ---- compact saves ----
+   Browsers give a site about 5 MB of storage, shared by every world. The
+   block edits were saved as JSON ("3,70,5":1 - a dozen bytes each); packed,
+   each edit is five characters. Chests drop their empty slots. Old saves
+   still load: anything not packed is read as the JSON it always was. */
+const PACK_ABC = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+const PACK_VAL = new Int16Array(128).fill(-1);
+for(let i = 0; i < 64; i++) PACK_VAL[PACK_ABC.charCodeAt(i)] = i;
+const packNum = (n, w) => { let out = ''; for(let i = 0; i < w; i++){ out = PACK_ABC[n & 63] + out; n >>= 6; } return out; };
+const unpackNum = (str, o, w) => { let n = 0; for(let i = 0; i < w; i++) n = n * 64 + PACK_VAL[str.charCodeAt(o + i)]; return n; };
+function packEdits(obj){
+  const parts = [];
+  for(const ck in obj){
+    const e = obj[ck];
+    let body = '';
+    for(const k in e){
+      const [lx, y, lz] = k.split(',').map(Number), id = e[k];
+      if(!(y >= 0) || typeof id !== 'number') continue;
+      body += packNum((y << 8) | (lz << 4) | lx, 3) + packNum(id, 2);
+    }
+    if(body) parts.push(ck + ':' + body);
+  }
+  return 'P1;' + parts.join(';');
+}
+function unpackEdits(str){
+  if(!str) return {};
+  if(!str.startsWith('P1;')) return JSON.parse(str) || {};
+  const out = {};
+  for(const part of str.slice(3).split(';')){
+    const i = part.indexOf(':');
+    if(i < 0) continue;
+    const e = {}, d = part.slice(i + 1);
+    for(let j = 0; j + 5 <= d.length; j += 5){
+      const idx = unpackNum(d, j, 3);
+      e[(idx & 15) + ',' + (idx >> 8) + ',' + ((idx >> 4) & 15)] = unpackNum(d, j + 3, 2);
+    }
+    out[part.slice(0, i)] = e;
+  }
+  return out;
+}
+function packChests(obj){
+  const out = {};
+  for(const k in obj){
+    const slots = obj[k];
+    if(!Array.isArray(slots)) continue;
+    const row = [slots.length];
+    slots.forEach((q, i) => { if(q && q.id && q.count > 0) row.push(q.dur ? [i, q.id, q.count, q.dur] : [i, q.id, q.count]); });
+    out[k] = row;
+  }
+  return 'C1' + JSON.stringify(out);
+}
+function unpackChests(str){
+  if(!str) return {};
+  if(!str.startsWith('C1')) return JSON.parse(str) || {};
+  const raw = JSON.parse(str.slice(2)), out = {};
+  for(const k in raw){
+    const [n, ...rest] = raw[k];
+    const slots = Array.from({ length: n }, () => ({ id: 0, count: 0, dur: 0 }));
+    for(const [i, id, count, dur] of rest) if(slots[i]) slots[i] = { id, count, dur: dur || 0 };
+    out[k] = slots;
+  }
+  return out;
+}
+// how much this site has saved, in bytes (storage counts two bytes a character)
+function storageUsed(){
+  let n = 0;
+  try { for(let i = 0; i < localStorage.length; i++){ const k = localStorage.key(i); n += (k.length + (localStorage.getItem(k) || '').length) * 2; } } catch(e){}
+  return n;
+}
+const STORAGE_LIMIT = 5 * 1024 * 1024;
+let storageWarned = -Infinity, saveFailed = false;
+// write one save entry; when storage is full, free what can be rebuilt and try again
+function safeSet(key, value){
+  try { localStorage.setItem(key, value); return true; }
+  catch(e){
+    try { localStorage.removeItem(SAVE_KEY + '-waterflow'); localStorage.setItem(key, value); return true; } catch(e2){}
+    saveFailed = true;
+    return false;
+  }
+}
+function storageWarning(){
+  const used = storageUsed(), now = performance.now();
+  if(saveFailed){
+    if(now - storageWarned > 20000){
+      storageWarned = now;
+      showToast('Save storage is full!', 'Your latest changes could not be saved. Back up this world from the title menu, then delete old worlds.', 0, true);
+    }
+  } else if(used > STORAGE_LIMIT * 0.8 && now - storageWarned > 120000){
+    storageWarned = now;
+    showToast('Save storage almost full', (used / 1048576).toFixed(1) + ' MB of about 5 MB used. Back up this world from the title menu.', 0, true);
+  }
+}
+// back up every part of this world to a file, and restore one
+function exportWorld(){
+  const data = {};
+  for(let i = 0; i < localStorage.length; i++){
+    const k = localStorage.key(i);
+    if(k === SAVE_KEY || k.startsWith(SAVE_KEY + '-')) data[k] = localStorage.getItem(k);
+  }
+  const blob = new Blob([JSON.stringify({ game: 'blockcraft', seed: SEED, saved: new Date().toISOString(), data })], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'blockcraft-world-' + SEED + '.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+function importWorld(file){
+  const r = new FileReader();
+  r.onload = () => {
+    try {
+      const b = JSON.parse(r.result);
+      if(b.game !== 'blockcraft' || typeof b.seed !== 'number' || !b.data) throw new Error('not a Blockcraft world');
+      const prefix = 'blockcraft-save-' + b.seed;
+      if(!confirm('Restore world ' + b.seed + ' from this backup? It replaces that world as it is saved in this browser.')) return;
+      for(let i = localStorage.length - 1; i >= 0; i--){ const k = localStorage.key(i); if(k === prefix || k.startsWith(prefix + '-')) localStorage.removeItem(k); }
+      for(const k in b.data) if(k === prefix || k.startsWith(prefix + '-')) localStorage.setItem(k, String(b.data[k]));
+      localStorage.setItem('blockcraft-last-seed', String(b.seed));
+      location.reload();
+    } catch(e){ alert('That file could not be restored: ' + e.message); }
+  };
+  r.readAsText(file);
+}
 let overworldEdits = {}, netherEdits = {}, endEdits = {}, stormEdits = {};
 let edits = overworldEdits;
 let chests = {};
-try { overworldEdits = JSON.parse(localStorage.getItem(SAVE_KEY)) || {}; edits = overworldEdits; } catch(e){ overworldEdits = {}; edits = overworldEdits; }
-try { netherEdits = JSON.parse(localStorage.getItem(NETHER_KEY)) || {}; } catch(e){ netherEdits = {}; }
-try { endEdits = JSON.parse(localStorage.getItem(END_KEY)) || {}; } catch(e){ endEdits = {}; }
-try { stormEdits = JSON.parse(localStorage.getItem(STORM_SAVE)) || {}; } catch(e){ stormEdits = {}; }
-try { chests = JSON.parse(localStorage.getItem(CHEST_KEY)) || {}; } catch(e){ chests = {}; }
+try { overworldEdits = unpackEdits(localStorage.getItem(SAVE_KEY)); edits = overworldEdits; } catch(e){ overworldEdits = {}; edits = overworldEdits; }
+try { netherEdits = unpackEdits(localStorage.getItem(NETHER_KEY)); } catch(e){ netherEdits = {}; }
+try { endEdits = unpackEdits(localStorage.getItem(END_KEY)); } catch(e){ endEdits = {}; }
+try { stormEdits = unpackEdits(localStorage.getItem(STORM_SAVE)); } catch(e){ stormEdits = {}; }
+try { chests = unpackChests(localStorage.getItem(CHEST_KEY)); } catch(e){ chests = {}; }
 /* This build raised the terrain by WORLD_LIFT. Worlds saved before that
    store their blocks at the old heights, so lift them to match rather
    than leaving someone's house underground. Runs once per world. */
@@ -2940,6 +3066,10 @@ while(survInv.length < 36) survInv.push({ id: 0, count: 0, dur: 0 });   // 9 hot
     localStorage.setItem(MARK, '1');
   } catch(e){ /* a failed migration must never block the game starting */ }
 })();
+document.getElementById('backupBtn').addEventListener('click', () => { saveNow(); exportWorld(); });
+document.getElementById('restoreBtn').addEventListener('click', () => document.getElementById('restoreFile').click());
+document.getElementById('restoreFile').addEventListener('change', e => { if(e.target.files[0]) importWorld(e.target.files[0]); });
+{ const used = storageUsed(); document.getElementById('storageNote').textContent = 'Saves in this browser: ' + (used / 1048576).toFixed(2) + ' MB of about 5 MB' + (used > STORAGE_LIMIT * 0.8 ? ' - back up and remove old worlds soon' : ''); }
 document.getElementById('resetBtn').addEventListener('click', () => {
   localStorage.removeItem(SAVE_KEY);
   localStorage.removeItem(INV_KEY);
@@ -2951,22 +3081,21 @@ document.getElementById('resetBtn').addEventListener('click', () => {
   localStorage.removeItem(SAVE_KEY + '-endstate'); localStorage.removeItem(SAVE_KEY + '-anchors'); localStorage.removeItem(SAVE_KEY + '-anchor');
   localStorage.removeItem(NETHER_KEY);
   localStorage.removeItem(END_KEY);
-  localStorage.removeItem(STORM_SAVE); localStorage.removeItem(SAVE_KEY + '-stormstate');
+  localStorage.removeItem(STORM_SAVE); localStorage.removeItem(SAVE_KEY + '-stormstate'); localStorage.removeItem(SAVE_KEY + '-adv');
   location.reload();
 });
 function saveNow(){
-  try {
-    localStorage.setItem(SAVE_KEY, JSON.stringify(overworldEdits));
-    localStorage.setItem(NETHER_KEY, JSON.stringify(netherEdits));
-    localStorage.setItem(END_KEY, JSON.stringify(endEdits));
-    localStorage.setItem(STORM_SAVE, JSON.stringify(stormEdits));
-    localStorage.setItem(INV_KEY, JSON.stringify(survInv.map(s => [s.id, s.count, s.dur])));
-    localStorage.setItem(CHEST_KEY, JSON.stringify(chests));
-    localStorage.setItem(SAVE_KEY + '-doors', JSON.stringify([...doorState]));
-    localStorage.setItem(SAVE_KEY+'-vitals',JSON.stringify({hunger,saturation}));
-    localStorage.setItem(SAVE_KEY+'-armour',JSON.stringify(armour));
-    localStorage.setItem(SAVE_KEY+'-waterflow',JSON.stringify([...fluidLevels]));
-  } catch(e){}
+  saveFailed = false;
+  safeSet(INV_KEY, JSON.stringify(survInv.map(s => [s.id, s.count, s.dur])));
+  safeSet(SAVE_KEY + '-armour', JSON.stringify(armour));
+  safeSet(SAVE_KEY + '-vitals', JSON.stringify({ hunger, saturation }));
+  safeSet(SAVE_KEY + '-doors', JSON.stringify([...doorState]));
+  safeSet(CHEST_KEY, packChests(chests));
+  // the dimension you are in first, so it is the last to be lost
+  const worlds = [[SAVE_KEY, overworldEdits], [NETHER_KEY, netherEdits], [END_KEY, endEdits], [STORM_SAVE, stormEdits]];
+  const here = worlds.splice(Math.min(dim, 3), 1)[0];
+  for(const [k, obj] of [here, ...worlds]) safeSet(k, packEdits(obj));
+  safeSet(SAVE_KEY + '-waterflow', JSON.stringify([...fluidLevels]));
   editsDirty = invDirty = chestsDirty = false;
 }
 
@@ -6688,6 +6817,7 @@ function barterLoot(){
   return [OBSIDIAN, 1];
 }
 function startBarter(e){
+  if(!e.puppet && wearsGold()) grantAdv('barter');
   e.bartering = 6; e.speed = 0; e.ingot.visible = true;
   netherVoice(e, 'idle');
 }
@@ -7071,6 +7201,7 @@ function updateFireballs(dt){
       if(f.type === 'spark' && !f.byPlayer && (e.type === 'wisp' || e.type === 'stormling')) continue;   // the storm spares its own
       if(Math.abs(f.pos.x - e.pos.x) < e.w + f.w && Math.abs(f.pos.z - e.pos.z) < e.w + f.w && f.pos.y > e.pos.y - f.w && f.pos.y < e.pos.y + e.h + f.w){
         if(e.type !== 'blaze' && e.type !== 'magma') hurtNether(e, f.type === 'ghast' ? (e.type === 'ghast' && f.byPlayer ? 1000 : 6) : 5, f.byPlayer);
+        if(f.byPlayer && f.type === 'ghast' && e.type === 'ghast' && !mobCtx) grantAdv('sender');
         hit = true; break;
       }
     }
@@ -8915,6 +9046,7 @@ function saddleStrider(e){
   playN({ f: 300, type: 'lowpass', dur: 0.2, vol: 0.12 });
 }
 function mountStrider(e){
+  grantAdv('strider');
   rideStrider = e; player.fly = false;
   flashName(heldId() === FUNGUS_STICK ? 'Riding a strider' : 'Hold a warped fungus on a stick to steer');
 }
@@ -9464,6 +9596,7 @@ function updateWyrms(dt){
 }
 function armConduit(x, y, z){
   if(getBlock(x, y, z) !== CONDUIT) return false;
+  grantAdv('spire');
   setBlock(x, y, z, CONDUIT_LIT);
   burstRGB(x + 0.5, y + 1, z + 0.5, 0.6, 0.9, 1, 16, 0.8);
   tone(500, 1400, 0.5, 'sawtooth', 0.1);
@@ -11114,6 +11247,7 @@ document.addEventListener('keydown', e => {
   if(!locked) return;
   if(e.code === 'KeyF' && mode === 'creative'){ player.fly = !player.fly; player.vel.y = 0; tone(600, 900, 0.06, 'triangle', 0.08); }
   if(e.code === 'KeyM') toggleMusic();
+  if(e.code === 'KeyL') toggleGuide();
   if(e.code.startsWith('Digit')){
     const d = +e.code.slice(5);
     if(d >= 1 && d <= 9) selectSlot(d - 1);
@@ -12355,7 +12489,7 @@ function buildCraftPanel(){
   }
   const tabDefs=[['inventory','Inventory'],['craft',mode==='creative'?'All items':'Crafting'],['armour','Armour']];
   if(tradeVillager) tabDefs.push(['trade','Trade']);
-  tabDefs.push(['mp','Play Together'],['help','Controls']);
+  tabDefs.push(['guide','Guide'],['mp','Play Together'],['help','Controls']);
   if(dead) tabDefs.length = 0;                 // dead players get one decision, not a menu
   const tabStep=Math.floor(1025/tabDefs.length), tabW=tabStep-14;
   tabDefs.forEach(([tab,label],i)=>{
@@ -12449,6 +12583,8 @@ function buildCraftPanel(){
         button(1030,602,355,62,'Craft & equip',()=>vrCraftSelected(true),canCraft(r));
       } else text('Select a recipe to see what it needs.',710,325,25,'#454545',670);
     }
+  } else if(vrMenuTab==='guide'){
+    drawGuideVR(g, text);
   } else if(vrMenuTab==='dead'){
     g.fillStyle='#8a2f2f';g.fillRect(0,150,1440,190);
     g.font='bold 104px system-ui';g.fillStyle='#ffe9e9';
@@ -13477,6 +13613,141 @@ function updateNetherAir(dt){
   netherOneShotT -= dt;
   if(netherOneShotT <= 0){ netherOneShotT = 7 + Math.random() * 12; netherMoodSound(bio); }
 }
+/* ============================ ADVANCEMENTS ============================
+   The road from punching a tree to slaying the Tempest Wyrm, with a hint
+   for each step so the way on is never a mystery. They unlock as you go,
+   and the Guide (L, or the Guide tab in the VR menu) shows what's next. */
+const hasItem = (...ids) => survInv.some(q => q.count > 0 && ids.includes(q.id)) || ids.includes(armour.chestplate);
+const ADVANCEMENTS = [
+  { ch: 'Overworld', id: 'wood', title: 'Getting Wood', how: 'Hold attack on a tree trunk until a log drops.', icon: LOG, check: () => survInv.some(q => q.count > 0 && isLog(q.id)) },
+  { ch: 'Overworld', id: 'bench', title: 'Benchmarking', how: 'Turn logs into planks, then craft a crafting table.', icon: CRAFTT, check: () => hasItem(CRAFTT) },
+  { ch: 'Overworld', id: 'stone', title: 'Stone Age', how: 'Mine stone with a wooden pickaxe and craft a stone pickaxe.', icon: SPICK, check: () => hasItem(SPICK) },
+  { ch: 'Overworld', id: 'iron', title: 'Acquire Hardware', how: 'Mine iron ore, then smelt it in a furnace with coal.', icon: IRONI, check: () => hasItem(IRONI) },
+  { ch: 'Overworld', id: 'diamond', title: 'Diamonds!', how: 'Dig deep underground with an iron pickaxe.', icon: DIAMI, check: () => hasItem(DIAMI) },
+  { ch: 'Overworld', id: 'obsidian', title: 'Hot Stuff', how: 'Pour water on a lava source, then mine the obsidian with a diamond pickaxe.', icon: OBSIDIAN, check: () => hasItem(OBSIDIAN) },
+  { ch: 'Nether', id: 'nether', title: 'We Need to Go Deeper', how: 'Build a 4 wide, 5 tall obsidian frame and light it with flint & steel.', icon: NETHERRACK, check: () => dim === 1 },
+  { ch: 'Nether', id: 'fortress', title: 'A Terrible Fortress', how: 'Find a nether brick fortress - its bridges stretch over the lava.', icon: NBRICK, check: () => dim === 1 && getBlock(Math.floor(player.pos.x), Math.floor(player.pos.y - 0.5), Math.floor(player.pos.z)) === NBRICK },
+  { ch: 'Nether', id: 'blaze', title: 'Into Fire', how: 'Kill a blaze near a fortress spawner for its rod.', icon: BLAZEROD, check: () => hasItem(BLAZEROD) },
+  { ch: 'Nether', id: 'barter', title: 'Oh Shiny', how: 'Wear a piece of gold armour and give a piglin a gold ingot.', icon: GOLDI, check: () => false },
+  { ch: 'Nether', id: 'strider', title: 'This Boat Has Legs', how: 'Saddle a strider and steer it over the lava with a warped fungus on a stick.', icon: SADDLE, check: () => false },
+  { ch: 'Nether', id: 'sender', title: 'Return to Sender', how: 'Punch a ghast fireball back and kill the ghast with it.', icon: GHASTTEAR, check: () => false },
+  { ch: 'Nether', id: 'netherite', title: 'Cover Me in Debris', how: 'Mine ancient debris low down (y 8-22), smelt it to scrap, craft 4 scrap + 4 gold into an ingot.', icon: NETHERITE, check: () => hasItem(NETHERITE, NSWORD, NPICK, NAXE) },
+  { ch: 'The End', id: 'eye', title: 'Eye Spy', how: 'Craft an eye of ender (ender pearl + blaze powder) and throw it - it flies toward a stronghold.', icon: EYE_ENDER, check: () => hasItem(EYE_ENDER) },
+  { ch: 'The End', id: 'end', title: 'The End?', how: 'Put an eye in all 12 frames of the stronghold portal room, and jump in.', icon: END_FRAME_EYE, check: () => dim === 2 },
+  { ch: 'The End', id: 'dragon', title: 'Free the End', how: 'Shoot the end crystals with a bow, then slay the Ender Dragon - hit her head when she lands.', icon: DRAGONEGG, check: () => endState.dragonDead },
+  { ch: 'The End', id: 'gateway', title: 'Remote Getaway', how: 'Throw an ender pearl into the End gateway that opens after the dragon falls.', icon: ENDERPEARL, check: () => dim === 2 && Math.hypot(player.pos.x, player.pos.z) > END_OUTER - 60 },
+  { ch: 'The End', id: 'elytra', title: "Sky's the Limit", how: 'Find the ship beside an End city and take the elytra from its chest.', icon: ELYTRA, check: () => hasItem(ELYTRA) },
+  { ch: 'Stormlands', id: 'key', title: 'Forged in Copper', how: 'Craft a Storm Key: netherite ingot, eye of ender and 4 copper ingots.', icon: STORMKEY_I, check: () => hasItem(STORMKEY_I) },
+  { ch: 'Stormlands', id: 'storm', title: 'Into the Storm', how: 'Build a 4 wide, 5 tall frame of copper blocks and use the Storm Key on it.', icon: STORM_PORTAL, check: () => dim === 3 },
+  { ch: 'Stormlands', id: 'spire', title: 'Lightning Rod', how: 'In the arena, arm a copper spire by hitting or shooting its conduit.', icon: CONDUIT_LIT, check: () => false },
+  { ch: 'Stormlands', id: 'wyrm', title: 'Eye of the Storm', how: 'Lure the Tempest Wyrm near armed spires, then strike its head while it is down.', icon: TEMPEST_HEART, check: () => stormState.bossDead },
+  { ch: 'Stormlands', id: 'breaker', title: 'Stormbreaker', how: 'Forge the Stormbreaker: netherite sword, Tempest Heart and 4 voltite.', icon: STORMBREAKER, check: () => hasItem(STORMBREAKER) },
+];
+const ADV_CHAPTERS = ['Overworld', 'Nether', 'The End', 'Stormlands'];
+const advDone = new Set((() => { try { return JSON.parse(localStorage.getItem(SAVE_KEY + '-adv')) || []; } catch(e){ return []; } })());
+let advT = 0, guideOpen = false;
+function grantAdv(id){
+  if(advDone.has(id) || mode !== 'survival') return;
+  const a = ADVANCEMENTS.find(q => q.id === id);
+  if(!a) return;
+  advDone.add(id);
+  safeSet(SAVE_KEY + '-adv', JSON.stringify([...advDone]));
+  const next = nextAdv();
+  showToast('Advancement made!', a.title + (next ? '   Next: ' + next.title : ''), a.icon);
+  [523, 659, 784, 1046].forEach((f, i) => tone(f, f, 0.18, 'triangle', 0.08, i * 0.09));
+  if(guideOpen) renderGuide();
+  if(typeof vrCraftOpen !== 'undefined' && vrCraftOpen && vrMenuTab === 'guide') buildCraftPanel();
+}
+// the first thing not yet done, in order: the way on
+function nextAdv(){ return ADVANCEMENTS.find(a => !advDone.has(a.id)) || null; }
+function updateAdvancements(dt){
+  advT -= dt;
+  if(advT > 0) return;
+  advT = 1;
+  if(mode === 'survival' && !dead) for(const a of ADVANCEMENTS) if(!advDone.has(a.id)){ try { if(a.check()) grantAdv(a.id); } catch(e){} }
+  storageWarning();
+}
+/* ---- the toast: a banner on screen, and a panel floating in front of you in VR ---- */
+const toastEl = document.createElement('div');
+toastEl.style.cssText = 'position:fixed;top:14px;right:14px;z-index:30;max-width:360px;padding:10px 14px 10px 64px;background:#1f1f24ee;border:2px solid #555;border-radius:6px;color:#fff;font:14px system-ui;box-shadow:0 4px 16px #0008;transition:opacity .4s,transform .4s;opacity:0;transform:translateY(-12px);pointer-events:none;min-height:44px';
+toastEl.innerHTML = '<canvas width="16" height="16" style="position:absolute;left:12px;top:50%;margin-top:-20px;width:40px;height:40px;image-rendering:pixelated"></canvas><div style="font-weight:700;color:#f5d547"></div><div></div>';
+document.body.appendChild(toastEl);
+const toastCv = document.createElement('canvas'); toastCv.width = 640; toastCv.height = 150;
+const toastTex = new THREE.CanvasTexture(toastCv); toastTex.colorSpace = THREE.SRGBColorSpace;
+const toastMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.64, 0.15), new THREE.MeshBasicMaterial({ map: toastTex, transparent: true, depthTest: false, fog: false }));
+toastMesh.position.set(0, 0.2, -0.9); toastMesh.renderOrder = 1000; toastMesh.visible = false;
+camera.add(toastMesh);
+let toastTimer = 0;
+function showToast(title, body, icon, warn){
+  toastEl.children[1].textContent = title; toastEl.children[1].style.color = warn ? '#ff8a6a' : '#f5d547';
+  toastEl.children[2].textContent = body;
+  const ic = toastEl.children[0], g = ic.getContext('2d');
+  g.clearRect(0, 0, 16, 16);
+  if(icon) drawIcon(g, icon);
+  ic.style.display = icon ? '' : 'none';
+  toastEl.style.paddingLeft = icon ? '64px' : '14px';
+  toastEl.style.opacity = 1; toastEl.style.transform = 'none';
+  // the same, painted for the headset
+  const t = toastCv.getContext('2d');
+  t.clearRect(0, 0, 640, 150);
+  t.fillStyle = 'rgba(24,24,30,0.92)'; t.fillRect(0, 0, 640, 150);
+  t.strokeStyle = warn ? '#ff8a6a' : '#f5d547'; t.lineWidth = 6; t.strokeRect(3, 3, 634, 144);
+  if(icon){ const c = document.createElement('canvas'); c.width = c.height = 16; drawIcon(c.getContext('2d'), icon); t.imageSmoothingEnabled = false; t.drawImage(c, 20, 35, 80, 80); }
+  const x0 = icon ? 120 : 24;
+  t.font = 'bold 38px system-ui'; t.fillStyle = warn ? '#ff8a6a' : '#f5d547'; t.fillText(title, x0, 58, 600 - x0);
+  t.font = '26px system-ui'; t.fillStyle = '#ffffff'; t.fillText(body, x0, 106, 620 - x0);
+  toastTex.needsUpdate = true;
+  toastMesh.visible = true;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { toastEl.style.opacity = 0; toastEl.style.transform = 'translateY(-12px)'; toastMesh.visible = false; }, warn ? 9000 : 5000);
+}
+/* ---- the Guide: every step, what's done, and how to do the next ---- */
+const guideEl = document.createElement('div');
+guideEl.style.cssText = 'position:fixed;inset:6% 8%;z-index:25;background:#1c1c22f2;border:3px solid #555;border-radius:8px;color:#eee;font:14px system-ui;padding:18px 24px;overflow:auto;display:none';
+document.body.appendChild(guideEl);
+function renderGuide(){
+  const next = nextAdv();
+  const used = storageUsed();
+  let h = '<div style="display:flex;justify-content:space-between;align-items:baseline"><h2 style="margin:0 0 6px;color:#f5d547">Guide &mdash; ' + advDone.size + ' / ' + ADVANCEMENTS.length + '</h2><span style="color:#999">L to close</span></div>';
+  h += next ? '<p style="background:#2e3a2e;padding:8px 12px;border-radius:5px;margin:6px 0 14px"><b style="color:#9fe39f">Next: ' + next.title + '</b> &mdash; ' + next.how + '</p>'
+            : '<p style="color:#9fe39f">Every advancement earned. The storm is yours.</p>';
+  h += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px">';
+  for(const ch of ADV_CHAPTERS){
+    h += '<div><h3 style="margin:4px 0 6px;color:#bcd">' + ch + '</h3>';
+    for(const a of ADVANCEMENTS.filter(q => q.ch === ch)){
+      const done = advDone.has(a.id), isNext = a === next;
+      h += '<div style="margin:3px 0;padding:5px 8px;border-radius:4px;background:' + (done ? '#26352a' : isNext ? '#3a3624' : '#26262c') + '">'
+         + '<b style="color:' + (done ? '#9fe39f' : isNext ? '#f5d547' : '#aaa') + '">' + (done ? '&#10003; ' : '&#9675; ') + a.title + '</b>'
+         + (done ? '' : '<div style="color:#bbb;font-size:12.5px;margin-top:2px">' + a.how + '</div>') + '</div>';
+    }
+    h += '</div>';
+  }
+  h += '</div><p style="color:#888;margin-top:14px">World saves use ' + (used / 1048576).toFixed(2) + ' MB of about 5 MB in this browser. Back up a world from the title menu.</p>';
+  guideEl.innerHTML = h;
+}
+function toggleGuide(on = !guideOpen){
+  guideOpen = on;
+  if(on) renderGuide();
+  guideEl.style.display = on ? 'block' : 'none';
+}
+// the Guide tab of the VR menu
+function drawGuideVR(g, text){
+  const next = nextAdv();
+  text('GUIDE  ' + advDone.size + ' / ' + ADVANCEMENTS.length, 35, 205, 28, '#202020');
+  g.fillStyle = next ? '#cfe3c8' : '#d8e8d0'; g.fillRect(35, 228, 1370, 70);
+  text(next ? 'Next: ' + next.title : 'Every advancement earned!', 50, 250, 26, '#1f4a22', 1340);
+  if(next) text(next.how, 50, 282, 21, '#2b2b2b', 1340);
+  ADV_CHAPTERS.forEach((ch, c) => {
+    const x = 35 + (c % 2) * 690, y0 = 330 + Math.floor(c / 2) * 370;
+    text(ch, x, y0, 26, '#34506a');
+    ADVANCEMENTS.filter(q => q.ch === ch).forEach((a, i) => {
+      const done = advDone.has(a.id), y = y0 + 38 + i * 44;
+      g.fillStyle = done ? '#bcd8b8' : a === next ? '#e8e0b0' : '#b4b4b4'; g.fillRect(x, y - 18, 670, 38);
+      text((done ? '\u2713 ' : '\u25CB ') + a.title, x + 12, y + 1, 22, done ? '#1f4a22' : '#303030', 640);
+    });
+  });
+  text('World saves: ' + (storageUsed() / 1048576).toFixed(2) + ' MB of about 5 MB', 35, 1010, 20, '#555');
+}
 function animate(){
   const dt = Math.min(clock.getDelta(), 0.05);
   const now = performance.now() / 1000;
@@ -13518,6 +13789,7 @@ function animate(){
   updateViewModel(dt);
   updateWeather(dt);
   updateNetherAir(dt);
+  updateAdvancements(dt);
 
   // day/night (overworld) — Nether is gloomy red, The End is a dark void
   let b;
@@ -13679,7 +13951,7 @@ function renderWorlds(){
     const row = document.createElement('div');
     row.className = 'world';
     let edited = 0;
-    try { edited = Object.keys(JSON.parse(localStorage.getItem('blockcraft-save-' + s) || '{}')).length; } catch(e){}
+    try { edited = Object.keys(unpackEdits(localStorage.getItem('blockcraft-save-' + s))).length; } catch(e){}
     const name = document.createElement('div');
     name.className = 'wname';
     name.textContent = (names[s] || 'World ' + s) + ' · seed ' + s + (String(SEED) === s ? ' — current' : '') +
@@ -13854,6 +14126,8 @@ window.__bc = {
                    ride: () => rideStrider, saddle: saddleStrider, mount: mountStrider, respawnAt, anchor: () => anchorSpawn, useAnchor, switchDim, kill: () => { if(dragon) dragon.hp = 1; hurtDragon(5); }, wear: id => { armour.chestplate = id; }, physics: dt => physics(dt) },
             storm: { travel: () => travelStorm(), state: stormState, wyrms, spawnWyrm, column: stormColumn, arena: STORM_ARENA, spires: STORM_SPIRES,
                      step: dt => { updateWyrms(dt); updateStormSpawns(dt); updateStormWorld(dt); }, arm: armConduit, light: lightStormPortal, summon: n => summonStormlings(wyrms[0], n), hurt: (n) => hurtWyrm(wyrms[0], n) },
+            save: { pack: packEdits, unpack: unpackEdits, packChests, unpackChests, used: storageUsed, exportWorld },
+            adv: { list: ADVANCEMENTS, done: advDone, grant: grantAdv, next: nextAdv, tick: () => { advT = 0; updateAdvancements(0); }, guide: toggleGuide, toast: showToast },
             spawns: dt => updateNetherSpawns(dt), effects: () => ({ burnT, witherT }), heal: () => { hp = 20; dead = false; burnT = 0; witherT = 0; }, give: e => tryGivePiglin(e), lightFire },
 };
 </script>
