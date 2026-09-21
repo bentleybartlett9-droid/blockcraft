@@ -888,7 +888,8 @@ const BONE=455, BONE_MEAL=456, SHIELD=454, ROD=447, COD=448, SALMON=449, COOKED_
 const EGG_RUN = 37, EGG_EXTRA = 479;          // eggs past the first 37 carry on from 479
 const eggId = i => i < EGG_RUN ? EGG_BASE + i : EGG_EXTRA + i - EGG_RUN, eggIcon = i => i < EGG_RUN ? 120 + i : 175 + i - EGG_RUN;
 const eggMob = id => { const i = id >= EGG_BASE && id < EGG_BASE + EGG_RUN ? id - EGG_BASE : id >= EGG_EXTRA ? EGG_RUN + id - EGG_EXTRA : -1; return i >= 0 && i < SPAWN_EGGS.length ? SPAWN_EGGS[i][0] : null; };
-const SLIMEBALL=477, SLIME_BLOCK=478;
+const SLIMEBALL=477, SLIME_BLOCK=478, LANTERN=490, CAMPFIRE=491;
+const campfires = new Set();            // "dim:x,y,z" of campfires the mesher has seen
 const NETH_ARMOUR=376,   // 376-379: netherite armour
       BOW=380, ARROW_I=381, EYE_ENDER=382, ELYTRA=383, FIREWORK=384, PAPER=385, CHORUS_FRUIT=386,
       POPPED_CHORUS=387, SHULKER_SHELL=388, SADDLE=389, FUNGUS_STICK=390;
@@ -1174,7 +1175,7 @@ ITEMS[FIREWORK]={name:'Firework Rocket',icon:95};ITEMS[PAPER]={name:'Paper',icon
 ITEMS[POPPED_CHORUS]={name:'Popped Chorus Fruit',icon:98};ITEMS[SHULKER_SHELL]={name:'Shulker Shell',icon:99};
 ITEMS[SADDLE]={name:'Saddle',icon:100};
 SPAWN_EGGS.forEach(([, name], i) => { ITEMS[eggId(i)] = { name: name + ' Spawn Egg', icon: eggIcon(i) }; });
-ITEMS[SLIMEBALL]={name:'Slimeball',icon:176};BLOCKS[SLIME_BLOCK]={name:'Slime Block',all:272};
+ITEMS[SLIMEBALL]={name:'Slimeball',icon:176};BLOCKS[LANTERN]={name:'Lantern',all:273};BLOCKS[CAMPFIRE]={name:'Campfire',top:275,bottom:275,side:274};BLOCKS[SLIME_BLOCK]={name:'Slime Block',all:272};
 ITEMS[APPLE]={name:'Apple',icon:167,food:4};ITEMS[GOLDEN_APPLE]={name:'Golden Apple',icon:168,food:4};ITEMS[CARROT]={name:'Carrot',icon:169,food:3,plant:CARROT0};
 ITEMS[POTATO]={name:'Potato',icon:170,food:1,plant:POTATO0};ITEMS[BAKED_POTATO]={name:'Baked Potato',icon:171,food:5};ITEMS[MILK]={name:'Milk Bucket',icon:172};
 ITEMS[EGG]={name:'Egg',icon:173};ITEMS[SUGAR]={name:'Sugar',icon:174};
@@ -1221,7 +1222,7 @@ const isPlant  = id => isSapling(id) || FLORA_IDS.has(id) || id === TGRASSB || i
                        id === MUSHROOMR || id === MUSHROOMB ||
                        id === WHEAT0 || id === WHEAT1 || id === WHEAT2 || id === WHEAT3 || (id >= CARROT0 && id <= POTATO3) || CAVE_PLANTS.has(id) || NETHER_PLANTS.has(id);
 const isCross  = id => id===GLOWCRYSTAL || isPlant(id) || id === TORCH || id === COBWEB || id === IRONBARS || CAVE_CROSS.has(id) || NETHER_CROSS.has(id);
-const isFlat   = id => id === RAIL || id === SNOW_LAYER || id === LADDER || isCake(id);   // thin plate on the ground (or, for a ladder, on a wall)
+const isFlat   = id => id === RAIL || id === SNOW_LAYER || id === LADDER || isCake(id) || id === LANTERN || id === CAMPFIRE;   // thin plate on the ground (or, for a ladder, on a wall)
 const isSlab   = id => id === SLAB_STONE || id === SLAB_WOOD || id === SLAB_BRICK || id === SLAB_SAND || id === SLAB_NBRICK;
 const isStair  = id => id === STAIR_STONE || id === STAIR_WOOD || id === STAIR_BRICK || id === STAIR_SAND || id === STAIR_NBRICK;
 const isPartial = id => isSlab(id) || isStair(id);   // custom-geometry, non-full blocks
@@ -1238,7 +1239,7 @@ const isDoor    = id => id === DOOR || id === DOORTOP;
 const isOpaque = id => id !== AIR && id !== WATER && id !== GLASS && id !== LAVA && id !== PORTAL && id !== ENDPORTAL && id !== END_GATEWAY && id !== STORM_PORTAL && !isCross(id) && !isPartial(id) && !isDoor(id) && !isFlat(id);
 const isSolid  = id => id !== AIR && id !== WATER && id !== LAVA && id !== PORTAL && id !== ENDPORTAL && id !== END_GATEWAY && id !== STORM_PORTAL && !isCross(id) && !isDoor(id) && !isFlat(id);
 const isLiquid = id => id === WATER || id === LAVA;
-const emitsLight = id => id===GLOWCRYSTAL || id === STORM_PORTAL || id === CONDUIT_LIT || id === VOLTITE_ORE || id === END_ROD || id === END_GATEWAY || id === CRYING_OBSIDIAN || id === ANCHOR_LIT || id === SHROOMLIGHT || id === MAGMA || isFire(id) || id === SOUL_TORCH || id === GLOWVINE || id === AMETHYST_C || id === AMBERLAMP || id === GLOWB || id === GLOWSTONE || id === LAVA || id === PORTAL || id === ENDPORTAL || id === ENDCRYSTAL;
+const emitsLight = id => id===GLOWCRYSTAL || id === LANTERN || id === CAMPFIRE || id === STORM_PORTAL || id === CONDUIT_LIT || id === VOLTITE_ORE || id === END_ROD || id === END_GATEWAY || id === CRYING_OBSIDIAN || id === ANCHOR_LIT || id === SHROOMLIGHT || id === MAGMA || isFire(id) || id === SOUL_TORCH || id === GLOWVINE || id === AMETHYST_C || id === AMBERLAMP || id === GLOWB || id === GLOWSTONE || id === LAVA || id === PORTAL || id === ENDPORTAL || id === ENDCRYSTAL;
 const occl     = id => isOpaque(id);
 function tileFor(id, face){
   const d = BLOCKS[id];
@@ -1259,7 +1260,8 @@ function toolClassOf(id){
   if([STORMSTONE,VOLTITE_ORE,STORM_BRICK,CONDUIT,CONDUIT_LIT].includes(id)) return 'pick';
   if(id === SKYGRASS || id === CLOUD) return 'shovel';
   if(id === ENCH_TABLE) return 'pick';
-  if(id === LADDER) return 'axe';
+  if(id === LADDER || id === CAMPFIRE) return 'axe';
+  if(id === LANTERN) return 'pick';
   if([PURPUR,PURPUR_PILLAR,ENDSTONE_BRICK,ENDSTONE,CRYING_OBSIDIAN,ANCHOR,ANCHOR_LIT].includes(id)) return 'pick';
   if(id === CHORUS_PLANT || id === CHORUS_FLOWER) return 'axe';
   if([NETHERRACK,NBRICK,SLAB_NBRICK,STAIR_NBRICK,OBSIDIAN,CRIM_NYL,WARP_NYL,BASALT_N,BLACKSTONE,BSTONE_BRICK,GILDED,MAGMA,
@@ -1402,6 +1404,8 @@ RECIPES.push({out:[SHIELD,1],in:[[ANY_PLANK,6],[IRONI,1]],st:'table'},{out:[ROD,
   {out:[COOKED_SALMON,1],in:[[SALMON,1],[COALI,1]],st:'furnace'});
 RECIPES.push({out:[CAKE,1],in:[[MILK,3],[SUGAR,2],[EGG,1],[WHEATITEM,3]],st:'table',back:[[BUCKET,3]]},{out:[SUGAR,1],in:[[REEDS,1]]},
   {out:[GOLDEN_APPLE,1],in:[[APPLE,1],[GOLDI,8]],st:'table'},{out:[BAKED_POTATO,1],in:[[POTATO,1],[COALI,1]],st:'furnace'});
+RECIPES.push({out:[LANTERN,1],in:[[IRONI,1],[TORCH,1]],st:'table'},
+  {out:[CAMPFIRE,1],in:[[STICK,3],[COALI,1],[[LOG, BIRCHLOG, SPRUCELOG, JUNGLELOG, CHERRYLOG, MAPLELOG, WILLOWLOG, BOAB_LOG],3]],st:'table'});
 RECIPES.push({out:[SLIME_BLOCK,1],in:[[SLIMEBALL,9]]},{out:[SLIMEBALL,9],in:[[SLIME_BLOCK,1]]});
 RECIPES.push({out:[LADDER,3],in:[[STICK,7]],st:'table'},{out:[GUMPLANK,4],in:[[BOAB_LOG,1]]},{out:[ENCH_TABLE,1],in:[[DIAMI,2],[OBSIDIAN,4],[BOOKSHELF,1]],st:'table'});
 RECIPES.push({out:[BREWING,1],in:[[BLAZEROD,1],[STONE,3]],st:'table'},{out:[GLASS_BOTTLE,3],in:[[GLASS,3]]},
@@ -1779,6 +1783,22 @@ itemAtlas.width = 128; itemAtlas.height = 384;
   put(262, (x, y, r) => {                                    // cake top: white icing, red dots
     const k = Math.floor((r() - 0.5) * 10);
     return ((x * 5 + y * 3) % 11 === 0 && x > 1 && x < 14 && y > 1 && y < 14) ? [210, 34, 44] : [248 + k / 2, 244 + k / 2, 240 + k / 2];
+  });
+  put(273, (x, y, r) => {                                   // lantern: iron frame round warm glass
+    const frame = x < 2 || x > 13 || y < 2 || y > 13 || x === 7 || x === 8;
+    if(frame) return (x + y) % 3 ? [52, 54, 62] : [74, 76, 86];
+    const k = Math.floor((r() - 0.5) * 20), d = Math.hypot(x - 7.5, y - 9) / 8;
+    return [255, 214 - d * 60 + k, 110 - d * 60 + k];
+  });
+  put(274, (x, y, r) => {                                   // campfire: charred log bark
+    const k = Math.floor((r() - 0.5) * 16);
+    if(y > 12) return [40 + k, 30 + k, 24 + k];
+    return x % 4 === 0 ? [74 + k, 54 + k, 34 + k] : [98 + k, 72 + k, 44 + k];
+  });
+  put(275, (x, y, r) => {                                   // campfire from above: log rings and embers
+    const k = Math.floor((r() - 0.5) * 16), d = Math.hypot(x - 7.5, y - 7.5);
+    if(d < 4) return r() < 0.4 ? [255, 150 + k, 40] : [60 + k, 30 + k, 20];
+    return (d | 0) % 2 ? [150 + k, 116 + k, 70 + k] : [120 + k, 90 + k, 54 + k];
   });
   put(272, (x, y, r) => {                                   // slime block: a clear green jelly with a darker cube inside
     const k = Math.floor((r() - 0.5) * 10), edge = x === 0 || y === 0 || x === 15 || y === 15, inner = x > 3 && x < 12 && y > 3 && y < 12;
@@ -5104,6 +5124,7 @@ function emitLevel(id){
   if(id === AMBERLAMP || id === GLOWB || id === GLOWSTONE || id === ENDCRYSTAL) return 15;
   if(id === LAVA) return 13;
   if(id === TORCH) return 14;
+  if(id === LANTERN || id === CAMPFIRE) return 15;
   if(id === PORTAL) return 11;
   if(id === ENDPORTAL) return 12;
   return 0;
@@ -5252,6 +5273,24 @@ function* buildChunkSteps(c,reuseLight=false){
     if(isPartial(b)){ pushPartial(O, lx, y, lz, b, light); continue; }
     if(isDoor(b)){ pushDoor(O, lx, y, lz, b, wx0 + lx, wz0 + lz, light); continue; }
     if(b === LADDER){ pushLadder(O, lx, y, lz, gb, light); continue; }
+    if(b === LANTERN){
+      const hang = isSolid(gb(lx, y + 1, lz)) && !isSolid(gb(lx, y - 1, lz)), y0 = hang ? 0.28 : 0;
+      pushBox(G, 273, lx + 0.3125, y + y0, lz + 0.3125, lx + 0.6875, y + y0 + 0.44, lz + 0.6875, 1);
+      pushBox(O, 274, lx + 0.375, y + y0 + 0.44, lz + 0.375, lx + 0.625, y + y0 + 0.52, lz + 0.625, 0.5);
+      if(hang) pushBox(O, 274, lx + 0.47, y + y0 + 0.52, lz + 0.47, lx + 0.53, y + 1, lz + 0.53, 0.4);     // its chain
+      continue;
+    }
+    if(b === CAMPFIRE){
+      if(dim === 0 || dim === 1 || dim === 3) campfires.add(dim + ':' + (wx0 + lx) + ',' + y + ',' + (wz0 + lz));
+      const nlF = light ? sampleLight(light, lx, y + 1, lz) : 15, llF = 0.3 + (nlF / 15) * 0.7;
+      pushBox(O, 274, lx + 0.06, y, lz + 0.18, lx + 0.94, y + 0.24, lz + 0.38, llF);
+      pushBox(O, 274, lx + 0.06, y, lz + 0.62, lx + 0.94, y + 0.24, lz + 0.82, llF);
+      pushBox(O, 274, lx + 0.18, y + 0.2, lz + 0.06, lx + 0.38, y + 0.44, lz + 0.94, llF);
+      pushBox(O, 274, lx + 0.62, y + 0.2, lz + 0.06, lx + 0.82, y + 0.44, lz + 0.94, llF);
+      pushBox(G, 275, lx + 0.3, y + 0.02, lz + 0.3, lx + 0.7, y + 0.1, lz + 0.7, 1);                     // embers
+      pushCross(GC, lx, y, lz, tileFor(FIRE, 0), light, 0);                                    // the flames
+      continue;
+    }
     if(isCake(b)){
       const nlC = light ? sampleLight(light, lx, y, lz) : 15, llC = 0.2 + (nlC / 15) * 0.8, bite = (b - CAKE) * 0.2;
       pushBox(O, 261, lx + 0.0625 + bite, y, lz + 0.0625, lx + 0.9375, y + 0.4, lz + 0.9375, llC);
@@ -7727,6 +7766,7 @@ function updatePlayerEffects(dt){
     const b1 = getBlock(Math.floor(p.x), Math.floor(p.y + 0.1), Math.floor(p.z)), b2 = getBlock(Math.floor(p.x), Math.floor(p.y + 1.1), Math.floor(p.z));
     if(!fireproof()){
       if(isFire(b1) || isFire(b2)){ damage(b1 === SOULFIRE || b2 === SOULFIRE ? 2 : 1); burnT = Math.max(burnT, 4); }
+      else if(b1 === CAMPFIRE) damage(1);
       if(getBlock(Math.floor(p.x), Math.floor(p.y + 0.2), Math.floor(p.z)) === LAVA) burnT = 8;
     } else burnT = 0;
   }
@@ -9375,6 +9415,7 @@ function useSpecial(o, d, hit, eh){
   if(eh && eh.e.kind === 'animal' && eh.e.type === 'wolf' && !eh.e.puppet && (!hit || eh.t < hit.t) && useOnWolf(eh.e)){ triggerViewSwing(); return true; }
   if(useBoneMeal(hit)) return true;
   if(useFarm(hit, eh)) return true;
+  if(useCampfire(hit)) return true;
   if(held === ROD) return useRod(o, d);
   if(eggMob(held)) return useSpawnEgg(hit) || true;
   if(POTIONS[held]){ drinkPotion(held); triggerViewSwing(); return true; }
@@ -14488,6 +14529,50 @@ function drawEnchantVR(g, text, button){
     button(35, 330 + i * 110, 1340, 95, offerText(o) + '   -   needs level ' + o.req + ', costs ' + o.cost, () => { doEnchant(i); }, xpLevel >= o.req);
   });
 }
+/* ============================== CAMPFIRES ==============================
+   A campfire lights the night, sends up smoke, and cooks: use raw meat, fish
+   or a potato on it and a little later the cooked food pops out. Up to four
+   things at once. Stepping in it stings. */
+const cooking = [];                     // { x, y, z, dim, id, t }
+let smokeT = 0;
+const cookOf = id => { const r = RECIPES.find(r => r.st === 'furnace' && r.in.length === 2 && r.in[0][0] === id && r.in[1][0] === COALI && foodOf(r.out[0])); return r ? r.out[0] : 0; };
+function useCampfire(hit){
+  if(!hit || hit.id !== CAMPFIRE) return false;
+  const held = heldId(), out = cookOf(held);
+  if(!out){ flashName('Cook raw meat, fish or potatoes on it'); return true; }
+  if(cooking.filter(c => c.x === hit.x && c.y === hit.y && c.z === hit.z && c.dim === dim).length >= 4){ flashName('The campfire is full'); return true; }
+  cooking.push({ x: hit.x, y: hit.y, z: hit.z, dim, id: out, t: 12 });
+  consumePlacedItem(); triggerViewSwing();
+  playN({ f: 3000, type: 'highpass', dur: 0.5, vol: 0.08 });                // sizzle
+  flashName('Cooking...');
+  return true;
+}
+function updateCampfires(dt){
+  for(let i = cooking.length - 1; i >= 0; i--){
+    const c = cooking[i];
+    if(c.dim !== dim) continue;
+    if(getBlock(c.x, c.y, c.z) !== CAMPFIRE){ spawnDropAt(c.x + 0.5, c.y + 0.5, c.z + 0.5, c.id); cooking.splice(i, 1); continue; }
+    c.t -= dt;
+    if(c.t <= 0){
+      spawnDropAt(c.x + 0.5, c.y + 0.6, c.z + 0.5, c.id);
+      playN({ f: 900, type: 'bandpass', dur: 0.1, vol: 0.1 });
+      cooking.splice(i, 1);
+    }
+  }
+  smokeT -= dt;
+  if(smokeT > 0) return;
+  smokeT = 0.25;
+  for(const k of campfires){
+    const [d, rest] = k.split(':');
+    if(+d !== dim) continue;
+    const [x, y, z] = rest.split(',').map(Number);
+    if(Math.abs(x - player.pos.x) > 40 || Math.abs(z - player.pos.z) > 40) continue;
+    if(getBlock(x, y, z) !== CAMPFIRE){ campfires.delete(k); continue; }
+    burstRGB(x + 0.5 + (Math.random() - 0.5) * 0.3, y + 0.9 + Math.random() * 1.5, z + 0.5 + (Math.random() - 0.5) * 0.3, 0.55, 0.55, 0.55, 1, 0.15);
+    if(cooking.some(c => c.x === x && c.y === y && c.z === z) && Math.random() < 0.5) burstRGB(x + 0.5, y + 0.5, z + 0.5, 1, 0.6, 0.2, 1, 0.2);
+    if(Math.random() < 0.04 && Math.hypot(x - player.pos.x, z - player.pos.z) < 10) playN({ f: 1800, type: 'highpass', dur: 0.05, vol: 0.05 });   // a crackle
+  }
+}
 /* ============================== FARMING ==============================
    Till with a hoe, plant seeds, carrots or potatoes on farmland, milk a
    cow with a bucket (milk clears every effect), and eat cake a slice at a
@@ -15107,6 +15192,7 @@ function animate(){
   updateFishing(dt);
   updateShield(dt);
   if(inGame) updatePetsWorld(dt);
+  if(inGame) updateCampfires(dt);
   if(inGame && ((xpT = (xpT || 0) - dt) <= 0)){ xpT = 1; renderXP(); }
   updateAmbience(dt);
   checkMusicMood(dt);
@@ -15457,6 +15543,7 @@ window.__bc = {
             adv: { list: ADVANCEMENTS, done: advDone, grant: grantAdv, next: nextAdv, tick: () => { advT = 0; updateAdvancements(0); }, guide: toggleGuide, toast: showToast },
             fx: { clearInv: () => { for(const q of survInv){ q.id = 0; q.count = 0; q.dur = 0; } renderHotbar(); }, effects, drink: id => drinkPotion(id), step: dt => updateEffects(dt), light: lightAtPlayer, mood: () => musicMood(), sub: showSubtitle, POTIONS },
             xp: { add: addXP, level: () => xpLevel, points: () => xpPoints, drop: dropXP, orbs: xpOrbs, offers: enchantOffers, enchant: doEnchant, setTable: t => { enchantAt = t; }, heldEnch, stackName, armourEnch },
+            camp: { use: useCampfire, step: dt => updateCampfires(dt), cooking, fires: campfires },
             farm: { use: useFarm, crops: () => crops, grow: dt => updateCrops(dt), hunger: v => { if(v !== undefined){ hunger = v; renderHearts(); } return hunger; } },
             ladder: { on: () => onLadder(player.pos), place: placeLadder, wall: (x, y, z) => ladderWall(getBlock, x, y, z) },
             pets: { list: () => pets, use: useOnWolf, tame: tameWolf, step: dt => updatePetsWorld(dt), meal: useBoneMeal, target: () => petTarget },
