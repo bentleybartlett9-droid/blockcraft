@@ -878,6 +878,7 @@ const SPAWN_EGGS = [
   ['shulker','Shulker','#946794','#4d3852'], ['wisp','Storm Wisp','#8ae8ff','#ffffff'], ['stormling','Stormling','#2c3a54','#8ae8ff'],
 ];
 const EGG_BASE = 410;                      // 410-446
+const ROD=447, COD=448, SALMON=449, COOKED_COD=450, COOKED_SALMON=451, PUFFERFISH=452, TROPICAL=453;
 const eggMob = id => id >= EGG_BASE && id < EGG_BASE + SPAWN_EGGS.length ? SPAWN_EGGS[id - EGG_BASE][0] : null;
 const NETH_ARMOUR=376,   // 376-379: netherite armour
       BOW=380, ARROW_I=381, EYE_ENDER=382, ELYTRA=383, FIREWORK=384, PAPER=385, CHORUS_FRUIT=386,
@@ -1163,7 +1164,10 @@ ITEMS[BOW]={name:'Bow',icon:91};ITEMS[ARROW_I]={name:'Arrow',icon:92};ITEMS[EYE_
 ITEMS[FIREWORK]={name:'Firework Rocket',icon:95};ITEMS[PAPER]={name:'Paper',icon:96};ITEMS[CHORUS_FRUIT]={name:'Chorus Fruit',icon:97,food:4};
 ITEMS[POPPED_CHORUS]={name:'Popped Chorus Fruit',icon:98};ITEMS[SHULKER_SHELL]={name:'Shulker Shell',icon:99};
 ITEMS[SADDLE]={name:'Saddle',icon:100};
-SPAWN_EGGS.forEach(([, name], i) => { ITEMS[EGG_BASE + i] = { name: name + ' Spawn Egg', icon: 120 + i }; });ITEMS[GLASS_BOTTLE]={name:'Glass Bottle',icon:107};ITEMS[WATER_BOTTLE]={name:'Water Bottle',icon:108};
+SPAWN_EGGS.forEach(([, name], i) => { ITEMS[EGG_BASE + i] = { name: name + ' Spawn Egg', icon: 120 + i }; });
+ITEMS[ROD]={name:'Fishing Rod',icon:157,tool:{type:'rod',tier:1}};ITEMS[COD]={name:'Raw Cod',icon:158,food:2};ITEMS[SALMON]={name:'Raw Salmon',icon:159,food:2};
+ITEMS[COOKED_COD]={name:'Cooked Cod',icon:160,food:5};ITEMS[COOKED_SALMON]={name:'Cooked Salmon',icon:161,food:6};
+ITEMS[PUFFERFISH]={name:'Pufferfish',icon:162,food:1};ITEMS[TROPICAL]={name:'Tropical Fish',icon:163,food:1};ITEMS[GLASS_BOTTLE]={name:'Glass Bottle',icon:107};ITEMS[WATER_BOTTLE]={name:'Water Bottle',icon:108};
 ITEMS[AWKWARD]={name:'Awkward Potion',icon:109};
 Object.keys(POTIONS).forEach((id, i) => { ITEMS[id] = { name: POTIONS[id].name, icon: 110 + i }; });ITEMS[STORMKEY_I]={name:'Storm Key',icon:102};ITEMS[VOLTITE]={name:'Voltite Shard',icon:103};
 ITEMS[TEMPEST_HEART]={name:'Tempest Heart',icon:104};ITEMS[STORMBREAKER]={name:'Stormbreaker',icon:105,tool:{type:'sword',tier:6}};
@@ -1377,6 +1381,8 @@ RECIPES.push({out:[COPPERI,1],in:[[COPPERO,1],[COALI,1]],st:'furnace'},{out:[COP
 RECIPES.push({out:[STORMKEY_I,1],in:[[NETHERITE,1],[EYE_ENDER,1],[COPPERI,4]],st:'table'},
   {out:[STORMBREAKER,1],in:[[NSWORD,1],[TEMPEST_HEART,1],[VOLTITE,4]],st:'table'},{out:[VOLT_PICK,1],in:[[NPICK,1],[VOLTITE,6]],st:'table'},
   {out:[STORM_BRICK,4],in:[[STORMSTONE,4]]},{out:[CONDUIT,1],in:[[COPPERB,1],[VOLTITE,2]],st:'table'});
+RECIPES.push({out:[ROD,1],in:[[STICK,3],[STRING,2]],st:'table'},{out:[COOKED_COD,1],in:[[COD,1],[COALI,1]],st:'furnace'},
+  {out:[COOKED_SALMON,1],in:[[SALMON,1],[COALI,1]],st:'furnace'});
 RECIPES.push({out:[GUMPLANK,4],in:[[BOAB_LOG,1]]},{out:[ENCH_TABLE,1],in:[[DIAMI,2],[OBSIDIAN,4],[BOOKSHELF,1]],st:'table'});
 RECIPES.push({out:[BREWING,1],in:[[BLAZEROD,1],[STONE,3]],st:'table'},{out:[GLASS_BOTTLE,3],in:[[GLASS,3]]},
   {out:[AWKWARD,1],in:[[WATER_BOTTLE,1],[NWART,1]],st:'brew'},
@@ -2783,6 +2789,21 @@ const tileAvg = [];
     const v = hash(x, y, 8603);
     return v < 0.06 ? [120, 70, 160] : v < 0.5 ? [22, 16, 32] : [32, 24, 46];          // obsidian flecked with violet
   });
+}
+/* ---- fishing: the rod and the fish ---- */
+{
+  const I = itemAtlas.getContext('2d');
+  const px = (ti, list) => { const ox = ti % 8 * 16, oy = Math.floor(ti / 8) * 16;
+    for(const [c, pts] of list){ I.fillStyle = c; for(const [x, y, w = 1, h = 1] of pts) I.fillRect(ox + x, oy + y, w, h); } };
+  { const rod = [], line = []; for(let i = 0; i < 11; i++) rod.push([2 + i, 13 - i]); for(let y = 3; y < 13; y++) line.push([13, y]);
+    px(157, [['#7a5230', rod], ['#e8e8e8', line], ['#c0c0c0', [[12, 12, 3, 1], [14, 11, 1, 1]]]]); }
+  const fish = (ti, body, belly, fin, eye = '#101010') => px(ti, [[body, [[3, 6, 9, 5], [2, 7, 11, 3]]], [belly, [[4, 9, 7, 2]]], [fin, [[12, 5, 2, 7], [13, 4, 2, 2], [13, 10, 2, 2], [6, 5, 3, 1]]], [eye, [[4, 7, 1, 1]]]]);
+  fish(158, '#a08a64', '#d8c8a0', '#8a7454');
+  fish(159, '#b85a48', '#e8a080', '#8a3a30');
+  fish(160, '#b88a54', '#e0c090', '#8a6434', '#3a2a1a');
+  fish(161, '#c8704a', '#f0b080', '#9a4a2a', '#3a2a1a');
+  px(162, [['#e8c040', [[4, 4, 8, 8], [3, 5, 10, 6], [5, 3, 6, 10]]], ['#f0f0d0', [[5, 8, 6, 3]]], ['#a07020', [[3, 4], [12, 4], [3, 11], [12, 11], [7, 2], [7, 13]]], ['#101010', [[5, 6]]]]);
+  px(163, [['#f07a20', [[3, 6, 9, 5], [2, 7, 11, 3]]], ['#ffffff', [[6, 6, 1, 5], [9, 6, 1, 5]]], ['#f07a20', [[12, 5, 2, 7]]], ['#101010', [[4, 7]]]]);
 }
 /* ---- the boab: smooth, wrinkled grey-pink bark ---- */
 {
@@ -9190,6 +9211,7 @@ function useSpawnEgg(hit){
 }
 function useSpecial(o, d, hit, eh){
   const held = heldId();
+  if(held === ROD) return useRod(o, d);
   if(eggMob(held)) return useSpawnEgg(hit) || true;
   if(POTIONS[held]){ drinkPotion(held); triggerViewSwing(); return true; }
   if(held === GLASS_BOTTLE && fillBottle(hit)){ triggerViewSwing(); return true; }
@@ -14183,11 +14205,13 @@ const ENCH = {
   sharpness:  { name: 'Sharpness', max: 3, on: ['sword', 'axe'] },
   efficiency: { name: 'Efficiency', max: 3, on: ['pick', 'axe', 'shovel'] },
   fortune:    { name: 'Fortune', max: 3, on: ['pick'] },
-  unbreaking: { name: 'Unbreaking', max: 3, on: ['sword', 'axe', 'pick', 'shovel', 'hoe'] },
+  unbreaking: { name: 'Unbreaking', max: 3, on: ['sword', 'axe', 'pick', 'shovel', 'hoe', 'rod'] },
   power:      { name: 'Power', max: 3, on: ['bow'] },
   infinity:   { name: 'Infinity', max: 1, on: ['bow'] },
   protection: { name: 'Protection', max: 3, on: ['armour'] },
   feather:    { name: 'Feather Falling', max: 3, on: ['boots'] },
+  lure:       { name: 'Lure', max: 3, on: ['rod'] },
+  luck:       { name: 'Luck of the Sea', max: 3, on: ['rod'] },
 };
 const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V'];
 function heldEnch(k){ if(mode !== 'survival') return 0; const q = survInv[sel]; return q && q.count > 0 && q.ench ? q.ench[k] || 0 : 0; }
@@ -14282,6 +14306,106 @@ function drawEnchantVR(g, text, button){
     button(35, 330 + i * 110, 1340, 95, offerText(o) + '   -   needs level ' + o.req + ', costs ' + o.cost, () => { doEnchant(i); }, xpLevel >= o.req);
   });
 }
+/* ============================== FISHING ==============================
+   Cast a rod over water and wait: the bobber floats, then dips with a
+   splash when a fish bites - reel in then. Mostly fish, sometimes junk,
+   now and then treasure. Rain brings bites sooner; Lure and Luck of the
+   Sea enchantments help. */
+let bobber = null;
+const bobberMat = new THREE.MeshBasicMaterial({ color: 0xe03030 });
+const lineMat = new THREE.LineBasicMaterial({ color: 0xdddddd });
+function rodTip(){
+  if(xrActive && rightCtrl) return rightCtrl.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, 0.25, 0));
+  const d = camera.getWorldDirection(new THREE.Vector3()), right = new THREE.Vector3().crossVectors(d, camera.up).normalize();
+  return camera.getWorldPosition(new THREE.Vector3()).addScaledVector(d, 0.7).addScaledVector(right, 0.35).add(new THREE.Vector3(0, -0.15, 0));
+}
+function castRod(o, d){
+  const g = new THREE.Group();
+  const red = new THREE.Mesh(crystalGeo, bobberMat); red.scale.set(0.16, 0.1, 0.16); red.position.y = 0.05; g.add(red);
+  const white = new THREE.Mesh(crystalGeo, orbMat); white.scale.set(0.16, 0.08, 0.16); white.position.y = -0.04; g.add(white);
+  const start = rodTip();
+  g.position.copy(start); scene.add(g);
+  const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([start, start]), lineMat);
+  line.frustumCulled = false; scene.add(line);
+  bobber = { g, line, pos: start.clone(), vel: d.clone().normalize().multiplyScalar(13).add(new THREE.Vector3(0, 3, 0)), state: 'fly', t: 0, bite: 0 };
+  nNoise(start, 1400, 0.25, 0.2, -900, 20);
+}
+function reelIn(){
+  const b = bobber;
+  bobber = null;
+  scene.remove(b.g); scene.remove(b.line);
+  playN({ f: 900, type: 'bandpass', dur: 0.15, vol: 0.12 });
+  if(b.state === 'bite'){
+    const [id, n] = fishLoot();
+    const from = b.pos.clone();
+    if(mode === 'survival'){
+      spawnDropAt(from.x, from.y + 0.3, from.z, id, n);
+      const d = drops[drops.length - 1];
+      if(d){ const to = player.pos.clone().setY(player.pos.y + 1.2).sub(from); d.vel.set(to.x * 1.1, 6 + to.y * 0.5, to.z * 1.1); }   // flung back to you
+      dropXP(player.pos.x, player.pos.y + 1, player.pos.z, 1 + Math.floor(Math.random() * 6));
+    }
+    flashName('Caught ' + nameOf(id) + (n > 1 ? ' ×' + n : '') + '!');
+    burstRGB(from.x, from.y, from.z, 0.8, 0.9, 1, 12, 0.6);
+    grantAdv('fish');
+  }
+  if(mode === 'survival') damageTool(['rod']);
+}
+function fishLoot(){
+  const luck = heldEnch('luck'), r = Math.random();
+  const treasure = 0.05 + luck * 0.021, junk = 0.1 - luck * 0.025;
+  if(r < treasure){
+    const t = [[SADDLE, 1], [BOW, 1], [ROD, 1], [EMERALD, 1 + (Math.random() * 3 | 0)], [DIAMI, 1]][(Math.random() * 5) | 0];
+    return t;
+  }
+  if(r < treasure + junk) return [[LEATHER, 1], [STICK, 1 + (Math.random() * 3 | 0)], [STRING, 1 + (Math.random() * 2 | 0)], [ROTTEN, 1], [WATER_BOTTLE, 1], [GLASS_BOTTLE, 1]][(Math.random() * 6) | 0];
+  const f = Math.random();
+  return [f < 0.6 ? COD : f < 0.85 ? SALMON : f < 0.98 ? PUFFERFISH : TROPICAL, 1];
+}
+function useRod(o, d){
+  if(bobber) reelIn(); else castRod(o, d);
+  triggerViewSwing();
+  return true;
+}
+function updateFishing(dt){
+  const b = bobber;
+  if(!b) return;
+  if(heldId() !== ROD || dead){ scene.remove(b.g); scene.remove(b.line); bobber = null; return; }   // put the rod away and the line comes in
+  b.t += dt;
+  const bx = Math.floor(b.pos.x), by = Math.floor(b.pos.y), bz = Math.floor(b.pos.z);
+  const here = getBlock(bx, by, bz);
+  if(b.state === 'fly'){
+    b.vel.y -= 16 * dt;
+    b.pos.addScaledVector(b.vel, dt);
+    if(here === WATER){
+      b.state = 'float'; b.vel.set(0, 0, 0);
+      const lure = heldEnch('lure');
+      b.wait = Math.max(1.5, (5 + Math.random() * 20) * (1 - 0.2 * rainAmt) - lure * 5);
+      playN({ f: 700, type: 'lowpass', dur: 0.2, vol: 0.12 });
+    } else if(isSolid(here) || b.t > 6){ b.state = 'land'; b.vel.set(0, 0, 0); }
+  } else if(b.state === 'float' || b.state === 'bite'){
+    // ride the surface of the water, bobbing
+    let top = by; while(getBlock(bx, top + 1, bz) === WATER) top++;
+    const surf = top + 0.9;
+    b.pos.y += (surf - b.pos.y) * Math.min(1, dt * 6);
+    if(b.state === 'float'){
+      b.wait -= dt;
+      if(b.wait < 1.5 && Math.random() < dt * 6) burstRGB(b.pos.x + (Math.random() - 0.5) * 3, surf + 0.1, b.pos.z + (Math.random() - 0.5) * 3, 0.8, 0.9, 1, 1, 0.1);   // a fish coming
+      if(b.wait <= 0){
+        b.state = 'bite'; b.bite = 1.1;
+        burstRGB(b.pos.x, surf + 0.1, b.pos.z, 0.85, 0.92, 1, 16, 0.6);
+        nNoise(b.pos, 1100, 0.35, 0.35, -600, 30);
+        if(xrActive) hapticPulse('right', 0.8, 120);
+      }
+    } else {
+      b.bite -= dt; b.pos.y -= 0.25;                                    // pulled under
+      if(b.bite <= 0){ b.state = 'float'; b.wait = 4 + Math.random() * 12; }   // it got away
+    }
+  }
+  b.g.position.copy(b.pos);
+  const a = b.line.geometry.attributes.position, tip = rodTip();
+  a.setXYZ(0, tip.x, tip.y, tip.z); a.setXYZ(1, b.pos.x, b.pos.y + 0.1, b.pos.z); a.needsUpdate = true;
+  if(b.pos.distanceTo(player.pos) > 40){ scene.remove(b.g); scene.remove(b.line); bobber = null; }
+}
 /* ============================ TELEPORT ============================
    Creative only: pick a biome and you are taken to the nearest stretch of
    it, set down on its surface. */
@@ -14352,6 +14476,7 @@ const ADVANCEMENTS = [
   { ch: 'Overworld', id: 'stone', title: 'Stone Age', how: 'Mine stone with a wooden pickaxe and craft a stone pickaxe.', icon: SPICK, check: () => hasItem(SPICK) },
   { ch: 'Overworld', id: 'iron', title: 'Acquire Hardware', how: 'Mine iron ore, then smelt it in a furnace with coal.', icon: IRONI, check: () => hasItem(IRONI) },
   { ch: 'Overworld', id: 'diamond', title: 'Diamonds!', how: 'Dig deep underground with an iron pickaxe.', icon: DIAMI, check: () => hasItem(DIAMI) },
+  { ch: 'Overworld', id: 'fish', title: 'Fishy Business', how: 'Craft a fishing rod (3 sticks, 2 string), cast into water and reel in when the bobber dips.', icon: COD, check: () => false },
   { ch: 'Overworld', id: 'obsidian', title: 'Hot Stuff', how: 'Pour water on a lava source, then mine the obsidian with a diamond pickaxe.', icon: OBSIDIAN, check: () => hasItem(OBSIDIAN) },
   { ch: 'Nether', id: 'nether', title: 'We Need to Go Deeper', how: 'Build a 4 wide, 5 tall obsidian frame and light it with flint & steel.', icon: NETHERRACK, check: () => dim === 1 },
   { ch: 'Nether', id: 'fortress', title: 'A Terrible Fortress', how: 'Find a nether brick fortress - its bridges stretch over the lava.', icon: NBRICK, check: () => dim === 1 && getBlock(Math.floor(player.pos.x), Math.floor(player.pos.y - 0.5), Math.floor(player.pos.z)) === NBRICK },
@@ -14520,6 +14645,7 @@ function animate(){
   updateAdvancements(dt);
   if(inGame && !dead) updateEffects(dt);
   updateXPOrbs(dt);
+  updateFishing(dt);
   if(inGame && ((xpT = (xpT || 0) - dt) <= 0)){ xpT = 1; renderXP(); }
   updateAmbience(dt);
   checkMusicMood(dt);
@@ -14870,6 +14996,7 @@ window.__bc = {
             adv: { list: ADVANCEMENTS, done: advDone, grant: grantAdv, next: nextAdv, tick: () => { advT = 0; updateAdvancements(0); }, guide: toggleGuide, toast: showToast },
             fx: { clearInv: () => { for(const q of survInv){ q.id = 0; q.count = 0; q.dur = 0; } renderHotbar(); }, effects, drink: id => drinkPotion(id), step: dt => updateEffects(dt), light: lightAtPlayer, mood: () => musicMood(), sub: showSubtitle, POTIONS },
             xp: { add: addXP, level: () => xpLevel, points: () => xpPoints, drop: dropXP, orbs: xpOrbs, offers: enchantOffers, enchant: doEnchant, setTable: t => { enchantAt = t; }, heldEnch, stackName, armourEnch },
+            fish: { use: (o, d) => useRod(o, d), step: dt => updateFishing(dt), state: () => bobber && { state: bobber.state, wait: bobber.wait, pos: bobber.pos }, loot: fishLoot },
             tp: teleportToBiome, findBiome, egg: (type, x, y, z) => spawnFromEgg(type, x, y, z), EGG_BASE, SPAWN_EGGS,
             spawns: dt => updateNetherSpawns(dt), effects: () => ({ burnT, witherT }), heal: () => { hp = 20; dead = false; burnT = 0; witherT = 0; }, give: e => tryGivePiglin(e), lightFire },
 };
