@@ -888,7 +888,7 @@ const BONE=455, BONE_MEAL=456, SHIELD=454, ROD=447, COD=448, SALMON=449, COOKED_
 const EGG_RUN = 37, EGG_EXTRA = 479;          // eggs past the first 37 carry on from 479
 const eggId = i => i < EGG_RUN ? EGG_BASE + i : EGG_EXTRA + i - EGG_RUN, eggIcon = i => i < EGG_RUN ? 120 + i : 175 + i - EGG_RUN;
 const eggMob = id => { const i = id >= EGG_BASE && id < EGG_BASE + EGG_RUN ? id - EGG_BASE : id >= EGG_EXTRA ? EGG_RUN + id - EGG_EXTRA : -1; return i >= 0 && i < SPAWN_EGGS.length ? SPAWN_EGGS[i][0] : null; };
-const SLIMEBALL=477, SLIME_BLOCK=478, LANTERN=490, CAMPFIRE=491, BEEHIVE=492, BEEHIVE_FULL=493, HONEY_BOTTLE=494, HONEYCOMB=495, FENCE=496, GATE=497, GATE_OPEN=498;
+const SLIMEBALL=477, SLIME_BLOCK=478, LANTERN=490, CAMPFIRE=491, BEEHIVE=492, BEEHIVE_FULL=493, HONEY_BOTTLE=494, HONEYCOMB=495, FENCE=496, GATE=497, GATE_OPEN=498, SHEARS=499;
 const isFenceish = id => id === FENCE || id === GATE || id === GATE_OPEN;
 const hivesSeen = new Set();           // "x,y,z" of overworld hives the mesher has seen
 const campfires = new Set();            // "dim:x,y,z" of campfires the mesher has seen
@@ -1178,7 +1178,7 @@ ITEMS[POPPED_CHORUS]={name:'Popped Chorus Fruit',icon:98};ITEMS[SHULKER_SHELL]={
 ITEMS[SADDLE]={name:'Saddle',icon:100};
 SPAWN_EGGS.forEach(([, name], i) => { ITEMS[eggId(i)] = { name: name + ' Spawn Egg', icon: eggIcon(i) }; });
 ITEMS[SLIMEBALL]={name:'Slimeball',icon:176};BLOCKS[LANTERN]={name:'Lantern',all:273};BLOCKS[FENCE]={name:'Fence',all:279};BLOCKS[GATE]={name:'Fence Gate',all:280};BLOCKS[GATE_OPEN]={name:'Fence Gate',all:280};BLOCKS[BEEHIVE]={name:'Beehive',top:277,bottom:277,side:276};BLOCKS[BEEHIVE_FULL]={name:'Beehive',top:277,bottom:277,side:278};
-ITEMS[HONEY_BOTTLE]={name:'Honey Bottle',icon:177,food:6};ITEMS[HONEYCOMB]={name:'Honeycomb',icon:178};BLOCKS[CAMPFIRE]={name:'Campfire',top:275,bottom:275,side:274};BLOCKS[SLIME_BLOCK]={name:'Slime Block',all:272};
+ITEMS[HONEY_BOTTLE]={name:'Honey Bottle',icon:177,food:6};ITEMS[SHEARS]={name:'Shears',icon:179,tool:{type:'shears',tier:2}};ITEMS[HONEYCOMB]={name:'Honeycomb',icon:178};BLOCKS[CAMPFIRE]={name:'Campfire',top:275,bottom:275,side:274};BLOCKS[SLIME_BLOCK]={name:'Slime Block',all:272};
 ITEMS[APPLE]={name:'Apple',icon:167,food:4};ITEMS[GOLDEN_APPLE]={name:'Golden Apple',icon:168,food:4};ITEMS[CARROT]={name:'Carrot',icon:169,food:3,plant:CARROT0};
 ITEMS[POTATO]={name:'Potato',icon:170,food:1,plant:POTATO0};ITEMS[BAKED_POTATO]={name:'Baked Potato',icon:171,food:5};ITEMS[MILK]={name:'Milk Bucket',icon:172};
 ITEMS[EGG]={name:'Egg',icon:173};ITEMS[SUGAR]={name:'Sugar',icon:174};
@@ -1408,6 +1408,7 @@ RECIPES.push({out:[SHIELD,1],in:[[ANY_PLANK,6],[IRONI,1]],st:'table'},{out:[ROD,
   {out:[COOKED_SALMON,1],in:[[SALMON,1],[COALI,1]],st:'furnace'});
 RECIPES.push({out:[CAKE,1],in:[[MILK,3],[SUGAR,2],[EGG,1],[WHEATITEM,3]],st:'table',back:[[BUCKET,3]]},{out:[SUGAR,1],in:[[REEDS,1]]},
   {out:[GOLDEN_APPLE,1],in:[[APPLE,1],[GOLDI,8]],st:'table'},{out:[BAKED_POTATO,1],in:[[POTATO,1],[COALI,1]],st:'furnace'});
+RECIPES.push({out:[SHEARS,1],in:[[IRONI,2]],st:'table'});
 RECIPES.push({out:[FENCE,3],in:[[ANY_PLANK,4],[STICK,2]],st:'table'},{out:[GATE,1],in:[[STICK,4],[ANY_PLANK,2]],st:'table'});
 RECIPES.push({out:[BEEHIVE,1],in:[[ANY_PLANK,6],[HONEYCOMB,3]],st:'table'});
 RECIPES.push({out:[LANTERN,1],in:[[IRONI,1],[TORCH,1]],st:'table'},
@@ -2914,6 +2915,8 @@ const tileAvg = [];
   px(172, [['#8a8f96', [[3, 4, 10, 10], [4, 14, 8, 1]]], ['#f6f6f6', [[4, 4, 8, 3]]], ['#b0b4ba', [[4, 8, 8, 5]]], ['#5a5f66', [[2, 3, 12, 1]]]]);
   px(173, [['#f0e2c4', [[5, 4, 6, 9], [4, 6, 8, 6]]], ['#fff6e4', [[6, 5, 2, 3]]], ['#d8c4a0', [[9, 10, 2, 2]]]]);
   px(174, [['#f4f4f8', [[4, 8, 8, 5], [5, 6, 6, 2], [6, 5, 4, 1]]], ['#ffffff', [[6, 7, 2, 2], [9, 9, 1, 1]]], ['#d8d8e0', [[5, 11, 6, 2]]]]);
+  px(179, [['#c8ccd2', [[3, 2, 2, 7], [5, 3, 1, 5], [11, 2, 2, 7], [10, 3, 1, 5]]], ['#e8ecf0', [[4, 2, 1, 5], [11, 3, 1, 4]]], ['#8a8f96', [[7, 8, 2, 2]]],
+            ['#a03028', [[3, 10, 4, 4], [9, 10, 4, 4]]], ['#c84a3a', [[4, 11, 2, 2], [10, 11, 2, 2]]]]);
   px(177, [['#c8e0e8', [[5, 3, 6, 2], [4, 5, 8, 9], [5, 14, 6, 1]]], ['#f0a820', [[5, 7, 6, 7]]], ['#ffd050', [[6, 8, 2, 3]]], ['#8a6030', [[6, 1, 4, 2]]]]);
   px(178, [['#e8a020', [[3, 4, 10, 8], [5, 3, 6, 10]]], ['#c07810', [[5, 6, 2, 2], [9, 6, 2, 2], [7, 9, 2, 2]]], ['#ffd060', [[4, 5, 1, 2], [6, 4, 2, 1]]]]);
   px(176, [['#5cb04a', [[4, 5, 8, 7], [3, 6, 10, 5], [5, 12, 6, 1], [5, 4, 6, 1]]], ['#9ade84', [[5, 6, 3, 2]]], ['#3c8030', [[9, 10, 2, 1], [10, 8, 1, 2]]]]);
@@ -6354,8 +6357,9 @@ function spawnAnimal(type, x, y, z){
         part(.28,.19,.14,m.snout,0,.66,-.93);for(const side of [-1,1]){part(.048,.045,.018,m.nostril,side*.065,.67,-1.01);ear(side*.2,.88,-.65,.15,.15,m.ear,m.snout,side*-.5);}
         part(.06,.17,.06,body,0,.66,.56);part(.13,.055,.06,body,.045,.75,.56);part(.045,.09,.06,body,.09,.72,.56);
       }else if(type==='sheep'){
-        for(let i=0;i<7;i++){const a=i/7*Math.PI*2;part(.31,.26,.35,i%2?m.wool:m.woolSh,Math.sin(a)*.35,.99,Math.cos(a)*.47);}
-        part(.41,.17,.37,m.wool,0,1.11,-.7);for(const side of [-1,1])ear(side*.23,.94,-.72,.17,.10,m.head,null,side*.9);
+        g.userData.fleece=[];
+        for(let i=0;i<7;i++){const a=i/7*Math.PI*2;g.userData.fleece.push(part(.31,.26,.35,i%2?m.wool:m.woolSh,Math.sin(a)*.35,.99,Math.cos(a)*.47));}
+        g.userData.fleece.push(part(.41,.17,.37,m.wool,0,1.11,-.7));for(const side of [-1,1])ear(side*.23,.94,-.72,.17,.10,m.head,null,side*.9);
       }else if(type==='cow'){
         for(const side of [-1,1]){part(.02,.3,.4,m.spot,side*.436,1.05,.22);part(.02,.23,.3,m.spot,side*.437,.88,-.32);ear(side*.29,1.15,-.72,.2,.10,m.head,m.snout,side*.7);const horn=part(.085,.22,.09,m.horn,side*.2,1.4,-.74);horn.rotation.z=-side*.3;}
         part(.37,.23,.17,m.snout,0,1.01,-1.06);part(.045,.43,.045,body,0,.81,.68);part(.09,.14,.08,m.hoof,0,.56,.68);
@@ -6526,6 +6530,7 @@ function updateAnimals(dt){
     if(e.baby > 0) growBaby(e, dt);
     if(e.love > 0) e.love -= dt;
     if(e.breedCd > 0) e.breedCd -= dt;
+    if(e.shorn) regrowWool(e, dt);
     if(e.flee > 0){
       e.flee -= dt;
       const dx = e.pos.x - player.pos.x, dz = e.pos.z - player.pos.z, l = Math.hypot(dx, dz) || 1;
@@ -9491,6 +9496,7 @@ function useSpecial(o, d, hit, eh){
   const held = heldId();
   if(eh && eh.e.kind === 'animal' && eh.e.type === 'wolf' && !eh.e.puppet && (!hit || eh.t < hit.t) && useOnWolf(eh.e)){ triggerViewSwing(); return true; }
   if(eh && (!hit || eh.t < hit.t) && useBreed(eh.e)){ triggerViewSwing(); return true; }
+  if(eh && (!hit || eh.t < hit.t) && useShears(eh.e)) return true;
   if(useBoneMeal(hit)) return true;
   if(useFarm(hit, eh)) return true;
   if(useCampfire(hit)) return true;
@@ -10560,7 +10566,7 @@ function punchEntity(e){
           spawnDropAt(p.x, p.y + 0.5, p.z, PORK, 1 + (Math.random() < 0.5 ? 1 : 0));
         } else if(e.type === 'sheep'){
           spawnDropAt(p.x, p.y + 0.5, p.z, MUTTON);
-          spawnDropAt(p.x + 0.2, p.y + 0.5, p.z, WOOL);
+          if(!e.shorn) spawnDropAt(p.x + 0.2, p.y + 0.5, p.z, WOOL);
         } else if(e.type === 'cow'){
           spawnDropAt(p.x, p.y + 0.5, p.z, BEEF, 1 + (Math.random() < 0.5 ? 1 : 0));
           spawnDropAt(p.x + 0.2, p.y + 0.5, p.z, LEATHER);
@@ -12487,6 +12493,7 @@ function calcMineTime(id){
   const it = ITEMS[heldId()];
   const tool = it && it.tool, cls = toolClassOf(id);
   if(tool && cls && tool.type === cls){ t /= TIER_SPEED[tool.tier - 1]; t /= 1 + 0.35 * heldEnch('efficiency'); }
+  if(tool && tool.type === 'shears' && (isLeaf(id) || id === WOOL || id === COBWEB)) t = Math.min(t, 0.12);
   return t;
 }
 /* ---------------- leaf decay, saplings and regrowth ----------------
@@ -12628,6 +12635,7 @@ function breakBlock(x, y, z, id){
   }
   setBlock(x, y, z, AIR);
   if(isLeaf(id)){
+    if(heldId() === SHEARS) damageTool(['shears']);
     leafLoot(x, y, z, id);
     wakeLeaves(x, y, z);            // neighbours may now be cut off too
   }
@@ -14513,7 +14521,7 @@ const ENCH = {
   sharpness:  { name: 'Sharpness', max: 3, on: ['sword', 'axe'] },
   efficiency: { name: 'Efficiency', max: 3, on: ['pick', 'axe', 'shovel'] },
   fortune:    { name: 'Fortune', max: 3, on: ['pick'] },
-  unbreaking: { name: 'Unbreaking', max: 3, on: ['sword', 'axe', 'pick', 'shovel', 'hoe', 'rod', 'shield'] },
+  unbreaking: { name: 'Unbreaking', max: 3, on: ['sword', 'axe', 'pick', 'shovel', 'hoe', 'rod', 'shield', 'shears'] },
   power:      { name: 'Power', max: 3, on: ['bow'] },
   infinity:   { name: 'Infinity', max: 1, on: ['bow'] },
   protection: { name: 'Protection', max: 3, on: ['armour'] },
@@ -14613,6 +14621,27 @@ function drawEnchantVR(g, text, button){
   offers.forEach((o, i) => {
     button(35, 330 + i * 110, 1340, 95, offerText(o) + '   -   needs level ' + o.req + ', costs ' + o.cost, () => { doEnchant(i); }, xpLevel >= o.req);
   });
+}
+/* ---- shearing: wool comes off, and grows back once the sheep has grazed ---- */
+function useShears(e){
+  if(!e || heldId() !== SHEARS || e.kind !== 'animal' || e.type !== 'sheep' || e.puppet) return false;
+  if(e.shorn || e.baby > 0){ flashName(e.baby > 0 ? 'Too young to shear' : 'No wool yet - it grows back after grazing'); return true; }
+  e.shorn = true; keepAnimal(e);
+  for(const f of e.group.userData.fleece || []) f.visible = false;
+  if(mode === 'survival') spawnDropAt(e.pos.x, e.pos.y + 1, e.pos.z, WOOL, 1 + ((Math.random() * 3) | 0));
+  damageTool(['shears']);
+  playN({ f: 2600, type: 'highpass', dur: 0.08, vol: 0.12 }); playN({ f: 2400, type: 'highpass', dur: 0.08, vol: 0.12, delay: 0.1 });
+  triggerViewSwing();
+  return true;
+}
+function regrowWool(e, dt){
+  if(!e.shorn || !e.onGround || Math.random() > dt / 40) return;
+  const x = Math.floor(e.pos.x), y = Math.floor(e.pos.y - 0.3), z = Math.floor(e.pos.z);
+  if(getBlock(x, y, z) !== GRASS) return;
+  setBlock(x, y, z, DIRT);                                                   // it eats the grass...
+  burstRGB(e.pos.x, e.pos.y + 0.2, e.pos.z, 0.4, 0.7, 0.3, 5, 0.3);
+  e.shorn = false;                                                           // ...and the wool comes back
+  for(const f of e.group.userData.fleece || []) f.visible = true;
 }
 /* ---- fence gates open and shut ---- */
 function useGate(hit){
@@ -15070,7 +15099,7 @@ function hearts(e){ for(let k = 0; k < 6; k++) burstRGB(e.pos.x + (Math.random()
 function keepAnimal(e){
   if(e.keepId || e.tamed) return;
   e.keepId = Date.now().toString(36) + ((Math.random() * 1e6) | 0).toString(36);
-  herd.push({ id: e.keepId, type: e.type, dim, x: e.pos.x, y: e.pos.y, z: e.pos.z, baby: e.baby || 0 });
+  herd.push({ id: e.keepId, type: e.type, dim, x: e.pos.x, y: e.pos.y, z: e.pos.z, baby: e.baby || 0, shorn: !!e.shorn });
   saveHerd();
 }
 function stashAnimal(e){ const r = herd.find(q => q.id === e.keepId); if(r){ r.x = e.pos.x; r.y = e.pos.y; r.z = e.pos.z; r.baby = e.baby || 0; r.dim = dim; saveHerd(); } }
@@ -15142,13 +15171,14 @@ function updateHerd(dt){
   for(const a of animals) if(a.keepId) live.set(a.keepId, a);
   for(const r of herd){
     const a = live.get(r.id);
-    if(a){ r.x = a.pos.x; r.y = a.pos.y; r.z = a.pos.z; r.baby = a.baby || 0; r.dim = dim; continue; }
+    if(a){ r.x = a.pos.x; r.y = a.pos.y; r.z = a.pos.z; r.baby = a.baby || 0; r.shorn = !!a.shorn; r.dim = dim; continue; }
     if(r.dim !== dim || Math.hypot(r.x - player.pos.x, r.z - player.pos.z) > 80) continue;
     const c = chunks.get((Math.floor(r.x) >> 4) + ',' + (Math.floor(r.z) >> 4));
     if(!c || !c.built) continue;
     const n = animals.length;
     spawnAnimal(r.type, r.x, r.y + 0.2, r.z);
-    if(animals.length > n){ const e = animals[animals.length - 1]; e.keepId = r.id; if(r.baby > 0) makeBaby(e, r.baby); }
+    if(animals.length > n){ const e = animals[animals.length - 1]; e.keepId = r.id; if(r.baby > 0) makeBaby(e, r.baby);
+      if(r.shorn){ e.shorn = true; for(const f of e.group.userData.fleece || []) f.visible = false; } }
   }
   herdSaveT -= 2;
   if(herdSaveT <= 0){ herdSaveT = 10; saveHerd(); }
@@ -16101,6 +16131,7 @@ window.__bc = {
             fx: { clearInv: () => { for(const q of survInv){ q.id = 0; q.count = 0; q.dur = 0; } renderHotbar(); }, effects, drink: id => drinkPotion(id), step: dt => updateEffects(dt), light: lightAtPlayer, mood: () => musicMood(), sub: showSubtitle, POTIONS },
             xp: { add: addXP, level: () => xpLevel, points: () => xpPoints, drop: dropXP, orbs: xpOrbs, offers: enchantOffers, enchant: doEnchant, setTable: t => { enchantAt = t; }, heldEnch, stackName, armourEnch },
             fence: { gate: useGate },
+            shears: { use: useShears, regrow: regrowWool },
             herd: { list: () => herd, feed: useBreed, step: dt => updateHerd(dt), breed },
             bees: { list: bees, hives, seen: hivesSeen, spawn: spawnBee, step: dt => updateBees(dt), use: useHive, broken: hiveBroken },
             sea: { list: seaLife, spawn: spawnSea, step: dt => updateSeaLife(dt), trySpawn: trySpawnSea },
