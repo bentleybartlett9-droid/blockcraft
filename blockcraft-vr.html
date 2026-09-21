@@ -888,7 +888,7 @@ const BONE=455, BONE_MEAL=456, SHIELD=454, ROD=447, COD=448, SALMON=449, COOKED_
 const EGG_RUN = 37, EGG_EXTRA = 479;          // eggs past the first 37 carry on from 479
 const eggId = i => i < EGG_RUN ? EGG_BASE + i : EGG_EXTRA + i - EGG_RUN, eggIcon = i => i < EGG_RUN ? 120 + i : i === EGG_RUN ? 175 : 180 + i - EGG_RUN;
 const eggMob = id => { const i = id >= EGG_BASE && id < EGG_BASE + EGG_RUN ? id - EGG_BASE : id >= EGG_EXTRA ? EGG_RUN + id - EGG_EXTRA : -1; return i >= 0 && i < SPAWN_EGGS.length ? SPAWN_EGGS[i][0] : null; };
-const SLIMEBALL=477, SLIME_BLOCK=478, LANTERN=490, CAMPFIRE=491, BEEHIVE=492, BEEHIVE_FULL=493, HONEY_BOTTLE=494, HONEYCOMB=495, FENCE=496, GATE=497, GATE_OPEN=498, SHEARS=499, TRIDENT=500, JUKEBOX=501, DISC_1=502, MAP=506, ANVIL=507;   // 502-505: music discs
+const SLIMEBALL=477, SLIME_BLOCK=478, LANTERN=490, CAMPFIRE=491, BEEHIVE=492, BEEHIVE_FULL=493, HONEY_BOTTLE=494, HONEYCOMB=495, FENCE=496, GATE=497, GATE_OPEN=498, SHEARS=499, TRIDENT=500, JUKEBOX=501, DISC_1=502, MAP=506, ANVIL=507, CARVED_PUMPKIN=508, JACK_O_LANTERN=509;   // 502-505: music discs
 const isFenceish = id => id === FENCE || id === GATE || id === GATE_OPEN;
 const hivesSeen = new Set();           // "x,y,z" of overworld hives the mesher has seen
 const campfires = new Set();            // "dim:x,y,z" of campfires the mesher has seen
@@ -1179,7 +1179,8 @@ ITEMS[SADDLE]={name:'Saddle',icon:100};
 SPAWN_EGGS.forEach(([, name], i) => { ITEMS[eggId(i)] = { name: name + ' Spawn Egg', icon: eggIcon(i) }; });
 ITEMS[SLIMEBALL]={name:'Slimeball',icon:176};BLOCKS[LANTERN]={name:'Lantern',all:273};BLOCKS[FENCE]={name:'Fence',all:279};BLOCKS[GATE]={name:'Fence Gate',all:280};BLOCKS[GATE_OPEN]={name:'Fence Gate',all:280};BLOCKS[BEEHIVE]={name:'Beehive',top:277,bottom:277,side:276};BLOCKS[BEEHIVE_FULL]={name:'Beehive',top:277,bottom:277,side:278};
 ITEMS[HONEY_BOTTLE]={name:'Honey Bottle',icon:177,food:6};ITEMS[SHEARS]={name:'Shears',icon:179,tool:{type:'shears',tier:2}};BLOCKS[JUKEBOX]={name:'Jukebox',top:282,bottom:281,side:281};
-ITEMS[MAP]={name:'Map',icon:188};BLOCKS[ANVIL]={name:'Anvil',all:283};
+ITEMS[MAP]={name:'Map',icon:188};BLOCKS[ANVIL]={name:'Anvil',all:283};BLOCKS[CARVED_PUMPKIN]={name:'Carved Pumpkin',top:T.PUMPKIN_TOP,bottom:T.PUMPKIN_TOP,side:T.PUMPKIN_FACE};
+BLOCKS[JACK_O_LANTERN]={name:"Jack o'Lantern",top:T.PUMPKIN_TOP,bottom:T.PUMPKIN_TOP,side:284};
 ['Meadow','Caverns','Lanterns','Stormchase'].forEach((n, i) => { ITEMS[DISC_1 + i] = { name: 'Music Disc - ' + n, icon: 184 + i }; });ITEMS[TRIDENT]={name:'Trident',icon:180,tool:{type:'trident',tier:3}};ITEMS[HONEYCOMB]={name:'Honeycomb',icon:178};BLOCKS[CAMPFIRE]={name:'Campfire',top:275,bottom:275,side:274};BLOCKS[SLIME_BLOCK]={name:'Slime Block',all:272};
 ITEMS[APPLE]={name:'Apple',icon:167,food:4};ITEMS[GOLDEN_APPLE]={name:'Golden Apple',icon:168,food:4};ITEMS[CARROT]={name:'Carrot',icon:169,food:3,plant:CARROT0};
 ITEMS[POTATO]={name:'Potato',icon:170,food:1,plant:POTATO0};ITEMS[BAKED_POTATO]={name:'Baked Potato',icon:171,food:5};ITEMS[MILK]={name:'Milk Bucket',icon:172};
@@ -1244,7 +1245,7 @@ const isDoor    = id => id === DOOR || id === DOORTOP;
 const isOpaque = id => !isFenceish(id) && id !== ANVIL && id !== AIR && id !== WATER && id !== GLASS && id !== LAVA && id !== PORTAL && id !== ENDPORTAL && id !== END_GATEWAY && id !== STORM_PORTAL && !isCross(id) && !isPartial(id) && !isDoor(id) && !isFlat(id);
 const isSolid  = id => id !== GATE_OPEN && id !== AIR && id !== WATER && id !== LAVA && id !== PORTAL && id !== ENDPORTAL && id !== END_GATEWAY && id !== STORM_PORTAL && !isCross(id) && !isDoor(id) && !isFlat(id);
 const isLiquid = id => id === WATER || id === LAVA;
-const emitsLight = id => id===GLOWCRYSTAL || id === LANTERN || id === CAMPFIRE || id === STORM_PORTAL || id === CONDUIT_LIT || id === VOLTITE_ORE || id === END_ROD || id === END_GATEWAY || id === CRYING_OBSIDIAN || id === ANCHOR_LIT || id === SHROOMLIGHT || id === MAGMA || isFire(id) || id === SOUL_TORCH || id === GLOWVINE || id === AMETHYST_C || id === AMBERLAMP || id === GLOWB || id === GLOWSTONE || id === LAVA || id === PORTAL || id === ENDPORTAL || id === ENDCRYSTAL;
+const emitsLight = id => id===GLOWCRYSTAL || id === JACK_O_LANTERN || id === LANTERN || id === CAMPFIRE || id === STORM_PORTAL || id === CONDUIT_LIT || id === VOLTITE_ORE || id === END_ROD || id === END_GATEWAY || id === CRYING_OBSIDIAN || id === ANCHOR_LIT || id === SHROOMLIGHT || id === MAGMA || isFire(id) || id === SOUL_TORCH || id === GLOWVINE || id === AMETHYST_C || id === AMBERLAMP || id === GLOWB || id === GLOWSTONE || id === LAVA || id === PORTAL || id === ENDPORTAL || id === ENDCRYSTAL;
 const occl     = id => isOpaque(id);
 function tileFor(id, face){
   const d = BLOCKS[id];
@@ -1410,6 +1411,7 @@ RECIPES.push({out:[SHIELD,1],in:[[ANY_PLANK,6],[IRONI,1]],st:'table'},{out:[ROD,
   {out:[COOKED_SALMON,1],in:[[SALMON,1],[COALI,1]],st:'furnace'});
 RECIPES.push({out:[CAKE,1],in:[[MILK,3],[SUGAR,2],[EGG,1],[WHEATITEM,3]],st:'table',back:[[BUCKET,3]]},{out:[SUGAR,1],in:[[REEDS,1]]},
   {out:[GOLDEN_APPLE,1],in:[[APPLE,1],[GOLDI,8]],st:'table'},{out:[BAKED_POTATO,1],in:[[POTATO,1],[COALI,1]],st:'furnace'});
+RECIPES.push({out:[JACK_O_LANTERN,1],in:[[CARVED_PUMPKIN,1],[TORCH,1]]});
 RECIPES.push({out:[ANVIL,1],in:[[IRONB,3],[IRONI,4]],st:'table'});
 RECIPES.push({out:[MAP,1],in:[[PAPER,8],[IRONI,1]],st:'table'},{out:[SHEARS,1],in:[[IRONI,2]],st:'table'},{out:[JUKEBOX,1],in:[[ANY_PLANK,8],[DIAMI,1]],st:'table'});
 RECIPES.push({out:[FENCE,3],in:[[ANY_PLANK,4],[STICK,2]],st:'table'},{out:[GATE,1],in:[[STICK,4],[ANY_PLANK,2]],st:'table'});
@@ -1793,6 +1795,13 @@ itemAtlas.width = 128; itemAtlas.height = 512;   // 256 icons
   put(262, (x, y, r) => {                                    // cake top: white icing, red dots
     const k = Math.floor((r() - 0.5) * 10);
     return ((x * 5 + y * 3) % 11 === 0 && x > 1 && x < 14 && y > 1 && y < 14) ? [210, 34, 44] : [248 + k / 2, 244 + k / 2, 240 + k / 2];
+  });
+  put(284, (x, y, r) => {                                   // jack o'lantern: the carved face, lit from inside
+    const k = Math.floor((r() - 0.5) * 14);
+    const eye = y >= 4 && y <= 6 && ((x >= 3 && x <= 5) || (x >= 10 && x <= 12));
+    const mouth = (y >= 9 && y <= 11 && x >= 3 && x <= 12) && !(y === 9 && (x === 5 || x === 10)) && !(y === 11 && (x === 3 || x === 12));
+    if(eye || mouth) return [255, 216 + k / 2, 90];
+    return x % 4 === 0 ? [176 + k, 100 + k, 24 + k] : [214 + k, 128 + k, 34 + k];
   });
   put(283, (x, y, r) => {                                   // anvil: dark hammered iron
     const k = Math.floor((r() - 0.5) * 18);
@@ -5193,7 +5202,7 @@ function emitLevel(id){
   if(id === AMBERLAMP || id === GLOWB || id === GLOWSTONE || id === ENDCRYSTAL) return 15;
   if(id === LAVA) return 13;
   if(id === TORCH) return 14;
-  if(id === LANTERN || id === CAMPFIRE) return 15;
+  if(id === LANTERN || id === CAMPFIRE || id === JACK_O_LANTERN) return 15;
   if(id === PORTAL) return 11;
   if(id === ENDPORTAL) return 12;
   return 0;
@@ -9568,6 +9577,7 @@ function useSpecial(o, d, hit, eh){
   if(useGate(hit)) return true;
   if(useJukebox(hit)) return true;
   if(useAnvil(hit)) return true;
+  if(carvePumpkin(hit)) return true;
   if(heldId() === TRIDENT) return throwTrident(o, d);
   if(held === ROD) return useRod(o, d);
   if(eggMob(held)) return useSpawnEgg(hit) || true;
@@ -10466,6 +10476,7 @@ function rayEntity(o, d, max){
   for(const q of shulkers) check(q);
   for(const q of seaLife) check(q);
   for(const q of bees) check(q);
+  for(const q of snowGolems) check(q);
   for(const b of sbullets){ const y = b.pos.y; b.pos.y -= 0.25; check(b); b.pos.y = y; }       // the boss is targetable
   return best && bt <= max ? { e: best, t: bt } : null;
 }
@@ -10540,6 +10551,7 @@ function punchEntity(e){
   if(e.kind === 'fireball'){ deflectFireball(e); return; }
   if(e.kind === 'sea'){ hurtSea(e, heldDamage()); damageTool(['sword', 'axe']); return; }
   if(e.kind === 'bee'){ hurtBee(e, heldDamage()); damageTool(['sword', 'axe']); return; }
+  if(e.kind === 'snowgolem'){ hurtSnowGolem(e, heldDamage()); return; }
   const dx = e.pos.x - player.pos.x, dz = e.pos.z - player.pos.z, l = Math.hypot(dx, dz) || 1;
   const heavy = e.kind === 'nether' && (e.type === 'ghast' || e.type === 'hoglin');
   e.vel.x += dx / l * (heavy ? 2 : 6); e.vel.z += dz / l * (heavy ? 2 : 6);
@@ -12864,6 +12876,7 @@ function doPlace(){
   triggerViewSwing();
   setBlock(x, y, z, held);
   blockSfx(held, 'place');
+  if(held === CARVED_PUMPKIN || held === JACK_O_LANTERN) tryBuildGolem(x, y, z);
   if(mode === 'survival'){
     const s = survInv[sel];
     s.count--;
@@ -13618,6 +13631,7 @@ function vrTryPlace(){
   triggerViewSwing();
   setBlock(x, y, z, held);
   blockSfx(held, 'place');
+  if(held === CARVED_PUMPKIN || held === JACK_O_LANTERN) tryBuildGolem(x, y, z);
   if(mode === 'survival'){
     const s = survInv[sel]; s.count--;
     if(s.count <= 0){ s.id = 0; s.count = 0; s.dur = 0; }
@@ -14893,6 +14907,122 @@ function updateBees(dt){
   hiveSaveT -= dt;
   if(hiveSaveT <= 0){ hiveSaveT = 10; if(hivesDirty) saveHives(); }
 }
+/* ============================== GOLEMS ==============================
+   Carve a pumpkin with shears. Put a carved pumpkin (or a jack o'lantern)
+   on two stacked snow blocks and a snow golem comes to life - it wanders,
+   leaves a trail of snow, and pelts monsters with snowballs. Put one on a
+   T of four iron blocks and you get an iron golem to guard you. */
+const snowGolems = [], snowballs = [];
+const sgMats = { snow: entMat(0xf4f8fc), pump: entMat(0xd88a22), face: entMat(0x3a2410), stick: entMat(0x6a4a2a) };
+function spawnSnowGolem(x, y, z){
+  const g = new THREE.Group();
+  box(0.7, 0.7, 0.7, sgMats.snow, 0, 0.35, 0, g);
+  box(0.5, 0.5, 0.5, sgMats.snow, 0, 0.95, 0, g);
+  const head = box(0.46, 0.46, 0.46, sgMats.pump, 0, 1.43, 0, g);
+  box(0.08, 0.08, 0.02, sgMats.face, -0.1, 1.5, -0.235, g); box(0.08, 0.08, 0.02, sgMats.face, 0.1, 1.5, -0.235, g);
+  box(0.26, 0.05, 0.02, sgMats.face, 0, 1.35, -0.235, g);
+  const arms = [];
+  for(const sx of [-1, 1]){ const a = box(0.5, 0.05, 0.05, sgMats.stick, sx * 0.45, 1.05, 0, g); a.rotation.z = sx * -0.5; arms.push(a); }
+  scene.add(g);
+  const e = { kind: 'snowgolem', group: g, head, arms, pos: new THREE.Vector3(x, y, z), vel: new THREE.Vector3(), w: 0.35, h: 1.7, hp: 4,
+              yaw: Math.random() * 6.28, speed: 0, t: 1, onGround: false, anim: 0, atkCd: 1, legs: [], trailT: 0, dim };
+  snowGolems.push(e);
+  return e;
+}
+function tryBuildGolem(x, y, z){
+  if(dim !== 0 && dim !== 3) return false;
+  const b1 = getBlock(x, y - 1, z), b2 = getBlock(x, y - 2, z);
+  if(b1 === SNOW && b2 === SNOW){
+    for(const dy of [0, 1, 2]){ setBlock(x, y - dy, z, AIR); burstRGB(x + 0.5, y - dy + 0.5, z + 0.5, 0.95, 0.97, 1, 10, 0.6); }
+    spawnSnowGolem(x + 0.5, y - 2, z + 0.5);
+    tone(700, 1100, 0.3, 'sine', 0.1); flashName('A snow golem!'); grantAdv('golem');
+    return true;
+  }
+  if(b1 === IRONB && b2 === IRONB){
+    for(const [dx, dz] of [[1, 0], [0, 1]]){
+      if(getBlock(x + dx, y - 1, z + dz) === IRONB && getBlock(x - dx, y - 1, z - dz) === IRONB){
+        for(const [ax, ay, az] of [[0, 0, 0], [0, -1, 0], [0, -2, 0], [dx, -1, dz], [-dx, -1, -dz]]){ setBlock(x + ax, y + ay, z + az, AIR); burstRGB(x + ax + 0.5, y + ay + 0.5, z + az + 0.5, 0.8, 0.8, 0.8, 8, 0.6); }
+        spawnGolem(x + 0.5, y - 2, z + 0.5, x, z);
+        tone(160, 90, 0.6, 'square', 0.12); flashName('An iron golem!'); grantAdv('golem');
+        return true;
+      }
+    }
+  }
+  return false;
+}
+const SG_FOES = () => [zombies, skeletons, spiders, creepers, netherMobs.filter(m => m.type === 'slime' || m.type === 'magma' || m.type === 'blaze' || m.type === 'wskel')];
+function updateSnowGolems(dt){
+  if(mobsFromHost()) return;
+  for(let i = snowGolems.length - 1; i >= 0; i--){
+    const e = snowGolems[i];
+    if(e.dim !== dim || e.pos.distanceToSquared(player.pos) > 140 * 140){ scene.remove(e.group); snowGolems.splice(i, 1); continue; }
+    // hot places melt them
+    const b = biomeAt(Math.floor(e.pos.x), Math.floor(e.pos.z));
+    if(dim === 1 || b === 'desert' || b === 'badlands' || b === 'savanna' || b === 'outback'){ e.hp -= dt * 0.5; if(Math.random() < dt * 4) burstRGB(e.pos.x, e.pos.y + 0.5, e.pos.z, 0.7, 0.85, 1, 1, 0.3); }
+    if(getBlock(Math.floor(e.pos.x), Math.floor(e.pos.y + 0.3), Math.floor(e.pos.z)) === WATER) e.hp -= dt;
+    if(e.hp <= 0){ burstRGB(e.pos.x, e.pos.y + 0.8, e.pos.z, 0.95, 0.97, 1, 20, 0.7); scene.remove(e.group); snowGolems.splice(i, 1); continue; }
+    // find something to throw at
+    let foe = null, fd = 12;
+    for(const l of SG_FOES()) for(const m of l){ if(m.hp <= 0) continue; const d = m.pos.distanceTo(e.pos); if(d < fd){ fd = d; foe = m; } }
+    if(foe){
+      const dx = foe.pos.x - e.pos.x, dz = foe.pos.z - e.pos.z;
+      e.yaw = Math.atan2(-dx, -dz); e.speed = fd > 6 ? 1.2 : 0;
+      e.atkCd -= dt;
+      if(e.atkCd <= 0 && fd < 11){
+        e.atkCd = 1;
+        const o = new THREE.Vector3(e.pos.x, e.pos.y + 1.3, e.pos.z), aim = new THREE.Vector3(foe.pos.x, foe.pos.y + (foe.h || 1.5) * 0.6 + fd * 0.06, foe.pos.z).sub(o).normalize();
+        const mesh = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.16, 0.16), sgMats.snow); mesh.position.copy(o); scene.add(mesh);
+        snowballs.push({ mesh, pos: o, vel: aim.multiplyScalar(18), age: 0 });
+        playN({ f: 1500, type: 'bandpass', dur: 0.08, vol: 0.06 });
+      }
+    } else {
+      e.t -= dt;
+      if(e.t <= 0){ e.t = 2 + Math.random() * 3; e.speed = Math.random() < 0.5 ? 0 : 0.9; e.yaw = Math.random() * 6.28; }
+      // stay near you if you wander off
+      const toP = e.pos.distanceTo(player.pos);
+      if(toP > 14 && toP < 60){ const dx = player.pos.x - e.pos.x, dz = player.pos.z - e.pos.z; e.yaw = Math.atan2(-dx, -dz); e.speed = 1.2; }
+    }
+    stepMob(e, dt, 24);
+    e.group.position.copy(e.pos);
+    let dyaw = ((e.yaw - e.group.rotation.y + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+    e.group.rotation.y += dyaw * Math.min(1, dt * 6);
+    e.anim += dt * (1 + e.speed * 4);
+    e.group.rotation.z = Math.sin(e.anim * 4) * 0.05 * Math.min(1, e.speed);                   // a waddle
+    // a trail of snow where it walks, in cool places
+    e.trailT -= dt;
+    if(e.trailT <= 0 && e.onGround && dim === 0 && !['desert', 'badlands', 'savanna', 'outback', 'jungle'].includes(b)){
+      e.trailT = 0.3;
+      const x = Math.floor(e.pos.x), y = Math.floor(e.pos.y), z = Math.floor(e.pos.z);
+      if(getBlock(x, y, z) === AIR && isSolid(getBlock(x, y - 1, z)) && isOpaque(getBlock(x, y - 1, z))) setBlock(x, y, z, SNOW_LAYER);
+    }
+  }
+  for(let i = snowballs.length - 1; i >= 0; i--){
+    const s = snowballs[i];
+    s.age += dt; s.vel.y -= 14 * dt;
+    s.pos.addScaledVector(s.vel, dt); s.mesh.position.copy(s.pos);
+    let hit = null;
+    for(const l of SG_FOES()) for(const m of l){ if(m.hp > 0 && Math.abs(m.pos.x - s.pos.x) < (m.w || 0.4) + 0.15 && Math.abs(m.pos.z - s.pos.z) < (m.w || 0.4) + 0.15 && s.pos.y > m.pos.y && s.pos.y < m.pos.y + (m.h || 1.8)){ hit = m; break; } }
+    if(hit){
+      hit.hp -= hit.type === 'blaze' ? 3 : 1;
+      if(hit.vel){ hit.vel.x += s.vel.x * 0.25; hit.vel.z += s.vel.z * 0.25; hit.vel.y = Math.max(hit.vel.y, 2.5); }
+      if(hit.kind === 'nether') hit.angry = Math.max(hit.angry || 0, 1);
+    }
+    if(hit || s.age > 3 || isSolid(getBlock(Math.floor(s.pos.x), Math.floor(s.pos.y), Math.floor(s.pos.z)))){
+      burstRGB(s.pos.x, s.pos.y, s.pos.z, 0.95, 0.97, 1, 5, 0.25);
+      scene.remove(s.mesh); snowballs.splice(i, 1);
+    }
+  }
+}
+function hurtSnowGolem(e, dmg){ e.hp -= dmg; burstRGB(e.pos.x, e.pos.y + 0.8, e.pos.z, 0.95, 0.97, 1, 6, 0.4); }
+/* ---- shears carve pumpkins ---- */
+function carvePumpkin(hit){
+  if(!hit || hit.id !== PUMPKIN || heldId() !== SHEARS) return false;
+  setBlock(hit.x, hit.y, hit.z, CARVED_PUMPKIN);
+  damageTool(['shears']);
+  playN({ f: 1200, type: 'bandpass', dur: 0.2, vol: 0.12 }); burstRGB(hit.x + 0.5, hit.y + 0.6, hit.z + 0.5, 0.9, 0.55, 0.15, 8, 0.4);
+  triggerViewSwing();
+  return true;
+}
 /* =============================== ANVIL ===============================
    An anvil (3 iron blocks + 4 iron) mends what you're holding. Use it with
    a worn tool: if you carry a second one of the same kind the two are
@@ -16021,6 +16151,7 @@ const ADVANCEMENTS = [
   { ch: 'Overworld', id: 'trident', title: 'A Throwaway Joke', how: 'Get a trident from a drowned (they rise out of deep water at night) and throw it at something.', icon: TRIDENT, check: () => false },
   { ch: 'Overworld', id: 'juke', title: 'Sound of Music', how: 'Craft a jukebox (8 planks, 1 diamond) and play a music disc from a dungeon chest or a creeper.', icon: JUKEBOX, check: () => false },
   { ch: 'Overworld', id: 'anvil', title: 'Good as New', how: 'Mend a worn tool at an anvil (3 iron blocks + 4 iron) with its material and some experience.', icon: ANVIL, check: () => false },
+  { ch: 'Overworld', id: 'golem', title: 'Hired Help', how: "Carve a pumpkin with shears and put it on two snow blocks (or a T of four iron blocks).", icon: CARVED_PUMPKIN, check: () => false },
   { ch: 'Overworld', id: 'tame', title: 'Best Friends Forever', how: 'Feed bones (from skeletons) to a wild wolf until it wears a red collar.', icon: BONE, check: () => false },
   { ch: 'Overworld', id: 'obsidian', title: 'Hot Stuff', how: 'Pour water on a lava source, then mine the obsidian with a diamond pickaxe.', icon: OBSIDIAN, check: () => hasItem(OBSIDIAN) },
   { ch: 'Nether', id: 'nether', title: 'We Need to Go Deeper', how: 'Build a 4 wide, 5 tall obsidian frame and light it with flint & steel.', icon: NETHERRACK, check: () => dim === 1 },
@@ -16199,6 +16330,7 @@ function animate(){
   updateBees(dt);
   updateJukes(dt);
   updateMap(dt);
+  if(inGame) updateSnowGolems(dt);
   if(inGame && ((xpT = (xpT || 0) - dt) <= 0)){ xpT = 1; renderXP(); }
   updateAmbience(dt);
   checkMusicMood(dt);
@@ -16550,6 +16682,7 @@ window.__bc = {
             fx: { clearInv: () => { for(const q of survInv){ q.id = 0; q.count = 0; q.dur = 0; } renderHotbar(); }, effects, drink: id => drinkPotion(id), step: dt => updateEffects(dt), light: lightAtPlayer, mood: () => musicMood(), sub: showSubtitle, POTIONS },
             xp: { add: addXP, level: () => xpLevel, points: () => xpPoints, drop: dropXP, orbs: xpOrbs, offers: enchantOffers, enchant: doEnchant, setTable: t => { enchantAt = t; }, heldEnch, stackName, armourEnch },
             fence: { gate: useGate },
+            golem: { build: tryBuildGolem, snow: snowGolems, step: dt => updateSnowGolems(dt), carve: carvePumpkin, balls: snowballs },
             anvil: { use: useAnvil, mat: repairMaterial, slot: i => survInv[i] },
             map: { step: dt => updateMap(dt), canvas: mapShow, base: mapBase },
             juke: { use: useJukebox, list: jukes, step: dt => updateJukes(dt), DISCS },
