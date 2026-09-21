@@ -176,6 +176,7 @@
   <button class="mcbtn" id="btnMusic">Music: On</button>
   <button class="mcbtn" id="btnRender">Render Distance: 5</button>
   <button class="mcbtn" id="btnVignette">VR Comfort: On</button>
+  <button class="mcbtn" id="btnMove">VR Movement: Thumbstick</button>
   <button class="mcbtn" id="btnQuit">Save &amp; Quit to Title</button>
   <div class="ctrl">
     <div><b>W A S D</b> move</div><div><b>Mouse</b> look</div>
@@ -3391,7 +3392,7 @@ function physics(dt){
     v.z += (tz - v.z) * k;
   } else if(!inWater && !p.fly){
     // light ground friction in VR so you coast to a stop when the stick centers
-    if(p.onGround){ v.x *= Math.max(0, 1 - dt * 6); v.z *= Math.max(0, 1 - dt * 6); }
+    if(p.onGround && !p.gorillaHold){ v.x *= Math.max(0, 1 - dt * 6); v.z *= Math.max(0, 1 - dt * 6); }
   }
   if(p.fly && !xrActive){
     const vt = (key('Space') ? speed : 0) + (key('ShiftLeft') ? -speed : 0);
@@ -3401,12 +3402,12 @@ function physics(dt){
     const [cx,cz]=waterCurrent(Math.floor(p.pos.x),Math.floor(p.pos.y+.2),Math.floor(p.pos.z));v.x+=cx*dt*.8;v.z+=cz*dt*.8;
     v.y += (((key('Space') || (xrActive&&readButtons('right')?.[4]?.pressed)) ? 3.4 : (xrActive&&readButtons('right')?.[5]?.pressed)?-3.2:-.65) - v.y) * Math.min(1, dt * 3);
   } else {
-    v.y -= 28 * dt;
+    if(!p.gorillaHold) v.y -= (xrActive && vrMoveMode === 'gorilla' ? GORILLA_G : 28) * dt;
     if(v.y < -55) v.y = -55;
     if(key('Space') && p.onGround) v.y = 8.6;
   }
   stepEntity(p, dt);
-  if(p.fly || inWater) fallPeak = p.pos.y;
+  if(p.fly || inWater || p.gorillaHold) fallPeak = p.pos.y;   // hanging on is not falling
   else if(!p.onGround) fallPeak = Math.max(fallPeak, p.pos.y);
   if(p.onGround){
     const d = fallPeak - p.pos.y;
@@ -7870,7 +7871,14 @@ function buildCraftPanel(){
     }
   } else {
     const lines=['X (left controller): open / close inventory','Point RIGHT controller + trigger: select menu buttons','Inventory: select backpack item, then a hotbar slot to equip','Crafting: select recipe, then Craft or Craft & equip','Right grip: place / use / eat food / fill or pour bucket','Right trigger: hold to mine / attack','Wrist: point + trigger on a slot to equip; Inventory opens all items','A: jump / swim up / fly up • B: swim down / fly down / close menu','Left stick click: sprint / flight boost • Right stick click: flight • Y: crouch'];
-    lines.forEach((line,i)=>text(line,50,220+i*49,25,'#333333',1330));
+    lines.forEach((line,i)=>text(line,50,215+i*44,25,'#333333',1330));
+    const gorilla=vrMoveMode==='gorilla';
+    button(50,612,520,70,gorilla?'Movement: Gorilla':'Movement: Thumbstick',()=>{
+      setVrMoveMode(gorilla?'stick':'gorilla');
+      vrMenuStatus=vrMoveMode==='gorilla'?'Gorilla movement: slap a block and push. The stick only turns.':'Thumbstick movement.';
+      buildCraftPanel();
+    },true,gorilla);
+    text(gorilla?'Plant a hand on any block and push. Let go mid-swing to fly.':'Select to swap to Gorilla Tag style arm movement.',600,647,23,'#454545',800);
   }
   text('HOTBAR — select a slot to hold its item',35,726,23,'#454545');
   for(let i=0;i<9;i++)slot(i,35+i*152,755);
@@ -8191,6 +8199,116 @@ function updateDebug(){
   drawDebug();
 }
 
+/* ---- Gorilla locomotion ------------------------------------------------
+   An optional way to get about, after Gorilla Tag. There is no stick
+   walking: plant a hand on any block and the world stays put, so pushing
+   moves you instead. Pull along the ground to run, shove down to leap,
+   grab a wall or a tree to climb, and let go mid-swing to keep going. */
+const MOVE_KEY = 'blockcraft-vr-move';
+let vrMoveMode = localStorage.getItem(MOVE_KEY) === 'gorilla' ? 'gorilla' : 'stick';
+function setVrMoveMode(m){
+  vrMoveMode = m === 'gorilla' ? 'gorilla' : 'stick';
+  try { localStorage.setItem(MOVE_KEY, vrMoveMode); } catch(e){}
+  gorillaReset();
+  const b = document.getElementById('btnMove');
+  if(b) b.textContent = 'VR Movement: ' + (vrMoveMode === 'gorilla' ? 'Gorilla' : 'Thumbstick');
+}
+const GORILLA_G = 16;            // floatier than walking gravity, so a good shove carries
+const GORILLA_THROW = 1.25;      // let go mid-swing and keep a little more than you put in
+const GORILLA_MAX = 9;           // fastest a throw can send you, m/s
+const GORILLA_STEP = 0.35;       // most one frame may move you, so you never tunnel
+const GORILLA_LET_GO = 0.35;     // m/s pulling off a surface that counts as letting go
+const GORILLA_FLOOR = 0.25;      // game ground sits this far above your real floor
+const gHands = [{ prev: null, anchor: null, n: null, tapT: 0 },
+                { prev: null, anchor: null, n: null, tapT: 0 }];
+const gHist = [];                // body velocity over the last few frames of pushing
+let gYaw = 0, gWasHolding = false;
+const _gHead = new THREE.Vector3();
+function gorillaReset(){
+  for(const h of gHands){ h.prev = null; h.anchor = null; h.n = null; }
+  gHist.length = 0; gWasHolding = false; player.gorillaHold = false;
+}
+function gorillaActive(swimming){
+  return xrActive && vrMoveMode === 'gorilla' && !player.fly && !riding && !swimming && !dead;
+}
+/* The first solid face a hand crosses going from a to b - a voxel walk
+   like raycast(), but only solid blocks catch a hand, not flowers or water. */
+function handSweep(a, b){
+  const dx = b.x - a.x, dy = b.y - a.y, dz = b.z - a.z, len = Math.hypot(dx, dy, dz);
+  let x = Math.floor(a.x), y = Math.floor(a.y), z = Math.floor(a.z);
+  if(len < 1e-5 || isSolid(getBlock(x, y, z))) return null;   // buried: wait for it to come out
+  const ux = dx / len, uy = dy / len, uz = dz / len, reach = len + 0.02;
+  const sx = ux > 0 ? 1 : -1, sy = uy > 0 ? 1 : -1, sz = uz > 0 ? 1 : -1;
+  const ax = Math.max(Math.abs(ux), 1e-9), ay = Math.max(Math.abs(uy), 1e-9), az = Math.max(Math.abs(uz), 1e-9);
+  let tX = (sx > 0 ? x + 1 - a.x : a.x - x) / ax;
+  let tY = (sy > 0 ? y + 1 - a.y : a.y - y) / ay;
+  let tZ = (sz > 0 ? z + 1 - a.z : a.z - z) / az;
+  for(let i = 0; i < 16; i++){
+    let t, n;
+    if(tX < tY && tX < tZ){ x += sx; t = tX; tX += 1 / ax; n = [-sx, 0, 0]; }
+    else if(tY < tZ)       { y += sy; t = tY; tY += 1 / ay; n = [0, -sy, 0]; }
+    else                   { z += sz; t = tZ; tZ += 1 / az; n = [0, 0, -sz]; }
+    if(t > reach) return null;
+    const id = getBlock(x, y, z);
+    if(isSolid(id)){
+      const n3 = new THREE.Vector3(n[0], n[1], n[2]);
+      const point = new THREE.Vector3(a.x + ux * t, a.y + uy * t, a.z + uz * t).addScaledVector(n3, 0.005);
+      return { id, n: n3, point };
+    }
+  }
+  return null;
+}
+function gorillaStep(dt){
+  if(dt <= 0) return;
+  xrRig.updateMatrixWorld(true);
+  camera.getWorldPosition(_gHead);
+  const turned = xrRig.rotation.y !== gYaw;      // a snap turn swings both hands round: start afresh
+  gYaw = xrRig.rotation.y;
+  const push = new THREE.Vector3();
+  let holds = 0;
+  [leftCtrl, rightCtrl].forEach((c, i) => {
+    const h = gHands[i], hand = i ? 'right' : 'left';
+    h.tapT -= dt;
+    if(renderer.xr.isPresenting && !c.userData.inputSource){ h.prev = null; h.anchor = null; return; }
+    const cur = c.getWorldPosition(new THREE.Vector3());
+    if(turned || !h.prev || cur.distanceTo(_gHead) > 1.4){ h.prev = cur; h.anchor = null; return; }
+    if(h.anchor){
+      const m = cur.clone().sub(h.anchor);
+      if(m.dot(h.n) / dt > GORILLA_LET_GO || m.length() > 0.6) h.anchor = null;   // pulled away
+    }
+    if(!h.anchor){
+      // the hand's whole path since last frame, body motion included - so
+      // flying into a wall slaps a hand onto it, just like the real thing
+      const hit = handSweep(h.prev, cur);
+      if(hit){
+        h.anchor = hit.point; h.n = hit.n;
+        hapticPulse(hand, 0.35, 22);
+        if(h.tapT <= 0){ blockSfx(hit.id, 'step'); h.tapT = 0.12; }
+      }
+    }
+    if(h.anchor){ push.add(h.anchor.clone().sub(cur)); holds++; h.prev = h.anchor.clone(); }
+    else h.prev = cur;
+  });
+  player.gorillaHold = holds > 0;
+  if(holds){
+    // the planted hand stays put in the world, so the body goes the other way
+    push.divideScalar(holds);
+    if(push.length() > GORILLA_STEP) push.setLength(GORILLA_STEP);
+    player.vel.set(push.x / dt, push.y / dt, push.z / dt);
+    gHist.push(player.vel.clone());
+    if(gHist.length > 6) gHist.shift();
+  } else if(gWasHolding && gHist.length){
+    // let go: the swing carries on
+    const v = new THREE.Vector3();
+    gHist.forEach(s => v.add(s));
+    v.divideScalar(gHist.length).multiplyScalar(GORILLA_THROW);
+    if(v.length() > GORILLA_MAX) v.setLength(GORILLA_MAX);
+    player.vel.copy(v);
+    gHist.length = 0;
+  }
+  gWasHolding = holds > 0;
+}
+
 function updateVR(dt){
   bindVRHands();
   vrBuildTool();
@@ -8200,7 +8318,10 @@ function updateVR(dt){
   // keep the rig at the player's feet; XR moves the camera within it
   const p = player.pos;
   if(vrHeightOffset === null && camera.position.y > 0.3) vrHeightOffset = player.eye - camera.position.y;
-  xrRig.position.set(p.x, p.y + (vrHeightOffset || 0) - (player.crouchDrop || 0), p.z);
+  // gorilla mode is true to scale, with the ground a hand-span above your real
+  // floor so a bend reaches it; otherwise your eyes sit at the player's eye
+  const rigLift = vrMoveMode === 'gorilla' && !player.fly ? -GORILLA_FLOOR : (vrHeightOffset || 0);
+  xrRig.position.set(p.x, p.y + rigLift - (player.crouchDrop || 0), p.z);
   // place the body under the headset, facing the head's yaw (rig-local space)
   const xrCamB = renderer.xr.getCamera();
   xrRig.updateMatrixWorld(true);
@@ -8209,8 +8330,8 @@ function updateVR(dt){
   const eB = new THREE.Euler().setFromQuaternion(camera.quaternion, 'YXZ');
   vrBody.rotation.y = eB.y;   // rig already rotates by yawOffset
   updateWristHotbar();
-  if(vrMenuInput(dt)){ updateAvatarArms(); updateVignette(dt, false); return; }
-  if(dead){ updateAvatarArms(); updateVignette(dt, false); return; }
+  if(vrMenuInput(dt)){ gorillaReset(); updateAvatarArms(); updateVignette(dt, false); return; }
+  if(dead){ gorillaReset(); updateAvatarArms(); updateVignette(dt, false); return; }
 
   // right thumbstick: X = snap turn (comfort), Y = cycle hotbar
   const ra = readAxes('right');
@@ -8251,10 +8372,16 @@ function updateVR(dt){
   const magnitude=Math.max(1,Math.hypot(dx,dz));
   const wishX = (fwdX * -dz + rgtX * dx)/magnitude, wishZ = (fwdZ * -dz + rgtZ * dx)/magnitude;
   const crouchMul = vrCrouch ? 0.5 : 1;
-  player.vel.x += (wishX * speed * crouchMul - player.vel.x) * Math.min(1, dt * 10);
-  player.vel.z += (wishZ * speed * crouchMul - player.vel.z) * Math.min(1, dt * 10);
-  // comfort: tunnel vision while the stick is driving us, ease it off when we stop
-  updateVignette(dt, dx !== 0 || dz !== 0);
+  if(gorillaActive(swimming)){
+    gorillaStep(dt);                 // your arms drive you; the stick only turns
+    updateVignette(dt, false);
+  } else {
+    gorillaReset();                  // flying, swimming or riding: back on the stick
+    player.vel.x += (wishX * speed * crouchMul - player.vel.x) * Math.min(1, dt * 10);
+    player.vel.z += (wishZ * speed * crouchMul - player.vel.z) * Math.min(1, dt * 10);
+    // comfort: tunnel vision while the stick is driving us, ease it off when we stop
+    updateVignette(dt, dx !== 0 || dz !== 0);
+  }
 
   // ---- jump (right A/X button, index 4) & fly-up ----
   const rb = readButtons('right');
@@ -8362,7 +8489,7 @@ renderer.xr.addEventListener('sessionstart', () => {
 renderer.xr.addEventListener('sessionend', () => {
   xrActive = false;
   RD=Math.min(7,Math.max(2,parseInt(localStorage.getItem(QUEST_DEVICE?'blockcraft-vr-rd':'blockcraft-rd'))||(QUEST_DEVICE?3:5)));curPC=null;applySkyForDim();btnRender.textContent='Render Distance: '+RD;
-  vrSelectHeld = vrTrigWas = vrGripWas = false; resetMine();
+  vrSelectHeld = vrTrigWas = vrGripWas = false; resetMine(); gorillaReset();
   player.crouchDrop = 0; player.crouching = false;
   xrRig.visible = false;
   vrBody.visible = false; wristPanel.visible = false;
@@ -8597,6 +8724,13 @@ btnVignette.addEventListener('click', () => {
   uiClick();
 });
 
+/* VR movement: thumbstick or gorilla arms */
+document.getElementById('btnMove').textContent = 'VR Movement: ' + (vrMoveMode === 'gorilla' ? 'Gorilla' : 'Thumbstick');
+document.getElementById('btnMove').addEventListener('click', () => {
+  setVrMoveMode(vrMoveMode === 'gorilla' ? 'stick' : 'gorilla');
+  uiClick();
+});
+
 /* world selector */
 const worldsEl = document.getElementById('worlds');
 function playSeed(s){
@@ -8760,6 +8894,8 @@ window.__bc = {
   harvestState: () => harvest && Object.assign({}, harvest),
   tickLeaves: () => { const t = performance.now()/1000; tickLeafDecay(t); tickSaplings(t); },
   sapForLog: id => SAPLING_FOR_LOG[id], leafQueueSize: () => leafQueue.size,
+  gorilla: { step: dt => gorillaStep(dt), reset: () => gorillaReset(), hands: gHands, setMode: m => setVrMoveMode(m),
+             mode: () => vrMoveMode, setXr: on => { xrActive = on; }, rig: xrRig, ctrls: () => [leftCtrl, rightCtrl] },
   setMode: m => { mode = m; inGame = true; applyMode(); },
   setTime: t => { timeOfDay = t; },
   breakAt: (x, y, z) => breakBlock(x, y, z, getBlock(x, y, z)),
