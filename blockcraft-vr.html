@@ -849,7 +849,7 @@ const PURPUR=335, PURPUR_PILLAR=336, ENDSTONE_BRICK=337, END_ROD=338, CHORUS_PLA
 const STORMSTONE=347, SKYGRASS=348, CLOUD=349, VOLTITE_ORE=350, STORM_PORTAL=351, CONDUIT=352, CONDUIT_LIT=353, STORM_BRICK=354;
 const STORMKEY_I=391, VOLTITE=392, TEMPEST_HEART=393, STORMBREAKER=394, VOLT_PICK=395;
 /* Brewing */
-const BREWING=355, BOAB_LOG=356;
+const BREWING=355, BOAB_LOG=356, ENCH_TABLE=357;
 const GLASS_BOTTLE=396, WATER_BOTTLE=397, AWKWARD=398, POT_HEAL=399, POT_FIRE=400, POT_STR=401, POT_SPEED=402,
       POT_REGEN=403, POT_NIGHT=404, POT_SLOW=405;
 // what each potion does, for how long (seconds), and its colour
@@ -1090,7 +1090,7 @@ BLOCKS[CRYING_OBSIDIAN]={name:'Crying Obsidian',all:241};
 BLOCKS[STORMSTONE]={name:'Stormstone',all:246};BLOCKS[SKYGRASS]={name:'Skygrass',top:247,bottom:246,side:248};BLOCKS[CLOUD]={name:'Cloud',all:249};
 BLOCKS[VOLTITE_ORE]={name:'Voltite Ore',all:250};BLOCKS[STORM_PORTAL]={name:'Storm Portal',all:251};
 BLOCKS[CONDUIT]={name:'Storm Conduit',all:252};BLOCKS[CONDUIT_LIT]={name:'Armed Storm Conduit',all:253};BLOCKS[STORM_BRICK]={name:'Stormstone Bricks',all:254};
-BLOCKS[BREWING]={name:'Brewing Stand',all:255};BLOCKS[BOAB_LOG]={name:'Boab Log',top:257,bottom:257,side:256};
+BLOCKS[BREWING]={name:'Brewing Stand',all:255};BLOCKS[ENCH_TABLE]={name:'Enchanting Table',top:258,bottom:65,side:259};BLOCKS[BOAB_LOG]={name:'Boab Log',top:257,bottom:257,side:256};
 BLOCKS[ANCHOR]={name:'Respawn Anchor',top:243,bottom:242,side:242};BLOCKS[ANCHOR_LIT]={name:'Respawn Anchor',top:244,bottom:242,side:245};
 BLOCKS[MOSS]={name:'Moss Block',all:171};BLOCKS[AZALEA]={name:'Azalea',all:172};BLOCKS[AZALEA_F]={name:'Flowering Azalea',all:173};
 BLOCKS[GLOWVINE]={name:'Glow Berries',all:174};BLOCKS[CAVEVINE]={name:'Cave Vines',all:175};BLOCKS[DRIPLEAF]={name:'Small Dripleaf',all:176};
@@ -1175,22 +1175,26 @@ const ARMOUR_SETS=[{name:'Leather',material:LEATHER,color:0x986444,points:[1,3,2
   {name:'Netherite',material:NETHERITE,color:0x4a4046,points:[3,8,6,3],base:NETH_ARMOUR,icon:87,upgrade:208}];
 const armourSetOf=id=>ARMOUR_SETS.findIndex(s=>id>=s.base&&id<s.base+4);
 const armour={helmet:0,chestplate:0,leggings:0,boots:0};
+const armourEnch=(()=>{try{return JSON.parse(localStorage.getItem(SAVE_KEY+'-armourench'))||{};}catch(e){return {};}})();
+const saveArmourEnch=()=>{try{localStorage.setItem(SAVE_KEY+'-armourench',JSON.stringify(armourEnch));}catch(e){}};
 ARMOUR_SETS.forEach((set,t)=>ARMOUR_SLOTS.forEach((slot,j)=>{ITEMS[set.base+j]={name:set.name+' '+slot[0].toUpperCase()+slot.slice(1),icon:set.icon+j,armour:{slot,points:set.points[j],color:set.color}};}));
 ITEMS[ELYTRA]={name:'Elytra',icon:94,armour:{slot:'chestplate',points:0,color:0x8a8aa8}};
-function armourProtection(){return Math.min(armour.chestplate>=NETH_ARMOUR&&armour.chestplate<NETH_ARMOUR+4?.85:.8,Object.values(armour).reduce((sum,id)=>sum+(ITEMS[id]?.armour?.points||0),0)*.04);}
+function armourProtection(){return Math.min(armour.chestplate>=NETH_ARMOUR&&armour.chestplate<NETH_ARMOUR+4?.85:.8,Object.values(armour).reduce((sum,id)=>sum+(ITEMS[id]?.armour?.points||0),0)*.04
+  +Object.keys(armour).reduce((sum,k)=>sum+(armour[k]&&armourEnch[k]?.protection||0)*.03,0));}
 function equipArmour(){
  const id=heldId(),info=ITEMS[id]?.armour;if(!info)return false;
- const previous=armour[info.slot];
+ const previous=armour[info.slot],prevEnch=armourEnch[info.slot];let newEnch=null;
  if(mode==='survival'){
-   const stack=survInv[sel];
-   if(stack.count===1){stack.id=previous;stack.count=previous?1:0;stack.dur=0;}
+   const stack=survInv[sel];newEnch=stack.ench||null;
+   if(stack.count===1){stack.id=previous;stack.count=previous?1:0;stack.dur=0;stack.ench=prevEnch||undefined;}
    else {if(previous&&!addItem(previous,true)){vrMenuStatus='Make room for your old armour.';return true;}stack.count--;}
  }
- armour[info.slot]=id;invDirty=true;renderHotbar();updateArmourModel();saveNow();flashName('Equipped '+nameOf(id));return true;
+ armour[info.slot]=id;armourEnch[info.slot]=newEnch;saveArmourEnch();invDirty=true;renderHotbar();updateArmourModel();saveNow();flashName('Equipped '+nameOf(id));return true;
 }
 function removeArmour(slot){
  const id=armour[slot];if(!id)return;
  if(mode==='survival'&&!addItem(id,true)){vrMenuStatus='Inventory full: make space first.';return;}
+ const e=armourEnch[slot];if(e&&mode==='survival'){const q=survInv.find(q=>q.id===id&&q.count===1&&!q.ench);if(q)q.ench=e;}armourEnch[slot]=null;saveArmourEnch();
  armour[slot]=0;invDirty=true;updateArmourModel();renderHotbar();saveNow();
 }
 const nameOf = id => BLOCKS[id]?.name || ITEMS[id]?.name || 'Empty';
@@ -1235,6 +1239,7 @@ const dropOf = id => id===SKYGRASS?STORMSTONE:id===VOLTITE_ORE?VOLTITE:id===COND
 function toolClassOf(id){
   if([STORMSTONE,VOLTITE_ORE,STORM_BRICK,CONDUIT,CONDUIT_LIT].includes(id)) return 'pick';
   if(id === SKYGRASS || id === CLOUD) return 'shovel';
+  if(id === ENCH_TABLE) return 'pick';
   if([PURPUR,PURPUR_PILLAR,ENDSTONE_BRICK,ENDSTONE,CRYING_OBSIDIAN,ANCHOR,ANCHOR_LIT].includes(id)) return 'pick';
   if(id === CHORUS_PLANT || id === CHORUS_FLOWER) return 'axe';
   if([NETHERRACK,NBRICK,SLAB_NBRICK,STAIR_NBRICK,OBSIDIAN,CRIM_NYL,WARP_NYL,BASALT_N,BLACKSTONE,BSTONE_BRICK,GILDED,MAGMA,
@@ -1372,7 +1377,7 @@ RECIPES.push({out:[COPPERI,1],in:[[COPPERO,1],[COALI,1]],st:'furnace'},{out:[COP
 RECIPES.push({out:[STORMKEY_I,1],in:[[NETHERITE,1],[EYE_ENDER,1],[COPPERI,4]],st:'table'},
   {out:[STORMBREAKER,1],in:[[NSWORD,1],[TEMPEST_HEART,1],[VOLTITE,4]],st:'table'},{out:[VOLT_PICK,1],in:[[NPICK,1],[VOLTITE,6]],st:'table'},
   {out:[STORM_BRICK,4],in:[[STORMSTONE,4]]},{out:[CONDUIT,1],in:[[COPPERB,1],[VOLTITE,2]],st:'table'});
-RECIPES.push({out:[GUMPLANK,4],in:[[BOAB_LOG,1]]});
+RECIPES.push({out:[GUMPLANK,4],in:[[BOAB_LOG,1]]},{out:[ENCH_TABLE,1],in:[[DIAMI,2],[OBSIDIAN,4],[BOOKSHELF,1]],st:'table'});
 RECIPES.push({out:[BREWING,1],in:[[BLAZEROD,1],[STONE,3]],st:'table'},{out:[GLASS_BOTTLE,3],in:[[GLASS,3]]},
   {out:[AWKWARD,1],in:[[WATER_BOTTLE,1],[NWART,1]],st:'brew'},
   {out:[POT_HEAL,1],in:[[AWKWARD,1],[MELONSLICE,1],[GNUGGET,4]],st:'brew'},{out:[POT_FIRE,1],in:[[AWKWARD,1],[MAGMACREAM,1]],st:'brew'},
@@ -2755,6 +2760,30 @@ const tileAvg = [];
     }
   });
 }
+/* ---- the enchanting table: a red cloth with diamond corners, over obsidian ---- */
+{
+  const ctx = atlas.getContext('2d');
+  const paint = (ti, fn) => {
+    const img = ctx.createImageData(16, 16);
+    for(let y = 0; y < 16; y++) for(let x = 0; x < 16; x++){
+      const [r, g, b] = fn(x, y), o = (y * 16 + x) * 4;
+      img.data[o] = r; img.data[o + 1] = g; img.data[o + 2] = b; img.data[o + 3] = 255;
+    }
+    ctx.putImageData(img, (ti % 8) * 16, ((ti / 8) | 0) * 16);
+  };
+  paint(258, (x, y) => {
+    const corner = (x < 3 || x > 12) && (y < 3 || y > 12);
+    if(corner) return (x + y) % 2 ? [90, 220, 210] : [160, 250, 240];            // diamond corners
+    if(x === 0 || y === 0 || x === 15 || y === 15) return [30, 20, 40];
+    const d = Math.abs(x - 7.5) + Math.abs(y - 7.5);
+    return d < 3 ? [60, 30, 30] : hash(x, y, 8601) < 0.1 ? [200, 60, 60] : [160, 32, 36];   // red cloth, a dark book in the middle
+  });
+  paint(259, (x, y) => {
+    if(y < 4) return y === 3 ? [100, 20, 26] : [160, 32, 36];                       // cloth hanging over the edge
+    const v = hash(x, y, 8603);
+    return v < 0.06 ? [120, 70, 160] : v < 0.5 ? [22, 16, 32] : [32, 24, 46];          // obsidian flecked with violet
+  });
+}
 /* ---- the boab: smooth, wrinkled grey-pink bark ---- */
 {
   const ctx = atlas.getContext('2d');
@@ -3052,7 +3081,7 @@ function packChests(obj){
     const slots = obj[k];
     if(!Array.isArray(slots)) continue;
     const row = [slots.length];
-    slots.forEach((q, i) => { if(q && q.id && q.count > 0) row.push(q.dur ? [i, q.id, q.count, q.dur] : [i, q.id, q.count]); });
+    slots.forEach((q, i) => { if(q && q.id && q.count > 0) row.push(q.ench ? [i, q.id, q.count, q.dur || 0, q.ench] : q.dur ? [i, q.id, q.count, q.dur] : [i, q.id, q.count]); });
     out[k] = row;
   }
   return 'C1' + JSON.stringify(out);
@@ -3064,7 +3093,7 @@ function unpackChests(str){
   for(const k in raw){
     const [n, ...rest] = raw[k];
     const slots = Array.from({ length: n }, () => ({ id: 0, count: 0, dur: 0 }));
-    for(const [i, id, count, dur] of rest) if(slots[i]) slots[i] = { id, count, dur: dur || 0 };
+    for(const [i, id, count, dur, ench] of rest) if(slots[i]) slots[i] = { id, count, dur: dur || 0, ench: ench || undefined };
     out[k] = slots;
   }
   return out;
@@ -3179,7 +3208,7 @@ try { chests = unpackChests(localStorage.getItem(CHEST_KEY)); } catch(e){ chests
   } catch(e){ /* a failed migration must never block the game starting */ }
 })();
 let survInv;
-try { survInv = (JSON.parse(localStorage.getItem(INV_KEY)) || []).map(s => ({ id: s[0] | 0, count: s[1] | 0, dur: s[2] | 0 })); } catch(e){}
+try { survInv = (JSON.parse(localStorage.getItem(INV_KEY)) || []).map(s => ({ id: s[0] | 0, count: s[1] | 0, dur: s[2] | 0, ench: s[3] || undefined })); } catch(e){}
 if(!survInv || (survInv.length !== 9 && survInv.length !== 36)) survInv = [];
 while(survInv.length < 36) survInv.push({ id: 0, count: 0, dur: 0 });   // 9 hotbar + 27 backpack
 /* The strange biomes first gave their logs, planks, leaves and turf ids
@@ -3233,7 +3262,7 @@ document.getElementById('resetBtn').addEventListener('click', () => {
 });
 function saveNow(){
   saveFailed = false;
-  safeSet(INV_KEY, JSON.stringify(survInv.map(s => [s.id, s.count, s.dur])));
+  safeSet(INV_KEY, JSON.stringify(survInv.map(s => s.ench && s.count > 0 ? [s.id, s.count, s.dur, s.ench] : [s.id, s.count, s.dur])));
   safeSet(SAVE_KEY + '-armour', JSON.stringify(armour));
   safeSet(SAVE_KEY + '-vitals', JSON.stringify({ hunger, saturation }));
   safeSet(SAVE_KEY + '-doors', JSON.stringify([...doorState]));
@@ -5467,7 +5496,7 @@ function physics(dt){
       const u = getBlock(Math.floor(p.pos.x), Math.floor(p.pos.y - 0.5), Math.floor(p.pos.z));
       if(u && u !== WATER) blockSfx(u, 'land');
     }
-    if(d > 3.5) damage(Math.floor(d - 3));
+    if(d > 3.5) damage(Math.floor((d - 3) * (1 - 0.12 * (armour.boots && armourEnch.boots?.feather || 0))));   // Feather Falling softens it
     fallPeak = p.pos.y;
   }
   // cactus contact damage
@@ -5822,6 +5851,7 @@ function damage(n){
 let bedSpawn = null;                       // {x,y,z} or null -> world SPAWN
 try { const bs = JSON.parse(localStorage.getItem(SAVE_KEY + '-bed')); if(bs && typeof bs.x === 'number') bedSpawn = bs; } catch(e){}
 function respawn(){
+  xpPoints = 0; xpLevel = 0; saveXP();   // experience is lost on death
   for(const k in effects) effects[k] = 0;
   hp = 20; dead = false; hunger=20;saturation=8;exhaustion=0;starveT=0;invDirty=true;
   renderHearts();
@@ -6418,6 +6448,7 @@ function spawnEnderman(x, y, z){
 }
 function killEnderman(i){
   const e = endermen[i];
+  dropXP(e.pos.x, e.pos.y + 1, e.pos.z, 5);
   burstRGB(e.pos.x, e.pos.y + 1.2, e.pos.z, 0.55, 0.25, 0.75, 14);
   monsterCall(e,'die');
   if(mode === 'survival') spawnDropAt(e.pos.x, e.pos.y + 0.8, e.pos.z, ENDERPEARL, 1);
@@ -7275,6 +7306,7 @@ function hurtNether(e, dmg, byPlayer){
 function killNether(e){
   const i = netherMobs.indexOf(e);
   if(i < 0) return;
+  dropXP(e.pos.x, e.pos.y + 0.8, e.pos.z, { ghast: 5, blaze: 10, brute: 20, hoglin: 5, strider: 2, magma: e.size || 1, stormling: 2, wisp: 4 }[e.type] || 5);
   netherVoice(e, 'die');
   const p = e.pos, drop = (id, lo, hi) => { const n = lo + ((Math.random() * (hi - lo + 1)) | 0); if(n > 0) spawnDropAt(p.x, p.y + 0.5, p.z, id, n); };
   if(mode === 'survival') switch(e.type){
@@ -7563,6 +7595,7 @@ function skyExposed(x, y, z){
 }
 function killZombie(i){
   const z = zombies[i];
+  dropXP(z.pos.x, z.pos.y + 1, z.pos.z, 5);
   burstRGB(z.pos.x, z.pos.y + 1, z.pos.z, 0.35, 0.55, 0.25, 14);
   zombieDie(z);
   removeEnt(zombies, i);
@@ -7670,6 +7703,7 @@ function bowTwang(){
 }
 function killSkeleton(i){
   const s = skeletons[i];
+  dropXP(s.pos.x, s.pos.y + 1, s.pos.z, 5);
   burstRGB(s.pos.x, s.pos.y + 1, s.pos.z, 0.88, 0.88, 0.82, 14);
   monsterCall(s,'die');
   if(mode === 'survival' && Math.random() < 0.5) spawnDropAt(s.pos.x, s.pos.y + 0.5, s.pos.z, STICK);
@@ -7903,6 +7937,7 @@ function spawnCreeper(x, y, z){
 }
 function killCreeper(i, exploded){
   const c = creepers[i];
+  if(!exploded) dropXP(c.pos.x, c.pos.y + 1, c.pos.z, 5);
   burstRGB(c.pos.x, c.pos.y + 1, c.pos.z, 0.4, 0.7, 0.35, 12);
   if(!exploded){
     monsterCall(c,'die');
@@ -7981,6 +8016,7 @@ function spawnSpider(x, y, z, crystal=false){
 }
 function killSpider(i){
   const s = spiders[i];
+  dropXP(s.pos.x, s.pos.y + 0.5, s.pos.z, 5);
   if(s.crystal&&mode==='survival')spawnDropAt(s.pos.x,s.pos.y+.5,s.pos.z,CRYSTALSHARD,1);
   burstRGB(s.pos.x, s.pos.y + 0.5, s.pos.z, 0.25, 0.2, 0.18, 12);
   monsterCall(s,'die');
@@ -8207,7 +8243,7 @@ function moveStack(from, i, to){
   }
   if(s.count > 0){
     const empty = to.find(t => !t.id || t.count === 0);
-    if(empty){ empty.id = s.id; empty.count = s.count; empty.dur = s.dur; s.id = 0; s.count = 0; s.dur = 0; }
+    if(empty){ empty.id = s.id; empty.count = s.count; empty.dur = s.dur; empty.ench = s.ench; s.id = 0; s.count = 0; s.dur = 0; s.ench = undefined; }
   }
   chestsDirty = true; invDirty = true;
 }
@@ -8580,6 +8616,7 @@ function removeDragon(e){
 }
 function finishDragon(e){
   removeDragon(e);
+  dropXP(e.pos.x, Math.max(endTop(0, 0) + 3, e.pos.y - 20), e.pos.z, endState.dragonDead ? 500 : 12000);
   burstRGB(e.pos.x, e.pos.y, e.pos.z, 0.8, 0.4, 1, 60, 6);
   boomSfx(Math.hypot(player.pos.x - e.pos.x, player.pos.z - e.pos.z));
   flashName('The Ender Dragon is slain!');
@@ -8888,6 +8925,7 @@ function hurtShulker(e, dmg){
     const i = shulkers.indexOf(e);
     if(i >= 0) removeEnt(shulkers, i);
     if(e.key){ endState.deadShulkers.push(e.key); saveEndState(); }
+    dropXP(e.pos.x, e.pos.y + 0.5, e.pos.z, 5);
     if(mode === 'survival' && Math.random() < 0.5) spawnDropAt(e.pos.x, e.pos.y + 0.5, e.pos.z, SHULKER_SHELL, 1);
     burstRGB(e.pos.x, e.pos.y + 0.5, e.pos.z, 0.7, 0.5, 0.8, 14, 0.6);
   } else e.want = 1;
@@ -9015,7 +9053,7 @@ function launchShot(kind, o, d){
   const pos = o.clone().addScaledVector(d, 0.6);
   mesh.position.copy(pos); scene.add(mesh);
   const speed = kind === 'arrow' ? 42 : 22;
-  shots.push({ kind, mesh, pos, vel: d.clone().normalize().multiplyScalar(speed), age: 0 });
+  shots.push({ kind, mesh, pos, vel: d.clone().normalize().multiplyScalar(speed), age: 0, power: kind === 'arrow' ? heldEnch('power') : 0 });
 }
 function updateShots(dt){
   for(let i = shots.length - 1; i >= 0; i--){
@@ -9031,7 +9069,7 @@ function updateShots(dt){
     const gate = getBlock(Math.floor(s.pos.x), Math.floor(s.pos.y), Math.floor(s.pos.z)) === END_GATEWAY;
     if(s.kind === 'pearl' && gate){ scene.remove(s.mesh); shots.splice(i, 1); gatewayJump(); continue; }
     if(eh && (!bh || eh.t < bh.t)){
-      if(s.kind === 'arrow') hitWith(eh.e, Math.max(2, Math.round(s.vel.length() / 6)));
+      if(s.kind === 'arrow') hitWith(eh.e, Math.max(2, Math.round(s.vel.length() / 6)) + Math.round((s.power || 0) * 1.5));
       else pearlLand(s.pos.clone().addScaledVector(dir, eh.t));
       scene.remove(s.mesh); shots.splice(i, 1); continue;
     }
@@ -9172,7 +9210,7 @@ function useSpecial(o, d, hit, eh){
     if(survival){
       const s = survInv.find(q => q.id === ARROW_I && q.count > 0);
       if(!s){ flashName('You need arrows'); return true; }
-      s.count--; if(s.count <= 0){ s.id = 0; s.count = 0; } invDirty = true; renderHotbar();
+      if(!heldEnch('infinity')) s.count--; if(s.count <= 0){ s.id = 0; s.count = 0; } invDirty = true; renderHotbar();
     }
     bowCd = 0.55; launchShot('arrow', o, d); bowTwang(); triggerViewSwing();
     return true;
@@ -9661,6 +9699,7 @@ function hurtWyrm(e, amount){
 }
 function finishWyrm(e){
   removeWyrm(e);
+  dropXP(STORM_ARENA.x + 0.5, STORM_ARENA.top + 3, STORM_ARENA.z + 0.5, 15000);
   for(let k = 0; k < 6; k++) boltAt(e.pos.x + (Math.random() - 0.5) * 16, STORM_ARENA.top + 1, e.pos.z + (Math.random() - 0.5) * 16, k === 0);
   burstRGB(e.pos.x, e.pos.y, e.pos.z, 0.7, 0.9, 1, 70, 7);
   flashName('The Tempest Wyrm is defeated!');
@@ -10053,8 +10092,7 @@ function heldId(){
 }
 function heldDamage(){
   if(forcedDamage) return forcedDamage;
-  if(effects.strength > 0) return heldDamageBase() + 3;
-  return heldDamageBase();
+  return heldDamageBase() + (effects.strength > 0 ? 3 : 0) + heldEnch('sharpness') * 1.25;
 }
 function heldDamageBase(){
   const it = ITEMS[heldId()];
@@ -10070,6 +10108,8 @@ function damageTool(types){
   const s = survInv[sel];
   const t = s.count > 0 && ITEMS[s.id] ? ITEMS[s.id].tool : null;
   if(!t || (types && !types.includes(t.type))) return;
+  const unb = s.ench && s.ench.unbreaking || 0;
+  if(unb && Math.random() > 1 / (unb + 1)) return;          // Unbreaking: most wear is shrugged off
   s.dur--;
   invDirty = true;
   if(s.dur <= 0){
@@ -10198,6 +10238,7 @@ function punchEntity(e){
       if(e.hp <= 0){
         burstRGB(e.pos.x, e.pos.y + 0.6, e.pos.z, 0.8, 0.25, 0.2, 10, 0.5);
       animalCall(e.type, e.pos, 'die');
+      dropXP(e.pos.x, e.pos.y + 0.5, e.pos.z, 1 + Math.floor(Math.random() * 3));
       playN({ f: 200, type: 'lowpass', q: 1, dur: 0.16, vol: 0.12 });   // soft thud
       if(mode === 'survival'){
         const p = e.pos;
@@ -10311,7 +10352,7 @@ function addItem(id, quiet){
   if(t){
     const s = survInv.find(s => !s.id || s.count === 0);
     if(!s) return false;
-    s.id = id; s.count = 1; s.dur = TIER_DUR[t.tier - 1];
+    s.id = id; s.count = 1; s.dur = TIER_DUR[t.tier - 1]; s.ench = undefined;
     invDirty = true;
     if(!quiet) renderHotbar();
     return true;
@@ -10319,7 +10360,7 @@ function addItem(id, quiet){
   let s = survInv.find(s => s.id === id && s.count < 64);
   if(!s) s = survInv.find(s => !s.id || s.count === 0);
   if(!s) return false;
-  if(s.id !== id){ s.id = id; s.count = 0; s.dur = 0; }
+  if(s.id !== id){ s.id = id; s.count = 0; s.dur = 0; s.ench = undefined; }
   s.count++;
   invDirty = true;
   if(!quiet) renderHotbar();
@@ -12126,7 +12167,7 @@ function calcMineTime(id){
   let t = handTime(id);
   const it = ITEMS[heldId()];
   const tool = it && it.tool, cls = toolClassOf(id);
-  if(tool && cls && tool.type === cls) t /= TIER_SPEED[tool.tier - 1];
+  if(tool && cls && tool.type === cls){ t /= TIER_SPEED[tool.tier - 1]; t /= 1 + 0.35 * heldEnch('efficiency'); }
   return t;
 }
 /* ---------------- leaf decay, saplings and regrowth ----------------
@@ -12300,7 +12341,14 @@ function breakBlock(x, y, z, id){
   }
   if(mode === 'survival'){
     if(id === TGRASSB){ if(Math.random() < 0.25) spawnDropAt(x + 0.5, y + 0.4, z + 0.5, SEEDS, 1); return; }
-    if(harvestOk(id)) spawnDrop(x, y, z, dropOf(id));
+    if(harvestOk(id)){
+      const drop = dropOf(id);
+      spawnDrop(x, y, z, drop);
+      // Fortune: a chance of extra ore - diamonds, coal, quartz, gold nuggets
+      const fortune = heldEnch('fortune');
+      if(fortune && drop !== id && ITEMS[drop]){ const extra = Math.max(0, Math.floor(Math.random() * (fortune + 2)) - 1); for(let k = 0; k < extra; k++) spawnDrop(x, y, z, drop); }
+      const xp = ORE_XP[id]; if(xp) dropXP(x + 0.5, y + 0.5, z + 0.5, xp[0] + Math.floor(Math.random() * (xp[1] - xp[0] + 1)));
+    }
     damageTool();
   }
 }
@@ -12330,6 +12378,7 @@ function doPlace(){
     if(isDoor(hit.id)){ toggleDoor(hit.x, hit.y, hit.z); triggerViewSwing(); return; }
     if(hit.id === CHEST){ openChest(hit.x, hit.y, hit.z); return; }
     if(hit.id === TNT){ igniteTNT(hit.x, hit.y, hit.z); return; }
+    if(hit.id === ENCH_TABLE && mode === 'survival'){ openEnchant(hit); return; }
     if((hit.id === CRAFTT || hit.id === FURN || hit.id === BREWING) && mode === 'survival'){ openCraft(); return; }
     // buckets: fill from a liquid source, or empty a filled bucket
     const heldB = heldId();
@@ -12496,7 +12545,7 @@ for(let i = 0; i < 9; i++){
 function slotInfo(i){
   if(mode === 'creative') return { id: creativeItems[i], count: null, dur: 0 };
   const s = survInv[i];
-  return { id: s.count > 0 ? s.id : 0, count: s.count, dur: s.dur };
+  return { id: s.count > 0 ? s.id : 0, count: s.count, dur: s.dur, ench: s.count > 0 ? s.ench : undefined };
 }
 function renderHotbar(){
   for(let i = 0; i < 9; i++){
@@ -12525,7 +12574,7 @@ function selectSlot(i, quiet){
   sel = i;
   slots[sel].div.classList.add('sel');
   const { id, count } = slotInfo(i);
-  flashName(id ? nameOf(id) + (count && !(ITEMS[id] && ITEMS[id].tool) ? ' ×' + count : '') : 'Empty');
+  flashName(id ? stackName(slotInfo(i)) + (count && !(ITEMS[id] && ITEMS[id].tool) ? ' ×' + count : '') : 'Empty');
   if(!quiet) tone(500, 520, 0.03, 'triangle', 0.05);
 }
 
@@ -12653,12 +12702,12 @@ wristPanel.add(wristScreen);wristPanel.position.set(0,.075,.24);wristPanel.rotat
 wristPanel.visible=false;controllerGrips[0].add(wristPanel);
 let wristDrawKey='',wristHover=-1;
 function updateWristHotbar(){
-  const key=mode+':'+sel+':'+Math.ceil(hp)+':'+Math.ceil(hunger)+':'+wristHover+':'+Array.from({length:9},(_,i)=>JSON.stringify(slotInfo(i))).join('|');
+  const key=mode+':'+sel+':'+Math.ceil(hp)+':'+Math.ceil(hunger)+':'+xpLevel+':'+wristHover+':'+Array.from({length:9},(_,i)=>JSON.stringify(slotInfo(i))).join('|');
   if(key===wristDrawKey)return;wristDrawKey=key;
   const g=wristCanvas.getContext('2d');g.clearRect(0,0,1000,300);g.fillStyle='rgba(24,24,27,.90)';g.fillRect(0,0,1000,300);
   g.strokeStyle='#dedede';g.lineWidth=8;g.strokeRect(4,4,992,292);g.textBaseline='middle';g.font='bold 24px monospace';
   g.fillStyle='#ef7777';g.fillText(mode==='survival'?'♥'.repeat(Math.ceil(hp/2)):'CREATIVE',22,32);
-  if(mode==='survival'){g.fillStyle='#f4c37b';g.fillText('◆'.repeat(Math.ceil(hunger/2)),390,32);}
+  if(mode==='survival'){g.fillStyle='#f4c37b';g.fillText('◆'.repeat(Math.ceil(hunger/2)),390,32);g.fillStyle='#8cf06a';g.fillText('Lv '+xpLevel,680,32);}
   g.fillStyle=wristHover===9?'#e5e5e5':'#919191';g.fillRect(780,13,195,40);g.fillStyle='#161616';g.fillText('Inventory',795,33);
   for(let i=0;i<9;i++){
     const x=20+i*107,info=slotInfo(i);g.fillStyle='#747474';g.fillRect(x,77,101,143);g.strokeStyle=i===sel?'#fff':i===wristHover?'#dfedb9':'#bbb';g.lineWidth=i===sel?6:3;g.strokeRect(x,77,101,143);
@@ -12758,6 +12807,7 @@ function buildCraftPanel(){
   if(tradeVillager) tabDefs.push(['trade','Trade']);
   if(mode==='creative') tabDefs.push(['tp','Teleport']);
   tabDefs.push(['guide','Guide'],['mp','Play Together'],['help','Controls']);
+  if(vrMenuTab==='enchant') tabDefs.push(['enchant','Enchant']);
   if(dead) tabDefs.length = 0;                 // dead players get one decision, not a menu
   const tabStep=Math.floor(1025/tabDefs.length), tabW=tabStep-14;
   tabDefs.forEach(([tab,label],i)=>{
@@ -12772,7 +12822,7 @@ function buildCraftPanel(){
     const item=i < 9 ? slotInfo(i) : survInv[i];
     const id=item.count===0?0:item.id;
     button(x,y,142,compact?82:115,'',()=>vrInventoryClick(i),true,vrPickedSlot===i || i===sel);
-    icon(id,x+(compact?54:45),y+7,compact?38:50);text(id?nameOf(id):'Empty',x+7,y+(compact?62:78),compact?15:17,'#202020',128);
+    icon(id,x+(compact?54:45),y+7,compact?38:50);text(id?nameOf(id)+(item.ench?' \u2726':''):'Empty',x+7,y+(compact?62:78),compact?15:17,item.ench?'#5a2a8a':'#202020',128);
     text(i<9?String(i+1):'',x+8,y+17,18,'#bdcce0');
     if(item.count>0)text('×'+item.count,x+96,y+20,19);
     if(item.dur>0 && ITEMS[id]?.tool){
@@ -12851,6 +12901,8 @@ function buildCraftPanel(){
         button(1030,602,355,62,'Craft & equip',()=>vrCraftSelected(true),canCraft(r));
       } else text('Select a recipe to see what it needs.',710,325,25,'#454545',670);
     }
+  } else if(vrMenuTab==='enchant'){
+    drawEnchantVR(g, text, button);
   } else if(vrMenuTab==='tp'){
     text('TELEPORT  -  pick a biome to go to the nearest one',35,215,27,'#202020');
     TP_BIOMES.forEach((bio,i)=>{ const x=35+(i%4)*345, y=250+Math.floor(i/4)*95;
@@ -13144,6 +13196,7 @@ function vrTryPlace(){
     if(isDoor(hit.id)){ toggleDoor(hit.x, hit.y, hit.z); triggerViewSwing(); return; }
     if(hit.id === CHEST){ openChest(hit.x, hit.y, hit.z); return; }
     if(hit.id === TNT){ igniteTNT(hit.x, hit.y, hit.z); return; }
+    if(hit.id === ENCH_TABLE && mode === 'survival'){ enchantAt = hit; openCraftVR('enchant'); return; }
     if((hit.id === CRAFTT || hit.id === FURN || hit.id === BREWING) && mode === 'survival'){ openCraftVR('craft'); return; }
   }
   const held = heldId();
@@ -13954,7 +14007,7 @@ function updateAmbience(dt){
    floats you down. */
 const effects = { fire: 0, strength: 0, speed: 0, regen: 0, night: 0, slow: 0 };
 const EFFECT_NAMES = { fire: 'Fire Resistance', strength: 'Strength', speed: 'Swiftness', regen: 'Regeneration', night: 'Night Vision', slow: 'Slow Falling' };
-let regenTick = 0;
+let regenTick = 0, xpT = 0;
 const fireproof = () => effects.fire > 0;
 function drinkPotion(id){
   const P = POTIONS[id];
@@ -14004,7 +14057,7 @@ function updateEffects(dt){
   }
 }
 { const el = document.createElement('div'); el.id = 'effectsbar';
-  el.style.cssText = 'position:fixed;left:50%;bottom:92px;transform:translateX(-50%);z-index:6;color:#fff;font:12px system-ui;text-shadow:0 1px 2px #000;pointer-events:none';
+  el.style.cssText = 'position:fixed;left:50%;bottom:108px;transform:translateX(-50%);z-index:6;color:#fff;font:12px system-ui;text-shadow:0 1px 2px #000;pointer-events:none';
   document.body.appendChild(el); }
 // how bright it is where you stand: the sky's light (by day) and any torchlight
 function lightAtPlayer(){
@@ -14050,6 +14103,184 @@ function placeBossBar(b, pos, lift, frac){
   b.bar.quaternion.copy(camera.getWorldQuaternion(new THREE.Quaternion()));
   const f = Math.max(0, Math.min(1, frac));
   b.fill.scale.x = Math.max(0.001, f); b.fill.position.x = -2.9 * (1 - f);
+}
+/* ======================= EXPERIENCE & ENCHANTING =======================
+   As in Minecraft: creatures and ore give off glowing orbs of experience
+   that drift to you. Levels are spent at an enchanting table - ringed with
+   bookshelves for stronger offers - to enchant a tool, weapon, bow or piece
+   of armour. */
+let xpPoints = 0, enchSeed = (Math.random() * 1e9) | 0, enchantAt = null;
+try { const x = JSON.parse(localStorage.getItem(SAVE_KEY + '-xp')); if(x){ xpPoints = x.p | 0; enchSeed = x.s | 0; } } catch(e){}
+const saveXP = () => safeSet(SAVE_KEY + '-xp', JSON.stringify({ p: xpPoints, s: enchSeed }));
+const xpToNext = L => L < 16 ? 2 * L + 7 : L < 31 ? 5 * L - 38 : 9 * L - 158;
+function xpLevelOf(points){ let L = 0; while(points >= xpToNext(L)){ points -= xpToNext(L); L++; } return [L, points / xpToNext(L)]; }
+let xpLevel = xpLevelOf(xpPoints)[0];
+const ORE_XP = { [COALO]: [0, 2], [DIAMO]: [3, 7], [EMERO]: [3, 7], [QUARTZ_ORE]: [2, 5], [NGOLD_ORE]: [0, 1], [VOLTITE_ORE]: [4, 8] };
+function addXP(n){
+  const before = xpLevel;
+  xpPoints += n;
+  xpLevel = xpLevelOf(xpPoints)[0];
+  tone(1200 + Math.random() * 600, 1800, 0.06, 'sine', 0.05);
+  if(xpLevel > before){
+    [660, 880, 1100].forEach((f, i) => tone(f, f, 0.14, 'triangle', 0.07, i * 0.08));
+    if(xpLevel % 5 === 0 || xpLevel >= 30) flashName('Level ' + xpLevel + '!');
+  }
+  saveXP(); renderXP();
+}
+function spendLevels(n){
+  // take away whole levels, keeping progress into the current one
+  const [L, frac] = xpLevelOf(xpPoints);
+  let pts = 0;
+  for(let i = 0; i < L - n; i++) pts += xpToNext(i);
+  xpPoints = pts + Math.floor(frac * xpToNext(L - n));
+  xpLevel = L - n;
+  saveXP(); renderXP();
+}
+/* ---- the orbs ---- */
+const xpOrbs = [];
+const orbMat = new THREE.MeshBasicMaterial({ color: 0xb8f050 });
+function dropXP(x, y, z, amount){
+  if(mode !== 'survival' || amount <= 0 || mobCtx) return;
+  const n = Math.min(8, Math.max(1, Math.round(Math.sqrt(amount))));
+  for(let i = 0; i < n; i++){
+    const v = i === n - 1 ? amount - Math.floor(amount / n) * (n - 1) : Math.floor(amount / n);
+    if(v <= 0) continue;
+    const m = new THREE.Mesh(crystalGeo, orbMat);
+    m.scale.setScalar(0.12 + Math.min(0.2, Math.log10(v + 1) * 0.08));
+    scene.add(m);
+    xpOrbs.push({ mesh: m, pos: new THREE.Vector3(x, y, z), vel: new THREE.Vector3((Math.random() - 0.5) * 3, 3 + Math.random() * 2, (Math.random() - 0.5) * 3), v, age: 0 });
+  }
+}
+function updateXPOrbs(dt){
+  for(let i = xpOrbs.length - 1; i >= 0; i--){
+    const o = xpOrbs[i];
+    o.age += dt;
+    const to = player.pos.clone().setY(player.pos.y + 0.8).sub(o.pos), d = to.length();
+    if(d < 7 && o.age > 0.4){ o.vel.lerp(to.normalize().multiplyScalar(Math.max(4, 12 - d)), Math.min(1, dt * 4)); }
+    else { o.vel.y -= 14 * dt; o.vel.x *= 0.98; o.vel.z *= 0.98; }
+    o.pos.addScaledVector(o.vel, dt);
+    if(isSolid(getBlock(Math.floor(o.pos.x), Math.floor(o.pos.y - 0.1), Math.floor(o.pos.z))) && o.vel.y < 0){ o.vel.y = 0; o.pos.y = Math.floor(o.pos.y - 0.1) + 1.1; }
+    o.mesh.position.copy(o.pos); o.mesh.position.y += Math.sin(o.age * 5) * 0.06;
+    o.mesh.rotation.y += dt * 3;
+    orbMat.color.setHSL(0.22 + Math.sin(performance.now() / 300) * 0.04, 0.8, 0.6);
+    if(d < 0.9 && o.age > 0.4){ addXP(o.v); scene.remove(o.mesh); xpOrbs.splice(i, 1); }
+    else if(o.age > 300){ scene.remove(o.mesh); xpOrbs.splice(i, 1); }
+  }
+}
+/* ---- the bar over the hotbar ---- */
+const xpEl = document.createElement('div');
+xpEl.style.cssText = 'position:fixed;left:50%;bottom:74px;transform:translateX(-50%);width:360px;height:6px;background:#1a1a1acc;border:1px solid #000;z-index:4;pointer-events:none';
+xpEl.innerHTML = '<div style="height:100%;width:0;background:#8cf06a"></div><span style="position:absolute;left:50%;top:-16px;transform:translateX(-50%);color:#8cf06a;font:bold 14px monospace;text-shadow:0 1px 2px #000"></span>';
+document.body.appendChild(xpEl);
+function renderXP(){
+  const [L, frac] = xpLevelOf(xpPoints);
+  xpEl.style.display = mode === 'survival' && inGame ? 'block' : 'none';
+  xpEl.children[0].style.width = (frac * 100).toFixed(1) + '%';
+  xpEl.children[1].textContent = L ? String(L) : '';
+}
+/* ---- enchantments ---- */
+const ENCH = {
+  sharpness:  { name: 'Sharpness', max: 3, on: ['sword', 'axe'] },
+  efficiency: { name: 'Efficiency', max: 3, on: ['pick', 'axe', 'shovel'] },
+  fortune:    { name: 'Fortune', max: 3, on: ['pick'] },
+  unbreaking: { name: 'Unbreaking', max: 3, on: ['sword', 'axe', 'pick', 'shovel', 'hoe'] },
+  power:      { name: 'Power', max: 3, on: ['bow'] },
+  infinity:   { name: 'Infinity', max: 1, on: ['bow'] },
+  protection: { name: 'Protection', max: 3, on: ['armour'] },
+  feather:    { name: 'Feather Falling', max: 3, on: ['boots'] },
+};
+const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V'];
+function heldEnch(k){ if(mode !== 'survival') return 0; const q = survInv[sel]; return q && q.count > 0 && q.ench ? q.ench[k] || 0 : 0; }
+function stackName(q){
+  if(!q || !q.id) return 'Empty';
+  const e = q.ench ? Object.keys(q.ench).map(k => ENCH[k].name + (ENCH[k].max > 1 ? ' ' + ROMAN[q.ench[k]] : '')) : [];
+  return nameOf(q.id) + (e.length ? ' (' + e.join(', ') + ')' : '');
+}
+function enchKinds(id){
+  const it = ITEMS[id];
+  if(!it) return [];
+  if(id === BOW) return ['bow'];
+  if(it.tool) return [it.tool.type];
+  if(it.armour && id !== ELYTRA) return it.armour.slot === 'boots' ? ['armour', 'boots'] : ['armour'];
+  return [];
+}
+function bookshelfPower(t){
+  let n = 0;
+  for(let dx = -2; dx <= 2; dx++) for(let dz = -2; dz <= 2; dz++) for(let dy = 0; dy <= 1; dy++)
+    if((Math.abs(dx) === 2 || Math.abs(dz) === 2) && getBlock(t.x + dx, t.y + dy, t.z + dz) === BOOKSHELF) n++;
+  return Math.min(15, n);
+}
+// the three offers for the item in your hand; they only change after you enchant something
+function enchantOffers(){
+  const q = survInv[sel];
+  if(!q || !q.count || q.count > 1 || q.ench) return [];
+  const kinds = enchKinds(q.id);
+  if(!kinds.length || !enchantAt) return [];
+  const pool = Object.keys(ENCH).filter(k => ENCH[k].on.some(o => kinds.includes(o)));
+  const shelves = bookshelfPower(enchantAt), R = rngOf(enchSeed + q.id * 7919);
+  return [0, 1, 2].map(i => {
+    const req = Math.min(30, [1 + (R() * 5 | 0) + (shelves / 3 | 0), 4 + (R() * 8 | 0) + (shelves / 2 | 0), 8 + (R() * 7 | 0) + shelves + (shelves > 12 ? 4 : 0)][i]);
+    const k = pool[(R() * pool.length) | 0];
+    const lvl = Math.max(1, Math.min(ENCH[k].max, 1 + Math.floor(req / 11)));
+    const bonus = req >= 20 && pool.length > 1 && R() < 0.5 ? pool.filter(o => o !== k && !(k === 'infinity' && o === 'power'))[(R() * (pool.length - 1)) | 0] : null;
+    return { req, cost: i + 1, k, lvl, bonus, bonusLvl: bonus ? Math.max(1, Math.min(ENCH[bonus].max, Math.floor(req / 12))) : 0 };
+  });
+}
+const offerText = o => ENCH[o.k].name + (ENCH[o.k].max > 1 ? ' ' + ROMAN[o.lvl] : '') + (o.bonus ? ' + ' + ENCH[o.bonus].name + (ENCH[o.bonus].max > 1 ? ' ' + ROMAN[o.bonusLvl] : '') : '');
+function doEnchant(i){
+  const o = enchantOffers()[i];
+  if(!o || xpLevel < o.req || xpLevel < o.cost) return false;
+  const q = survInv[sel];
+  q.ench = { [o.k]: o.lvl };
+  if(o.bonus) q.ench[o.bonus] = o.bonusLvl;
+  spendLevels(o.cost);
+  enchSeed = (Math.random() * 1e9) | 0; saveXP();
+  invDirty = true; renderHotbar(); saveNow();
+  const t = enchantAt;
+  if(t) for(let k = 0; k < 24; k++) burstRGB(t.x + 0.5 + (Math.random() - 0.5) * 3, t.y + 1 + Math.random() * 2, t.z + 0.5 + (Math.random() - 0.5) * 3, 0.7, 0.5, 1, 1, 0.2);
+  [520, 780, 1040, 1300].forEach((f, j) => tone(f, f * 1.5, 0.25, 'sine', 0.06, j * 0.07));
+  flashName('Enchanted: ' + stackName(q));
+  return true;
+}
+// desktop: a small panel of the three offers
+const enchEl = document.createElement('div');
+enchEl.style.cssText = 'position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:26;background:#2a1f33f4;border:3px solid #6a4a8a;border-radius:8px;color:#eee;font:14px system-ui;padding:16px 20px;display:none;width:460px';
+document.body.appendChild(enchEl);
+function openEnchant(hit){
+  enchantAt = hit;
+  document.exitPointerLock();
+  renderEnchant();
+  enchEl.style.display = 'block';
+}
+function closeEnchant(){ enchEl.style.display = 'none'; enchantAt = null; }
+function renderEnchant(){
+  const q = survInv[sel], offers = enchantOffers();
+  let h = '<h3 style="margin:0 0 6px;color:#d8b0ff">Enchanting Table</h3>';
+  h += '<p style="margin:0 0 10px;color:#ccc">Holding: <b>' + stackName(q) + '</b> &middot; Your level: <b style="color:#8cf06a">' + xpLevel + '</b> &middot; Bookshelves: ' + (enchantAt ? bookshelfPower(enchantAt) : 0) + '/15</p>';
+  if(!offers.length) h += '<p style="color:#f0a0a0">Hold one unenchanted tool, weapon, bow or piece of armour to enchant it.</p>';
+  enchEl.innerHTML = h;
+  offers.forEach((o, i) => {
+    const b = document.createElement('button');
+    b.className = 'mcbtn'; b.style.cssText = 'display:block;width:100%;margin:4px 0;text-align:left';
+    b.textContent = offerText(o) + '  -  needs level ' + o.req + ', costs ' + o.cost + ' level' + (o.cost > 1 ? 's' : '');
+    b.disabled = xpLevel < o.req;
+    b.onclick = () => { if(doEnchant(i)) renderEnchant(); };
+    enchEl.appendChild(b);
+  });
+  const c = document.createElement('button'); c.className = 'mcbtn small'; c.textContent = 'Close';
+  c.onclick = () => { closeEnchant(); renderer.domElement.requestPointerLock(); };
+  enchEl.appendChild(c);
+}
+// VR: the Enchant tab
+function drawEnchantVR(g, text, button){
+  const q = survInv[sel], offers = enchantOffers();
+  text('ENCHANTING TABLE', 35, 205, 28, '#4a2a6a');
+  text('Holding: ' + stackName(q), 35, 250, 24, '#202020', 1300);
+  text('Your level: ' + xpLevel + '     Bookshelves around the table: ' + (enchantAt ? bookshelfPower(enchantAt) : 0) + ' / 15', 35, 290, 24, '#2b5a1f', 1300);
+  if(!offers.length) text('Select one unenchanted tool, weapon, bow or armour piece on your hotbar, then come back.', 35, 360, 24, '#8a2424', 1320);
+  offers.forEach((o, i) => {
+    button(35, 330 + i * 110, 1340, 95, offerText(o) + '   -   needs level ' + o.req + ', costs ' + o.cost, () => { doEnchant(i); }, xpLevel >= o.req);
+  });
 }
 /* ============================ TELEPORT ============================
    Creative only: pick a biome and you are taken to the nearest stretch of
@@ -14288,6 +14519,8 @@ function animate(){
   updateNetherAir(dt);
   updateAdvancements(dt);
   if(inGame && !dead) updateEffects(dt);
+  updateXPOrbs(dt);
+  if(inGame && ((xpT = (xpT || 0) - dt) <= 0)){ xpT = 1; renderXP(); }
   updateAmbience(dt);
   checkMusicMood(dt);
 
@@ -14636,6 +14869,7 @@ window.__bc = {
             save: { pack: packEdits, unpack: unpackEdits, packChests, unpackChests, used: storageUsed, exportWorld },
             adv: { list: ADVANCEMENTS, done: advDone, grant: grantAdv, next: nextAdv, tick: () => { advT = 0; updateAdvancements(0); }, guide: toggleGuide, toast: showToast },
             fx: { clearInv: () => { for(const q of survInv){ q.id = 0; q.count = 0; q.dur = 0; } renderHotbar(); }, effects, drink: id => drinkPotion(id), step: dt => updateEffects(dt), light: lightAtPlayer, mood: () => musicMood(), sub: showSubtitle, POTIONS },
+            xp: { add: addXP, level: () => xpLevel, points: () => xpPoints, drop: dropXP, orbs: xpOrbs, offers: enchantOffers, enchant: doEnchant, setTable: t => { enchantAt = t; }, heldEnch, stackName, armourEnch },
             tp: teleportToBiome, findBiome, egg: (type, x, y, z) => spawnFromEgg(type, x, y, z), EGG_BASE, SPAWN_EGGS,
             spawns: dt => updateNetherSpawns(dt), effects: () => ({ burnT, witherT }), heal: () => { hp = 20; dead = false; burnT = 0; witherT = 0; }, give: e => tryGivePiglin(e), lightFire },
 };
