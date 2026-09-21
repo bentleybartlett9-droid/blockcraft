@@ -7977,6 +7977,10 @@ function updateArmourModel(){
  bootMeshes.forEach(m=>{m.visible=!!armour.boots;m.material=mat('boots')||armourMaterials[0];});
 }
 updateArmourModel();
+function showLegs(on){
+  legL.visible = legR.visible = on;
+  bootMeshes.forEach(m => { m.visible = on && !!armour.boots; });
+}
 // Segmented block arms connect the shoulders to the actual grip poses.
 function updateAvatarArms(){
   vrBody.updateWorldMatrix(true,false);
@@ -8329,6 +8333,7 @@ function updateVR(dt){
   vrBody.position.set(localHead.x, localHead.y, localHead.z);
   const eB = new THREE.Euler().setFromQuaternion(camera.quaternion, 'YXZ');
   vrBody.rotation.y = eB.y;   // rig already rotates by yawOffset
+  showLegs(vrMoveMode !== 'gorilla');   // gorilla arms: no legs, just a body swinging on its arms
   updateWristHotbar();
   if(vrMenuInput(dt)){ gorillaReset(); updateAvatarArms(); updateVignette(dt, false); return; }
   if(dead){ gorillaReset(); updateAvatarArms(); updateVignette(dt, false); return; }
@@ -8897,7 +8902,8 @@ window.__bc = {
   tickLeaves: () => { const t = performance.now()/1000; tickLeafDecay(t); tickSaplings(t); },
   sapForLog: id => SAPLING_FOR_LOG[id], leafQueueSize: () => leafQueue.size,
   gorilla: { step: dt => gorillaStep(dt), reset: () => gorillaReset(), hands: gHands, setMode: m => setVrMoveMode(m),
-             mode: () => vrMoveMode, setXr: on => { xrActive = on; }, rig: xrRig, ctrls: () => [leftCtrl, rightCtrl] },
+             mode: () => vrMoveMode, setXr: on => { xrActive = on; }, rig: xrRig, ctrls: () => [leftCtrl, rightCtrl],
+             showLegs, legs: () => [legL.visible, legR.visible] },
   setMode: m => { mode = m; inGame = true; applyMode(); },
   setTime: t => { timeOfDay = t; },
   breakAt: (x, y, z) => breakBlock(x, y, z, getBlock(x, y, z)),
