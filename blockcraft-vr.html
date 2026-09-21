@@ -5662,6 +5662,7 @@ function physics(dt){
   if(p.onGround && !wasGround && fallV < -4 && !p.fly && !key('ShiftLeft') &&
      getBlock(Math.floor(p.pos.x), Math.floor(p.pos.y - 0.2), Math.floor(p.pos.z)) === SLIME_BLOCK){
     v.y = -fallV * 0.85; p.onGround = false; fallPeak = p.pos.y;            // boing
+    grantAdv('bounce');
     playN({ f: 260, type: 'lowpass', dur: 0.2, vol: 0.25 }); tone(180, 320, 0.15, 'sine', 0.08);
   }
   // soul sand drags at your feet
@@ -10311,6 +10312,7 @@ function rayEntity(o, d, max){
   for(const c of endCrystals) check(c);
   for(const w of wyrms) if(w.phase !== 'dying'){ check(w.headHit); for(const h of w.bodyHits) check(h); }
   for(const q of shulkers) check(q);
+  for(const q of seaLife) check(q);
   for(const b of sbullets){ const y = b.pos.y; b.pos.y -= 0.25; check(b); b.pos.y = y; }       // the boss is targetable
   return best && bt <= max ? { e: best, t: bt } : null;
 }
@@ -10382,6 +10384,7 @@ function punchEntity(e){
   if(e.kind === 'sbullet'){ popSBullet(e); return; }
   if(e.kind === 'shulker'){ hurtShulker(e, heldDamage()); damageTool(['sword', 'axe']); return; }
   if(e.kind === 'fireball'){ deflectFireball(e); return; }
+  if(e.kind === 'sea'){ hurtSea(e, heldDamage()); damageTool(['sword', 'axe']); return; }
   const dx = e.pos.x - player.pos.x, dz = e.pos.z - player.pos.z, l = Math.hypot(dx, dz) || 1;
   const heavy = e.kind === 'nether' && (e.type === 'ghast' || e.type === 'hoglin');
   e.vel.x += dx / l * (heavy ? 2 : 6); e.vel.z += dz / l * (heavy ? 2 : 6);
@@ -14529,6 +14532,177 @@ function drawEnchantVR(g, text, button){
     button(35, 330 + i * 110, 1340, 95, offerText(o) + '   -   needs level ' + o.req + ', costs ' + o.cost, () => { doEnchant(i); }, xpLevel >= o.req);
   });
 }
+/* ============================== SEA LIFE ==============================
+   The water is alive: schools of cod and salmon, bright tropical fish in
+   warm water, squid pulsing in the deep, and dolphins that leap and like
+   company - swim near one and you swim faster. Fish dart away from you;
+   anything left on dry land flops and dies. Each player sees their own. */
+const seaLife = [];
+let seaSpawnT = 3;
+const TROP_COLS = [0xf08a24, 0x3a8ae8, 0xf0d830, 0xe84a8a, 0x40c8b0, 0xf4f4f4, 0x8a4ae8];
+const SEA_TYPES = {
+  cod:      { hp: 3, w: 0.18, h: 0.3, speed: 1.6, drop: COD },
+  salmon:   { hp: 3, w: 0.2, h: 0.34, speed: 2.0, drop: SALMON },
+  tropical: { hp: 3, w: 0.14, h: 0.3, speed: 1.4, drop: TROPICAL },
+  squid:    { hp: 10, w: 0.36, h: 1.4, speed: 1.3, drop: 0 },
+  dolphin:  { hp: 10, w: 0.45, h: 0.55, speed: 4.2, drop: COD },
+};
+function buildSea(e){
+  const g = e.group, T = e.type;
+  const pivot = (x, y, z) => { const q = new THREE.Group(); q.position.set(x, y, z); g.add(q); return q; };
+  const eye = entMat(0x101010), white = entMat(0xf4f4f4);
+  if(T === 'squid'){
+    const m = entMat(0x2a4478), d = entMat(0x1c2e56);
+    e.body = box(0.62, 0.86, 0.62, m, 0, 1.0, 0, g);
+    box(0.12, 0.12, 0.02, white, -0.17, 0.78, -0.32, g); box(0.12, 0.12, 0.02, white, 0.17, 0.78, -0.32, g);
+    box(0.06, 0.06, 0.02, eye, -0.17, 0.78, -0.335, g); box(0.06, 0.06, 0.02, eye, 0.17, 0.78, -0.335, g);
+    e.tent = [];
+    for(let i = 0; i < 8; i++){ const a = i / 8 * Math.PI * 2; e.tent.push([limb(0.1, 0.72, 0.1, d, Math.sin(a) * 0.2, 0.6, Math.cos(a) * 0.2, g), a]); }
+  } else if(T === 'dolphin'){
+    const m = entMat(0x7a889c), l = entMat(0xc8d0dc);
+    box(0.5, 0.42, 1.2, m, 0, 0.3, 0, g);
+    box(0.44, 0.1, 1.0, l, 0, 0.1, -0.05, g);
+    box(0.18, 0.14, 0.34, m, 0, 0.24, -0.76, g);                       // the beak
+    box(0.06, 0.06, 0.02, eye, -0.2, 0.36, -0.55, g); box(0.06, 0.06, 0.02, eye, 0.2, 0.36, -0.55, g);
+    const fin = box(0.06, 0.3, 0.26, m, 0, 0.62, 0.08, g); fin.rotation.x = 0.5;
+    box(0.5, 0.05, 0.14, m, 0, 0.14, -0.2, g);                          // flippers
+    e.tail = pivot(0, 0.3, 0.6);
+    box(0.18, 0.2, 0.34, m, 0, 0, 0.16, e.tail);
+    box(0.56, 0.06, 0.2, m, 0, 0, 0.36, e.tail);
+  } else {
+    const big = T === 'salmon' ? 1.3 : 1, col = T === 'cod' ? [0x9c8a64, 0xc8b690] : T === 'salmon' ? [0xa8423a, 0x56684c] : [TROP_COLS[(Math.random() * TROP_COLS.length) | 0], TROP_COLS[(Math.random() * TROP_COLS.length) | 0]];
+    const a = entMat(col[0]), b = entMat(col[1]);
+    const w = (T === 'tropical' ? 0.1 : 0.18) * big, h = (T === 'tropical' ? 0.26 : 0.24) * big, len = (T === 'tropical' ? 0.3 : 0.52) * big;
+    box(w, h, len, a, 0, h / 2 + 0.03, 0, g);
+    if(T === 'tropical') box(w + 0.01, h + 0.01, len * 0.25, b, 0, h / 2 + 0.03, 0, g);               // a bright stripe
+    else box(w * 0.9, h * 0.35, len * 0.9, b, 0, h * 0.82 + 0.03, 0, g);                             // darker back
+    box(0.02, h * 0.4, len * 0.4, b, 0, h + 0.06, 0.02, g);                                          // dorsal fin
+    box(0.03, 0.04, 0.02, eye, -w / 2 - 0.005, h * 0.62 + 0.03, -len * 0.36, g); box(0.03, 0.04, 0.02, eye, w / 2 + 0.005, h * 0.62 + 0.03, -len * 0.36, g);
+    e.tail = pivot(0, h / 2 + 0.03, len / 2);
+    box(0.03, h * 0.9, len * 0.36, b, 0, 0, len * 0.16, e.tail);
+  }
+}
+function spawnSea(type, x, y, z){
+  const T = SEA_TYPES[type];
+  const g = new THREE.Group(); g.rotation.order = 'YXZ';
+  const e = { kind: 'sea', type, group: g, pos: new THREE.Vector3(x, y, z), vel: new THREE.Vector3(), yaw: Math.random() * Math.PI * 2, pitch: 0,
+              speed: T.speed, base: T.speed, t: Math.random() * 2, hp: T.hp, w: T.w, h: T.h, anim: Math.random() * 9, dryT: 0 };
+  buildSea(e);
+  scene.add(g); g.position.copy(e.pos);
+  seaLife.push(e);
+  return e;
+}
+const waterAt = (x, y, z) => getBlock(Math.floor(x), Math.floor(y), Math.floor(z)) === WATER;
+function removeSea(i){ scene.remove(seaLife[i].group); seaLife.splice(i, 1); }
+function hurtSea(e, dmg){
+  e.hp -= dmg;
+  const dx = e.pos.x - player.pos.x, dz = e.pos.z - player.pos.z;
+  e.yaw = Math.atan2(-dx, -dz); e.speed = e.base * 2.6; e.t = 1.4; e.pitch = -0.2;
+  if(e.type === 'squid') burstRGB(e.pos.x, e.pos.y + 0.8, e.pos.z, 0.05, 0.05, 0.08, 20, 0.9);           // a cloud of ink
+  else burstRGB(e.pos.x, e.pos.y + e.h / 2, e.pos.z, 0.8, 0.2, 0.2, 4, 0.2);
+  playN({ f: 400, type: 'lowpass', dur: 0.12, vol: 0.15 });
+}
+function killSea(e){
+  const i = seaLife.indexOf(e);
+  if(i < 0) return;
+  const T = SEA_TYPES[e.type];
+  dropXP(e.pos.x, e.pos.y + 0.4, e.pos.z, 1 + ((Math.random() * 3) | 0));
+  if(mode === 'survival' && T.drop && (e.type !== 'dolphin' || Math.random() < 0.6)) spawnDropAt(e.pos.x, e.pos.y + 0.3, e.pos.z, T.drop);
+  burstRGB(e.pos.x, e.pos.y + e.h / 2, e.pos.z, 0.9, 0.9, 0.95, 10, 0.4);
+  removeSea(i);
+}
+function trySpawnSea(){
+  if(seaLife.length >= 16) return;
+  const a = Math.random() * Math.PI * 2, d = 12 + Math.random() * 28;
+  const x = Math.floor(player.pos.x + Math.cos(a) * d), z = Math.floor(player.pos.z + Math.sin(a) * d);
+  let top = -1;
+  for(let y = SEA + 2; y > SEA - 8; y--) if(getBlock(x, y, z) === WATER){ top = y; break; }
+  if(top < 0) return;
+  let depth = 0;
+  while(depth < 24 && getBlock(x, top - depth - 1, z) === WATER) depth++;
+  if(depth < 2) return;
+  const b = biomeAt(x, z), warm = BIOME_GROUPS.hot.some(q => q[0] === b), cold = BIOME_GROUPS.cold.some(q => q[0] === b);
+  const r = Math.random(), count = t => seaLife.filter(q => q.type === t).length;
+  let type = warm ? (r < 0.45 ? 'tropical' : r < 0.6 ? 'dolphin' : r < 0.75 ? 'squid' : 'cod')
+           : cold ? (r < 0.4 ? 'salmon' : r < 0.75 ? 'cod' : 'squid')
+           : (r < 0.45 ? 'cod' : r < 0.6 ? 'salmon' : r < 0.8 ? 'squid' : r < 0.9 ? 'dolphin' : 'tropical');
+  if((type === 'squid' || type === 'dolphin') && depth < 5) type = warm ? 'tropical' : 'cod';
+  if(type === 'dolphin' && count('dolphin') >= 3) return;
+  if(type === 'squid' && count('squid') >= 4) return;
+  const n = type === 'squid' ? 1 : type === 'dolphin' ? 1 + ((Math.random() * 2) | 0) : 3 + ((Math.random() * 3) | 0);
+  const y = top - 1 - Math.random() * Math.max(0, depth - 2 - SEA_TYPES[type].h);
+  for(let k = 0; k < n && seaLife.length < 18; k++){
+    const e = spawnSea(type, x + 0.5 + (Math.random() - 0.5) * 2, y, z + 0.5 + (Math.random() - 0.5) * 2);
+    if(!waterAt(e.pos.x, e.pos.y + e.h / 2, e.pos.z)) removeSea(seaLife.indexOf(e));
+  }
+}
+function stepSea(e, dt){
+  const T = e.type, inW = waterAt(e.pos.x, e.pos.y + e.h * 0.5, e.pos.z);
+  e.anim += dt * (3 + e.speed * 2.5);
+  if(!inW){
+    // leaping (a dolphin) or stranded (anything else once the water is gone)
+    e.vel.y -= 24 * dt;
+    const nx = e.pos.x + e.vel.x * dt, ny = e.pos.y + e.vel.y * dt, nz = e.pos.z + e.vel.z * dt;
+    if(isSolid(getBlock(Math.floor(nx), Math.floor(ny), Math.floor(nz)))){
+      e.pos.y = Math.floor(ny) + 1; e.vel.set(0, 0, 0);
+      if(!e.leap){ e.dryT += dt; if(Math.random() < dt * 3) e.vel.set((Math.random() - 0.5) * 2, 3.5, (Math.random() - 0.5) * 2); }   // flop
+      if(e.dryT > 6) e.hp = 0;
+    } else { e.pos.set(nx, ny, nz); if(e.vel.y < 0) e.pitch = Math.max(-1, e.pitch - dt * 2); }
+    e.dryT += dt * 0.2;
+  } else {
+    e.leap = false; e.dryT = 0;
+    e.t -= dt;
+    const toP = e.pos.distanceTo(player.pos);
+    if(T !== 'dolphin' && T !== 'squid' && toP < 4){
+      const dx = e.pos.x - player.pos.x, dz = e.pos.z - player.pos.z;
+      e.yaw = Math.atan2(-dx, -dz); e.speed = e.base * 2.2; e.t = Math.max(e.t, 0.6);                // dart away
+    } else if(e.t <= 0){
+      e.t = 1.5 + Math.random() * 3;
+      e.yaw += (Math.random() - 0.5) * 2.4; e.pitch = (Math.random() - 0.5) * 0.6;
+      e.speed = Math.random() < 0.2 ? e.base * 0.2 : e.base * (0.5 + Math.random() * 0.8);
+      if(T === 'dolphin' && toP < 24 && toP > 5 && Math.random() < 0.6){                             // come and see you
+        const dx = player.pos.x - e.pos.x, dz = player.pos.z - e.pos.z;
+        e.yaw = Math.atan2(-dx, -dz); e.speed = e.base;
+      }
+    }
+    const sp = T === 'squid' ? e.speed * Math.max(0.1, Math.sin(e.anim * 0.8) + 0.4) : e.speed;       // squid move in pulses
+    const cp = Math.cos(e.pitch);
+    const nx = e.pos.x - Math.sin(e.yaw) * cp * sp * dt, ny = e.pos.y + Math.sin(e.pitch) * sp * dt, nz = e.pos.z - Math.cos(e.yaw) * cp * sp * dt;
+    const ok = waterAt(nx, ny + e.h * 0.5, nz) && waterAt(nx, ny + 0.05, nz) && (T === 'dolphin' || waterAt(nx, ny + e.h + 0.05, nz));
+    if(ok) e.pos.set(nx, ny, nz);
+    else { e.yaw += Math.PI * (0.5 + Math.random()); e.pitch = -e.pitch * 0.5; e.t = Math.min(e.t, 1); }
+    // dolphins leap clear of the surface now and then
+    if(T === 'dolphin' && e.speed > 2 && !waterAt(e.pos.x, e.pos.y + e.h + 0.4, e.pos.z) && Math.random() < dt * 0.35){
+      e.leap = true; e.vel.set(-Math.sin(e.yaw) * 5, 7.5, -Math.cos(e.yaw) * 5); e.pitch = 0.7;
+      e.pos.y += 0.3;
+      playN({ f: 1200, type: 'bandpass', dur: 0.3, vol: 0.1 });
+    }
+    // swim near a dolphin and it lends you speed
+    if(T === 'dolphin' && toP < 6 && waterAt(player.pos.x, player.pos.y + 0.5, player.pos.z)){
+      effects.speed = Math.max(effects.speed, 3); grantAdv('dolphin');
+    }
+  }
+  const g = e.group;
+  g.position.copy(e.pos);
+  let dyaw = ((e.yaw - g.rotation.y + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+  g.rotation.y += dyaw * Math.min(1, dt * 5);
+  g.rotation.x += ((T === 'squid' ? 0 : e.pitch) - g.rotation.x) * Math.min(1, dt * 4);
+  if(!inW && !e.leap && T !== 'squid' && T !== 'dolphin') g.rotation.z = Math.PI / 2;           // on its side, flopping
+  else g.rotation.z = 0;
+  if(e.tail){ if(T === 'dolphin') e.tail.rotation.x = Math.sin(e.anim * 1.6) * 0.35; else e.tail.rotation.y = Math.sin(e.anim * 2.4) * 0.6; }
+  if(e.tent){ const open = 0.25 + 0.3 * Math.sin(e.anim * 0.8); for(const [t, a] of e.tent){ t.rotation.x = Math.cos(a) * open; t.rotation.z = -Math.sin(a) * open; } }
+}
+function updateSeaLife(dt){
+  if(dim !== 0 || !inGame){ while(seaLife.length) removeSea(seaLife.length - 1); return; }
+  seaSpawnT -= dt;
+  if(seaSpawnT <= 0){ seaSpawnT = 2; trySpawnSea(); }
+  for(let i = seaLife.length - 1; i >= 0; i--){
+    const e = seaLife[i];
+    if(e.pos.distanceToSquared(player.pos) > 72 * 72){ removeSea(i); continue; }
+    if(e.hp <= 0){ killSea(e); continue; }
+    stepSea(e, dt);
+  }
+}
 /* ============================== CAMPFIRES ==============================
    A campfire lights the night, sends up smoke, and cooks: use raw meat, fish
    or a potato on it and a little later the cooked food pops out. Up to four
@@ -14555,6 +14729,7 @@ function updateCampfires(dt){
     c.t -= dt;
     if(c.t <= 0){
       spawnDropAt(c.x + 0.5, c.y + 0.6, c.z + 0.5, c.id);
+      grantAdv('campfire');
       playN({ f: 900, type: 'bandpass', dur: 0.1, vol: 0.1 });
       cooking.splice(i, 1);
     }
@@ -14588,6 +14763,7 @@ function useFarm(hit, eh){
     if(hunger >= 20){ flashName('Hunger is full'); return true; }
     hunger = Math.min(20, hunger + 2); saturation = Math.min(hunger, saturation + 0.4); renderHearts();
     setBlock(hit.x, hit.y, hit.z, hit.id === CAKE3 ? AIR : hit.id + 1);
+    grantAdv('cake');
     playN({ f: 640 * jr(0.2), q: 1.5, dur: 0.08, vol: 0.2 }); flashName('Ate some cake');
     return true;
   }
@@ -15020,6 +15196,10 @@ const ADVANCEMENTS = [
   { ch: 'Overworld', id: 'iron', title: 'Acquire Hardware', how: 'Mine iron ore, then smelt it in a furnace with coal.', icon: IRONI, check: () => hasItem(IRONI) },
   { ch: 'Overworld', id: 'diamond', title: 'Diamonds!', how: 'Dig deep underground with an iron pickaxe.', icon: DIAMI, check: () => hasItem(DIAMI) },
   { ch: 'Overworld', id: 'fish', title: 'Fishy Business', how: 'Craft a fishing rod (3 sticks, 2 string), cast into water and reel in when the bobber dips.', icon: COD, check: () => false },
+  { ch: 'Overworld', id: 'dolphin', title: "Dolphin's Grace", how: 'Swim alongside a dolphin in warm or open water - it makes you faster.', icon: COD, check: () => false },
+  { ch: 'Overworld', id: 'cake', title: 'The Cake Is Real', how: 'Bake a cake (milk, sugar from reeds, an egg, wheat) and eat a slice.', icon: CAKE, check: () => false },
+  { ch: 'Overworld', id: 'bounce', title: 'Boing!', how: 'Fall onto a slime block (9 slimeballs from swamp slimes).', icon: SLIMEBALL, check: () => false },
+  { ch: 'Overworld', id: 'campfire', title: 'Cookout', how: 'Cook some raw food on a campfire.', icon: CAMPFIRE, check: () => false },
   { ch: 'Overworld', id: 'tame', title: 'Best Friends Forever', how: 'Feed bones (from skeletons) to a wild wolf until it wears a red collar.', icon: BONE, check: () => false },
   { ch: 'Overworld', id: 'obsidian', title: 'Hot Stuff', how: 'Pour water on a lava source, then mine the obsidian with a diamond pickaxe.', icon: OBSIDIAN, check: () => hasItem(OBSIDIAN) },
   { ch: 'Nether', id: 'nether', title: 'We Need to Go Deeper', how: 'Build a 4 wide, 5 tall obsidian frame and light it with flint & steel.', icon: NETHERRACK, check: () => dim === 1 },
@@ -15193,6 +15373,7 @@ function animate(){
   updateShield(dt);
   if(inGame) updatePetsWorld(dt);
   if(inGame) updateCampfires(dt);
+  updateSeaLife(dt);
   if(inGame && ((xpT = (xpT || 0) - dt) <= 0)){ xpT = 1; renderXP(); }
   updateAmbience(dt);
   checkMusicMood(dt);
@@ -15543,6 +15724,7 @@ window.__bc = {
             adv: { list: ADVANCEMENTS, done: advDone, grant: grantAdv, next: nextAdv, tick: () => { advT = 0; updateAdvancements(0); }, guide: toggleGuide, toast: showToast },
             fx: { clearInv: () => { for(const q of survInv){ q.id = 0; q.count = 0; q.dur = 0; } renderHotbar(); }, effects, drink: id => drinkPotion(id), step: dt => updateEffects(dt), light: lightAtPlayer, mood: () => musicMood(), sub: showSubtitle, POTIONS },
             xp: { add: addXP, level: () => xpLevel, points: () => xpPoints, drop: dropXP, orbs: xpOrbs, offers: enchantOffers, enchant: doEnchant, setTable: t => { enchantAt = t; }, heldEnch, stackName, armourEnch },
+            sea: { list: seaLife, spawn: spawnSea, step: dt => updateSeaLife(dt), trySpawn: trySpawnSea },
             camp: { use: useCampfire, step: dt => updateCampfires(dt), cooking, fires: campfires },
             farm: { use: useFarm, crops: () => crops, grow: dt => updateCrops(dt), hunger: v => { if(v !== undefined){ hunger = v; renderHearts(); } return hunger; } },
             ladder: { on: () => onLadder(player.pos), place: placeLadder, wall: (x, y, z) => ladderWall(getBlock, x, y, z) },
