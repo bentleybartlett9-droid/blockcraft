@@ -849,7 +849,7 @@ const PURPUR=335, PURPUR_PILLAR=336, ENDSTONE_BRICK=337, END_ROD=338, CHORUS_PLA
 const STORMSTONE=347, SKYGRASS=348, CLOUD=349, VOLTITE_ORE=350, STORM_PORTAL=351, CONDUIT=352, CONDUIT_LIT=353, STORM_BRICK=354;
 const STORMKEY_I=391, VOLTITE=392, TEMPEST_HEART=393, STORMBREAKER=394, VOLT_PICK=395;
 /* Brewing */
-const BREWING=355, BOAB_LOG=356, ENCH_TABLE=357;
+const BREWING=355, BOAB_LOG=356, ENCH_TABLE=357, LADDER=358;
 const GLASS_BOTTLE=396, WATER_BOTTLE=397, AWKWARD=398, POT_HEAL=399, POT_FIRE=400, POT_STR=401, POT_SPEED=402,
       POT_REGEN=403, POT_NIGHT=404, POT_SLOW=405;
 // what each potion does, for how long (seconds), and its colour
@@ -1091,7 +1091,7 @@ BLOCKS[CRYING_OBSIDIAN]={name:'Crying Obsidian',all:241};
 BLOCKS[STORMSTONE]={name:'Stormstone',all:246};BLOCKS[SKYGRASS]={name:'Skygrass',top:247,bottom:246,side:248};BLOCKS[CLOUD]={name:'Cloud',all:249};
 BLOCKS[VOLTITE_ORE]={name:'Voltite Ore',all:250};BLOCKS[STORM_PORTAL]={name:'Storm Portal',all:251};
 BLOCKS[CONDUIT]={name:'Storm Conduit',all:252};BLOCKS[CONDUIT_LIT]={name:'Armed Storm Conduit',all:253};BLOCKS[STORM_BRICK]={name:'Stormstone Bricks',all:254};
-BLOCKS[BREWING]={name:'Brewing Stand',all:255};BLOCKS[ENCH_TABLE]={name:'Enchanting Table',top:258,bottom:65,side:259};BLOCKS[BOAB_LOG]={name:'Boab Log',top:257,bottom:257,side:256};
+BLOCKS[BREWING]={name:'Brewing Stand',all:255};BLOCKS[ENCH_TABLE]={name:'Enchanting Table',top:258,bottom:65,side:259};BLOCKS[BOAB_LOG]={name:'Boab Log',top:257,bottom:257,side:256};BLOCKS[LADDER]={name:'Ladder',all:260};
 BLOCKS[ANCHOR]={name:'Respawn Anchor',top:243,bottom:242,side:242};BLOCKS[ANCHOR_LIT]={name:'Respawn Anchor',top:244,bottom:242,side:245};
 BLOCKS[MOSS]={name:'Moss Block',all:171};BLOCKS[AZALEA]={name:'Azalea',all:172};BLOCKS[AZALEA_F]={name:'Flowering Azalea',all:173};
 BLOCKS[GLOWVINE]={name:'Glow Berries',all:174};BLOCKS[CAVEVINE]={name:'Cave Vines',all:175};BLOCKS[DRIPLEAF]={name:'Small Dripleaf',all:176};
@@ -1206,7 +1206,7 @@ const isPlant  = id => isSapling(id) || FLORA_IDS.has(id) || id === TGRASSB || i
                        id === MUSHROOMR || id === MUSHROOMB ||
                        id === WHEAT0 || id === WHEAT1 || id === WHEAT2 || id === WHEAT3 || CAVE_PLANTS.has(id) || NETHER_PLANTS.has(id);
 const isCross  = id => id===GLOWCRYSTAL || isPlant(id) || id === TORCH || id === COBWEB || id === IRONBARS || CAVE_CROSS.has(id) || NETHER_CROSS.has(id);
-const isFlat   = id => id === RAIL || id === SNOW_LAYER;   // thin plate on the ground
+const isFlat   = id => id === RAIL || id === SNOW_LAYER || id === LADDER;   // thin plate on the ground (or, for a ladder, on a wall)
 const isSlab   = id => id === SLAB_STONE || id === SLAB_WOOD || id === SLAB_BRICK || id === SLAB_SAND || id === SLAB_NBRICK;
 const isStair  = id => id === STAIR_STONE || id === STAIR_WOOD || id === STAIR_BRICK || id === STAIR_SAND || id === STAIR_NBRICK;
 const isPartial = id => isSlab(id) || isStair(id);   // custom-geometry, non-full blocks
@@ -1244,6 +1244,7 @@ function toolClassOf(id){
   if([STORMSTONE,VOLTITE_ORE,STORM_BRICK,CONDUIT,CONDUIT_LIT].includes(id)) return 'pick';
   if(id === SKYGRASS || id === CLOUD) return 'shovel';
   if(id === ENCH_TABLE) return 'pick';
+  if(id === LADDER) return 'axe';
   if([PURPUR,PURPUR_PILLAR,ENDSTONE_BRICK,ENDSTONE,CRYING_OBSIDIAN,ANCHOR,ANCHOR_LIT].includes(id)) return 'pick';
   if(id === CHORUS_PLANT || id === CHORUS_FLOWER) return 'axe';
   if([NETHERRACK,NBRICK,SLAB_NBRICK,STAIR_NBRICK,OBSIDIAN,CRIM_NYL,WARP_NYL,BASALT_N,BLACKSTONE,BSTONE_BRICK,GILDED,MAGMA,
@@ -1384,7 +1385,7 @@ RECIPES.push({out:[STORMKEY_I,1],in:[[NETHERITE,1],[EYE_ENDER,1],[COPPERI,4]],st
 RECIPES.push({out:[BONE_MEAL,3],in:[[BONE,1]]},{out:[BONE_BLOCK,1],in:[[BONE_MEAL,9]]});
 RECIPES.push({out:[SHIELD,1],in:[[ANY_PLANK,6],[IRONI,1]],st:'table'},{out:[ROD,1],in:[[STICK,3],[STRING,2]],st:'table'},{out:[COOKED_COD,1],in:[[COD,1],[COALI,1]],st:'furnace'},
   {out:[COOKED_SALMON,1],in:[[SALMON,1],[COALI,1]],st:'furnace'});
-RECIPES.push({out:[GUMPLANK,4],in:[[BOAB_LOG,1]]},{out:[ENCH_TABLE,1],in:[[DIAMI,2],[OBSIDIAN,4],[BOOKSHELF,1]],st:'table'});
+RECIPES.push({out:[LADDER,3],in:[[STICK,7]],st:'table'},{out:[GUMPLANK,4],in:[[BOAB_LOG,1]]},{out:[ENCH_TABLE,1],in:[[DIAMI,2],[OBSIDIAN,4],[BOOKSHELF,1]],st:'table'});
 RECIPES.push({out:[BREWING,1],in:[[BLAZEROD,1],[STONE,3]],st:'table'},{out:[GLASS_BOTTLE,3],in:[[GLASS,3]]},
   {out:[AWKWARD,1],in:[[WATER_BOTTLE,1],[NWART,1]],st:'brew'},
   {out:[POT_HEAL,1],in:[[AWKWARD,1],[MELONSLICE,1],[GNUGGET,4]],st:'brew'},{out:[POT_FIRE,1],in:[[AWKWARD,1],[MAGMACREAM,1]],st:'brew'},
@@ -2784,6 +2785,11 @@ const tileAvg = [];
     if(x === 0 || y === 0 || x === 15 || y === 15) return [30, 20, 40];
     const d = Math.abs(x - 7.5) + Math.abs(y - 7.5);
     return d < 3 ? [60, 30, 30] : hash(x, y, 8601) < 0.1 ? [200, 60, 60] : [160, 32, 36];   // red cloth, a dark book in the middle
+  });
+  paint(260, (x, y) => {
+    const rail = x === 2 || x === 3 || x === 12 || x === 13, rung = (y % 4 === 1) && x > 3 && x < 12;
+    if(rail || rung) return (rail ? x === 3 || x === 13 : y % 4 === 1) && hash(x, y, 8611) < 0.5 ? [120, 84, 44] : [150, 108, 60];
+    return [52, 40, 28];
   });
   paint(259, (x, y) => {
     if(y < 4) return y === 3 ? [100, 20, 26] : [160, 32, 36];                       // cloth hanging over the edge
@@ -5189,6 +5195,7 @@ function* buildChunkSteps(c,reuseLight=false){
     if(isCross(b)){ pushCross(b === TORCH || emitsLight(b) ? GC : C, lx, y, lz, tileFor(b, 0), light, isPlant(b)?1:0); continue; }
     if(isPartial(b)){ pushPartial(O, lx, y, lz, b, light); continue; }
     if(isDoor(b)){ pushDoor(O, lx, y, lz, b, wx0 + lx, wz0 + lz, light); continue; }
+    if(b === LADDER){ pushLadder(O, lx, y, lz, gb, light); continue; }
     if(isFlat(b)){                                       // rail: thin plate on the floor
       const nlF = light ? sampleLight(light, lx, y + 1, lz) : 15;
       const llF = 0.15 + (nlF / 15) * 0.85;
@@ -5327,6 +5334,40 @@ function pushPartial(B, lx, y, lz, b, light){
     pushBox(B, tile, lx, y, lz, lx + 1, y + 0.5, lz + 1, ll);
     pushBox(B, tile, lx, y + 0.5, lz, lx + 1, y + 1, lz + 0.5, ll);
   }
+}
+// which wall a ladder hangs on: 0 = -Z, 1 = +Z, 2 = -X, 3 = +X
+function ladderWall(get, x, y, z){
+  if(isSolid(get(x, y, z - 1))) return 0;
+  if(isSolid(get(x, y, z + 1))) return 1;
+  if(isSolid(get(x - 1, y, z))) return 2;
+  if(isSolid(get(x + 1, y, z))) return 3;
+  return 0;
+}
+function pushLadder(B, lx, y, lz, gb, light){
+  const nl = light ? sampleLight(light, lx, y, lz) : 15, ll = 0.2 + (nl / 15) * 0.8;
+  const w = ladderWall(gb, lx, y, lz), th = 0.07, tile = T.PLANK;
+  // a piece at across-wall offset a0..a1, height y0..y1, depth d0..d1 out from the wall
+  const piece = (a0, a1, y0, y1, d0, d1) => {
+    if(w === 0) pushBox(B, tile, lx + a0, y + y0, lz + d0, lx + a1, y + y1, lz + d1, ll);
+    else if(w === 1) pushBox(B, tile, lx + a0, y + y0, lz + 1 - d1, lx + a1, y + y1, lz + 1 - d0, ll);
+    else if(w === 2) pushBox(B, tile, lx + d0, y + y0, lz + a0, lx + d1, y + y1, lz + a1, ll);
+    else pushBox(B, tile, lx + 1 - d1, y + y0, lz + a0, lx + 1 - d0, y + y1, lz + a1, ll);
+  };
+  piece(0.12, 0.24, 0, 1, 0.01, 0.01 + th);
+  piece(0.76, 0.88, 0, 1, 0.01, 0.01 + th);
+  for(let r = 0; r < 4; r++) piece(0.24, 0.76, 0.1 + r * 0.25, 0.17 + r * 0.25, 0.02, 0.02 + th * 0.8);
+}
+function onLadder(p){
+  const x = Math.floor(p.x), z = Math.floor(p.z);
+  return getBlock(x, Math.floor(p.y + 0.1), z) === LADDER || getBlock(x, Math.floor(p.y + 1), z) === LADDER;
+}
+function placeLadder(x, y, z, hit){
+  // hangs on the block you clicked, if that's a wall; otherwise on any solid wall beside it
+  const f = hit && hit.face;
+  if(!(f && f[1] === 0 && isSolid(hit.id)) && ![[0, -1], [0, 1], [-1, 0], [1, 0]].some(([dx, dz]) => isSolid(getBlock(x + dx, y, z + dz)))) return false;
+  setBlock(x, y, z, LADDER);
+  blockSfx(PLANK, 'place'); triggerViewSwing(); consumePlacedItem();
+  return true;
 }
 function pushDoor(B, lx, y, lz, b, wx, wz, light){
   const tile = b === DOORTOP ? T.DOORTOP_T : T.DOOR_T;
@@ -5507,6 +5548,14 @@ function physics(dt){
     if(v.y < -55) v.y = -55;
     if(key('Space') && p.onGround) v.y = 8.6;
   }
+  const climbing = !p.fly && !inWater && !gliding && onLadder(p.pos);
+  if(climbing){
+    // push into it (or hold jump) to climb, sneak to hang still, otherwise slide down slowly
+    const up = key('Space') || key('KeyW') || (xrActive && (readButtons('right')?.[4]?.pressed || Math.hypot(v.x, v.z) > 0.6));
+    const hold = key('ShiftLeft') || (xrActive && readButtons('right')?.[5]?.pressed);
+    v.y = up ? 3.2 : hold ? 0 : Math.max(v.y, -2.4);
+    const hs = Math.hypot(v.x, v.z); if(hs > 2.2){ v.x *= 2.2 / hs; v.z *= 2.2 / hs; }
+  }
   const sx0 = p.pos.x, sz0 = p.pos.z;
   stepEntity(p, dt);
   // soul sand drags at your feet
@@ -5514,7 +5563,7 @@ function physics(dt){
     p.pos.x = sx0 + (p.pos.x - sx0) * 0.45; p.pos.z = sz0 + (p.pos.z - sz0) * 0.45;
   }
   updatePlayerEffects(dt);
-  if(p.fly || inWater || p.gorillaHold || gliding || levT > 0 || effects.slow > 0) fallPeak = p.pos.y;   // hanging on is not falling
+  if(p.fly || inWater || p.gorillaHold || gliding || levT > 0 || effects.slow > 0 || climbing) fallPeak = p.pos.y;   // hanging on is not falling
   else if(!p.onGround) fallPeak = Math.max(fallPeak, p.pos.y);
   if(p.onGround){
     const d = fallPeak - p.pos.y;
@@ -12492,6 +12541,7 @@ function doPlace(){
   if(aabbHitsCell(x, y, z)) return;
   if(!held || !BLOCKS[held]) return;                 // only blocks are placeable
   if(held===DOOR){placeDoor(x,y,z);return;}
+  if(held===LADDER){placeLadder(x,y,z,hit);return;}
   if(held===TORCH){placeTorch(x,y,z);return;}
   triggerViewSwing();
   setBlock(x, y, z, held);
@@ -13245,6 +13295,7 @@ function vrTryPlace(){
   if(cur !== AIR && cur !== WATER && !isCross(cur)) return;
   if(aabbHitsCell(x, y, z)) return;
   if(held===DOOR){placeDoor(x,y,z);return;}
+  if(held===LADDER){placeLadder(x,y,z,hit);return;}
   if(held===TORCH){placeTorch(x,y,z);return;}
   triggerViewSwing();
   setBlock(x, y, z, held);
@@ -15249,6 +15300,7 @@ window.__bc = {
             adv: { list: ADVANCEMENTS, done: advDone, grant: grantAdv, next: nextAdv, tick: () => { advT = 0; updateAdvancements(0); }, guide: toggleGuide, toast: showToast },
             fx: { clearInv: () => { for(const q of survInv){ q.id = 0; q.count = 0; q.dur = 0; } renderHotbar(); }, effects, drink: id => drinkPotion(id), step: dt => updateEffects(dt), light: lightAtPlayer, mood: () => musicMood(), sub: showSubtitle, POTIONS },
             xp: { add: addXP, level: () => xpLevel, points: () => xpPoints, drop: dropXP, orbs: xpOrbs, offers: enchantOffers, enchant: doEnchant, setTable: t => { enchantAt = t; }, heldEnch, stackName, armourEnch },
+            ladder: { on: () => onLadder(player.pos), place: placeLadder, wall: (x, y, z) => ladderWall(getBlock, x, y, z) },
             pets: { list: () => pets, use: useOnWolf, tame: tameWolf, step: dt => updatePetsWorld(dt), meal: useBoneMeal, target: () => petTarget },
             shield: { blocks: shieldBlocks, up: v => { shieldUp = v; }, stack: shieldStack },
             fish: { use: (o, d) => useRod(o, d), step: dt => updateFishing(dt), state: () => bobber && { state: bobber.state, wait: bobber.wait, pos: bobber.pos }, loot: fishLoot },
