@@ -339,7 +339,7 @@ const IS_VR      = BUILD === 'vr';
 
 
 /* ============================== config ============================== */
-const CHUNK = 16, HEIGHT = 144, SEA = 66, SNOW_H = 92;
+const CHUNK = 16, SEA = 66;
 const DEEP_Y = 34;              // below this the stone turns to deepslate
 const WORLD_LIFT = 40;          // how far this build raised terrain vs the old 96-tall world
 const QUEST_DEVICE=/Quest|Oculus/i.test(navigator.userAgent);
@@ -373,6 +373,9 @@ const GEN_V = (() => {
     return g;
   } catch(e){ return 2; }
 })();
+// Caves & Cliffs worlds are 224 tall so mountains can climb past the clouds;
+// older worlds stay 144 tall with the snow line where it always was
+const HEIGHT = GEN_V >= 2 ? 224 : 144, SNOW_H = GEN_V >= 2 ? 128 : 92;
 document.getElementById('seedLabel').textContent = SEED;
 const SPLASHES = ['Punch trees!', 'Now with zombies!', 'Diamonds are deep!', 'One file!', 'Also try Minecraft!',
                   'Craft a bed!', 'Now with biomes!', 'Ouch, cactus!', 'Beware the night!', 'Free concert included!'];
@@ -427,22 +430,27 @@ function terrainHeight(x, z){
   h += m * m * 30;
   // mountain ranges: a separate low-freq mask drives tall, ridged peaks
   const mtnMask = fbm(x * 0.0022, z * 0.0022, 3, 53);
-  if(mtnMask > 0.58){
+  if(GEN_V >= 2){
+    // Caves & Cliffs mountains: whole ranges that climb far above the clouds,
+    // with sharp-crested ridgelines and jagged summits
+    if(mtnMask > 0.54){
+      const t = Math.min(1, (mtnMask - 0.54) / 0.2);
+      const ridge = 1 - Math.abs(fbm(x * 0.012, z * 0.012, 4, 61) * 2 - 1);
+      h += Math.pow(t, 1.5) * (55 + ridge * 85);
+      const jag = Math.pow(1 - Math.abs(fbm(x * 0.045, z * 0.045, 3, 67) * 2 - 1), 3);
+      h += t * t * jag * 30;
+    }
+  } else if(mtnMask > 0.58){
     const t = (mtnMask - 0.58) / 0.42;                 // 0..1 across a range
     const ridge = 1 - Math.abs(fbm(x * 0.02, z * 0.02, 4, 61) * 2 - 1); // sharp ridgelines
     h += t * t * (34 + ridge * 34);
   }
   if(GEN_V >= 2){
-    // Caves & Cliffs: jagged peaks where the ranges rise highest...
-    if(mtnMask > 0.62){
-      const t2 = (mtnMask - 0.62) / 0.38;
-      const jag = Math.pow(1 - Math.abs(fbm(x * 0.045, z * 0.045, 3, 67) * 2 - 1), 3);
-      h += t2 * t2 * jag * 26;
-    }
-    // ...and highland slopes that break into shelves above sheer rock faces
+    // highland slopes break into shelves above sheer rock faces; the great
+    // mountains above them keep their natural jagged shape
     const cliffMask = fbm(x * 0.006 + 311, z * 0.006 - 97, 2, 71);
-    if(cliffMask > 0.46 && h > SEA + 10){
-      const k = Math.min(1, (cliffMask - 0.46) / 0.06) * Math.min(1, (h - SEA - 10) / 6);
+    if(cliffMask > 0.46 && h > SEA + 10 && h < SEA + 75){
+      const k = Math.min(1, (cliffMask - 0.46) / 0.06) * Math.min(1, (h - SEA - 10) / 6) * Math.min(1, (SEA + 75 - h) / 15);
       const step = 6 + Math.floor(vnoise(x * 0.01, z * 0.01, 73) * 5);   // 6-10 block risers
       const f = h / step, fl = Math.floor(f);
       const rise = Math.min(1, Math.max(0, (f - fl - 0.965) / 0.035)); // the whole step climbs in its last sliver
@@ -2620,14 +2628,16 @@ function* genChunkSteps(cx, cz){
     const cuts=caverns.map(c=>{const r=1-(wx-c.x)**2/(c.rx*c.rx)-(wz-c.z)**2/(c.rz*c.rz);return r>0?[c.y-c.ry*Math.sqrt(r),c.y+c.ry*Math.sqrt(r)]:null;}).filter(Boolean);
     const nearSpawn = (wx * wx + wz * wz) < 24 * 24;  // keep the spawn area solid on top
     // Caves & Cliffs: steep ground is bare rock, so cliffs read as cliffs
+    // and mountains are rock under their snow, not dirt, so their slopes don't stripe
+    const alpine = GEN_V >= 2 && h > SEA + 45 && !badlands;
     const steep = GEN_V >= 2 && h > SEA + 4 && !sandy && !badlands &&
       Math.max(Math.abs(h - terrainHeight(wx + 1, wz)), Math.abs(h - terrainHeight(wx - 1, wz)),
-               Math.abs(h - terrainHeight(wx, wz + 1)), Math.abs(h - terrainHeight(wx, wz - 1))) >= 3;
+               Math.abs(h - terrainHeight(wx, wz + 1)), Math.abs(h - terrainHeight(wx, wz - 1))) >= (alpine ? 2 : 3);
     const aqLevel = GEN_V >= 2 ? aquiferLevel(wx, wz) : -1;
     for(let y = 0; y <= h; y++){
       let b;
       if(y === 0) b = STONE;
-      else if(steep && y > h - 4) b = (y === h && snowyTop) ? SNOW : STONE;
+      else if((steep || alpine) && y > h - 4) b = y < h ? STONE : snowyTop ? SNOW : steep ? STONE : GRASS;
       else if(y === h) b = badlands ? terraBand(y) : outback ? REDSAND
                          : biome === 'amberfield' ? AMBERGRASS
                          : biome === 'frostvale' ? FROSTGRASS
@@ -3352,20 +3362,24 @@ function computeLight(c,gb){return finishSteps(computeLightSteps(c,gb));}
 function* computeLightSteps(c, gb){
   const light = new Uint8Array(LSTRIDE * HEIGHT);
   const idx = (lx, y, lz) => (lx + 1) + (lz + 1) * LW + y * LSTRIDE;
+  let top = 0;                                       // highest block anywhere in the neighbourhood
   // 1) skylight: full 15 from the sky; solid blocks stop it, leaves just dim it
   for(let lz = -1; lz <= 16; lz++) for(let lx = -1; lx <= 16; lx++){
     yield;
     let sky = 15;
     for(let y = HEIGHT - 1; y >= 0; y--){
       const b = gb(lx, y, lz);
+      if(b !== AIR && y > top) top = y;
       if(blocksLight(b)) sky = 0;                    // real solid block: shadow below
       else if(isLeaf(b)) sky = Math.max(0, sky - lightCost(b));   // canopy dims it
       light[idx(lx, y, lz)] = sky;
     }
   }
+  // above the highest block it is uniform full sky, so the flood can stop there
+  const yTop = Math.min(HEIGHT, top + 2);
   // 2) seed block-light emitters
   const queue = [];
-  for(let lz = -1; lz <= 16; lz++) for(let lx = -1; lx <= 16; lx++) for(let y = 0; y < HEIGHT; y++){
+  for(let lz = -1; lz <= 16; lz++) for(let lx = -1; lx <= 16; lx++) for(let y = 0; y < yTop; y++){
     if((y&63)===0)yield;
     const e = emitLevel(gb(lx, y, lz));
     if(e > 0){
@@ -3374,7 +3388,7 @@ function* computeLightSteps(c, gb){
     }
   }
   // 3) BFS flood: skylight spreads horizontally into caves; block light spreads outward
-  for(let lz = 0; lz < 16; lz++) for(let lx = 0; lx < 16; lx++) for(let y = 0; y < HEIGHT; y++){
+  for(let lz = 0; lz < 16; lz++) for(let lx = 0; lx < 16; lx++) for(let y = 0; y < yTop; y++){
     if((y&63)===0)yield;
     const i = idx(lx, y, lz);
     if(light[i] > 1 && !blocksLight(gb(lx, y, lz))) queue.push([lx, y, lz, light[i]]);
@@ -4601,6 +4615,7 @@ function updateZombieSpawns(dt, daylight){
   const x = Math.floor(player.pos.x + Math.cos(a) * d), z = Math.floor(player.pos.z + Math.sin(a) * d);
   const h = findSurfaceY(x, z);
   if(h < 0 || h <= SEA) return;
+  if(blockLightAt(x, h + 1, z) > 0) return;          // a lit spot keeps monsters away
   const roll = Math.random();
   if(roll < 0.24){
     spawnSkeleton(x + 0.5, h + 1.05, z + 0.5);
@@ -4651,6 +4666,7 @@ function updateSpawners(dt){
       const ox = x + [(-2), 2, 0, 0, 1, -1][a];
       const oz = z + [0, 0, -2, 2, 1, -1][a];
       if(getBlock(ox, y, oz) === AIR && getBlock(ox, y + 1, oz) === AIR && isSolid(getBlock(ox, y - 1, oz))){
+        if(blockLightAt(ox, y, oz) > 11) return;       // torch it up and the spawner goes quiet
         const roll = Math.random();
         if(roll < 0.45) spawnZombie(ox + 0.5, y + 0.05, oz + 0.5);
         else if(roll < 0.75) spawnSpider(ox + 0.5, y + 0.05, oz + 0.5);
@@ -4776,6 +4792,7 @@ function updateEndermanSpawns(dt, daylight){
   const x = Math.floor(player.pos.x + Math.cos(a) * d), z = Math.floor(player.pos.z + Math.sin(a) * d);
   const y = findSurfaceY(x, z);
   if(y < 0) return;
+  if(blockLightAt(x, y + 1, z) > 0) return;
   spawnEnderman(x + 0.5, y + 1.02, z + 0.5);
 }
 function updateNetherSpawns(dt){
@@ -4789,11 +4806,32 @@ function updateNetherSpawns(dt){
   const py = Math.floor(player.pos.y);
   for(let y = Math.min(NETHER_CEIL - 2, py + 8); y > 4; y--){
     if(isSolid(getBlock(x, y, z)) && getBlock(x, y + 1, z) === AIR && getBlock(x, y + 2, z) === AIR){
+      if(blockLightAt(x, y + 1, z) > 11) return;
       if(Math.random() < 0.45){ spawnSkeleton(x + 0.5, y + 1.05, z + 0.5); boneRattle(.08,new THREE.Vector3(x,y,z)); }
       else { spawnZombie(x + 0.5, y + 1.05, z + 0.5); zombieGroan(.1,new THREE.Vector3(x,y,z)); }
       return;
     }
   }
+}
+/* Block light - torches, glowstone, lava - at a spot. Monsters, as in
+   Minecraft, only spawn where it is dark. Built chunks already know their
+   light; for one not lit yet (out of view, or around a friend) look for any
+   light source near enough to reach. */
+function blockLightAt(x, y, z){
+  x = Math.floor(x); y = Math.floor(y); z = Math.floor(z);
+  if(y < 0 || y >= HEIGHT) return 0;
+  const c = chunks.get((x >> 4) + ',' + (z >> 4));
+  if(c && c.built && c.light && c.light.block) return c.light.block[c.light.idx(x & 15, y, z & 15)];
+  let best = 0;
+  for(let dy = -8; dy <= 8; dy++) for(let dx = -13; dx <= 13; dx++) for(let dz = -13; dz <= 13; dz++){
+    const d = Math.abs(dx) + Math.abs(dy) + Math.abs(dz);
+    if(d >= 15) continue;
+    const by = y + dy;
+    if(by < 0 || by >= HEIGHT) continue;
+    const e = emitLevel(getBlock(x + dx, by, z + dz)) - d;
+    if(e > best) best = e;
+  }
+  return best;
 }
 function skyExposed(x, y, z){
   for(let yy = y; yy < HEIGHT; yy++)
@@ -5232,7 +5270,7 @@ function updateCrystalCrawlers(dt){
  if(dim!==0||mode!=='survival'||player.pos.y>terrainHeight(player.pos.x,player.pos.z)-7||spiders.length>=10||spiders.filter(s=>s.crystal).length>=3)return;
  for(let attempt=0;attempt<8;attempt++){
   const a=Math.random()*Math.PI*2,d=9+Math.random()*10,x=Math.floor(player.pos.x+Math.cos(a)*d),z=Math.floor(player.pos.z+Math.sin(a)*d);
-  for(let y=Math.floor(player.pos.y)+3;y>=Math.max(4,player.pos.y-4);y--)if(isSolid(getBlock(x,y-1,z))&&getBlock(x,y,z)===AIR&&getBlock(x,y+1,z)===AIR){spawnSpider(x+.5,y+.02,z+.5,true);return;}
+  for(let y=Math.floor(player.pos.y)+3;y>=Math.max(4,player.pos.y-4);y--)if(isSolid(getBlock(x,y-1,z))&&getBlock(x,y,z)===AIR&&getBlock(x,y+1,z)===AIR&&blockLightAt(x,y,z)===0){spawnSpider(x+.5,y+.02,z+.5,true);return;}
  }
 }
 function updateSpiders(dt, daylight){
@@ -9630,7 +9668,8 @@ window.__bc = {
   mpNewCode, MP_ALPHABET, startHost, joinGame, destroyPeer, enableVoice, disableVoice,
   myPose, netMessage: m => onNet({ peer: 'test' }, m), remotes, stepNet: dt => updateNet(dt),
   setHost: v => { isHost = v; }, timeOfDay: () => timeOfDay,
-  stepMobWorld: (dt, dl) => runMobWorld(dt, dl), GEN_V, caveCarve, caveNoise, lushAt, dripAt, geodeDef, genChunk, vnoise3,
+  stepMobWorld: (dt, dl) => runMobWorld(dt, dl), GEN_V, HEIGHT, blockLightAt, stepZombieSpawns: (dt, dl) => updateZombieSpawns(dt, dl), caveCarve, caveNoise, lushAt, dripAt, geodeDef, genChunk, vnoise3,
+  lightChunk: (cx, cz) => computeLight(chunkAt(cx, cz), (lx, y, lz) => y < 0 ? STONE : y >= HEIGHT ? AIR : getBlock(cx * 16 + lx, y, cz * 16 + lz)),
   puppets, mobsFromHost: () => mobsFromHost(),
   addTestConn: send => { const c = { open: true, send, peer: 'test', close(){} }; conns.push(c); return c; },
   dropTestConns: () => { conns = conns.filter(c => c.peer !== 'test'); },
