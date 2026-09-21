@@ -692,7 +692,11 @@ const GUMLOG=190, GUMPLANK=191, GUMLEAVES=192, SPINIFEX=193,
       SUNLOG=200, SUNPLANK=201, SUNLEAVES=202,
       RIMELOG=203, RIMEPLANK=204, RIMELEAVES=205,
       DUSKLOG=206, DUSKPLANK=207, DUSKLEAVES=208,
-      AMBERGRASS=209, FROSTGRASS=210, DUSKGRASS=211;
+      AMBERGRASS=209, FROSTGRASS=210, DUSKGRASS=211,
+      SAP_OAK=215, SAP_BIRCH=216, SAP_SPRUCE=217, SAP_JUNGLE=218,
+      SAP_EXTRA0=219, SAP_EXTRA1=220, SAP_EXTRA2=221, SAP_EXTRA3=222,
+      SAP_EXTRA4=223, SAP_EXTRA5=224, SAP_EXTRA6=225;
+const EXTRA_SAPS=[SAP_EXTRA0,SAP_EXTRA1,SAP_EXTRA2,SAP_EXTRA3,SAP_EXTRA4,SAP_EXTRA5,SAP_EXTRA6];
 const FLORA=[
  {id:BLUEBELL,name:'Bluebell',color:'#7da8ef',kind:'bells'},
  {id:LAVENDER,name:'Lavender',color:'#b298de',kind:'spike'},
@@ -734,7 +738,7 @@ const T = {GRASS_TOP:0,GRASS_SIDE:1,DIRT:2,STONE:3,SAND:4,LOG_SIDE:5,LOG_TOP:6,L
            DOOR_T:82,DOORTOP_T:83,
            ENDSTONE_T:84,ENDPORTAL_T:85,DRAGONEGG_T:86,ENDCRYSTAL_T:87,
            SPAWNER_T:88,RAIL_T:89,COBWEB_T:90,CRACKED_T:91,MOSSYBRICK_T:92,IRONBARS_T:93};
-const ATLAS_COLS = 8, ATLAS_W = 128, ATLAS_H = 320;
+const ATLAS_COLS = 8, ATLAS_W = 128, ATLAS_H = 384;
 const BLOCKS = {
   [GRASS]:{name:'Grass',  top:T.GRASS_TOP, bottom:T.DIRT, side:T.GRASS_SIDE},
   [DIRT] :{name:'Dirt',   all:T.DIRT},
@@ -833,11 +837,22 @@ EXTRA_WOODS.forEach((w,i)=>{
   BLOCKS[w.log]={name:w.name+' Log',side:t,top:t+1,bottom:t+1};
   BLOCKS[w.plank]={name:w.name+' Planks',all:t+2};
   BLOCKS[w.leaves]={name:w.name+' Leaves',all:t+3};
+  w.sapling=EXTRA_SAPS[i];
+  BLOCKS[w.sapling]={name:w.name+' Sapling',all:164+i};
 });
+/* which sapling a given leaf yields, and which tree a sapling grows into */
+const SAPLING_OF={[LEAVES]:SAP_OAK,[SPRUCELEAVES]:SAP_SPRUCE};
+const SAPLING_TREE={[SAP_OAK]:'oak',[SAP_BIRCH]:'birch',[SAP_SPRUCE]:'spruce',[SAP_JUNGLE]:'jungle'};
+EXTRA_WOODS.forEach(w=>{ SAPLING_OF[w.leaves]=w.sapling; SAPLING_TREE[w.sapling]=w.name.toLowerCase(); });
+const isSapling=id=>id===SAP_OAK||id===SAP_BIRCH||id===SAP_SPRUCE||id===SAP_JUNGLE||EXTRA_SAPS.includes(id);
 for(const [id,name,tile] of [[MARBLE,'Marble',134],[MARBLEBRICK,'Marble Bricks',135],[BASALT,'Basalt',136],[BASALTBRICK,'Basalt Bricks',137],[MOSAIC,'Mosaic Tiles',138],[AMBERLAMP,'Amber Lantern',139]])BLOCKS[id]={name,all:tile};
 FLORA.forEach((f,i)=>BLOCKS[f.id]={name:f.name,all:145+i});
 BLOCKS[COARSEDIRT]={name:'Coarse Dirt',all:143};
 BLOCKS[DEEPSLATE]={name:'Deepslate',all:144};
+BLOCKS[SAP_OAK]   ={name:'Oak Sapling',    all:160};
+BLOCKS[SAP_BIRCH] ={name:'Birch Sapling',  all:161};
+BLOCKS[SAP_SPRUCE]={name:'Spruce Sapling', all:162};
+BLOCKS[SAP_JUNGLE]={name:'Jungle Sapling', all:163};
 BLOCKS[AMBERGRASS]={name:'Amber Turf', top:122, bottom:T.DIRT, side:123};
 BLOCKS[FROSTGRASS]={name:'Frost Turf', top:124, bottom:T.DIRT, side:125};
 BLOCKS[DUSKGRASS] ={name:'Dusk Turf',  top:126, bottom:T.DIRT, side:127};
@@ -922,7 +937,7 @@ function removeArmour(slot){
  armour[slot]=0;invDirty=true;updateArmourModel();renderHotbar();saveNow();
 }
 const nameOf = id => BLOCKS[id]?.name || ITEMS[id]?.name || 'Empty';
-const isPlant  = id => FLORA_IDS.has(id) || id === TGRASSB || id === POPPYB || id === DANDB || id === DEADBUSH ||
+const isPlant  = id => isSapling(id) || FLORA_IDS.has(id) || id === TGRASSB || id === POPPYB || id === DANDB || id === DEADBUSH ||
                        id === MUSHROOMR || id === MUSHROOMB ||
                        id === WHEAT0 || id === WHEAT1 || id === WHEAT2 || id === WHEAT3;
 const isCross  = id => id===GLOWCRYSTAL || isPlant(id) || id === TORCH || id === COBWEB || id === IRONBARS;
@@ -1830,7 +1845,7 @@ itemAtlas.width = 128; itemAtlas.height = 256;
 const tileAvg = [];
 {
   const ctx = atlas.getContext('2d');
-  for(let ti = 0; ti <= 158; ti++){      // every tile, so break particles match the block
+  for(let ti = 0; ti <= 170; ti++){      // every tile, so break particles match the block
     const d = ctx.getImageData((ti % ATLAS_COLS) * 16, ((ti / ATLAS_COLS) | 0) * 16, 16, 16).data;
     let r = 0, g = 0, b = 0, n = 0;
     for(let i = 0; i < d.length; i += 4) if(d[i+3] > 40){ r += d[i]; g += d[i+1]; b += d[i+2]; n++; }
@@ -1849,6 +1864,25 @@ const tileAvg = [];
   g.fillStyle='rgb('+base.map(c=>Math.max(0,Math.min(255,c+v))).join(',')+')';g.fillRect((tile%8)*16+x,Math.floor(tile/8)*16+y,1,1);
  }}
  EXTRA_WOODS.forEach((w,i)=>{let t=94+i*4;paint(t,w.bark,'bark');paint(t+1,w.wood,'brick');paint(t+2,w.wood,'plank');paint(t+3,w.leaf,'leaf');});
+ // saplings: a thin stem under a little clump of that wood's foliage
+ const paintSapling=(tile,leaf)=>{
+   const ox=(tile%8)*16, oy=Math.floor(tile/8)*16, rnd=mulberry32(tile*733+11);
+   g.clearRect(ox,oy,16,16);
+   const px=(x,y,c)=>{g.fillStyle='rgb('+c.join(',')+')';g.fillRect(ox+x,oy+y,1,1);};
+   for(let y=9;y<16;y++){ const k=Math.floor((rnd()-.5)*14); px(7,y,[104+k,76+k,44+k]); px(8,y,[88+k,64+k,36+k]); }
+   const blob=[[6,3],[7,2],[8,2],[9,3],[5,4],[6,4],[7,4],[8,4],[9,4],[10,4],
+               [5,5],[6,5],[7,5],[8,5],[9,5],[10,5],[6,6],[7,6],[8,6],[9,6],
+               [6,7],[7,7],[8,7],[9,7],[7,8],[8,8],[5,6],[10,6]];
+   for(const [x,y] of blob){
+     const k=Math.floor((rnd()-.5)*30);
+     px(x,y,[Math.max(0,leaf[0]+k),Math.max(0,leaf[1]+k),Math.max(0,leaf[2]+k)]);
+   }
+ };
+ paintSapling(160,[86,140,58]);   // oak
+ paintSapling(161,[132,172,92]);  // birch
+ paintSapling(162,[44,92,68]);    // spruce
+ paintSapling(163,[58,128,48]);   // jungle
+ EXTRA_WOODS.forEach((w,i)=>paintSapling(164+i,w.leaf));
  [[144,[64,64,71],'stone'],[140,[198,104,56],'stone'],[141,[176,98,52],'brick'],[142,[214,176,140],'brick'],
   [134,[218,218,211],'stone'],[135,[218,218,211],'brick'],[136,[58,65,73],'stone'],[137,[65,74,84],'brick'],[138,[156,174,178],'brick'],[139,[236,169,65],'brick']].forEach(a=>paint(...a));
  const it=itemAtlas.getContext('2d');for(const [tile,color] of [[49,'#db446a'],[50,'#d59351'],[51,'#8aa54c'],[52,'#62efd9'],[53,'#dccbfa']]){
@@ -1978,7 +2012,9 @@ const cloudMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: tru
 const cloudGroup = new THREE.Group();
 for(let i = 0; i < 24; i++){
   const c = new THREE.Mesh(new THREE.BoxGeometry(14 + Math.random() * 24, 1.6, 10 + Math.random() * 16), cloudMat);
-  c.position.set(Math.random() * 480 - 240, 72 + Math.random() * 9, Math.random() * 480 - 240);
+  // well clear of the raised world: terrain tops out near y119, and the
+  // height cap is 138, so sit the cloud deck above both
+  c.position.set(Math.random() * 480 - 240, 156 + Math.random() * 14, Math.random() * 480 - 240);
   cloudGroup.add(c);
 }
 scene.add(cloudGroup);
@@ -2856,6 +2892,8 @@ function setBlock(x, y, z, id){
   const ck = cx + ',' + cz;
   (edits[ck] = edits[ck] || {})[lx + ',' + y + ',' + lz] = id;
   editsDirty = true;
+  if(typeof isSapling === 'function' && isSapling(id))
+    saplingQueue.set(x + ',' + y + ',' + z, performance.now()/1000 + 30 + Math.random()*50);
   // Rebuild the 3x3 chunk neighborhood so lighting (which spreads across
   // borders) updates correctly when torches are placed or blocks change.
   for(let dx = -1; dx <= 1; dx++) for(let dz = -1; dz <= 1; dz++) rebuild(chunkAt(cx + dx, cz + dz));
@@ -7011,6 +7049,79 @@ function calcMineTime(id){
   if(tool && cls && tool.type === cls) t /= TIER_SPEED[tool.tier - 1];
   return t;
 }
+/* ---------------- leaf decay, saplings and regrowth ----------------
+   Minecraft's rule: leaves live while a trunk is close by, and die back
+   once it is felled. Checks are queued and spread over time so chopping
+   a tree never stalls a frame. */
+const leafQueue = new Map(), saplingQueue = new Map();
+function wakeLeaves(x, y, z){
+  const now = performance.now() / 1000;
+  for(let dx = -5; dx <= 5; dx++) for(let dy = -5; dy <= 5; dy++) for(let dz = -5; dz <= 5; dz++){
+    const by = y + dy;
+    if(by < 1 || by >= HEIGHT) continue;
+    if(!isLeaf(getBlock(x + dx, by, z + dz))) continue;
+    const k = (x + dx) + ',' + by + ',' + (z + dz);
+    if(!leafQueue.has(k)) leafQueue.set(k, now + 1.5 + Math.random() * 5);
+  }
+}
+function logWithin(x, y, z, r){
+  for(let dx = -r; dx <= r; dx++) for(let dy = -r; dy <= r; dy++) for(let dz = -r; dz <= r; dz++){
+    if(Math.abs(dx) + Math.abs(dy) + Math.abs(dz) > r + 1) continue;
+    if(isLog(getBlock(x + dx, y + dy, z + dz))) return true;
+  }
+  return false;
+}
+function leafSpoils(x, y, z, id){
+  setBlock(x, y, z, AIR);
+  burst(x, y, z, tileFor(id, 0));
+  if(mode === 'survival'){
+    const sap = SAPLING_OF[id];
+    if(sap && Math.random() < .06) spawnDropAt(x+.5, y+.4, z+.5, sap, 1);
+    else if(Math.random() < .03) spawnDropAt(x+.5, y+.4, z+.5, STICK, 1);
+  }
+  wakeLeaves(x, y, z);                        // the die-back spreads outward
+}
+function tickLeafDecay(now){
+  let budget = 24;                            // a few per frame, never a stall
+  for(const [k, due] of leafQueue){
+    if(budget <= 0) break;
+    if(due > now) continue;
+    leafQueue.delete(k); budget--;
+    const [x, y, z] = k.split(',').map(Number);
+    const id = getBlock(x, y, z);
+    if(!isLeaf(id)) continue;
+    if(logWithin(x, y, z, 4)) continue;       // still attached to a trunk
+    leafSpoils(x, y, z, id);
+  }
+  if(leafQueue.size > 4000) leafQueue.clear();   // safety valve
+}
+function growTree(x, y, z, kind){
+  for(let dy = 1; dy <= 7; dy++) if(isSolid(getBlock(x, y + dy, z))) return false;
+  const wood = EXTRA_WOODS.find(w => w.name.toLowerCase() === kind);
+  const log  = wood ? wood.log : kind === 'spruce' ? SPRUCELOG : kind === 'birch' ? BIRCHLOG
+             : kind === 'jungle' ? JUNGLELOG : LOG;
+  const leaf = wood ? wood.leaves : kind === 'spruce' ? SPRUCELEAVES : LEAVES;
+  const th = 4 + Math.floor(Math.random() * 3);
+  for(let k = 0; k < th; k++) setBlock(x, y + k, z, log);
+  const cy = y + th - 1;
+  for(let dx = -2; dx <= 2; dx++) for(let dy = -1; dy <= 2; dy++) for(let dz = -2; dz <= 2; dz++){
+    if(dx*dx + dy*dy*1.7 + dz*dz > 6.2) continue;
+    const bx = x+dx, by = cy+dy, bz = z+dz;
+    if(by < HEIGHT && getBlock(bx, by, bz) === AIR) setBlock(bx, by, bz, leaf);
+  }
+  return true;
+}
+function tickSaplings(now){
+  for(const [k, due] of saplingQueue){
+    if(due > now) continue;
+    saplingQueue.delete(k);
+    const [x, y, z] = k.split(',').map(Number);
+    const id = getBlock(x, y, z);
+    if(!isSapling(id)) continue;
+    if(!isSolid(getBlock(x, y - 1, z))) continue;      // needs ground under it
+    growTree(x, y, z, SAPLING_TREE[id] || 'oak');
+  }
+}
 function breakBlock(x, y, z, id){
   triggerViewSwing();
   // doors: remove both halves and clear state
@@ -7026,7 +7137,16 @@ function breakBlock(x, y, z, id){
     return;
   }
   setBlock(x, y, z, AIR);
-  if(mode==='survival'&&isLeaf(id)&&Math.random()<.3)spawnDropAt(x+.5,y+.4,z+.5,BERRIES,1);
+  if(isLeaf(id)){
+    if(mode === 'survival'){
+      if(Math.random() < .30) spawnDropAt(x+.5, y+.4, z+.5, BERRIES, 1);
+      const sap = SAPLING_OF[id];
+      if(sap && Math.random() < .06) spawnDropAt(x+.5, y+.4, z+.5, sap, 1);   // a seedling
+      else if(Math.random() < .03) spawnDropAt(x+.5, y+.4, z+.5, STICK, 1);
+    }
+    wakeLeaves(x, y, z);            // neighbours may now be cut off too
+  }
+  if(isLog(id)) wakeLeaves(x, y, z);   // felling a trunk starts the canopy dying back
   burst(x, y, z, tileFor(id, 0));
   blockSfx(id, 'break');
   // crops: drop seeds always, wheat only when fully grown
@@ -8292,6 +8412,7 @@ function animate(){
     updateWater(dt);
   }
   updateParticles(dt);
+  tickLeafDecay(now); tickSaplings(now);
   if(now-fluidWakeT>4){fluidWakeT=now;for(const k of fluidLevels.keys()){const [d,xyz]=k.split(':');if(+d===dim){const [x,y,z]=xyz.split(',').map(Number);if(Math.abs(x-player.pos.x)<60&&Math.abs(z-player.pos.z)<60)queueWater(x,y,z);}}}
   updateChunks();
   updateNet(dt);
