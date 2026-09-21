@@ -11452,10 +11452,12 @@ document.addEventListener('keydown', e => {
     if(craftOpen){ closeCraft(); return; }
     if(e.code === 'KeyE' && locked && inGame){ openCraft(); return; }
   }
+  if(e.code === 'KeyT' && !locked && tpEl.style.display !== 'none'){ toggleTeleport(false); return; }
   if(!locked) return;
   if(e.code === 'KeyF' && mode === 'creative'){ player.fly = !player.fly; player.vel.y = 0; tone(600, 900, 0.06, 'triangle', 0.08); }
   if(e.code === 'KeyM') toggleMusic();
   if(e.code === 'KeyL') toggleGuide();
+  if(e.code === 'KeyT') toggleTeleport();
   if(e.code.startsWith('Digit')){
     const d = +e.code.slice(5);
     if(d >= 1 && d <= 9) selectSlot(d - 1);
@@ -12698,6 +12700,7 @@ function buildCraftPanel(){
   }
   const tabDefs=[['inventory','Inventory'],['craft',mode==='creative'?'All items':'Crafting'],['armour','Armour']];
   if(tradeVillager) tabDefs.push(['trade','Trade']);
+  if(mode==='creative') tabDefs.push(['tp','Teleport']);
   tabDefs.push(['guide','Guide'],['mp','Play Together'],['help','Controls']);
   if(dead) tabDefs.length = 0;                 // dead players get one decision, not a menu
   const tabStep=Math.floor(1025/tabDefs.length), tabW=tabStep-14;
@@ -12792,6 +12795,12 @@ function buildCraftPanel(){
         button(1030,602,355,62,'Craft & equip',()=>vrCraftSelected(true),canCraft(r));
       } else text('Select a recipe to see what it needs.',710,325,25,'#454545',670);
     }
+  } else if(vrMenuTab==='tp'){
+    text('TELEPORT  -  pick a biome to go to the nearest one',35,215,27,'#202020');
+    TP_BIOMES.forEach((bio,i)=>{ const x=35+(i%4)*345, y=250+Math.floor(i/4)*95;
+      button(x,y,325,80,biomeLabel(bio),()=>{ if(teleportToBiome(bio)) closeCraftVR(); },mode==='creative'&&dim===0);
+    });
+    if(dim!==0) text('Biomes are in the Overworld.',35,760,24,'#8a2424');
   } else if(vrMenuTab==='guide'){
     drawGuideVR(g, text);
   } else if(vrMenuTab==='dead'){
@@ -13986,6 +13995,55 @@ function placeBossBar(b, pos, lift, frac){
   const f = Math.max(0, Math.min(1, frac));
   b.fill.scale.x = Math.max(0.001, f); b.fill.position.x = -2.9 * (1 - f);
 }
+/* ============================ TELEPORT ============================
+   Creative only: pick a biome and you are taken to the nearest stretch of
+   it, set down on its surface. */
+const TP_BIOMES = ['plains', 'forest', 'birch', 'jungle', 'taiga', 'snowy', 'swamp', 'savanna', 'desert', 'badlands', 'outback',
+                   'cherry-grove', 'maple-woods', 'willow-marsh', 'duskhollow', 'frostvale', 'amberfield'];
+const biomeLabel = b => b.split('-').map(w => w[0].toUpperCase() + w.slice(1)).join(' ');
+function findBiome(name){
+  const px = Math.floor(player.pos.x), pz = Math.floor(player.pos.z);
+  for(let r = 0; r <= 8000; r += 40){
+    const steps = Math.max(1, Math.round(r * 2 * Math.PI / 40));
+    for(let i = 0; i < steps; i++){
+      const a = i / steps * Math.PI * 2, x = Math.round(px + Math.cos(a) * r), z = Math.round(pz + Math.sin(a) * r);
+      // well inside it, not on the border
+      if(biomeAt(x, z) === name && biomeAt(x + 24, z) === name && biomeAt(x - 24, z) === name && biomeAt(x, z + 24) === name && biomeAt(x, z - 24) === name)
+        return [x, z];
+    }
+  }
+  return null;
+}
+function teleportToBiome(name){
+  if(mode !== 'creative'){ flashName('Teleport works in creative mode'); return false; }
+  if(dim !== 0){ flashName('Biomes are in the Overworld'); return false; }
+  const at = findBiome(name);
+  if(!at){ flashName('No ' + biomeLabel(name) + ' found nearby'); return false; }
+  const [x, z] = at;
+  player.pos.set(x + 0.5, Math.max(terrainHeight(x, z), SEA) + 3, z + 0.5);
+  player.vel.set(0, 0, 0); player.fly = true; fallPeak = player.pos.y;
+  curPC = null; updateChunks();
+  tone(300, 900, 0.4, 'sine', 0.1);
+  flashName('Teleported to ' + biomeLabel(name) + ' (' + x + ', ' + z + ')');
+  return true;
+}
+const tpEl = document.createElement('div');
+tpEl.style.cssText = 'position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:26;background:#1c1c22f2;border:3px solid #555;border-radius:8px;color:#eee;font:14px system-ui;padding:16px 20px;display:none;max-width:560px';
+document.body.appendChild(tpEl);
+function toggleTeleport(on = tpEl.style.display === 'none'){
+  if(on && mode !== 'creative'){ flashName('Teleport works in creative mode'); return; }
+  tpEl.style.display = on ? 'block' : 'none';
+  if(!on) return;
+  tpEl.innerHTML = '<h3 style="margin:0 0 10px;color:#f5d547">Teleport to a biome</h3><div style="display:flex;flex-wrap:wrap;gap:6px"></div><p style="color:#999;margin:10px 0 0">T to close</p>';
+  const box = tpEl.children[1];
+  for(const b of TP_BIOMES){
+    const btn = document.createElement('button');
+    btn.className = 'mcbtn small'; btn.textContent = biomeLabel(b);
+    btn.onclick = () => { teleportToBiome(b); toggleTeleport(false); };
+    box.appendChild(btn);
+  }
+  document.exitPointerLock();
+}
 /* ============================ ADVANCEMENTS ============================
    The road from punching a tree to slaying the Tempest Wyrm, with a hint
    for each step so the way on is never a mystery. They unlock as you go,
@@ -14512,6 +14570,7 @@ window.__bc = {
             save: { pack: packEdits, unpack: unpackEdits, packChests, unpackChests, used: storageUsed, exportWorld },
             adv: { list: ADVANCEMENTS, done: advDone, grant: grantAdv, next: nextAdv, tick: () => { advT = 0; updateAdvancements(0); }, guide: toggleGuide, toast: showToast },
             fx: { clearInv: () => { for(const q of survInv){ q.id = 0; q.count = 0; q.dur = 0; } renderHotbar(); }, effects, drink: id => drinkPotion(id), step: dt => updateEffects(dt), light: lightAtPlayer, mood: () => musicMood(), sub: showSubtitle, POTIONS },
+            tp: teleportToBiome, findBiome,
             spawns: dt => updateNetherSpawns(dt), effects: () => ({ burnT, witherT }), heal: () => { hp = 20; dead = false; burnT = 0; witherT = 0; }, give: e => tryGivePiglin(e), lightFire },
 };
 </script>
