@@ -6856,8 +6856,8 @@ function updateAnimals(dt){
     }
     e.callT -= dt;
     if(e.callT <= 0){
-      e.callT = (e.type === 'cow' ? 45 : e.type === 'sheep' ? 30 : e.type === 'rabbit' ? 10 : e.type === 'wolf' ? 7 : 4)
-                + Math.random() * (e.type === 'cow' ? 45 : e.type === 'sheep' ? 30 : 6);
+      e.callT = (e.type === 'cow' ? 30 : e.type === 'sheep' ? 30 : e.type === 'rabbit' ? 10 : e.type === 'wolf' ? 7 : 4)
+                + Math.random() * (e.type === 'cow' ? 30 : e.type === 'sheep' ? 30 : 6);
       animalCall(e.type, e.pos, 'idle');
     }
   }
@@ -11217,7 +11217,7 @@ function animalCall(type,pos,mood='idle'){
  const dx=(pos?.x||0)-player.pos.x,dy=(pos?.y??player.pos.y)-player.pos.y,dz=(pos?.z||0)-player.pos.z,d=Math.hypot(dx,dy,dz);
  if(d>40)return false;const idle=mood==='idle';
  if(idle&&(animalVoices>=3||AC.currentTime<animalIdleAt))return false;
- if(idle&&type==='cow'){if(AC.currentTime<cowQuietUntil)return false;cowQuietUntil=AC.currentTime+20;}   // a whole herd shares one moo
+ if(idle&&type==='cow'){if(AC.currentTime<cowQuietUntil)return false;cowQuietUntil=AC.currentTime+90;}   // a whole herd shares one moo every 90s
  if(idle&&type==='sheep'){if(AC.currentTime<sheepQuietUntil)return false;sheepQuietUntil=AC.currentTime+14;}   // a flock shares one baa
  const fantasy={mossling:['cow',.67],moonhopper:['pigHurt',1.65],crystalback:['wolf',.55],goat:['sheep',.8],axolotl:['chicken',1.7]};
  const spec=fantasy[type];let key=spec?spec[0]:type;
@@ -12220,8 +12220,8 @@ function stepPuppets(dt){
     if(e.kind === 'animal'){
       e.callT = (e.callT === undefined ? 2 + Math.random() * 6 : e.callT) - dt;
       if(e.callT <= 0){
-        e.callT = (e.type === 'cow' ? 45 : e.type === 'sheep' ? 30 : e.type === 'rabbit' ? 10 : e.type === 'wolf' ? 7 : 4)
-                  + Math.random() * (e.type === 'cow' ? 45 : e.type === 'sheep' ? 30 : 6);
+        e.callT = (e.type === 'cow' ? 30 : e.type === 'sheep' ? 30 : e.type === 'rabbit' ? 10 : e.type === 'wolf' ? 7 : 4)
+                  + Math.random() * (e.type === 'cow' ? 30 : e.type === 'sheep' ? 30 : 6);
         animalCall(e.type, e.pos, 'idle');
       }
     } else if(e.kind === 'zombie' || e.kind === 'skeleton'){
