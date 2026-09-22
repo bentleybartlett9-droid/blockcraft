@@ -12017,6 +12017,9 @@ function mobExtra(kind, e){
   if(kind === 'crystal') return e.idx;
   if(kind === 'wyrm') return [Math.round(e.hp), WYRM_PHASES.indexOf(e.phase), e.rage];
   if(kind === 'shulker') return r2(e.want);
+  if(kind === 'sea') return e.type;
+  if(kind === 'bee') return (e.pollen ? 1 : 0) | (e.angry > 0 ? 2 : 0);
+  if(kind === 'snowgolem') return 0;
   return 0;
 }
 function sendMobSnapshot(others){
@@ -12075,6 +12078,9 @@ function makePuppet(kind, row){
     else if(kind === 'crystal') spawnCrystal(extra);
     else if(kind === 'shulker') spawnShulker(x, y, z, null);
     else if(kind === 'sbullet') spawnSBullet(new THREE.Vector3(x, y, z));
+    else if(kind === 'sea') spawnSea(extra, x, y, z);
+    else if(kind === 'bee') spawnBee(x, y, z, null);
+    else if(kind === 'snowgolem') spawnSnowGolem(x, y, z);
   } catch(err){ return null; }
   if(list.length <= n) return null;
   const e = list[list.length - 1];
@@ -12154,6 +12160,14 @@ function stepPuppets(dt){
       animNether(e, dt);
       e.callT -= dt;
       if(e.callT <= 0){ e.callT = 4 + Math.random() * 7; netherVoice(e, 'idle'); }
+      continue;
+    }
+    if(e.kind === 'sea' || e.kind === 'bee'){       // flyers/swimmers have no legs to swing
+      e.pos.lerp(e.netPos, k); e.group.position.copy(e.pos);
+      if(typeof e.yaw === 'number'){ const d = ((e.yaw - e.group.rotation.y + Math.PI * 3) % (Math.PI * 2)) - Math.PI; e.group.rotation.y += d * Math.min(1, dt * 6); }
+      e.anim = (e.anim || 0) + dt * 8;
+      if(e.kind === 'bee' && e.wings){ const f = Math.sin(e.anim * 30) * 0.6; e.wings[0].rotation.z = f; e.wings[1].rotation.z = -f; }
+      if(e.kind === 'sea' && e.tail){ e.tail.rotation.y = Math.sin(e.anim * 2) * 0.5; }
       continue;
     }
     const ox = e.pos.x, oz = e.pos.z;
@@ -15121,6 +15135,7 @@ function flyTo(e, tx, ty, tz, speed, dt){
   return l;
 }
 function updateBees(dt){
+  if(mobsFromHost()) return;
   if(dim !== 0 || !inGame){ while(bees.length) removeBee(bees.length - 1, true); return; }
   const day = daylightOf(timeOfDay) > 0.45 && !(rainAmt > 0.3);
   // hives send bees out by day
@@ -15943,6 +15958,7 @@ function updateTrident(s, dt){
    company - swim near one and you swim faster. Fish dart away from you;
    anything left on dry land flops and dies. Each player sees their own. */
 const seaLife = [];
+MOB_LISTS.push(['bee', bees], ['sea', seaLife], ['snowgolem', snowGolems]);   // sync these to everyone in multiplayer
 let seaSpawnT = 3;
 const TROP_COLS = [0xf08a24, 0x3a8ae8, 0xf0d830, 0xe84a8a, 0x40c8b0, 0xf4f4f4, 0x8a4ae8];
 const SEA_TYPES = {
@@ -16098,6 +16114,7 @@ function stepSea(e, dt){
   if(e.tent){ const open = 0.25 + 0.3 * Math.sin(e.anim * 0.8); for(const [t, a] of e.tent){ t.rotation.x = Math.cos(a) * open; t.rotation.z = -Math.sin(a) * open; } }
 }
 function updateSeaLife(dt){
+  if(mobsFromHost()) return;
   if(dim !== 0 || !inGame){ while(seaLife.length) removeSea(seaLife.length - 1); return; }
   seaSpawnT -= dt;
   if(seaSpawnT <= 0){ seaSpawnT = 2; trySpawnSea(); }
