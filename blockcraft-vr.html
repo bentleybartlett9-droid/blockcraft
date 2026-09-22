@@ -11579,6 +11579,17 @@ function mpBroadcast(msg, except){
   const s = JSON.stringify(msg);
   for(const c of conns) if(c !== except && c.open) c.send(s);
 }
+// dynamic per-block state (composter, cauldron, flower pot, item frame) shared between players
+function mpState(kind, k, v){ if(netApplying || !conns.length) return; mpBroadcast({ t: 'bstate', kind, k, v }); }
+function applyBState(kind, k, v){
+  const p = String(k).split(',').map(Number), x = p[0] | 0, z = p[2] | 0;
+  if(kind === 'comp'){ if(v) composters.set(k, v); else composters.delete(k); }
+  else if(kind === 'cauld'){ if(v) cauldrons.set(k, v); else cauldrons.delete(k); }
+  else if(kind === 'pot'){ if(v) pottedPlants.set(k, v); else pottedPlants.delete(k); }
+  else if(kind === 'frame'){ if(v && v.item){ const e = frameItems.get(k) || {}; e.item = v.item; e.rot = v.rot | 0; if(e.dim == null) e.dim = dim; frameItems.set(k, e); } else frameItems.delete(k); }
+  else return;
+  rebuild(chunkAt(x >> 4, z >> 4));
+}
 /* Voice chat. Off until the player asks for it, because it needs mic
    permission; the browser prompts on the first enable. */
 let voiceOn = false, voiceStream = null;
@@ -11672,7 +11683,7 @@ function setupConn(c){
                        : 'Connected! Close this menu and play together.');
     hapticPulse(null, 0.6, 80);
     if(voiceOn) placeVoiceCall(c.peer);
-    if(isHost) c.send(JSON.stringify({ t: 'world', seed: SEED, gen: GEN_V, edits, fluid:[...fluidLevels], doors:[...doorState], tod: timeOfDay }));
+    if(isHost) c.send(JSON.stringify({ t: 'world', seed: SEED, gen: GEN_V, edits, fluid:[...fluidLevels], doors:[...doorState], comp:[...composters], cauld:[...cauldrons], pots:[...pottedPlants], frames:[...frameItems].filter(([,e]) => e && e.item), jukes:[...jukes].map(([k, j]) => [k, j.disc]), tod: timeOfDay }));
   });
   c.on('data', d => { try { onNet(c, typeof d === 'string' ? JSON.parse(d) : d); } catch(e){} });
   c.on('close', () => {
@@ -11695,6 +11706,11 @@ function onNet(c, m){
     }
     if(Array.isArray(m.fluid))for(const [k,v] of m.fluid)if(v>=1&&v<=7)fluidLevels.set(k,v);
     if(Array.isArray(m.doors))for(const [k,v] of m.doors)if(v&&typeof v==='object')doorState.set(k,v);
+    if(Array.isArray(m.comp))for(const [k,v] of m.comp)composters.set(k,v);
+    if(Array.isArray(m.cauld))for(const [k,v] of m.cauld)cauldrons.set(k,v);
+    if(Array.isArray(m.pots))for(const [k,v] of m.pots)pottedPlants.set(k,v);
+    if(Array.isArray(m.frames))for(const [k,v] of m.frames)if(v&&v.item)frameItems.set(k,v);
+    if(Array.isArray(m.jukes))for(const [k,d] of m.jukes)if(!jukes.has(k)&&AC){const q=k.split(',').map(Number);startJuke(k,q[0],q[1],q[2],d);}
     if(typeof m.tod==='number')timeOfDay=((m.tod%1)+1)%1;
     for(const ck in m.edits){
       edits[ck] = Object.assign(edits[ck] || {}, m.edits[ck]);
@@ -11715,6 +11731,13 @@ function onNet(c, m){
     if(isHost) mpBroadcast(m, c);
   } else if(m.t === 'trap'){
     const info = getTrapInfo(m.x | 0, m.y | 0, m.z | 0); info.open = !!m.open; trapState.set((m.x|0)+','+(m.y|0)+','+(m.z|0), info); rebuild(chunkAt((m.x|0) >> 4, (m.z|0) >> 4));
+  } else if(m.t === 'bstate'){
+    netApplying = true; try { applyBState(m.kind, m.k, m.v); } finally { netApplying = false; }
+    if(isHost) mpBroadcast(m, c);
+  } else if(m.t === 'juke'){
+    netApplying = true;
+    try { if(m.disc < 0){ if(jukes.has(m.k)) stopJuke(m.k, false); } else if(!jukes.has(m.k) && AC){ const q = String(m.k).split(',').map(Number); startJuke(m.k, q[0], q[1], q[2], m.disc); } } finally { netApplying = false; }
+    if(isHost) mpBroadcast(m, c);
   } else if(m.t === 'mobs'){
     if(!isHost){ hostDim = m.dim | 0; if(hostDim === dim && Array.isArray(m.list)) applyMobSnapshot(m.list); }
   } else if(m.t === 'bolt'){
@@ -15456,13 +15479,13 @@ function useFlowerPot(hit){
   const k = hit.x + ',' + hit.y + ',' + hit.z, cur = pottedPlants.get(k);
   if(cur){
     if(mode === 'survival') spawnDropAt(hit.x + 0.5, hit.y + 0.6, hit.z + 0.5, cur, 1);
-    pottedPlants.delete(k); savePots(); rebuild(chunkAt(hit.x >> 4, hit.z >> 4));
+    pottedPlants.delete(k); mpState('pot', k, 0); savePots(); rebuild(chunkAt(hit.x >> 4, hit.z >> 4));
     playN({ f: 400, type: 'lowpass', dur: 0.1, vol: 0.08 }); triggerViewSwing();
     return true;
   }
   const held = heldId();
   if(!isPottable(held)){ flashName('Pot a flower, sapling or cactus'); return true; }
-  pottedPlants.set(k, held); savePots(); consumePlacedItem(); rebuild(chunkAt(hit.x >> 4, hit.z >> 4));
+  pottedPlants.set(k, held); mpState('pot', k, held); savePots(); consumePlacedItem(); rebuild(chunkAt(hit.x >> 4, hit.z >> 4));
   playN({ f: 700, type: 'bandpass', dur: 0.08, vol: 0.1 }); triggerViewSwing(); grantAdv('pot');
   return true;
 }
@@ -15491,6 +15514,7 @@ function useFrame(hit){
     e.rot = (e.rot + 1) % 8; frameItems.set(k, e);
     playN({ f: 500, type: 'bandpass', dur: 0.06, vol: 0.08 });
   }
+  mpState('frame', k, { item: e.item, rot: e.rot });
   saveFrames(); triggerViewSwing(); grantAdv('frame');
   return true;
 }
@@ -15608,7 +15632,7 @@ function useComposter(hit){
   let lvl = composters.get(k) || 0;
   if(lvl >= 8){
     if(mode === 'survival') spawnDropAt(hit.x + 0.5, hit.y + 1.05, hit.z + 0.5, BONE_MEAL, 1);
-    composters.set(k, 0); saveComposters(); rebuild(chunkAt(hit.x >> 4, hit.z >> 4));
+    composters.set(k, 0); mpState('comp', k, 0); saveComposters(); rebuild(chunkAt(hit.x >> 4, hit.z >> 4));
     playN({ f: 500, type: 'lowpass', dur: 0.2, vol: 0.16 }); flashName('+ Bone Meal'); triggerViewSwing();
     return true;
   }
@@ -15617,7 +15641,7 @@ function useComposter(hit){
   consumePlacedItem();
   burstRGB(hit.x + 0.5, hit.y + 0.9, hit.z + 0.5, 0.4, 0.6, 0.25, 5, 0.3);
   if(Math.random() < ch){
-    lvl = Math.min(8, lvl + 1); composters.set(k, lvl); saveComposters(); rebuild(chunkAt(hit.x >> 4, hit.z >> 4));
+    lvl = Math.min(8, lvl + 1); composters.set(k, lvl); mpState('comp', k, lvl); saveComposters(); rebuild(chunkAt(hit.x >> 4, hit.z >> 4));
     playN({ f: 900, type: 'bandpass', dur: 0.08, vol: 0.1 });
     if(lvl >= 8){ tone(700, 1000, 0.2, 'sine', 0.08); flashName('Composter full'); grantAdv('compost'); }
   } else playN({ f: 400, type: 'lowpass', dur: 0.1, vol: 0.06 });
@@ -15655,7 +15679,7 @@ function saveCauldrons(){
   for(const k of [...cauldrons.keys()]){ const [x, y, z] = k.split(',').map(Number); if(getBlock(x, y, z) !== CAULDRON) cauldrons.delete(k); }
   safeSet(SAVE_KEY + '-cauldrons', JSON.stringify([...cauldrons]));
 }
-function setCauldron(x, y, z, lvl){ cauldrons.set(x + ',' + y + ',' + z, lvl); saveCauldrons(); rebuild(chunkAt(x >> 4, z >> 4)); }
+function setCauldron(x, y, z, lvl){ cauldrons.set(x + ',' + y + ',' + z, lvl); mpState('cauld', x + ',' + y + ',' + z, lvl); saveCauldrons(); rebuild(chunkAt(x >> 4, z >> 4)); }
 function useCauldron(hit){
   if(!hit || hit.id !== CAULDRON) return false;
   const k = hit.x + ',' + hit.y + ',' + hit.z, lvl = cauldrons.get(k) || 0, held = heldId();
@@ -15674,6 +15698,7 @@ function updateCauldrons(dt){
     if(getBlock(px, py, pz) === CAULDRON && (cauldrons.get(px + ',' + py + ',' + pz) || 0) > 0){ burnT = 0; setCauldron(px, py, pz, (cauldrons.get(px + ',' + py + ',' + pz) || 1) - 1); playN({ f: 800, type: 'highpass', dur: 0.3, vol: 0.14 }); }
   }
   if(rainAmt < 0.3 || dim !== 0) return;
+  if(conns.length && !isHost) return;   // in multiplayer the host owns the rain fill
   cauldronRainT -= dt;
   if(cauldronRainT > 0) return;
   cauldronRainT = 4;
@@ -15920,6 +15945,7 @@ function seededRng(seed){ let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5
 function startJuke(k, x, y, z, disc){
   const j = { disc, x, y, z, beat: 0, next: AC ? AC.currentTime + 0.3 : 0, rng: seededRng(DISCS[disc].seed), step: 2, dim };
   jukes.set(k, j); jukeOut(j); saveJukes();
+  if(!netApplying && conns.length) mpBroadcast({ t: 'juke', k, disc });
   flashName('Now playing: ' + DISCS[disc].name);
 }
 function stopJuke(k, eject){
@@ -15928,6 +15954,7 @@ function stopJuke(k, eject){
   if(j.out){ j.out.gain.setTargetAtTime(0.0001, AC.currentTime, 0.05); const o = j.out; setTimeout(() => o.disconnect(), 400); }
   if(eject) spawnDropAt(j.x + 0.5, j.y + 1.1, j.z + 0.5, DISC_1 + j.disc);
   jukes.delete(k); saveJukes();
+  if(!netApplying && conns.length) mpBroadcast({ t: 'juke', k, disc: -1 });
 }
 function useJukebox(hit){
   if(!hit || hit.id !== JUKEBOX) return false;
@@ -17308,6 +17335,7 @@ window.__bc = {
   addTestConn: send => { const c = { open: true, send, peer: 'test', close(){} }; conns.push(c); return c; },
   dropTestConns: () => { conns = conns.filter(c => c.peer !== 'test'); },
   mobLists: () => Object.fromEntries(MOB_LISTS.map(([k, l]) => [k, l.length])),
+  stateAt: (kind, k) => ({ comp: composters, cauld: cauldrons, pot: pottedPlants, frame: frameItems }[kind] || new Map()).get(k),
   mpState: () => ({ code: mpRoomCode, status: mpStatusText, conns: conns.length,
                     voiceOn, vrMpMode, vrJoinCode, remotes: remotes.size }),
   setVrMp: (mode, code) => { vrMpMode = mode; if(code !== undefined) vrJoinCode = code; },
