@@ -435,7 +435,7 @@ function terrainHeight(x, z){
   const detail = fbm(x * 0.06,  z * 0.06,  2, 47);
   let h = 54 + cont * 24 + hills * 18 + detail * 3;
   const m = Math.max(0, cont - 0.55) / 0.45;
-  h += m * m * 30;
+  h += m * m * 22;
   // mountain ranges: a separate low-freq mask drives tall, ridged peaks
   const mtnMask = fbm(x * 0.0022, z * 0.0022, 3, 53);
   if(GEN_V >= 2){
@@ -443,31 +443,19 @@ function terrainHeight(x, z){
     // with sharp-crested ridgelines and jagged summits
     if(mtnMask > 0.60){
       const t = Math.min(1, (mtnMask - 0.60) / 0.16);
-      const ridge = 1 - Math.abs(fbm(x * 0.012, z * 0.012, 4, 61) * 2 - 1);
-      h += Math.pow(t, 1.5) * (58 + ridge * 92);
-      // a smooth ridged crest near the summit, not a field of one-block spikes
-      const crest = 1 - Math.abs(fbm(x * 0.028, z * 0.028, 3, 67) * 2 - 1);
-      h += t * t * crest * crest * 15;
-      h -= detail * 3 * Math.min(1, t * 1.6);        // fade the fine speckle out as the slope climbs
+      // one broad, smooth ridgeline drives the whole mountain, like a Minecraft peak
+      const ridge = 1 - Math.abs(fbm(x * 0.009, z * 0.009, 4, 61) * 2 - 1);
+      h += Math.pow(t, 1.5) * (36 + ridge * 58);
+      // smooth the mountainside: fade the small hill/detail bumpiness out as it rises,
+      // so the slopes read as clean snow faces instead of a noisy checkerboard
+      h -= (detail * 3 + (hills - 0.5) * 18) * Math.min(1, t * 1.8);
     }
   } else if(mtnMask > 0.58){
     const t = (mtnMask - 0.58) / 0.42;                 // 0..1 across a range
     const ridge = 1 - Math.abs(fbm(x * 0.02, z * 0.02, 4, 61) * 2 - 1); // sharp ridgelines
     h += t * t * (34 + ridge * 34);
   }
-  if(GEN_V >= 2){
-    // highland slopes break into shelves above sheer rock faces; the great
-    // mountains above them keep their natural jagged shape
-    const cliffMask = fbm(x * 0.006 + 311, z * 0.006 - 97, 2, 71);
-    if(cliffMask > 0.44 && h > SEA + 8 && h < SEA + 92){
-      const k = Math.min(1, (cliffMask - 0.44) / 0.08) * Math.min(1, (h - SEA - 8) / 8) * Math.min(1, (SEA + 92 - h) / 18);
-      const step = 9 + Math.floor(vnoise(x * 0.008, z * 0.008, 73) * 7);   // tall benches (9-16 blocks)
-      const f = h / step, fl = Math.floor(f);
-      const rise = Math.min(1, Math.max(0, (f - fl - 0.9) / 0.1));        // a sheer riser near the top of each bench
-      const shelf = (fl + rise) * step + (fbm(x * 0.05, z * 0.05, 2, 79) - 0.5) * 1.2;   // benches stay nearly flat -> real cliff faces
-      h += (shelf - h) * k;
-    }
-  }
+  if(h > SEA + 100) h = SEA + 100 + (h - SEA - 100) * 0.4;   // keep peaks well below the ceiling, like Minecraft's sky room
   return Math.max(1, Math.min(HEIGHT - 6, Math.floor(h)));
 }
 function caveNoise(x, y, z){
@@ -13291,7 +13279,8 @@ function doPlace(){
   }
   if(!hit) return;
   const x = hit.x + hit.face[0], y = hit.y + hit.face[1], z = hit.z + hit.face[2];
-  if(y < 0 || y >= HEIGHT) return;
+  if(y >= HEIGHT){ flashName('Build limit - height ' + (HEIGHT - 1)); return; }
+  if(y < 0) return;
   const cur = getBlock(x, y, z);
   if(cur !== AIR && cur !== WATER && !isCross(cur)) return;
   if(aabbHitsCell(x, y, z)) return;
@@ -14077,7 +14066,8 @@ function vrTryPlace(){
   if(mode === 'survival' && foodOf(held)){ eatHeld(); return; }
   if(!hit || !held || !BLOCKS[held]) return;
   const x = hit.x + hit.face[0], y = hit.y + hit.face[1], z = hit.z + hit.face[2];
-  if(y < 0 || y >= HEIGHT) return;
+  if(y >= HEIGHT){ flashName('Build limit - height ' + (HEIGHT - 1)); return; }
+  if(y < 0) return;
   const cur = getBlock(x, y, z);
   if(cur !== AIR && cur !== WATER && !isCross(cur)) return;
   if(aabbHitsCell(x, y, z)) return;
