@@ -889,7 +889,7 @@ const BONE=455, BONE_MEAL=456, SHIELD=454, ROD=447, COD=448, SALMON=449, COOKED_
 const EGG_RUN = 37, EGG_EXTRA = 479;          // eggs past the first 37 carry on from 479
 const eggId = i => i < EGG_RUN ? EGG_BASE + i : EGG_EXTRA + i - EGG_RUN, eggIcon = i => i < EGG_RUN ? 120 + i : i === EGG_RUN ? 175 : 180 + i - EGG_RUN;
 const eggMob = id => { const i = id >= EGG_BASE && id < EGG_BASE + EGG_RUN ? id - EGG_BASE : id >= EGG_EXTRA ? EGG_RUN + id - EGG_EXTRA : -1; return i >= 0 && i < SPAWN_EGGS.length ? SPAWN_EGGS[i][0] : null; };
-const SLIMEBALL=477, SLIME_BLOCK=478, LANTERN=490, CAMPFIRE=491, BEEHIVE=492, BEEHIVE_FULL=493, HONEY_BOTTLE=494, HONEYCOMB=495, FENCE=496, GATE=497, GATE_OPEN=498, SHEARS=499, TRIDENT=500, JUKEBOX=501, DISC_1=502, MAP=506, ANVIL=507, CARVED_PUMPKIN=508, JACK_O_LANTERN=509, PAINTING=510, COMPOSTER=511, GRINDSTONE=512, NOTEBLOCK=513, BARREL=514, FRAME=515, ENDERCHEST=516, CAULDRON=517, LIGHTNINGROD=518, SMITHING=519, FLOWERPOT=520;   // 502-505: music discs
+const SLIMEBALL=477, SLIME_BLOCK=478, LANTERN=490, CAMPFIRE=491, BEEHIVE=492, BEEHIVE_FULL=493, HONEY_BOTTLE=494, HONEYCOMB=495, FENCE=496, GATE=497, GATE_OPEN=498, SHEARS=499, TRIDENT=500, JUKEBOX=501, DISC_1=502, MAP=506, ANVIL=507, CARVED_PUMPKIN=508, JACK_O_LANTERN=509, PAINTING=510, COMPOSTER=511, GRINDSTONE=512, NOTEBLOCK=513, BARREL=514, FRAME=515, ENDERCHEST=516, CAULDRON=517, LIGHTNINGROD=518, SMITHING=519, FLOWERPOT=520, BEDHEAD=521;   // 502-505: music discs
 const isFenceish = id => id === FENCE || id === GATE || id === GATE_OPEN;
 const hivesSeen = new Set();           // "x,y,z" of overworld hives the mesher has seen
 const campfires = new Set();            // "dim:x,y,z" of campfires the mesher has seen
@@ -1180,7 +1180,7 @@ ITEMS[SADDLE]={name:'Saddle',icon:100};
 SPAWN_EGGS.forEach(([, name], i) => { ITEMS[eggId(i)] = { name: name + ' Spawn Egg', icon: eggIcon(i) }; });
 ITEMS[SLIMEBALL]={name:'Slimeball',icon:176};BLOCKS[LANTERN]={name:'Lantern',all:273};BLOCKS[FENCE]={name:'Fence',all:279};BLOCKS[GATE]={name:'Fence Gate',all:280};BLOCKS[GATE_OPEN]={name:'Fence Gate',all:280};BLOCKS[BEEHIVE]={name:'Beehive',top:277,bottom:277,side:276};BLOCKS[BEEHIVE_FULL]={name:'Beehive',top:277,bottom:277,side:278};
 ITEMS[HONEY_BOTTLE]={name:'Honey Bottle',icon:177,food:6};ITEMS[SHEARS]={name:'Shears',icon:179,tool:{type:'shears',tier:2}};BLOCKS[JUKEBOX]={name:'Jukebox',top:282,bottom:281,side:281};
-ITEMS[MAP]={name:'Map',icon:188};BLOCKS[ANVIL]={name:'Anvil',all:283};BLOCKS[PAINTING]={name:'Painting',all:285};BLOCKS[COMPOSTER]={name:'Composter',top:294,bottom:294,side:293};BLOCKS[GRINDSTONE]={name:'Grindstone',all:296};BLOCKS[NOTEBLOCK]={name:'Note Block',all:297};BLOCKS[BARREL]={name:'Barrel',top:299,bottom:298,side:298};BLOCKS[FRAME]={name:'Item Frame',all:300};BLOCKS[ENDERCHEST]={name:'Ender Chest',all:301};BLOCKS[CAULDRON]={name:'Cauldron',all:302};BLOCKS[LIGHTNINGROD]={name:'Lightning Rod',all:305};BLOCKS[SMITHING]={name:'Smithing Table',top:306,bottom:281,side:307};BLOCKS[FLOWERPOT]={name:'Flower Pot',all:308};BLOCKS[CARVED_PUMPKIN]={name:'Carved Pumpkin',top:T.PUMPKIN_TOP,bottom:T.PUMPKIN_TOP,side:T.PUMPKIN_FACE};
+ITEMS[MAP]={name:'Map',icon:188};BLOCKS[ANVIL]={name:'Anvil',all:283};BLOCKS[PAINTING]={name:'Painting',all:285};BLOCKS[COMPOSTER]={name:'Composter',top:294,bottom:294,side:293};BLOCKS[GRINDSTONE]={name:'Grindstone',all:296};BLOCKS[NOTEBLOCK]={name:'Note Block',all:297};BLOCKS[BARREL]={name:'Barrel',top:299,bottom:298,side:298};BLOCKS[FRAME]={name:'Item Frame',all:300};BLOCKS[ENDERCHEST]={name:'Ender Chest',all:301};BLOCKS[CAULDRON]={name:'Cauldron',all:302};BLOCKS[LIGHTNINGROD]={name:'Lightning Rod',all:305};BLOCKS[SMITHING]={name:'Smithing Table',top:306,bottom:281,side:307};BLOCKS[FLOWERPOT]={name:'Flower Pot',all:308};BLOCKS[BEDHEAD]={name:'Bed',top:T.BED_TOP,bottom:T.PLANK,side:T.PLANK};BLOCKS[CARVED_PUMPKIN]={name:'Carved Pumpkin',top:T.PUMPKIN_TOP,bottom:T.PUMPKIN_TOP,side:T.PUMPKIN_FACE};
 BLOCKS[JACK_O_LANTERN]={name:"Jack o'Lantern",top:T.PUMPKIN_TOP,bottom:T.PUMPKIN_TOP,side:284};
 ['Meadow','Caverns','Lanterns','Stormchase'].forEach((n, i) => { ITEMS[DISC_1 + i] = { name: 'Music Disc - ' + n, icon: 184 + i }; });ITEMS[TRIDENT]={name:'Trident',icon:180,tool:{type:'trident',tier:3}};ITEMS[HONEYCOMB]={name:'Honeycomb',icon:178};BLOCKS[CAMPFIRE]={name:'Campfire',top:275,bottom:275,side:274};BLOCKS[SLIME_BLOCK]={name:'Slime Block',all:272};
 ITEMS[APPLE]={name:'Apple',icon:167,food:4};ITEMS[GOLDEN_APPLE]={name:'Golden Apple',icon:168,food:4};ITEMS[CARROT]={name:'Carrot',icon:169,food:3,plant:CARROT0};
@@ -1229,7 +1229,7 @@ const isPlant  = id => isSapling(id) || FLORA_IDS.has(id) || id === TGRASSB || i
                        id === MUSHROOMR || id === MUSHROOMB ||
                        id === WHEAT0 || id === WHEAT1 || id === WHEAT2 || id === WHEAT3 || (id >= CARROT0 && id <= POTATO3) || CAVE_PLANTS.has(id) || NETHER_PLANTS.has(id);
 const isCross  = id => id===GLOWCRYSTAL || isPlant(id) || id === TORCH || id === COBWEB || id === IRONBARS || CAVE_CROSS.has(id) || NETHER_CROSS.has(id);
-const isFlat   = id => id === RAIL || id === SNOW_LAYER || id === LADDER || id === PAINTING || id === FRAME || id === FLOWERPOT || isCake(id) || id === LANTERN || id === CAMPFIRE;   // thin plate on the ground (or, for a ladder, on a wall)
+const isFlat   = id => id === BED || id === BEDHEAD || id === RAIL || id === SNOW_LAYER || id === LADDER || id === PAINTING || id === FRAME || id === FLOWERPOT || isCake(id) || id === LANTERN || id === CAMPFIRE;   // thin plate on the ground (or, for a ladder, on a wall)
 const isSlab   = id => id === SLAB_STONE || id === SLAB_WOOD || id === SLAB_BRICK || id === SLAB_SAND || id === SLAB_NBRICK;
 const isStair  = id => id === STAIR_STONE || id === STAIR_WOOD || id === STAIR_BRICK || id === STAIR_SAND || id === STAIR_NBRICK;
 const isPartial = id => isSlab(id) || isStair(id);   // custom-geometry, non-full blocks
@@ -1261,7 +1261,7 @@ function faceVisible(b, n){
   if(b === GLASS) return n === WATER;
   return !isOpaque(n);
 }
-const dropOf = id => id===BEEHIVE_FULL?BEEHIVE:id===GATE_OPEN?GATE:id===SKYGRASS?STORMSTONE:id===VOLTITE_ORE?VOLTITE:id===CONDUIT_LIT?CONDUIT:id===CHORUS_PLANT?CHORUS_FRUIT:id===ANCHOR_LIT?ANCHOR:id===CRIM_NYL||id===WARP_NYL?NETHERRACK:id===QUARTZ_ORE?QUARTZ:id===NGOLD_ORE?GNUGGET:id===GILDED?(Math.random()<.1?GNUGGET:GILDED):id===SNOWY_GRASS?DIRT:id===GLOWVINE?BERRIES:id===AMETHYST_C||id===BUDDING?AMETHYST_SHARD:id===DRIP_DOWN?DRIP_UP:id===BERRYBUSH?BERRIES:id===CRYSTALORE||id===GLOWCRYSTAL?CRYSTALSHARD:id === GRASS || id === SAVGRASS || id === FARMLAND ? DIRT : id === COALO ? COALI : id === DIAMO ? DIAMI :
+const dropOf = id => id===BEDHEAD?BED:id===BEEHIVE_FULL?BEEHIVE:id===GATE_OPEN?GATE:id===SKYGRASS?STORMSTONE:id===VOLTITE_ORE?VOLTITE:id===CONDUIT_LIT?CONDUIT:id===CHORUS_PLANT?CHORUS_FRUIT:id===ANCHOR_LIT?ANCHOR:id===CRIM_NYL||id===WARP_NYL?NETHERRACK:id===QUARTZ_ORE?QUARTZ:id===NGOLD_ORE?GNUGGET:id===GILDED?(Math.random()<.1?GNUGGET:GILDED):id===SNOWY_GRASS?DIRT:id===GLOWVINE?BERRIES:id===AMETHYST_C||id===BUDDING?AMETHYST_SHARD:id===DRIP_DOWN?DRIP_UP:id===BERRYBUSH?BERRIES:id===CRYSTALORE||id===GLOWCRYSTAL?CRYSTALSHARD:id === GRASS || id === SAVGRASS || id === FARMLAND ? DIRT : id === COALO ? COALI : id === DIAMO ? DIAMI :
                      id === EMERO ? EMERALD : id === DEADBUSH ? STICK : id;
 function toolClassOf(id){
   if([STORMSTONE,VOLTITE_ORE,STORM_BRICK,CONDUIT,CONDUIT_LIT].includes(id)) return 'pick';
@@ -1289,7 +1289,7 @@ function toolClassOf(id){
   if([DRIPSTONE,TUFF,CALCITE,AMETHYST,BUDDING,COPPERO,COPPERB].includes(id))return 'pick';
   if(id === MOSS) return 'shovel';
   if([MARBLE,MARBLEBRICK,BASALT,BASALTBRICK,MOSAIC,AMBERLAMP].includes(id))return 'pick';
-  if(isLog(id) || ANY_PLANK.includes(id) || id === CRAFTT || id === BED || id === CHEST || id === BARREL) return 'axe';
+  if(isLog(id) || ANY_PLANK.includes(id) || id === CRAFTT || id === BED || id === BEDHEAD || id === CHEST || id === BARREL) return 'axe';
   if(id === GRASS || id === SAVGRASS || id === DIRT || id === SAND || id === SNOW || id === SNOWY_GRASS || id === SNOW_LAYER) return 'shovel';
   if(id === DEEPSLATE) return 'pick';
   if(id === STONE || id === BRICK || id === SBRICK || id === GLOWB || id === FURN || id === IRONB ||
@@ -1318,7 +1318,7 @@ function handTime(id){
   if(id === GRASS || id === SAVGRASS || id === DIRT || id === SAND || id === SNOW) return 0.75;
   if(id === WOOL) return 1.0;
   if(id === GLOWB) return 2.0;
-  if(isLog(id) || ANY_PLANK.includes(id) || id === CRAFTT || id === BED || id === CHEST || id === BARREL) return 3.0;
+  if(isLog(id) || ANY_PLANK.includes(id) || id === CRAFTT || id === BED || id === BEDHEAD || id === CHEST || id === BARREL) return 3.0;
   if(id === CRYSTALORE || id === DIAMO || id === IRONB || id === GOLDB || id === DIAMB) return 5.0;
   if(id === COALO || id === IRONO || id === GOLDO || id === EMERO) return 4.5;
   if(id === DEEPSLATE) return 5.5;                 // noticeably tougher than surface stone
@@ -1841,6 +1841,7 @@ itemAtlas.width = 128; itemAtlas.height = 512;   // 256 icons
   });
   put(305, (x, y, r) => { const k = Math.floor((r() - 0.5) * 16); return y < 3 ? [150 + k, 96 + k, 54 + k] : [196 + k, 118 + k, 62 + k]; });   // copper rod
   put(308, (x, y, r) => { const k = Math.floor((r() - 0.5) * 16); return y > 12 ? [150 + k, 82 + k, 58 + k] : [176 + k, 96 + k, 66 + k]; });   // terracotta pot
+  put(309, (x, y, r) => { const k = Math.floor((r() - 0.5) * 10); return (x === 0 || y === 0 || x === 15 || y === 15) ? [214, 214, 220] : [240 + k / 2, 240 + k / 2, 244]; });   // pillow
   put(306, (x, y, r) => {                                   // smithing table top: dark iron plate with rivets
     const k = Math.floor((r() - 0.5) * 12);
     if((x === 3 || x === 12) && (y === 3 || y === 12)) return [180, 184, 190];
@@ -5564,6 +5565,13 @@ function* buildChunkSteps(c,reuseLight=false){
       const nlC = light ? sampleLight(light, lx, y, lz) : 15, llC = 0.2 + (nlC / 15) * 0.8, bite = (b - CAKE) * 0.2;
       pushBox(O, 261, lx + 0.0625 + bite, y, lz + 0.0625, lx + 0.9375, y + 0.4, lz + 0.9375, llC);
       pushBox(O, 262, lx + 0.0625 + bite, y + 0.4, lz + 0.0625, lx + 0.9375, y + 0.5, lz + 0.9375, llC);
+      continue;
+    }
+    if(b === BED || b === BEDHEAD){
+      const llB = light ? 0.2 + (sampleLight(light, lx, y, lz) / 15) * 0.8 : 1;
+      pushBox(O, T.BED_TOP, lx + 0.02, y + 0.18, lz + 0.02, lx + 0.98, y + 0.5, lz + 0.98, llB);          // mattress
+      for(const [cx, cz] of [[0.03, 0.03], [0.03, 0.85], [0.85, 0.03], [0.85, 0.85]]) pushBox(O, T.PLANK, lx + cx, y, lz + cz, lx + cx + 0.12, y + 0.18, lz + cz + 0.12, llB);   // legs
+      if(b === BEDHEAD) pushBox(O, 309, lx + 0.18, y + 0.5, lz + 0.18, lx + 0.82, y + 0.64, lz + 0.55, llB);   // pillow
       continue;
     }
     if(isFlat(b)){                                       // rail: thin plate on the floor
@@ -11307,7 +11315,7 @@ function matClass(id){
   if(id === SNOW || id === SNOWY_GRASS || id === SNOW_LAYER) return 'snow';
   if(id === SAND) return 'sand';
   if(id === GRASS || id === SAVGRASS || id === DIRT || id === TNT) return 'dirt';
-  if(id === WOOL || id === BED || id === CACTUS) return 'cloth';
+  if(id === WOOL || id === BED || id === BEDHEAD || id === CACTUS) return 'cloth';
   if(isPlant(id) || isLeaf(id)) return 'plant';
   return 'stone';
 }
@@ -12417,6 +12425,18 @@ function getDoorInfo(x, y, z){
   const ly = getDoorLowerY(x, y, z);
   return doorState.get(doorKey(x, ly, z)) || { facing: 0, open: false };
 }
+function placeBed(x, y, z){
+  if(y < 1 || !isSolid(getBlock(x, y - 1, z))) return true;
+  const cur = getBlock(x, y, z); if(!(cur === AIR || cur === WATER || isCross(cur))) return true;
+  const fx = -Math.sin(player.yaw), fz = -Math.cos(player.yaw);
+  const facing = Math.abs(fx) > Math.abs(fz) ? (fx > 0 ? 3 : 2) : (fz > 0 ? 1 : 0);
+  const [dx, dz] = [[0, -1], [0, 1], [-1, 0], [1, 0]][facing], hx = x + dx, hz = z + dz;
+  const hc = getBlock(hx, y, hz);
+  if(!isSolid(getBlock(hx, y - 1, hz)) || !(hc === AIR || hc === WATER || isCross(hc))){ flashName('No room for the bed'); return true; }
+  setBlock(x, y, z, BED); setBlock(hx, y, hz, BEDHEAD);
+  blockSfx(PLANK, 'place'); triggerViewSwing(); consumePlacedItem();
+  return true;
+}
 function placeDoor(x,y,z){
   if(y<1 || y+1>=HEIGHT || !isSolid(getBlock(x,y-1,z))) return false;
   if(![AIR,WATER].includes(getBlock(x,y,z)) && !isCross(getBlock(x,y,z))) return false;
@@ -12921,6 +12941,13 @@ function tickSaplings(now){
 }
 function breakBlock(x, y, z, id){
   triggerViewSwing();
+  if(id === BED || id === BEDHEAD){
+    for(const [dx, dz] of [[0, -1], [0, 1], [-1, 0], [1, 0]]){ const nb = getBlock(x + dx, y, z + dz);
+      if((id === BED && nb === BEDHEAD) || (id === BEDHEAD && nb === BED)){ setBlock(x + dx, y, z + dz, AIR); break; } }
+    setBlock(x, y, z, AIR); burst(x, y, z, tileFor(BED, 0)); blockSfx(BED, 'break');
+    if(mode === 'survival') spawnDropAt(x + 0.5, y + 0.4, z + 0.5, BED, 1);
+    return;
+  }
   // doors: remove both halves and clear state
   if(id === DOOR || id === DOORTOP){
     const ly = getDoorLowerY(x, y, z);
@@ -13020,7 +13047,7 @@ function doPlace(){
   if(useFlintSteel(hit))return;
   if(useBucket(hit))return;
   if(hit){
-    if(hit.id === BED){ trySleep(hit.x, hit.y, hit.z); return; }
+    if(hit.id === BED || hit.id === BEDHEAD){ trySleep(hit.x, hit.y, hit.z); return; }
     if(isDoor(hit.id)){ toggleDoor(hit.x, hit.y, hit.z); triggerViewSwing(); return; }
     if(hit.id === CHEST || hit.id === BARREL){ openChest(hit.x, hit.y, hit.z); return; }
     if(hit.id === ENDERCHEST){ openChest(hit.x, hit.y, hit.z, 'ender'); return; }
@@ -13102,6 +13129,7 @@ function doPlace(){
   if(aabbHitsCell(x, y, z)) return;
   if(!held || !BLOCKS[held]) return;                 // only blocks are placeable
   if(held===DOOR){placeDoor(x,y,z);return;}
+  if(held===BED){placeBed(x,y,z);return;}
   if(held===LADDER){placeLadder(x,y,z,hit);return;}
   if(held===PAINTING){placeLadder(x,y,z,hit,PAINTING);return;}
   if(held===FRAME){placeLadder(x,y,z,hit,FRAME);return;}
@@ -13843,7 +13871,7 @@ function vrTryPlace(){
   if(useFlintSteel(hit))return;
   if(useBucket(hit))return;
   if(hit){
-    if(hit.id === BED){ trySleep(hit.x, hit.y, hit.z); return; }
+    if(hit.id === BED || hit.id === BEDHEAD){ trySleep(hit.x, hit.y, hit.z); return; }
     if(isDoor(hit.id)){ toggleDoor(hit.x, hit.y, hit.z); triggerViewSwing(); return; }
     if(hit.id === CHEST || hit.id === BARREL){ openChest(hit.x, hit.y, hit.z); return; }
     if(hit.id === ENDERCHEST){ openChest(hit.x, hit.y, hit.z, 'ender'); return; }
@@ -13860,6 +13888,7 @@ function vrTryPlace(){
   if(cur !== AIR && cur !== WATER && !isCross(cur)) return;
   if(aabbHitsCell(x, y, z)) return;
   if(held===DOOR){placeDoor(x,y,z);return;}
+  if(held===BED){placeBed(x,y,z);return;}
   if(held===LADDER){placeLadder(x,y,z,hit);return;}
   if(held===PAINTING){placeLadder(x,y,z,hit,PAINTING);return;}
   if(held===FRAME){placeLadder(x,y,z,hit,FRAME);return;}
