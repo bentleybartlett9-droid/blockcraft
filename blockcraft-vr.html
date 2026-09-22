@@ -888,7 +888,7 @@ const BONE=455, BONE_MEAL=456, SHIELD=454, ROD=447, COD=448, SALMON=449, COOKED_
 const EGG_RUN = 37, EGG_EXTRA = 479;          // eggs past the first 37 carry on from 479
 const eggId = i => i < EGG_RUN ? EGG_BASE + i : EGG_EXTRA + i - EGG_RUN, eggIcon = i => i < EGG_RUN ? 120 + i : i === EGG_RUN ? 175 : 180 + i - EGG_RUN;
 const eggMob = id => { const i = id >= EGG_BASE && id < EGG_BASE + EGG_RUN ? id - EGG_BASE : id >= EGG_EXTRA ? EGG_RUN + id - EGG_EXTRA : -1; return i >= 0 && i < SPAWN_EGGS.length ? SPAWN_EGGS[i][0] : null; };
-const SLIMEBALL=477, SLIME_BLOCK=478, LANTERN=490, CAMPFIRE=491, BEEHIVE=492, BEEHIVE_FULL=493, HONEY_BOTTLE=494, HONEYCOMB=495, FENCE=496, GATE=497, GATE_OPEN=498, SHEARS=499, TRIDENT=500, JUKEBOX=501, DISC_1=502, MAP=506, ANVIL=507, CARVED_PUMPKIN=508, JACK_O_LANTERN=509, PAINTING=510, COMPOSTER=511, GRINDSTONE=512, NOTEBLOCK=513, BARREL=514, FRAME=515, ENDERCHEST=516, CAULDRON=517, LIGHTNINGROD=518, SMITHING=519;   // 502-505: music discs
+const SLIMEBALL=477, SLIME_BLOCK=478, LANTERN=490, CAMPFIRE=491, BEEHIVE=492, BEEHIVE_FULL=493, HONEY_BOTTLE=494, HONEYCOMB=495, FENCE=496, GATE=497, GATE_OPEN=498, SHEARS=499, TRIDENT=500, JUKEBOX=501, DISC_1=502, MAP=506, ANVIL=507, CARVED_PUMPKIN=508, JACK_O_LANTERN=509, PAINTING=510, COMPOSTER=511, GRINDSTONE=512, NOTEBLOCK=513, BARREL=514, FRAME=515, ENDERCHEST=516, CAULDRON=517, LIGHTNINGROD=518, SMITHING=519, FLOWERPOT=520;   // 502-505: music discs
 const isFenceish = id => id === FENCE || id === GATE || id === GATE_OPEN;
 const hivesSeen = new Set();           // "x,y,z" of overworld hives the mesher has seen
 const campfires = new Set();            // "dim:x,y,z" of campfires the mesher has seen
@@ -1179,7 +1179,7 @@ ITEMS[SADDLE]={name:'Saddle',icon:100};
 SPAWN_EGGS.forEach(([, name], i) => { ITEMS[eggId(i)] = { name: name + ' Spawn Egg', icon: eggIcon(i) }; });
 ITEMS[SLIMEBALL]={name:'Slimeball',icon:176};BLOCKS[LANTERN]={name:'Lantern',all:273};BLOCKS[FENCE]={name:'Fence',all:279};BLOCKS[GATE]={name:'Fence Gate',all:280};BLOCKS[GATE_OPEN]={name:'Fence Gate',all:280};BLOCKS[BEEHIVE]={name:'Beehive',top:277,bottom:277,side:276};BLOCKS[BEEHIVE_FULL]={name:'Beehive',top:277,bottom:277,side:278};
 ITEMS[HONEY_BOTTLE]={name:'Honey Bottle',icon:177,food:6};ITEMS[SHEARS]={name:'Shears',icon:179,tool:{type:'shears',tier:2}};BLOCKS[JUKEBOX]={name:'Jukebox',top:282,bottom:281,side:281};
-ITEMS[MAP]={name:'Map',icon:188};BLOCKS[ANVIL]={name:'Anvil',all:283};BLOCKS[PAINTING]={name:'Painting',all:285};BLOCKS[COMPOSTER]={name:'Composter',top:294,bottom:294,side:293};BLOCKS[GRINDSTONE]={name:'Grindstone',all:296};BLOCKS[NOTEBLOCK]={name:'Note Block',all:297};BLOCKS[BARREL]={name:'Barrel',top:299,bottom:298,side:298};BLOCKS[FRAME]={name:'Item Frame',all:300};BLOCKS[ENDERCHEST]={name:'Ender Chest',all:301};BLOCKS[CAULDRON]={name:'Cauldron',all:302};BLOCKS[LIGHTNINGROD]={name:'Lightning Rod',all:305};BLOCKS[SMITHING]={name:'Smithing Table',top:306,bottom:281,side:307};BLOCKS[CARVED_PUMPKIN]={name:'Carved Pumpkin',top:T.PUMPKIN_TOP,bottom:T.PUMPKIN_TOP,side:T.PUMPKIN_FACE};
+ITEMS[MAP]={name:'Map',icon:188};BLOCKS[ANVIL]={name:'Anvil',all:283};BLOCKS[PAINTING]={name:'Painting',all:285};BLOCKS[COMPOSTER]={name:'Composter',top:294,bottom:294,side:293};BLOCKS[GRINDSTONE]={name:'Grindstone',all:296};BLOCKS[NOTEBLOCK]={name:'Note Block',all:297};BLOCKS[BARREL]={name:'Barrel',top:299,bottom:298,side:298};BLOCKS[FRAME]={name:'Item Frame',all:300};BLOCKS[ENDERCHEST]={name:'Ender Chest',all:301};BLOCKS[CAULDRON]={name:'Cauldron',all:302};BLOCKS[LIGHTNINGROD]={name:'Lightning Rod',all:305};BLOCKS[SMITHING]={name:'Smithing Table',top:306,bottom:281,side:307};BLOCKS[FLOWERPOT]={name:'Flower Pot',all:308};BLOCKS[CARVED_PUMPKIN]={name:'Carved Pumpkin',top:T.PUMPKIN_TOP,bottom:T.PUMPKIN_TOP,side:T.PUMPKIN_FACE};
 BLOCKS[JACK_O_LANTERN]={name:"Jack o'Lantern",top:T.PUMPKIN_TOP,bottom:T.PUMPKIN_TOP,side:284};
 ['Meadow','Caverns','Lanterns','Stormchase'].forEach((n, i) => { ITEMS[DISC_1 + i] = { name: 'Music Disc - ' + n, icon: 184 + i }; });ITEMS[TRIDENT]={name:'Trident',icon:180,tool:{type:'trident',tier:3}};ITEMS[HONEYCOMB]={name:'Honeycomb',icon:178};BLOCKS[CAMPFIRE]={name:'Campfire',top:275,bottom:275,side:274};BLOCKS[SLIME_BLOCK]={name:'Slime Block',all:272};
 ITEMS[APPLE]={name:'Apple',icon:167,food:4};ITEMS[GOLDEN_APPLE]={name:'Golden Apple',icon:168,food:4};ITEMS[CARROT]={name:'Carrot',icon:169,food:3,plant:CARROT0};
@@ -1228,7 +1228,7 @@ const isPlant  = id => isSapling(id) || FLORA_IDS.has(id) || id === TGRASSB || i
                        id === MUSHROOMR || id === MUSHROOMB ||
                        id === WHEAT0 || id === WHEAT1 || id === WHEAT2 || id === WHEAT3 || (id >= CARROT0 && id <= POTATO3) || CAVE_PLANTS.has(id) || NETHER_PLANTS.has(id);
 const isCross  = id => id===GLOWCRYSTAL || isPlant(id) || id === TORCH || id === COBWEB || id === IRONBARS || CAVE_CROSS.has(id) || NETHER_CROSS.has(id);
-const isFlat   = id => id === RAIL || id === SNOW_LAYER || id === LADDER || id === PAINTING || id === FRAME || isCake(id) || id === LANTERN || id === CAMPFIRE;   // thin plate on the ground (or, for a ladder, on a wall)
+const isFlat   = id => id === RAIL || id === SNOW_LAYER || id === LADDER || id === PAINTING || id === FRAME || id === FLOWERPOT || isCake(id) || id === LANTERN || id === CAMPFIRE;   // thin plate on the ground (or, for a ladder, on a wall)
 const isSlab   = id => id === SLAB_STONE || id === SLAB_WOOD || id === SLAB_BRICK || id === SLAB_SAND || id === SLAB_NBRICK;
 const isStair  = id => id === STAIR_STONE || id === STAIR_WOOD || id === STAIR_BRICK || id === STAIR_SAND || id === STAIR_NBRICK;
 const isPartial = id => isSlab(id) || isStair(id);   // custom-geometry, non-full blocks
@@ -1276,6 +1276,7 @@ function toolClassOf(id){
   if(id === CAULDRON) return 'pick';
   if(id === LIGHTNINGROD) return 'pick';
   if(id === SMITHING) return 'axe';
+  if(id === FLOWERPOT) return 'pick';
   if(id === BEEHIVE || id === BEEHIVE_FULL || isFenceish(id) || id === JUKEBOX) return 'axe';
   if([PURPUR,PURPUR_PILLAR,ENDSTONE_BRICK,ENDSTONE,CRYING_OBSIDIAN,ANCHOR,ANCHOR_LIT].includes(id)) return 'pick';
   if(id === CHORUS_PLANT || id === CHORUS_FLOWER) return 'axe';
@@ -1431,6 +1432,7 @@ RECIPES.push({out:[ENDERCHEST,1],in:[[OBSIDIAN,8],[EYE_ENDER,1]],st:'table'});
 RECIPES.push({out:[CAULDRON,1],in:[[IRONI,7]],st:'table'});
 RECIPES.push({out:[LIGHTNINGROD,1],in:[[COPPERI,3]],st:'table'});
 RECIPES.push({out:[SMITHING,1],in:[[IRONI,2],[ANY_PLANK,4]],st:'table'});
+RECIPES.push({out:[FLOWERPOT,1],in:[[BRICK,3]],st:'table'});
 RECIPES.push({out:[MAP,1],in:[[PAPER,8],[IRONI,1]],st:'table'},{out:[SHEARS,1],in:[[IRONI,2]],st:'table'},{out:[JUKEBOX,1],in:[[ANY_PLANK,8],[DIAMI,1]],st:'table'});
 RECIPES.push({out:[FENCE,3],in:[[ANY_PLANK,4],[STICK,2]],st:'table'},{out:[GATE,1],in:[[STICK,4],[ANY_PLANK,2]],st:'table'});
 RECIPES.push({out:[BEEHIVE,1],in:[[ANY_PLANK,6],[HONEYCOMB,3]],st:'table'});
@@ -1837,6 +1839,7 @@ itemAtlas.width = 128; itemAtlas.height = 512;   // 256 icons
     return x % 4 === 0 ? [176 + k, 100 + k, 24 + k] : [214 + k, 128 + k, 34 + k];
   });
   put(305, (x, y, r) => { const k = Math.floor((r() - 0.5) * 16); return y < 3 ? [150 + k, 96 + k, 54 + k] : [196 + k, 118 + k, 62 + k]; });   // copper rod
+  put(308, (x, y, r) => { const k = Math.floor((r() - 0.5) * 16); return y > 12 ? [150 + k, 82 + k, 58 + k] : [176 + k, 96 + k, 66 + k]; });   // terracotta pot
   put(306, (x, y, r) => {                                   // smithing table top: dark iron plate with rivets
     const k = Math.floor((r() - 0.5) * 12);
     if((x === 3 || x === 12) && (y === 3 || y === 12)) return [180, 184, 190];
@@ -5439,6 +5442,15 @@ function* buildChunkSteps(c,reuseLight=false){
     if(isPartial(b)){ pushPartial(O, lx, y, lz, b, light); continue; }
     if(isDoor(b)){ pushDoor(O, lx, y, lz, b, wx0 + lx, wz0 + lz, light); continue; }
     if(b === LADDER){ pushLadder(O, lx, y, lz, gb, light); continue; }
+    if(b === FLOWERPOT){
+      const llF = light ? 0.2 + (sampleLight(light, lx, y, lz) / 15) * 0.8 : 1;
+      pushBox(O, 308, lx + 0.34, y, lz + 0.34, lx + 0.66, y + 0.06, lz + 0.66, llF);
+      pushBox(O, 308, lx + 0.3, y + 0.06, lz + 0.3, lx + 0.7, y + 0.34, lz + 0.7, llF);
+      pushBox(O, tileFor(DIRT, 3), lx + 0.33, y + 0.27, lz + 0.33, lx + 0.67, y + 0.32, lz + 0.67, llF);
+      const pl = pottedPlants.get((wx0 + lx) + ',' + y + ',' + (wz0 + lz));
+      if(pl) pushPotSprite(C, lx, y + 0.3, lz, tileFor(pl, 0), light);
+      continue;
+    }
     if(b === FRAME){
       const nlF = light ? sampleLight(light, lx, y, lz) : 15, llF = 0.25 + (nlF / 15) * 0.75, wf = ladderWall(gb, lx, y, lz), df = 0.06, m = 0.12;
       if(wf === 0) pushBox(O, 300, lx + m, y + m, lz, lx + 1 - m, y + 1 - m, lz + df, llF);
@@ -5631,6 +5643,16 @@ function pushFace(B, gb, lx, y, lz, F, tile, mode, light, surfaceHeight=1,surfac
     if(B.foliage)B.wind.push(.65);
   }
   B.idx.push(base, base + 1, base + 2, base + 2, base + 1, base + 3);
+}
+function pushPotSprite(B, lx, y0, lz, tile, light){
+  if(!B.wind) B.wind = [];
+  const w = 0.42, h = 0.5, uvs = [[0,0],[1,0],[0,1],[1,1]];
+  const quads = [ [[0.5-w/2,0,0.5-w/2],[0.5+w/2,0,0.5+w/2],[0.5-w/2,1,0.5-w/2],[0.5+w/2,1,0.5+w/2]],
+                  [[0.5+w/2,0,0.5-w/2],[0.5-w/2,0,0.5+w/2],[0.5+w/2,1,0.5-w/2],[0.5-w/2,1,0.5+w/2]] ];
+  const nl = light ? sampleLight(light, lx, y0, lz) : 15, ll = 0.15 + (nl / 15) * 0.85;
+  for(const q of quads){ const base = B.pos.length / 3;
+    for(let i = 0; i < 4; i++){ B.pos.push(lx + q[i][0], y0 + q[i][1] * h, lz + q[i][2]); tileUV(B, tile, uvs[i][0], uvs[i][1]); B.col.push(ll, ll, ll); B.wind.push(0); }
+    B.idx.push(base, base+1, base+2, base+2, base+1, base+3); }
 }
 function pushCross(B, lx, y, lz, tile, light, sway=0){
   if(!B.wind)B.wind=[];
@@ -9723,6 +9745,7 @@ function useSpecial(o, d, hit, eh){
   if(useGrindstone(hit)) return true;
   if(useNoteBlock(hit)) return true;
   if(useFrame(hit)) return true;
+  if(useFlowerPot(hit)) return true;
   if(carvePumpkin(hit)) return true;
   if(heldId() === TRIDENT) return throwTrident(o, d);
   if(held === ROD) return useRod(o, d);
@@ -12892,6 +12915,11 @@ function breakBlock(x, y, z, id){
     }
     return;
   }
+  if(id === FLOWERPOT){
+    const pl = pottedPlants.get(x + ',' + y + ',' + z);
+    if(pl && mode === 'survival') spawnDropAt(x + 0.5, y + 0.4, z + 0.5, pl, 1);
+    pottedPlants.delete(x + ',' + y + ',' + z); savePots();
+  }
   if(id === FRAME){
     const e = frameItems.get(x + ',' + y + ',' + z);
     if(e && e.item && mode === 'survival') spawnDropAt(x + 0.5, y + 0.5, z + 0.5, e.item, 1);
@@ -15220,6 +15248,31 @@ function carvePumpkin(hit){
   triggerViewSwing();
   return true;
 }
+/* ============================= FLOWER POT ===========================
+   A flower pot (3 bricks) holds one small plant - a flower, sapling, fern,
+   mushroom, cactus or dead bush. Use it holding a plant to pot it; use it
+   again, empty-handed, to take the plant back. */
+const pottedPlants = (() => { try { return new Map(JSON.parse(localStorage.getItem(SAVE_KEY + '-pots')) || []); } catch(e){ return new Map(); } })();
+function savePots(){
+  for(const k of [...pottedPlants.keys()]){ const [x, y, z] = k.split(',').map(Number); if(getBlock(x, y, z) !== FLOWERPOT) pottedPlants.delete(k); }
+  safeSet(SAVE_KEY + '-pots', JSON.stringify([...pottedPlants]));
+}
+const isPottable = id => isSapling(id) || FLORA_IDS.has(id) || id === POPPYB || id === DANDB || id === TGRASSB || id === DEADBUSH || id === CACTUS || id === MUSHROOMR || id === MUSHROOMB || id === FERN;
+function useFlowerPot(hit){
+  if(!hit || hit.id !== FLOWERPOT) return false;
+  const k = hit.x + ',' + hit.y + ',' + hit.z, cur = pottedPlants.get(k);
+  if(cur){
+    if(mode === 'survival') spawnDropAt(hit.x + 0.5, hit.y + 0.6, hit.z + 0.5, cur, 1);
+    pottedPlants.delete(k); savePots(); rebuild(chunkAt(hit.x >> 4, hit.z >> 4));
+    playN({ f: 400, type: 'lowpass', dur: 0.1, vol: 0.08 }); triggerViewSwing();
+    return true;
+  }
+  const held = heldId();
+  if(!isPottable(held)){ flashName('Pot a flower, sapling or cactus'); return true; }
+  pottedPlants.set(k, held); savePots(); consumePlacedItem(); rebuild(chunkAt(hit.x >> 4, hit.z >> 4));
+  playN({ f: 700, type: 'bandpass', dur: 0.08, vol: 0.1 }); triggerViewSwing(); grantAdv('pot');
+  return true;
+}
 /* ============================= ITEM FRAMES ==========================
    An item frame (8 sticks + leather) hangs on a wall. Use it holding
    something to mount it; use it again, empty-handed, to turn what's inside
@@ -16571,6 +16624,7 @@ const ADVANCEMENTS = [
   { ch: 'Overworld', id: 'breed', title: 'The Parrots and the Bats', how: 'Feed two animals their favourite food (wheat for cows and sheep, carrots for pigs, seeds for chickens) and watch.', icon: WHEATITEM, check: () => false },
   { ch: 'Overworld', id: 'trident', title: 'A Throwaway Joke', how: 'Get a trident from a drowned (they rise out of deep water at night) and throw it at something.', icon: TRIDENT, check: () => false },
   { ch: 'Overworld', id: 'juke', title: 'Sound of Music', how: 'Craft a jukebox (8 planks, 1 diamond) and play a music disc from a dungeon chest or a creeper.', icon: JUKEBOX, check: () => false },
+  { ch: 'Overworld', id: 'pot', title: 'Green Thumb', how: 'Pot a plant in a flower pot (3 bricks).', icon: FLOWERPOT, check: () => false },
   { ch: 'Overworld', id: 'frame', title: 'On Display', how: 'Mount something in an item frame (8 sticks + leather) on a wall.', icon: FRAME, check: () => false },
   { ch: 'Overworld', id: 'note', title: 'Note Worthy', how: 'Play a note block (8 planks + redstone). The block underneath sets the instrument.', icon: NOTEBLOCK, check: () => false },
   { ch: 'Overworld', id: 'grind', title: 'Back to the Grind', how: 'Grind the enchantments off a tool at a grindstone (2 sticks, a stone, 2 planks) for some experience back.', icon: GRINDSTONE, check: () => false },
@@ -17119,6 +17173,7 @@ window.__bc = {
             grind: { use: useGrindstone },
             note: { use: useNoteBlock, pitches: noteBlocks, instrument: noteInstrument },
             frame: { use: useFrame, items: frameItems, step: dt => updateFrames(dt) },
+            pot: { use: useFlowerPot, plants: pottedPlants, pottable: isPottable },
             map: { step: dt => updateMap(dt), canvas: mapShow, base: mapBase },
             juke: { use: useJukebox, list: jukes, step: dt => updateJukes(dt), DISCS },
             trident: { throw: throwTrident, mesh: makeTridentMesh },
