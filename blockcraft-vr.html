@@ -888,7 +888,7 @@ const BONE=455, BONE_MEAL=456, SHIELD=454, ROD=447, COD=448, SALMON=449, COOKED_
 const EGG_RUN = 37, EGG_EXTRA = 479;          // eggs past the first 37 carry on from 479
 const eggId = i => i < EGG_RUN ? EGG_BASE + i : EGG_EXTRA + i - EGG_RUN, eggIcon = i => i < EGG_RUN ? 120 + i : i === EGG_RUN ? 175 : 180 + i - EGG_RUN;
 const eggMob = id => { const i = id >= EGG_BASE && id < EGG_BASE + EGG_RUN ? id - EGG_BASE : id >= EGG_EXTRA ? EGG_RUN + id - EGG_EXTRA : -1; return i >= 0 && i < SPAWN_EGGS.length ? SPAWN_EGGS[i][0] : null; };
-const SLIMEBALL=477, SLIME_BLOCK=478, LANTERN=490, CAMPFIRE=491, BEEHIVE=492, BEEHIVE_FULL=493, HONEY_BOTTLE=494, HONEYCOMB=495, FENCE=496, GATE=497, GATE_OPEN=498, SHEARS=499, TRIDENT=500, JUKEBOX=501, DISC_1=502, MAP=506, ANVIL=507, CARVED_PUMPKIN=508, JACK_O_LANTERN=509, PAINTING=510, COMPOSTER=511, GRINDSTONE=512, NOTEBLOCK=513, BARREL=514, FRAME=515, ENDERCHEST=516;   // 502-505: music discs
+const SLIMEBALL=477, SLIME_BLOCK=478, LANTERN=490, CAMPFIRE=491, BEEHIVE=492, BEEHIVE_FULL=493, HONEY_BOTTLE=494, HONEYCOMB=495, FENCE=496, GATE=497, GATE_OPEN=498, SHEARS=499, TRIDENT=500, JUKEBOX=501, DISC_1=502, MAP=506, ANVIL=507, CARVED_PUMPKIN=508, JACK_O_LANTERN=509, PAINTING=510, COMPOSTER=511, GRINDSTONE=512, NOTEBLOCK=513, BARREL=514, FRAME=515, ENDERCHEST=516, CAULDRON=517;   // 502-505: music discs
 const isFenceish = id => id === FENCE || id === GATE || id === GATE_OPEN;
 const hivesSeen = new Set();           // "x,y,z" of overworld hives the mesher has seen
 const campfires = new Set();            // "dim:x,y,z" of campfires the mesher has seen
@@ -1179,7 +1179,7 @@ ITEMS[SADDLE]={name:'Saddle',icon:100};
 SPAWN_EGGS.forEach(([, name], i) => { ITEMS[eggId(i)] = { name: name + ' Spawn Egg', icon: eggIcon(i) }; });
 ITEMS[SLIMEBALL]={name:'Slimeball',icon:176};BLOCKS[LANTERN]={name:'Lantern',all:273};BLOCKS[FENCE]={name:'Fence',all:279};BLOCKS[GATE]={name:'Fence Gate',all:280};BLOCKS[GATE_OPEN]={name:'Fence Gate',all:280};BLOCKS[BEEHIVE]={name:'Beehive',top:277,bottom:277,side:276};BLOCKS[BEEHIVE_FULL]={name:'Beehive',top:277,bottom:277,side:278};
 ITEMS[HONEY_BOTTLE]={name:'Honey Bottle',icon:177,food:6};ITEMS[SHEARS]={name:'Shears',icon:179,tool:{type:'shears',tier:2}};BLOCKS[JUKEBOX]={name:'Jukebox',top:282,bottom:281,side:281};
-ITEMS[MAP]={name:'Map',icon:188};BLOCKS[ANVIL]={name:'Anvil',all:283};BLOCKS[PAINTING]={name:'Painting',all:285};BLOCKS[COMPOSTER]={name:'Composter',top:294,bottom:294,side:293};BLOCKS[GRINDSTONE]={name:'Grindstone',all:296};BLOCKS[NOTEBLOCK]={name:'Note Block',all:297};BLOCKS[BARREL]={name:'Barrel',top:299,bottom:298,side:298};BLOCKS[FRAME]={name:'Item Frame',all:300};BLOCKS[ENDERCHEST]={name:'Ender Chest',all:301};BLOCKS[CARVED_PUMPKIN]={name:'Carved Pumpkin',top:T.PUMPKIN_TOP,bottom:T.PUMPKIN_TOP,side:T.PUMPKIN_FACE};
+ITEMS[MAP]={name:'Map',icon:188};BLOCKS[ANVIL]={name:'Anvil',all:283};BLOCKS[PAINTING]={name:'Painting',all:285};BLOCKS[COMPOSTER]={name:'Composter',top:294,bottom:294,side:293};BLOCKS[GRINDSTONE]={name:'Grindstone',all:296};BLOCKS[NOTEBLOCK]={name:'Note Block',all:297};BLOCKS[BARREL]={name:'Barrel',top:299,bottom:298,side:298};BLOCKS[FRAME]={name:'Item Frame',all:300};BLOCKS[ENDERCHEST]={name:'Ender Chest',all:301};BLOCKS[CAULDRON]={name:'Cauldron',all:302};BLOCKS[CARVED_PUMPKIN]={name:'Carved Pumpkin',top:T.PUMPKIN_TOP,bottom:T.PUMPKIN_TOP,side:T.PUMPKIN_FACE};
 BLOCKS[JACK_O_LANTERN]={name:"Jack o'Lantern",top:T.PUMPKIN_TOP,bottom:T.PUMPKIN_TOP,side:284};
 ['Meadow','Caverns','Lanterns','Stormchase'].forEach((n, i) => { ITEMS[DISC_1 + i] = { name: 'Music Disc - ' + n, icon: 184 + i }; });ITEMS[TRIDENT]={name:'Trident',icon:180,tool:{type:'trident',tier:3}};ITEMS[HONEYCOMB]={name:'Honeycomb',icon:178};BLOCKS[CAMPFIRE]={name:'Campfire',top:275,bottom:275,side:274};BLOCKS[SLIME_BLOCK]={name:'Slime Block',all:272};
 ITEMS[APPLE]={name:'Apple',icon:167,food:4};ITEMS[GOLDEN_APPLE]={name:'Golden Apple',icon:168,food:4};ITEMS[CARROT]={name:'Carrot',icon:169,food:3,plant:CARROT0};
@@ -1242,7 +1242,7 @@ const partialTile = id => {
   return T.STONE;
 };
 const isDoor    = id => id === DOOR || id === DOORTOP;
-const isOpaque = id => !isFenceish(id) && id !== ANVIL && id !== COMPOSTER && id !== GRINDSTONE && id !== AIR && id !== WATER && id !== GLASS && id !== LAVA && id !== PORTAL && id !== ENDPORTAL && id !== END_GATEWAY && id !== STORM_PORTAL && !isCross(id) && !isPartial(id) && !isDoor(id) && !isFlat(id);
+const isOpaque = id => !isFenceish(id) && id !== ANVIL && id !== COMPOSTER && id !== GRINDSTONE && id !== CAULDRON && id !== AIR && id !== WATER && id !== GLASS && id !== LAVA && id !== PORTAL && id !== ENDPORTAL && id !== END_GATEWAY && id !== STORM_PORTAL && !isCross(id) && !isPartial(id) && !isDoor(id) && !isFlat(id);
 const isSolid  = id => id !== GATE_OPEN && id !== AIR && id !== WATER && id !== LAVA && id !== PORTAL && id !== ENDPORTAL && id !== END_GATEWAY && id !== STORM_PORTAL && !isCross(id) && !isDoor(id) && !isFlat(id);
 const isLiquid = id => id === WATER || id === LAVA;
 const emitsLight = id => id===GLOWCRYSTAL || id === ENDERCHEST || id === JACK_O_LANTERN || id === LANTERN || id === CAMPFIRE || id === STORM_PORTAL || id === CONDUIT_LIT || id === VOLTITE_ORE || id === END_ROD || id === END_GATEWAY || id === CRYING_OBSIDIAN || id === ANCHOR_LIT || id === SHROOMLIGHT || id === MAGMA || isFire(id) || id === SOUL_TORCH || id === GLOWVINE || id === AMETHYST_C || id === AMBERLAMP || id === GLOWB || id === GLOWSTONE || id === LAVA || id === PORTAL || id === ENDPORTAL || id === ENDCRYSTAL;
@@ -1273,6 +1273,7 @@ function toolClassOf(id){
   if(id === NOTEBLOCK) return 'axe';
   if(id === FRAME) return 'axe';
   if(id === ENDERCHEST) return 'pick';
+  if(id === CAULDRON) return 'pick';
   if(id === BEEHIVE || id === BEEHIVE_FULL || isFenceish(id) || id === JUKEBOX) return 'axe';
   if([PURPUR,PURPUR_PILLAR,ENDSTONE_BRICK,ENDSTONE,CRYING_OBSIDIAN,ANCHOR,ANCHOR_LIT].includes(id)) return 'pick';
   if(id === CHORUS_PLANT || id === CHORUS_FLOWER) return 'axe';
@@ -1425,6 +1426,7 @@ RECIPES.push({out:[NOTEBLOCK,1],in:[[ANY_PLANK,8],[AMETHYST_SHARD,1]],st:'table'
 RECIPES.push({out:[BARREL,1],in:[[ANY_PLANK,6],[SLAB_WOOD,2]],st:'table'});
 RECIPES.push({out:[FRAME,1],in:[[STICK,8],[LEATHER,1]],st:'table'});
 RECIPES.push({out:[ENDERCHEST,1],in:[[OBSIDIAN,8],[EYE_ENDER,1]],st:'table'});
+RECIPES.push({out:[CAULDRON,1],in:[[IRONI,7]],st:'table'});
 RECIPES.push({out:[MAP,1],in:[[PAPER,8],[IRONI,1]],st:'table'},{out:[SHEARS,1],in:[[IRONI,2]],st:'table'},{out:[JUKEBOX,1],in:[[ANY_PLANK,8],[DIAMI,1]],st:'table'});
 RECIPES.push({out:[FENCE,3],in:[[ANY_PLANK,4],[STICK,2]],st:'table'},{out:[GATE,1],in:[[STICK,4],[ANY_PLANK,2]],st:'table'});
 RECIPES.push({out:[BEEHIVE,1],in:[[ANY_PLANK,6],[HONEYCOMB,3]],st:'table'});
@@ -1830,6 +1832,8 @@ itemAtlas.width = 128; itemAtlas.height = 512;   // 256 icons
     if(eye || mouth) return [255, 216 + k / 2, 90];
     return x % 4 === 0 ? [176 + k, 100 + k, 24 + k] : [214 + k, 128 + k, 34 + k];
   });
+  put(302, (x, y, r) => { const k = Math.floor((r() - 0.5) * 16); return x % 4 === 0 ? [70 + k, 72 + k, 78 + k] : [96 + k, 98 + k, 104 + k]; });   // cast iron
+  put(303, (x, y, r) => { const k = Math.floor((r() - 0.5) * 20); return [40 + k, 90 + k, 190 + k]; });                                            // still water
   put(301, (x, y, r) => {                                   // ender chest: black stone with a glowing green eye and seam
     const k = Math.floor((r() - 0.5) * 10), d = Math.hypot(x - 7.5, y - 7.5);
     if(y === 7 || y === 8) return [40, 200 + k, 150 + k];                                       // the lid seam glows
@@ -5452,6 +5456,17 @@ function* buildChunkSteps(c,reuseLight=false){
       pushBox(O, 293, lx, y, lz + th, lx + th, y + 1, lz + 1 - th, llK);                         // -x wall
       pushBox(O, 293, lx + 1 - th, y, lz + th, lx + 1, y + 1, lz + 1 - th, llK);                 // +x wall
       if(lvl > 0) pushBox(O, 295, lx + th, y + th, lz + th, lx + 1 - th, y + th + (lvl / 8) * (0.88 - th), lz + 1 - th, llK);
+      continue;
+    }
+    if(b === CAULDRON){
+      const llC = light ? 0.2 + (sampleLight(light, lx, y, lz) / 15) * 0.8 : 1, lvl = cauldrons.get((wx0 + lx) + ',' + y + ',' + (wz0 + lz)) || 0, t = 0.1;
+      pushBox(O, 302, lx + 0.12, y + 0.28, lz + 0.12, lx + 0.88, y + 0.34, lz + 0.88, llC);                 // floor of the pot
+      pushBox(O, 302, lx + 0.12, y + 0.28, lz + 0.12, lx + 0.12 + t, y + 1, lz + 0.88, llC);                // walls
+      pushBox(O, 302, lx + 0.88 - t, y + 0.28, lz + 0.12, lx + 0.88, y + 1, lz + 0.88, llC);
+      pushBox(O, 302, lx + 0.12, y + 0.28, lz + 0.12, lx + 0.88, y + 1, lz + 0.12 + t, llC);
+      pushBox(O, 302, lx + 0.12, y + 0.28, lz + 0.88 - t, lx + 0.88, y + 1, lz + 0.88, llC);
+      for(const [cx, cz] of [[0.14, 0.14], [0.14, 0.72], [0.72, 0.14], [0.72, 0.72]]) pushBox(O, 302, lx + cx, y, lz + cz, lx + cx + 0.14, y + 0.3, lz + cz + 0.14, llC);   // legs
+      if(lvl > 0) pushBox(O, 303, lx + 0.14, y + 0.34, lz + 0.14, lx + 0.86, y + 0.34 + (lvl / 3) * 0.6, lz + 0.86, llC);
       continue;
     }
     if(b === ANVIL){
@@ -9681,6 +9696,7 @@ function useSpecial(o, d, hit, eh){
   if(useJukebox(hit)) return true;
   if(useAnvil(hit)) return true;
   if(useComposter(hit)) return true;
+  if(useCauldron(hit)) return true;
   if(useGrindstone(hit)) return true;
   if(useNoteBlock(hit)) return true;
   if(useFrame(hit)) return true;
@@ -15326,6 +15342,47 @@ function useComposter(hit){
   triggerViewSwing();
   return true;
 }
+/* ============================= CAULDRON =============================
+   A cauldron (7 iron) holds water. Empty it or fill it with a bucket, dip a
+   glass bottle to fill a water bottle (or pour a water bottle back in), and
+   it slowly fills from the rain when it's open to the sky. Standing in a
+   filled one puts out a fire on you. */
+const cauldrons = (() => { try { return new Map(JSON.parse(localStorage.getItem(SAVE_KEY + '-cauldrons')) || []); } catch(e){ return new Map(); } })();
+let cauldronRainT = 0;
+function saveCauldrons(){
+  for(const k of [...cauldrons.keys()]){ const [x, y, z] = k.split(',').map(Number); if(getBlock(x, y, z) !== CAULDRON) cauldrons.delete(k); }
+  safeSet(SAVE_KEY + '-cauldrons', JSON.stringify([...cauldrons]));
+}
+function setCauldron(x, y, z, lvl){ cauldrons.set(x + ',' + y + ',' + z, lvl); saveCauldrons(); rebuild(chunkAt(x >> 4, z >> 4)); }
+function useCauldron(hit){
+  if(!hit || hit.id !== CAULDRON) return false;
+  const k = hit.x + ',' + hit.y + ',' + hit.z, lvl = cauldrons.get(k) || 0, held = heldId();
+  const splash = () => { burstRGB(hit.x + 0.5, hit.y + 0.9, hit.z + 0.5, 0.4, 0.6, 1, 6, 0.3); playN({ f: 500, type: 'bandpass', dur: 0.18, vol: 0.12 }); };
+  if(held === WATERBUCKET){ if(lvl >= 3){ flashName('Already full'); return true; } setCauldron(hit.x, hit.y, hit.z, 3); replaceBucket(BUCKET); splash(); triggerViewSwing(); return true; }
+  if(held === BUCKET){ if(lvl < 3){ flashName('Not enough water'); return true; } setCauldron(hit.x, hit.y, hit.z, 0); replaceBucket(WATERBUCKET); splash(); triggerViewSwing(); return true; }
+  if(held === GLASS_BOTTLE){ if(lvl <= 0){ flashName('The cauldron is empty'); return true; } setCauldron(hit.x, hit.y, hit.z, lvl - 1); consumePlacedItem(); if(mode === 'survival') addItem(WATER_BOTTLE); splash(); flashName('Water Bottle'); triggerViewSwing(); return true; }
+  if(held === WATER_BOTTLE){ if(lvl >= 3){ flashName('Already full'); return true; } setCauldron(hit.x, hit.y, hit.z, lvl + 1); consumePlacedItem(); if(mode === 'survival') addItem(GLASS_BOTTLE); splash(); triggerViewSwing(); return true; }
+  flashName(lvl > 0 ? 'Water: ' + lvl + '/3' : 'Empty - fill it with a water bucket');
+  return true;
+}
+function updateCauldrons(dt){
+  // a fire on you goes out if you step into a filled cauldron
+  if(burnT > 0){
+    const px = Math.floor(player.pos.x), py = Math.floor(player.pos.y), pz = Math.floor(player.pos.z);
+    if(getBlock(px, py, pz) === CAULDRON && (cauldrons.get(px + ',' + py + ',' + pz) || 0) > 0){ burnT = 0; setCauldron(px, py, pz, (cauldrons.get(px + ',' + py + ',' + pz) || 1) - 1); playN({ f: 800, type: 'highpass', dur: 0.3, vol: 0.14 }); }
+  }
+  if(rainAmt < 0.3 || dim !== 0) return;
+  cauldronRainT -= dt;
+  if(cauldronRainT > 0) return;
+  cauldronRainT = 4;
+  for(const [k, lvl] of cauldrons){
+    if(lvl >= 3) continue;
+    const [x, y, z] = k.split(',').map(Number);
+    if(Math.abs(x - player.pos.x) > 40 || Math.abs(z - player.pos.z) > 40) continue;
+    if(getBlock(x, y, z) !== CAULDRON){ cauldrons.delete(k); continue; }
+    if(skyExposed(x, y + 1, z)) setCauldron(x, y, z, lvl + 1);
+  }
+}
 /* =============================== ANVIL ===============================
    An anvil (3 iron blocks + 4 iron) mends what you're holding. Use it with
    a worn tool: if you carry a second one of the same kind the two are
@@ -16638,6 +16695,7 @@ function animate(){
   if(inGame) updatePetsWorld(dt);
   if(inGame) updateHerd(dt);
   if(inGame) updateCampfires(dt);
+  if(inGame) updateCauldrons(dt);
   updateSeaLife(dt);
   updateBees(dt);
   updateJukes(dt);
@@ -16997,6 +17055,7 @@ window.__bc = {
             golem: { restore: dt => updateBuiltGolems(dt), saved: () => builtGolems, build: tryBuildGolem, snow: snowGolems, step: dt => updateSnowGolems(dt), carve: carvePumpkin, balls: snowballs },
             anvil: { use: useAnvil, mat: repairMaterial, slot: i => survInv[i] },
             composter: { use: useComposter, levels: composters, chance: compostChance },
+            cauldron: { use: useCauldron, levels: cauldrons, set: setCauldron, step: dt => updateCauldrons(dt) },
             grind: { use: useGrindstone },
             note: { use: useNoteBlock, pitches: noteBlocks, instrument: noteInstrument },
             frame: { use: useFrame, items: frameItems, step: dt => updateFrames(dt) },
