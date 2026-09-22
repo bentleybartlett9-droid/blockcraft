@@ -6226,7 +6226,15 @@ function renderCraft(){
     const pal = document.createElement('div');
     pal.id = 'palette';
     pal.style.cssText = 'display:flex;flex-wrap:wrap;gap:4px;padding:4px';
+    let palCat = -1, group = null;
     for(const id of ALL_CREATIVE){
+      const c = itemCat(id);
+      if(c !== palCat){
+        palCat = c;
+        const h = document.createElement('div'); h.className = 'rsec'; h.style.cssText = 'width:100%;margin-top:6px';
+        h.textContent = CAT_NAMES[c]; pal.appendChild(h);
+        group = document.createElement('div'); group.style.cssText = 'display:flex;flex-wrap:wrap;gap:4px;width:100%'; pal.appendChild(group);
+      }
       const cell = document.createElement('div');
       cell.className = 'islot';
       cell.title = nameOf(id);
@@ -6238,7 +6246,7 @@ function renderCraft(){
         creativeItems[sel] = id;
         renderHotbar(); selectSlot(sel, true); uiClick();
       });
-      pal.appendChild(cell);
+      group.appendChild(cell);
     }
     recipesEl.appendChild(pal);
     return;
@@ -6253,8 +6261,13 @@ function renderCraft(){
     const near = !blockId || nearStation(blockId);
     head.innerHTML = label + (near ? '' : ' <i>— place a ' + BLOCKS[blockId].name + ' nearby to unlock</i>');
     recipesEl.appendChild(head);
-    RECIPES.forEach((r, i) => {
-      if(r.st !== st) return;
+    const rows = [];
+    RECIPES.forEach((r, i) => { if(r.st === st) rows.push([r, i]); });
+    rows.sort((a, b) => itemCat(a[0].out[0]) - itemCat(b[0].out[0]) || a[0].out[0] - b[0].out[0]);
+    let secCat = -1;
+    for(const [r, i] of rows){
+      const c = itemCat(r.out[0]);
+      if(c !== secCat){ secCat = c; const sub = document.createElement('div'); sub.className = 'rsec'; sub.style.cssText = 'opacity:.7;font-size:12px;margin-left:8px'; sub.textContent = CAT_NAMES[c]; recipesEl.appendChild(sub); }
       const row = document.createElement('div');
       row.className = 'recipe';
       const icon = document.createElement('canvas');
@@ -6273,7 +6286,7 @@ function renderCraft(){
       btn.addEventListener('click', () => doCraft(i));
       row.append(icon, name, cost, btn);
       recipesEl.appendChild(row);
-    });
+    }
   }
 }
 function openCraft(){
@@ -13227,6 +13240,29 @@ const ALL_CREATIVE = (() => {
   for(const k in ITEMS){ const id = +k; if(!!ITEMS[id]) out.push(id); }
   return out;
 })();
+// ---- item categories (used to group the creative palette and the crafting list) ----
+const CAT_NAMES = ['Building', 'Nature', 'Ores & Minerals', 'Decoration', 'Utility', 'Tools', 'Combat', 'Food', 'Misc'];
+const _oreBlocks = new Set([COALO, IRONO, GOLDO, DIAMO, EMERO, COPPERO, QUARTZ_ORE, DEBRIS]);
+const _matItems = new Set([COALI, IRONI, GOLDI, DIAMI, COPPERI, EMERALD, NETHERITE, QUARTZ, AMETHYST_SHARD, GNUGGET, NSCRAP, STICK, STRING, LEATHER, FEATHER, GUNPOWDER, BLAZEROD, BLAZEPOWDER, GHASTTEAR, MAGMACREAM, ENDERPEARL, SLIMEBALL, BONE, BONE_MEAL, HONEYCOMB, PAPER]);
+const _decoBlocks = new Set([TORCH, SOUL_TORCH, PAINTING, FRAME, FLOWERPOT, LANTERN, JACK_O_LANTERN, CARVED_PUMPKIN, GLOWB, CAMPFIRE]);
+const _utilBlocks = new Set([CHEST, CRAFTT, FURN, BREWING, BARREL, ENDERCHEST, COMPOSTER, GRINDSTONE, NOTEBLOCK, JUKEBOX, ANVIL, SMITHING, CAULDRON, LADDER, FENCE, GATE, GATE_OPEN, BED, BEDHEAD, LIGHTNINGROD, TNT, BOOKSHELF, ENCH_TABLE]);
+const _natureBlocks = new Set([GRASS, DIRT, SAND, REDSAND, GRAVEL, SNOW, PODZOL, CACTUS, DEADBUSH, MUSHROOMR, MUSHROOMB, TGRASSB, POPPYB, DANDB]);
+function itemCat(id){
+  const it = ITEMS[id];
+  if(id === BOW || id === ARROW_I) return 6;
+  if(it){
+    if(it.tool){ const t = it.tool.type; return (t === 'sword' || t === 'trident' || t === 'shield') ? 6 : 5; }
+    if(it.armour) return 6;
+  }
+  if(foodOf(id)) return 7;
+  if(it && !BLOCKS[id]) return _matItems.has(id) ? 2 : 8;
+  if(_oreBlocks.has(id)) return 2;
+  if(_decoBlocks.has(id)) return 3;
+  if(_utilBlocks.has(id)) return 4;
+  if(_natureBlocks.has(id) || isLog(id) || isLeaf(id) || isSapling(id) || (typeof FLORA_IDS !== 'undefined' && FLORA_IDS.has(id))) return 1;
+  return 0;
+}
+ALL_CREATIVE.sort((a, b) => itemCat(a) - itemCat(b) || a - b);   // group the palette (and the VR pages) by category
 let sel = 0;
 const hotbarEl = document.getElementById('hotbar');
 const itemnameEl = document.getElementById('itemname');
