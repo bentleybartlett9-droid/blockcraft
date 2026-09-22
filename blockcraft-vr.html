@@ -888,7 +888,7 @@ const BONE=455, BONE_MEAL=456, SHIELD=454, ROD=447, COD=448, SALMON=449, COOKED_
 const EGG_RUN = 37, EGG_EXTRA = 479;          // eggs past the first 37 carry on from 479
 const eggId = i => i < EGG_RUN ? EGG_BASE + i : EGG_EXTRA + i - EGG_RUN, eggIcon = i => i < EGG_RUN ? 120 + i : i === EGG_RUN ? 175 : 180 + i - EGG_RUN;
 const eggMob = id => { const i = id >= EGG_BASE && id < EGG_BASE + EGG_RUN ? id - EGG_BASE : id >= EGG_EXTRA ? EGG_RUN + id - EGG_EXTRA : -1; return i >= 0 && i < SPAWN_EGGS.length ? SPAWN_EGGS[i][0] : null; };
-const SLIMEBALL=477, SLIME_BLOCK=478, LANTERN=490, CAMPFIRE=491, BEEHIVE=492, BEEHIVE_FULL=493, HONEY_BOTTLE=494, HONEYCOMB=495, FENCE=496, GATE=497, GATE_OPEN=498, SHEARS=499, TRIDENT=500, JUKEBOX=501, DISC_1=502, MAP=506, ANVIL=507, CARVED_PUMPKIN=508, JACK_O_LANTERN=509, PAINTING=510, COMPOSTER=511, GRINDSTONE=512, NOTEBLOCK=513, BARREL=514, FRAME=515;   // 502-505: music discs
+const SLIMEBALL=477, SLIME_BLOCK=478, LANTERN=490, CAMPFIRE=491, BEEHIVE=492, BEEHIVE_FULL=493, HONEY_BOTTLE=494, HONEYCOMB=495, FENCE=496, GATE=497, GATE_OPEN=498, SHEARS=499, TRIDENT=500, JUKEBOX=501, DISC_1=502, MAP=506, ANVIL=507, CARVED_PUMPKIN=508, JACK_O_LANTERN=509, PAINTING=510, COMPOSTER=511, GRINDSTONE=512, NOTEBLOCK=513, BARREL=514, FRAME=515, ENDERCHEST=516;   // 502-505: music discs
 const isFenceish = id => id === FENCE || id === GATE || id === GATE_OPEN;
 const hivesSeen = new Set();           // "x,y,z" of overworld hives the mesher has seen
 const campfires = new Set();            // "dim:x,y,z" of campfires the mesher has seen
@@ -1179,7 +1179,7 @@ ITEMS[SADDLE]={name:'Saddle',icon:100};
 SPAWN_EGGS.forEach(([, name], i) => { ITEMS[eggId(i)] = { name: name + ' Spawn Egg', icon: eggIcon(i) }; });
 ITEMS[SLIMEBALL]={name:'Slimeball',icon:176};BLOCKS[LANTERN]={name:'Lantern',all:273};BLOCKS[FENCE]={name:'Fence',all:279};BLOCKS[GATE]={name:'Fence Gate',all:280};BLOCKS[GATE_OPEN]={name:'Fence Gate',all:280};BLOCKS[BEEHIVE]={name:'Beehive',top:277,bottom:277,side:276};BLOCKS[BEEHIVE_FULL]={name:'Beehive',top:277,bottom:277,side:278};
 ITEMS[HONEY_BOTTLE]={name:'Honey Bottle',icon:177,food:6};ITEMS[SHEARS]={name:'Shears',icon:179,tool:{type:'shears',tier:2}};BLOCKS[JUKEBOX]={name:'Jukebox',top:282,bottom:281,side:281};
-ITEMS[MAP]={name:'Map',icon:188};BLOCKS[ANVIL]={name:'Anvil',all:283};BLOCKS[PAINTING]={name:'Painting',all:285};BLOCKS[COMPOSTER]={name:'Composter',top:294,bottom:294,side:293};BLOCKS[GRINDSTONE]={name:'Grindstone',all:296};BLOCKS[NOTEBLOCK]={name:'Note Block',all:297};BLOCKS[BARREL]={name:'Barrel',top:299,bottom:298,side:298};BLOCKS[FRAME]={name:'Item Frame',all:300};BLOCKS[CARVED_PUMPKIN]={name:'Carved Pumpkin',top:T.PUMPKIN_TOP,bottom:T.PUMPKIN_TOP,side:T.PUMPKIN_FACE};
+ITEMS[MAP]={name:'Map',icon:188};BLOCKS[ANVIL]={name:'Anvil',all:283};BLOCKS[PAINTING]={name:'Painting',all:285};BLOCKS[COMPOSTER]={name:'Composter',top:294,bottom:294,side:293};BLOCKS[GRINDSTONE]={name:'Grindstone',all:296};BLOCKS[NOTEBLOCK]={name:'Note Block',all:297};BLOCKS[BARREL]={name:'Barrel',top:299,bottom:298,side:298};BLOCKS[FRAME]={name:'Item Frame',all:300};BLOCKS[ENDERCHEST]={name:'Ender Chest',all:301};BLOCKS[CARVED_PUMPKIN]={name:'Carved Pumpkin',top:T.PUMPKIN_TOP,bottom:T.PUMPKIN_TOP,side:T.PUMPKIN_FACE};
 BLOCKS[JACK_O_LANTERN]={name:"Jack o'Lantern",top:T.PUMPKIN_TOP,bottom:T.PUMPKIN_TOP,side:284};
 ['Meadow','Caverns','Lanterns','Stormchase'].forEach((n, i) => { ITEMS[DISC_1 + i] = { name: 'Music Disc - ' + n, icon: 184 + i }; });ITEMS[TRIDENT]={name:'Trident',icon:180,tool:{type:'trident',tier:3}};ITEMS[HONEYCOMB]={name:'Honeycomb',icon:178};BLOCKS[CAMPFIRE]={name:'Campfire',top:275,bottom:275,side:274};BLOCKS[SLIME_BLOCK]={name:'Slime Block',all:272};
 ITEMS[APPLE]={name:'Apple',icon:167,food:4};ITEMS[GOLDEN_APPLE]={name:'Golden Apple',icon:168,food:4};ITEMS[CARROT]={name:'Carrot',icon:169,food:3,plant:CARROT0};
@@ -1245,7 +1245,7 @@ const isDoor    = id => id === DOOR || id === DOORTOP;
 const isOpaque = id => !isFenceish(id) && id !== ANVIL && id !== COMPOSTER && id !== GRINDSTONE && id !== AIR && id !== WATER && id !== GLASS && id !== LAVA && id !== PORTAL && id !== ENDPORTAL && id !== END_GATEWAY && id !== STORM_PORTAL && !isCross(id) && !isPartial(id) && !isDoor(id) && !isFlat(id);
 const isSolid  = id => id !== GATE_OPEN && id !== AIR && id !== WATER && id !== LAVA && id !== PORTAL && id !== ENDPORTAL && id !== END_GATEWAY && id !== STORM_PORTAL && !isCross(id) && !isDoor(id) && !isFlat(id);
 const isLiquid = id => id === WATER || id === LAVA;
-const emitsLight = id => id===GLOWCRYSTAL || id === JACK_O_LANTERN || id === LANTERN || id === CAMPFIRE || id === STORM_PORTAL || id === CONDUIT_LIT || id === VOLTITE_ORE || id === END_ROD || id === END_GATEWAY || id === CRYING_OBSIDIAN || id === ANCHOR_LIT || id === SHROOMLIGHT || id === MAGMA || isFire(id) || id === SOUL_TORCH || id === GLOWVINE || id === AMETHYST_C || id === AMBERLAMP || id === GLOWB || id === GLOWSTONE || id === LAVA || id === PORTAL || id === ENDPORTAL || id === ENDCRYSTAL;
+const emitsLight = id => id===GLOWCRYSTAL || id === ENDERCHEST || id === JACK_O_LANTERN || id === LANTERN || id === CAMPFIRE || id === STORM_PORTAL || id === CONDUIT_LIT || id === VOLTITE_ORE || id === END_ROD || id === END_GATEWAY || id === CRYING_OBSIDIAN || id === ANCHOR_LIT || id === SHROOMLIGHT || id === MAGMA || isFire(id) || id === SOUL_TORCH || id === GLOWVINE || id === AMETHYST_C || id === AMBERLAMP || id === GLOWB || id === GLOWSTONE || id === LAVA || id === PORTAL || id === ENDPORTAL || id === ENDCRYSTAL;
 const occl     = id => isOpaque(id);
 function tileFor(id, face){
   const d = BLOCKS[id];
@@ -1272,6 +1272,7 @@ function toolClassOf(id){
   if(id === GRINDSTONE) return 'pick';
   if(id === NOTEBLOCK) return 'axe';
   if(id === FRAME) return 'axe';
+  if(id === ENDERCHEST) return 'pick';
   if(id === BEEHIVE || id === BEEHIVE_FULL || isFenceish(id) || id === JUKEBOX) return 'axe';
   if([PURPUR,PURPUR_PILLAR,ENDSTONE_BRICK,ENDSTONE,CRYING_OBSIDIAN,ANCHOR,ANCHOR_LIT].includes(id)) return 'pick';
   if(id === CHORUS_PLANT || id === CHORUS_FLOWER) return 'axe';
@@ -1423,6 +1424,7 @@ RECIPES.push({out:[GRINDSTONE,1],in:[[STICK,2],[STONE,1],[ANY_PLANK,2]],st:'tabl
 RECIPES.push({out:[NOTEBLOCK,1],in:[[ANY_PLANK,8],[AMETHYST_SHARD,1]],st:'table'});
 RECIPES.push({out:[BARREL,1],in:[[ANY_PLANK,6],[SLAB_WOOD,2]],st:'table'});
 RECIPES.push({out:[FRAME,1],in:[[STICK,8],[LEATHER,1]],st:'table'});
+RECIPES.push({out:[ENDERCHEST,1],in:[[OBSIDIAN,8],[EYE_ENDER,1]],st:'table'});
 RECIPES.push({out:[MAP,1],in:[[PAPER,8],[IRONI,1]],st:'table'},{out:[SHEARS,1],in:[[IRONI,2]],st:'table'},{out:[JUKEBOX,1],in:[[ANY_PLANK,8],[DIAMI,1]],st:'table'});
 RECIPES.push({out:[FENCE,3],in:[[ANY_PLANK,4],[STICK,2]],st:'table'},{out:[GATE,1],in:[[STICK,4],[ANY_PLANK,2]],st:'table'});
 RECIPES.push({out:[BEEHIVE,1],in:[[ANY_PLANK,6],[HONEYCOMB,3]],st:'table'});
@@ -1827,6 +1829,12 @@ itemAtlas.width = 128; itemAtlas.height = 512;   // 256 icons
     const mouth = (y >= 9 && y <= 11 && x >= 3 && x <= 12) && !(y === 9 && (x === 5 || x === 10)) && !(y === 11 && (x === 3 || x === 12));
     if(eye || mouth) return [255, 216 + k / 2, 90];
     return x % 4 === 0 ? [176 + k, 100 + k, 24 + k] : [214 + k, 128 + k, 34 + k];
+  });
+  put(301, (x, y, r) => {                                   // ender chest: black stone with a glowing green eye and seam
+    const k = Math.floor((r() - 0.5) * 10), d = Math.hypot(x - 7.5, y - 7.5);
+    if(y === 7 || y === 8) return [40, 200 + k, 150 + k];                                       // the lid seam glows
+    if(d < 2.2) return [80, 240, 170];                                                          // the eye
+    return [24 + k, 22 + k, 34 + k];
   });
   put(300, (x, y, r) => {                                   // item frame: a wooden border round a pale backing
     const k = Math.floor((r() - 0.5) * 14), edge = x < 2 || y < 2 || x > 13 || y > 13;
@@ -5263,6 +5271,7 @@ function emitLevel(id){
   if(id === LAVA) return 13;
   if(id === TORCH) return 14;
   if(id === LANTERN || id === CAMPFIRE || id === JACK_O_LANTERN) return 15;
+  if(id === ENDERCHEST) return 7;
   if(id === PORTAL) return 11;
   if(id === ENDPORTAL) return 12;
   return 0;
@@ -8743,10 +8752,10 @@ function renderChestUI(){
   mk(document.getElementById('chestgrid'), slots27, survInv);
   mk(document.getElementById('chestinv'), survInv, slots27);
 }
-function openChest(x, y, z){
-  if(dim === 1) angerPiglins(new THREE.Vector3(x, y, z), false);   // piglins guard their loot
+function openChest(x, y, z, key){
+  if(dim === 1 && !key) angerPiglins(new THREE.Vector3(x, y, z), false);   // piglins guard their loot
   chestOpen = true;
-  chestPos = x + ',' + y + ',' + z;
+  chestPos = key || (x + ',' + y + ',' + z);
   if(xrActive){openCraftVR('chest');return;}
   renderChestUI();
   blockSfx(CHEST, 'place');
@@ -12896,6 +12905,7 @@ function doPlace(){
     if(hit.id === BED){ trySleep(hit.x, hit.y, hit.z); return; }
     if(isDoor(hit.id)){ toggleDoor(hit.x, hit.y, hit.z); triggerViewSwing(); return; }
     if(hit.id === CHEST || hit.id === BARREL){ openChest(hit.x, hit.y, hit.z); return; }
+    if(hit.id === ENDERCHEST){ openChest(hit.x, hit.y, hit.z, 'ender'); return; }
     if(hit.id === TNT){ igniteTNT(hit.x, hit.y, hit.z); return; }
     if(hit.id === ENCH_TABLE && mode === 'survival'){ openEnchant(hit); return; }
     if((hit.id === CRAFTT || hit.id === FURN || hit.id === BREWING) && mode === 'survival'){ openCraft(); return; }
@@ -13718,6 +13728,7 @@ function vrTryPlace(){
     if(hit.id === BED){ trySleep(hit.x, hit.y, hit.z); return; }
     if(isDoor(hit.id)){ toggleDoor(hit.x, hit.y, hit.z); triggerViewSwing(); return; }
     if(hit.id === CHEST || hit.id === BARREL){ openChest(hit.x, hit.y, hit.z); return; }
+    if(hit.id === ENDERCHEST){ openChest(hit.x, hit.y, hit.z, 'ender'); return; }
     if(hit.id === TNT){ igniteTNT(hit.x, hit.y, hit.z); return; }
     if(hit.id === ENCH_TABLE && mode === 'survival'){ enchantAt = hit; openCraftVR('enchant'); return; }
     if((hit.id === CRAFTT || hit.id === FURN || hit.id === BREWING) && mode === 'survival'){ openCraftVR('craft'); return; }
