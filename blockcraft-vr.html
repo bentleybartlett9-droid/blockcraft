@@ -8488,6 +8488,24 @@ function boomSfx(dist = 0){
   playN({ f: 900, type: 'lowpass', dur: 0.25, vol: 0.3 * v, slide: -600 });
   tone(70, 28, 0.55, 'sine', 0.4 * v);
 }
+const _cWhite = new THREE.Color(1, 1, 1), _cCharge = new THREE.Color(0.55, 0.75, 1);
+// A bright expanding light-burst that sells the blast, on top of the smoke and sparks.
+const blastFx = [];
+function spawnBlastFlash(x, y, z, radius){
+  const geo = new THREE.SphereGeometry(1, 14, 10);
+  const mat = new THREE.MeshBasicMaterial({ color: 0xffe6a8, transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending });
+  const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); scene.add(m);
+  blastFx.push({ m, mat, geo, t: 0, life: 0.36, r: radius });
+}
+function updateBlastFx(dt){
+  for(let i = blastFx.length - 1; i >= 0; i--){
+    const f = blastFx[i]; f.t += dt; const k = f.t / f.life;
+    const sc = f.r * (0.5 + 2.1 * k); f.m.scale.set(sc, sc, sc);
+    f.mat.opacity = 0.9 * (1 - k) * (1 - k);
+    f.mat.color.setRGB(1, 0.86 - 0.55 * k, 0.55 - 0.5 * k);
+    if(k >= 1){ scene.remove(f.m); f.geo.dispose(); f.mat.dispose(); blastFx.splice(i, 1); }
+  }
+}
 function explode(x, y, z, radius, dmgMax, fromNet){
   const r = Math.ceil(radius);
   const touched = new Set();
@@ -8545,6 +8563,7 @@ function explode(x, y, z, radius, dmgMax, fromNet){
   }
   burstRGB(x, y, z, 0.35, 0.33, 0.3, 40, radius * 1.6);
   burstRGB(x, y, z, 1, 0.55, 0.12, 20, radius);
+  spawnBlastFlash(x, y, z, radius);
   boomSfx(Math.hypot(player.pos.x - x, player.pos.z - z));
   if(!fromNet && conns.length) mpBroadcast({ t: 'boom', x, y, z, r: radius, d: dmgMax });
 }
@@ -8585,18 +8604,26 @@ const creepMats = { skin: entMat(0x54b04a), dark: entMat(0x3d8a36), foot: entMat
 function spawnCreeper(x, y, z){
   const g = new THREE.Group();
   const legs = [];
-  box(0.5, 0.5, 0.5, creepMats.skin, 0, 1.45, 0, g);
-  box(0.42, 0.85, 0.28, creepMats.dark, 0, 0.82, 0, g);
+  const mats = { skin: creepMats.skin.clone(), dark: creepMats.dark.clone(), foot: creepMats.foot.clone() };
+  box(0.5, 0.5, 0.5, mats.skin, 0, 1.45, 0, g);
+  box(0.42, 0.85, 0.28, mats.dark, 0, 0.82, 0, g);
   for(const [lx, lz] of [[-0.13, -0.2], [0.13, -0.2], [-0.13, 0.2], [0.13, 0.2]])
-    legs.push(box(0.2, 0.34, 0.24, creepMats.foot, lx, 0.17, lz, g));
+    legs.push(box(0.2, 0.34, 0.24, mats.foot, lx, 0.17, lz, g));
   scene.add(g);
   creepers.push({
-    kind: 'creeper', group: g, legs,
+    kind: 'creeper', group: g, legs, mats,
+    baseCol: { skin: mats.skin.color.clone(), dark: mats.dark.color.clone(), foot: mats.foot.color.clone() },
+    charged: false,
     pos: new THREE.Vector3(x, y, z), vel: new THREE.Vector3(),
     w: 0.3, h: 1.7, hp: 20,
     yaw: Math.random() * Math.PI * 2, speed: 0, t: 0.5,
     onGround: false, anim: Math.random() * 9, fuse: -1,
   });
+}
+function creeperTint(c, tgt, amt){ for(const k of ['skin','dark','foot']) c.mats[k].color.copy(c.baseCol[k]).lerp(tgt, amt); }
+function chargeCreeper(c){
+  if(c.charged) return; c.charged = true; c.hp = Math.max(c.hp, 20);
+  for(const k of ['skin','dark','foot']){ c.baseCol[k].lerp(_cCharge, 0.4); c.mats[k].color.copy(c.baseCol[k]); }
 }
 function killCreeper(i, exploded){
   const c = creepers[i];
@@ -8620,13 +8647,16 @@ function updateCreepers(dt){
     if(c.fuse >= 0){
       c.speed = 0;
       c.fuse -= dt;
-      const sw = 1 + (1.5 - Math.max(0, Math.min(1.5, c.fuse))) * 0.16 * (1 + Math.sin(c.fuse * 25) * 0.3);
+      const prog = 1 - Math.max(0, Math.min(1, c.fuse / 1.5));               // 0 -> 1 as it primes
+      const sw = 1 + prog * 0.45 * (1 + Math.sin(c.fuse * 25) * 0.3);        // swells noticeably bigger
       c.group.scale.set(sw, sw, sw);
-      if(distP > 4.5){ c.fuse = -1; c.group.scale.set(1, 1, 1); }
+      const blink = Math.sin(c.fuse * (7 + prog * 34)) * 0.5 + 0.5;          // flashes faster near the end
+      creeperTint(c, c.charged ? _cCharge : _cWhite, Math.min(1, 0.2 + prog * 0.9) * blink);
+      if(distP > 4.5){ c.fuse = -1; c.group.scale.set(1, 1, 1); creeperTint(c, _cWhite, 0); }   // backed off: relax
       else if(c.fuse <= 0){
-        const ex = c.pos.clone();
+        const ex = c.pos.clone(), R = c.charged ? 5 : 3, D = c.charged ? 24 : 14;
         killCreeper(i, true);
-        explode(ex.x, ex.y + 0.8, ex.z, 3, 14);
+        explode(ex.x, ex.y + 0.8, ex.z, R, D);
         continue;
       }
     } else if(hunting && distP < 16){
@@ -10261,6 +10291,7 @@ function boltAt(x, gy, z, sound){
   boltGeo.attributes.position.needsUpdate = true;
   bolt.visible = true; boltT = 0.25; flashAmt = 1;
   burstRGB(x, gy + 0.5, z, 0.8, 0.9, 1, 24, 1.5);
+  for(const c of creepers) if(!c.charged && Math.abs(c.pos.x - x) < 3.2 && Math.abs(c.pos.z - z) < 3.2 && Math.abs(c.pos.y - gy) < 4) chargeCreeper(c);   // a bolt supercharges a creeper
   if(sound !== false) thunder(Math.hypot(player.pos.x - x, player.pos.z - z));
   if(!mobCtx && conns.length && isHost) mpBroadcast({ t: 'bolt', x: r2(x), y: r2(gy), z: r2(z) });
 }
@@ -17020,6 +17051,7 @@ function animate(){
     runMobWorld(dt, mobDaylight(daylight));   // spawns and every mob - shared with friends in multiplayer
     updateMonsterAmbience(dt);
     updateTNT(dt);
+    updateBlastFx(dt);
     updateEndWorld(dt);
     updateStormWorld(dt);
     updateShots(dt);
