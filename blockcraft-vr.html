@@ -888,7 +888,7 @@ const BONE=455, BONE_MEAL=456, SHIELD=454, ROD=447, COD=448, SALMON=449, COOKED_
 const EGG_RUN = 37, EGG_EXTRA = 479;          // eggs past the first 37 carry on from 479
 const eggId = i => i < EGG_RUN ? EGG_BASE + i : EGG_EXTRA + i - EGG_RUN, eggIcon = i => i < EGG_RUN ? 120 + i : i === EGG_RUN ? 175 : 180 + i - EGG_RUN;
 const eggMob = id => { const i = id >= EGG_BASE && id < EGG_BASE + EGG_RUN ? id - EGG_BASE : id >= EGG_EXTRA ? EGG_RUN + id - EGG_EXTRA : -1; return i >= 0 && i < SPAWN_EGGS.length ? SPAWN_EGGS[i][0] : null; };
-const SLIMEBALL=477, SLIME_BLOCK=478, LANTERN=490, CAMPFIRE=491, BEEHIVE=492, BEEHIVE_FULL=493, HONEY_BOTTLE=494, HONEYCOMB=495, FENCE=496, GATE=497, GATE_OPEN=498, SHEARS=499, TRIDENT=500, JUKEBOX=501, DISC_1=502, MAP=506, ANVIL=507, CARVED_PUMPKIN=508, JACK_O_LANTERN=509, PAINTING=510, COMPOSTER=511, GRINDSTONE=512, NOTEBLOCK=513, BARREL=514, FRAME=515, ENDERCHEST=516, CAULDRON=517, LIGHTNINGROD=518;   // 502-505: music discs
+const SLIMEBALL=477, SLIME_BLOCK=478, LANTERN=490, CAMPFIRE=491, BEEHIVE=492, BEEHIVE_FULL=493, HONEY_BOTTLE=494, HONEYCOMB=495, FENCE=496, GATE=497, GATE_OPEN=498, SHEARS=499, TRIDENT=500, JUKEBOX=501, DISC_1=502, MAP=506, ANVIL=507, CARVED_PUMPKIN=508, JACK_O_LANTERN=509, PAINTING=510, COMPOSTER=511, GRINDSTONE=512, NOTEBLOCK=513, BARREL=514, FRAME=515, ENDERCHEST=516, CAULDRON=517, LIGHTNINGROD=518, SMITHING=519;   // 502-505: music discs
 const isFenceish = id => id === FENCE || id === GATE || id === GATE_OPEN;
 const hivesSeen = new Set();           // "x,y,z" of overworld hives the mesher has seen
 const campfires = new Set();            // "dim:x,y,z" of campfires the mesher has seen
@@ -1179,7 +1179,7 @@ ITEMS[SADDLE]={name:'Saddle',icon:100};
 SPAWN_EGGS.forEach(([, name], i) => { ITEMS[eggId(i)] = { name: name + ' Spawn Egg', icon: eggIcon(i) }; });
 ITEMS[SLIMEBALL]={name:'Slimeball',icon:176};BLOCKS[LANTERN]={name:'Lantern',all:273};BLOCKS[FENCE]={name:'Fence',all:279};BLOCKS[GATE]={name:'Fence Gate',all:280};BLOCKS[GATE_OPEN]={name:'Fence Gate',all:280};BLOCKS[BEEHIVE]={name:'Beehive',top:277,bottom:277,side:276};BLOCKS[BEEHIVE_FULL]={name:'Beehive',top:277,bottom:277,side:278};
 ITEMS[HONEY_BOTTLE]={name:'Honey Bottle',icon:177,food:6};ITEMS[SHEARS]={name:'Shears',icon:179,tool:{type:'shears',tier:2}};BLOCKS[JUKEBOX]={name:'Jukebox',top:282,bottom:281,side:281};
-ITEMS[MAP]={name:'Map',icon:188};BLOCKS[ANVIL]={name:'Anvil',all:283};BLOCKS[PAINTING]={name:'Painting',all:285};BLOCKS[COMPOSTER]={name:'Composter',top:294,bottom:294,side:293};BLOCKS[GRINDSTONE]={name:'Grindstone',all:296};BLOCKS[NOTEBLOCK]={name:'Note Block',all:297};BLOCKS[BARREL]={name:'Barrel',top:299,bottom:298,side:298};BLOCKS[FRAME]={name:'Item Frame',all:300};BLOCKS[ENDERCHEST]={name:'Ender Chest',all:301};BLOCKS[CAULDRON]={name:'Cauldron',all:302};BLOCKS[LIGHTNINGROD]={name:'Lightning Rod',all:305};BLOCKS[CARVED_PUMPKIN]={name:'Carved Pumpkin',top:T.PUMPKIN_TOP,bottom:T.PUMPKIN_TOP,side:T.PUMPKIN_FACE};
+ITEMS[MAP]={name:'Map',icon:188};BLOCKS[ANVIL]={name:'Anvil',all:283};BLOCKS[PAINTING]={name:'Painting',all:285};BLOCKS[COMPOSTER]={name:'Composter',top:294,bottom:294,side:293};BLOCKS[GRINDSTONE]={name:'Grindstone',all:296};BLOCKS[NOTEBLOCK]={name:'Note Block',all:297};BLOCKS[BARREL]={name:'Barrel',top:299,bottom:298,side:298};BLOCKS[FRAME]={name:'Item Frame',all:300};BLOCKS[ENDERCHEST]={name:'Ender Chest',all:301};BLOCKS[CAULDRON]={name:'Cauldron',all:302};BLOCKS[LIGHTNINGROD]={name:'Lightning Rod',all:305};BLOCKS[SMITHING]={name:'Smithing Table',top:306,bottom:281,side:307};BLOCKS[CARVED_PUMPKIN]={name:'Carved Pumpkin',top:T.PUMPKIN_TOP,bottom:T.PUMPKIN_TOP,side:T.PUMPKIN_FACE};
 BLOCKS[JACK_O_LANTERN]={name:"Jack o'Lantern",top:T.PUMPKIN_TOP,bottom:T.PUMPKIN_TOP,side:284};
 ['Meadow','Caverns','Lanterns','Stormchase'].forEach((n, i) => { ITEMS[DISC_1 + i] = { name: 'Music Disc - ' + n, icon: 184 + i }; });ITEMS[TRIDENT]={name:'Trident',icon:180,tool:{type:'trident',tier:3}};ITEMS[HONEYCOMB]={name:'Honeycomb',icon:178};BLOCKS[CAMPFIRE]={name:'Campfire',top:275,bottom:275,side:274};BLOCKS[SLIME_BLOCK]={name:'Slime Block',all:272};
 ITEMS[APPLE]={name:'Apple',icon:167,food:4};ITEMS[GOLDEN_APPLE]={name:'Golden Apple',icon:168,food:4};ITEMS[CARROT]={name:'Carrot',icon:169,food:3,plant:CARROT0};
@@ -1275,6 +1275,7 @@ function toolClassOf(id){
   if(id === ENDERCHEST) return 'pick';
   if(id === CAULDRON) return 'pick';
   if(id === LIGHTNINGROD) return 'pick';
+  if(id === SMITHING) return 'axe';
   if(id === BEEHIVE || id === BEEHIVE_FULL || isFenceish(id) || id === JUKEBOX) return 'axe';
   if([PURPUR,PURPUR_PILLAR,ENDSTONE_BRICK,ENDSTONE,CRYING_OBSIDIAN,ANCHOR,ANCHOR_LIT].includes(id)) return 'pick';
   if(id === CHORUS_PLANT || id === CHORUS_FLOWER) return 'axe';
@@ -1429,6 +1430,7 @@ RECIPES.push({out:[FRAME,1],in:[[STICK,8],[LEATHER,1]],st:'table'});
 RECIPES.push({out:[ENDERCHEST,1],in:[[OBSIDIAN,8],[EYE_ENDER,1]],st:'table'});
 RECIPES.push({out:[CAULDRON,1],in:[[IRONI,7]],st:'table'});
 RECIPES.push({out:[LIGHTNINGROD,1],in:[[COPPERI,3]],st:'table'});
+RECIPES.push({out:[SMITHING,1],in:[[IRONI,2],[ANY_PLANK,4]],st:'table'});
 RECIPES.push({out:[MAP,1],in:[[PAPER,8],[IRONI,1]],st:'table'},{out:[SHEARS,1],in:[[IRONI,2]],st:'table'},{out:[JUKEBOX,1],in:[[ANY_PLANK,8],[DIAMI,1]],st:'table'});
 RECIPES.push({out:[FENCE,3],in:[[ANY_PLANK,4],[STICK,2]],st:'table'},{out:[GATE,1],in:[[STICK,4],[ANY_PLANK,2]],st:'table'});
 RECIPES.push({out:[BEEHIVE,1],in:[[ANY_PLANK,6],[HONEYCOMB,3]],st:'table'});
@@ -1835,6 +1837,16 @@ itemAtlas.width = 128; itemAtlas.height = 512;   // 256 icons
     return x % 4 === 0 ? [176 + k, 100 + k, 24 + k] : [214 + k, 128 + k, 34 + k];
   });
   put(305, (x, y, r) => { const k = Math.floor((r() - 0.5) * 16); return y < 3 ? [150 + k, 96 + k, 54 + k] : [196 + k, 118 + k, 62 + k]; });   // copper rod
+  put(306, (x, y, r) => {                                   // smithing table top: dark iron plate with rivets
+    const k = Math.floor((r() - 0.5) * 12);
+    if((x === 3 || x === 12) && (y === 3 || y === 12)) return [180, 184, 190];
+    return [58 + k, 58 + k, 66 + k];
+  });
+  put(307, (x, y, r) => {                                   // smithing table side: planks with an iron band
+    const k = Math.floor((r() - 0.5) * 14);
+    if(y >= 3 && y <= 5) return [70 + k, 72 + k, 80 + k];
+    return x % 4 === 0 ? [96 + k, 66 + k, 40 + k] : [124 + k, 88 + k, 52 + k];
+  });
   put(302, (x, y, r) => { const k = Math.floor((r() - 0.5) * 16); return x % 4 === 0 ? [70 + k, 72 + k, 78 + k] : [96 + k, 98 + k, 104 + k]; });   // cast iron
   put(303, (x, y, r) => { const k = Math.floor((r() - 0.5) * 20); return [40 + k, 90 + k, 190 + k]; });                                            // still water
   put(301, (x, y, r) => {                                   // ender chest: black stone with a glowing green eye and seam
@@ -9707,6 +9719,7 @@ function useSpecial(o, d, hit, eh){
   if(useAnvil(hit)) return true;
   if(useComposter(hit)) return true;
   if(useCauldron(hit)) return true;
+  if(useSmithing(hit)) return true;
   if(useGrindstone(hit)) return true;
   if(useNoteBlock(hit)) return true;
   if(useFrame(hit)) return true;
@@ -15365,6 +15378,26 @@ function useComposter(hit){
   triggerViewSwing();
   return true;
 }
+/* ========================== SMITHING TABLE ==========================
+   A smithing table (2 iron + 4 planks) upgrades diamond gear to netherite
+   with one netherite ingot - and unlike the crafting bench it keeps the
+   tool's wear and every enchantment, and does armour too. */
+const SMITH_UP = { [DPICK]: NPICK, [DSWORD]: NSWORD, [DAXE]: NAXE, 208: 376, 209: 377, 210: 378, 211: 379 };
+function useSmithing(hit){
+  if(!hit || hit.id !== SMITHING) return false;
+  if(mode !== 'survival'){ flashName('Smithing works in survival'); return true; }
+  const s = survInv[sel], up = s.count > 0 && SMITH_UP[s.id];
+  if(!up){ flashName('Hold diamond gear to upgrade'); return true; }
+  if(invCount(NETHERITE) < 1){ flashName('Needs a netherite ingot'); return true; }
+  removeItems(NETHERITE, 1);
+  const it = ITEMS[up], keepEnch = s.ench, frac = it.tool ? (s.dur || 0) / TIER_DUR[ITEMS[s.id].tool.tier - 1] : 0;
+  s.id = up; s.dur = it.tool ? Math.round(TIER_DUR[it.tool.tier - 1] * (frac || 1)) : 0; s.ench = keepEnch;
+  invDirty = true; renderHotbar();
+  for(let i = 0; i < 10; i++) burstRGB(hit.x + 0.5 + (Math.random() - 0.5) * 0.5, hit.y + 1 + Math.random() * 0.4, hit.z + 0.5 + (Math.random() - 0.5) * 0.5, 0.4, 0.4, 0.45, 1, 0.4);
+  tone(300, 200, 0.3, 'square', 0.12); tone(1200, 800, 0.2, 'triangle', 0.06, 0.08);
+  triggerViewSwing(); flashName('Upgraded to ' + stackName(s)); grantAdv('netherite');
+  return true;
+}
 /* ============================= CAULDRON =============================
    A cauldron (7 iron) holds water. Empty it or fill it with a bucket, dip a
    glass bottle to fill a water bottle (or pour a water bottle back in), and
@@ -16541,6 +16574,7 @@ const ADVANCEMENTS = [
   { ch: 'Overworld', id: 'frame', title: 'On Display', how: 'Mount something in an item frame (8 sticks + leather) on a wall.', icon: FRAME, check: () => false },
   { ch: 'Overworld', id: 'note', title: 'Note Worthy', how: 'Play a note block (8 planks + redstone). The block underneath sets the instrument.', icon: NOTEBLOCK, check: () => false },
   { ch: 'Overworld', id: 'grind', title: 'Back to the Grind', how: 'Grind the enchantments off a tool at a grindstone (2 sticks, a stone, 2 planks) for some experience back.', icon: GRINDSTONE, check: () => false },
+  { ch: 'Nether', id: 'netherite', title: 'Netherite Upgrade', how: 'Upgrade a diamond tool or armour to netherite at a smithing table (2 iron + 4 planks).', icon: NETHERITE, check: () => false },
   { ch: 'Overworld', id: 'lrod', title: 'Grounded', how: 'Set up a lightning rod (3 copper) and let a thunderstorm strike it.', icon: LIGHTNINGROD, check: () => false },
   { ch: 'Overworld', id: 'compost', title: 'Waste Not', how: 'Fill a composter (7 wooden slabs) with plant matter until it makes bone meal.', icon: COMPOSTER, check: () => false },
   { ch: 'Overworld', id: 'anvil', title: 'Good as New', how: 'Mend a worn tool at an anvil (3 iron blocks + 4 iron) with its material and some experience.', icon: ANVIL, check: () => false },
@@ -17081,6 +17115,7 @@ window.__bc = {
             composter: { use: useComposter, levels: composters, chance: compostChance },
             cauldron: { use: useCauldron, levels: cauldrons, set: setCauldron, step: dt => updateCauldrons(dt) },
             lrod: { rods: () => lightningRods, strike: () => strikeLightning() },
+            smith: { use: useSmithing, up: SMITH_UP },
             grind: { use: useGrindstone },
             note: { use: useNoteBlock, pitches: noteBlocks, instrument: noteInstrument },
             frame: { use: useFrame, items: frameItems, step: dt => updateFrames(dt) },
