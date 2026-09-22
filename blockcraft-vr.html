@@ -6925,6 +6925,7 @@ function spawnEnderman(x, y, z){
   box(0.42, 0.42, 0.36, endMats.body, 0, 2.05, 0, g);       // head
   box(0.1, 0.09, 0.06, endMats.eye, -0.11, 2.10, -0.19, g); // eyes
   box(0.1, 0.09, 0.06, endMats.eye,  0.11, 2.10, -0.19, g);
+  const mouth = box(0.16, 0.04, 0.04, endMats.eye, 0, 1.98, -0.19, g); mouth.visible = false;
   const arms = [];
   for(const s of [-1, 1]){
     arms.push(box(0.14, 1.15, 0.14, endMats.body, s * 0.30, 1.25, 0, g));
@@ -6940,7 +6941,7 @@ function spawnEnderman(x, y, z){
     w: 0.3, h: 2.4, hp: 20,
     yaw: Math.random() * Math.PI * 2, speed: 0, t: 1 + Math.random() * 2,
     onGround: false, anim: Math.random() * 9, atkCd: 0,
-    angry: false, tpCd: 2 + Math.random() * 3,
+    angry: false, tpCd: 2 + Math.random() * 3, mouth, carry: 0, carryMesh: null, carryT: 6 + Math.random() * 10, waterT: 0,
   });
 }
 function killEnderman(i){
@@ -6949,8 +6950,15 @@ function killEnderman(i){
   burstRGB(e.pos.x, e.pos.y + 1.2, e.pos.z, 0.55, 0.25, 0.75, 14);
   monsterCall(e,'die');
   if(mode === 'survival') spawnDropAt(e.pos.x, e.pos.y + 0.8, e.pos.z, ENDERPEARL, 1);
-  removeEnt(endermen, i);
+  if(e.carry) spawnDropAt(e.pos.x, e.pos.y + 0.5, e.pos.z, e.carry, 1);
+  enderDrop(e); removeEnt(endermen, i);
 }
+const ENDER_CARRY = [GRASS, DIRT, SAND, POPPYB, DANDB, TGRASSB, MUSHROOMR, MUSHROOMB];
+function enderPickUp(e){
+  e.carry = ENDER_CARRY[(Math.random() * ENDER_CARRY.length) | 0];
+  e.carryMesh = new THREE.Mesh(dropGeo(e.carry), matO); e.carryMesh.scale.setScalar(1.6); e.carryMesh.position.set(0, 1.15, -0.42); e.group.add(e.carryMesh);
+}
+function enderDrop(e){ if(e.carryMesh){ e.group.remove(e.carryMesh); e.carryMesh = null; } e.carry = 0; }
 // Teleport an enderman to a valid spot near a target position.
 function enderTeleport(e, nearX, nearZ){
   for(let tries = 0; tries < 12; tries++){
@@ -6984,11 +6992,22 @@ function updateEndermen(dt){
     e.anim += dt;
     e.atkCd -= dt;
     e.tpCd -= dt;
+    // endermen hate water and rain: it hurts, and they blink away from it
+    const wet = getBlock(Math.floor(e.pos.x), Math.floor(e.pos.y + 0.6), Math.floor(e.pos.z)) === WATER;
+    const rained = rainAmt > 0.4 && dim === 0 && skyExposed(Math.floor(e.pos.x), Math.ceil(e.pos.y + e.h), Math.floor(e.pos.z));
+    if(wet || rained){ e.waterT += dt; if(e.waterT >= 0.5){ e.waterT = 0; e.hp -= 1; burstRGB(e.pos.x, e.pos.y + 1.2, e.pos.z, 0.7, 0.75, 0.9, 6, 0.4); if(e.hp > 0) enderTeleport(e, e.pos.x, e.pos.z); } }
+    else e.waterT = 0;
+    if(e.mouth) e.mouth.visible = e.angry;
+    if(e.angry){ e.group.position.x += (Math.random() - 0.5) * 0.04; e.group.position.z += (Math.random() - 0.5) * 0.04; }   // the angry shudder
+    // idly pick up and set down a block
+    e.carryT -= dt;
+    if(e.carryT <= 0 && !e.angry){ e.carryT = 8 + Math.random() * 12; if(e.carry) enderDrop(e); else if(Math.random() < 0.5) enderPickUp(e); }
     // eye contact provokes them
-    if(!e.angry && mode === 'survival' && !dead && playerLookingAt(e)){
-      e.angry = true;
-      monsterCall(e,'attack');          // the classic angry shriek
-      flashName('The Enderman is angry!');
+    if(!e.angry && mode === 'survival' && !dead){
+      if(playerLookingAt(e)){
+        e.stareT = (e.stareT || 0) + dt;                 // it takes a moment of staring to provoke one
+        if(e.stareT > 1.3){ e.angry = true; monsterCall(e,'attack'); flashName('The Enderman is angry!'); }
+      } else e.stareT = Math.max(0, (e.stareT || 0) - dt * 2);
     }
     const distP = Math.hypot(player.pos.x - e.pos.x, player.pos.z - e.pos.z);
     if(e.angry && mode === 'survival' && !dead){
@@ -17177,6 +17196,7 @@ window.__bc = {
             cauldron: { use: useCauldron, levels: cauldrons, set: setCauldron, step: dt => updateCauldrons(dt) },
             lrod: { rods: () => lightningRods, strike: () => strikeLightning() },
             smith: { use: useSmithing, up: SMITH_UP },
+            ender: { list: () => endermen, spawn: (x,y,z)=>spawnEnderman(x,y,z) },
             grind: { use: useGrindstone },
             note: { use: useNoteBlock, pitches: noteBlocks, instrument: noteInstrument },
             frame: { use: useFrame, items: frameItems, step: dt => updateFrames(dt) },
