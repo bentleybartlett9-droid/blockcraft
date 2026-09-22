@@ -441,12 +441,14 @@ function terrainHeight(x, z){
   if(GEN_V >= 2){
     // Caves & Cliffs mountains: whole ranges that climb far above the clouds,
     // with sharp-crested ridgelines and jagged summits
-    if(mtnMask > 0.54){
-      const t = Math.min(1, (mtnMask - 0.54) / 0.2);
+    if(mtnMask > 0.60){
+      const t = Math.min(1, (mtnMask - 0.60) / 0.16);
       const ridge = 1 - Math.abs(fbm(x * 0.012, z * 0.012, 4, 61) * 2 - 1);
-      h += Math.pow(t, 1.5) * (55 + ridge * 85);
-      const jag = Math.pow(1 - Math.abs(fbm(x * 0.045, z * 0.045, 3, 67) * 2 - 1), 3);
-      h += t * t * jag * 30;
+      h += Math.pow(t, 1.5) * (58 + ridge * 92);
+      // a smooth ridged crest near the summit, not a field of one-block spikes
+      const crest = 1 - Math.abs(fbm(x * 0.028, z * 0.028, 3, 67) * 2 - 1);
+      h += t * t * crest * crest * 15;
+      h -= detail * 3 * Math.min(1, t * 1.6);        // fade the fine speckle out as the slope climbs
     }
   } else if(mtnMask > 0.58){
     const t = (mtnMask - 0.58) / 0.42;                 // 0..1 across a range
@@ -457,12 +459,12 @@ function terrainHeight(x, z){
     // highland slopes break into shelves above sheer rock faces; the great
     // mountains above them keep their natural jagged shape
     const cliffMask = fbm(x * 0.006 + 311, z * 0.006 - 97, 2, 71);
-    if(cliffMask > 0.46 && h > SEA + 10 && h < SEA + 75){
-      const k = Math.min(1, (cliffMask - 0.46) / 0.06) * Math.min(1, (h - SEA - 10) / 6) * Math.min(1, (SEA + 75 - h) / 15);
-      const step = 6 + Math.floor(vnoise(x * 0.01, z * 0.01, 73) * 5);   // 6-10 block risers
+    if(cliffMask > 0.44 && h > SEA + 8 && h < SEA + 92){
+      const k = Math.min(1, (cliffMask - 0.44) / 0.08) * Math.min(1, (h - SEA - 8) / 8) * Math.min(1, (SEA + 92 - h) / 18);
+      const step = 9 + Math.floor(vnoise(x * 0.008, z * 0.008, 73) * 7);   // tall benches (9-16 blocks)
       const f = h / step, fl = Math.floor(f);
-      const rise = Math.min(1, Math.max(0, (f - fl - 0.965) / 0.035)); // the whole step climbs in its last sliver
-      const shelf = (fl + rise) * step + (fbm(x * 0.08, z * 0.08, 2, 79) - 0.5) * 2.5;   // shelves stay a little rough
+      const rise = Math.min(1, Math.max(0, (f - fl - 0.9) / 0.1));        // a sheer riser near the top of each bench
+      const shelf = (fl + rise) * step + (fbm(x * 0.05, z * 0.05, 2, 79) - 0.5) * 1.2;   // benches stay nearly flat -> real cliff faces
       h += (shelf - h) * k;
     }
   }
@@ -477,7 +479,7 @@ function caveNoise(x, y, z){
    well below ground; "spaghetti" - long winding tunnels that now and then
    break out at the surface; and "noodles" - thin crawlways. Two thin noise
    sheets crossing make a tube, which is what gives the tunnels their shape. */
-const CHEESE_T = 0.79, SPAG_T = 0.032, NOODLE_T = 0.02;
+const CHEESE_T = 0.815, SPAG_T = 0.022, NOODLE_T = 0.013;   // rarer, thinner caves - less swiss-cheese underground
 function caveCarve(x, y, z, h){
   // caverns open wider the deeper you go
   if(y > 3 && y < h - 7 && y < 80 && vnoise3(x * 0.018, y * 0.032, z * 0.018, 1301) > CHEESE_T - (y < 34 ? 0.035 : 0)) return true;
