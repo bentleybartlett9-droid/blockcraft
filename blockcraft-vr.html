@@ -11218,7 +11218,7 @@ function animalCall(type,pos,mood='idle'){
  if(d>40)return false;const idle=mood==='idle';
  if(idle&&(animalVoices>=3||AC.currentTime<animalIdleAt))return false;
  if(idle&&type==='cow'){if(AC.currentTime<cowQuietUntil)return false;cowQuietUntil=AC.currentTime+90;}   // a whole herd shares one moo every 90s
- if(idle&&type==='sheep'){if(AC.currentTime<sheepQuietUntil)return false;sheepQuietUntil=AC.currentTime+14;}   // a flock shares one baa
+ if(idle&&type==='sheep'){if(AC.currentTime<sheepQuietUntil)return false;sheepQuietUntil=AC.currentTime+90;}   // a flock shares one baa every 90s
  const fantasy={mossling:['cow',.67],moonhopper:['pigHurt',1.65],crystalback:['wolf',.55],goat:['sheep',.8],axolotl:['chicken',1.7]};
  const spec=fantasy[type];let key=spec?spec[0]:type;
  if(!idle&&type==='pig')key='pigHurt';if(!idle&&type==='wolf')key='wolfHurt';
