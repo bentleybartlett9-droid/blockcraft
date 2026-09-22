@@ -889,7 +889,7 @@ const BONE=455, BONE_MEAL=456, SHIELD=454, ROD=447, COD=448, SALMON=449, COOKED_
 const EGG_RUN = 37, EGG_EXTRA = 479;          // eggs past the first 37 carry on from 479
 const eggId = i => i < EGG_RUN ? EGG_BASE + i : EGG_EXTRA + i - EGG_RUN, eggIcon = i => i < EGG_RUN ? 120 + i : i === EGG_RUN ? 175 : 180 + i - EGG_RUN;
 const eggMob = id => { const i = id >= EGG_BASE && id < EGG_BASE + EGG_RUN ? id - EGG_BASE : id >= EGG_EXTRA ? EGG_RUN + id - EGG_EXTRA : -1; return i >= 0 && i < SPAWN_EGGS.length ? SPAWN_EGGS[i][0] : null; };
-const SLIMEBALL=477, SLIME_BLOCK=478, LANTERN=490, CAMPFIRE=491, BEEHIVE=492, BEEHIVE_FULL=493, HONEY_BOTTLE=494, HONEYCOMB=495, FENCE=496, GATE=497, GATE_OPEN=498, SHEARS=499, TRIDENT=500, JUKEBOX=501, DISC_1=502, MAP=506, ANVIL=507, CARVED_PUMPKIN=508, JACK_O_LANTERN=509, PAINTING=510, COMPOSTER=511, GRINDSTONE=512, NOTEBLOCK=513, BARREL=514, FRAME=515, ENDERCHEST=516, CAULDRON=517, LIGHTNINGROD=518, SMITHING=519, FLOWERPOT=520, BEDHEAD=521;   // 502-505: music discs
+const SLIMEBALL=477, SLIME_BLOCK=478, LANTERN=490, CAMPFIRE=491, BEEHIVE=492, BEEHIVE_FULL=493, HONEY_BOTTLE=494, HONEYCOMB=495, FENCE=496, GATE=497, GATE_OPEN=498, SHEARS=499, TRIDENT=500, JUKEBOX=501, DISC_1=502, MAP=506, ANVIL=507, CARVED_PUMPKIN=508, JACK_O_LANTERN=509, PAINTING=510, COMPOSTER=511, GRINDSTONE=512, NOTEBLOCK=513, BARREL=514, FRAME=515, ENDERCHEST=516, CAULDRON=517, LIGHTNINGROD=518, SMITHING=519, FLOWERPOT=520, BEDHEAD=521, TRAPDOOR=522;   // 502-505: music discs
 const isFenceish = id => id === FENCE || id === GATE || id === GATE_OPEN;
 const hivesSeen = new Set();           // "x,y,z" of overworld hives the mesher has seen
 const campfires = new Set();            // "dim:x,y,z" of campfires the mesher has seen
@@ -1180,7 +1180,7 @@ ITEMS[SADDLE]={name:'Saddle',icon:100};
 SPAWN_EGGS.forEach(([, name], i) => { ITEMS[eggId(i)] = { name: name + ' Spawn Egg', icon: eggIcon(i) }; });
 ITEMS[SLIMEBALL]={name:'Slimeball',icon:176};BLOCKS[LANTERN]={name:'Lantern',all:273};BLOCKS[FENCE]={name:'Fence',all:279};BLOCKS[GATE]={name:'Fence Gate',all:280};BLOCKS[GATE_OPEN]={name:'Fence Gate',all:280};BLOCKS[BEEHIVE]={name:'Beehive',top:277,bottom:277,side:276};BLOCKS[BEEHIVE_FULL]={name:'Beehive',top:277,bottom:277,side:278};
 ITEMS[HONEY_BOTTLE]={name:'Honey Bottle',icon:177,food:6};ITEMS[SHEARS]={name:'Shears',icon:179,tool:{type:'shears',tier:2}};BLOCKS[JUKEBOX]={name:'Jukebox',top:282,bottom:281,side:281};
-ITEMS[MAP]={name:'Map',icon:188};BLOCKS[ANVIL]={name:'Anvil',all:283};BLOCKS[PAINTING]={name:'Painting',all:285};BLOCKS[COMPOSTER]={name:'Composter',top:294,bottom:294,side:293};BLOCKS[GRINDSTONE]={name:'Grindstone',all:296};BLOCKS[NOTEBLOCK]={name:'Note Block',all:297};BLOCKS[BARREL]={name:'Barrel',top:299,bottom:298,side:298};BLOCKS[FRAME]={name:'Item Frame',all:300};BLOCKS[ENDERCHEST]={name:'Ender Chest',all:301};BLOCKS[CAULDRON]={name:'Cauldron',all:302};BLOCKS[LIGHTNINGROD]={name:'Lightning Rod',all:305};BLOCKS[SMITHING]={name:'Smithing Table',top:306,bottom:281,side:307};BLOCKS[FLOWERPOT]={name:'Flower Pot',all:308};BLOCKS[BEDHEAD]={name:'Bed',top:T.BED_TOP,bottom:T.PLANK,side:T.PLANK};BLOCKS[CARVED_PUMPKIN]={name:'Carved Pumpkin',top:T.PUMPKIN_TOP,bottom:T.PUMPKIN_TOP,side:T.PUMPKIN_FACE};
+ITEMS[MAP]={name:'Map',icon:188};BLOCKS[ANVIL]={name:'Anvil',all:283};BLOCKS[PAINTING]={name:'Painting',all:285};BLOCKS[COMPOSTER]={name:'Composter',top:294,bottom:294,side:293};BLOCKS[GRINDSTONE]={name:'Grindstone',all:296};BLOCKS[NOTEBLOCK]={name:'Note Block',all:297};BLOCKS[BARREL]={name:'Barrel',top:299,bottom:298,side:298};BLOCKS[FRAME]={name:'Item Frame',all:300};BLOCKS[ENDERCHEST]={name:'Ender Chest',all:301};BLOCKS[CAULDRON]={name:'Cauldron',all:302};BLOCKS[LIGHTNINGROD]={name:'Lightning Rod',all:305};BLOCKS[SMITHING]={name:'Smithing Table',top:306,bottom:281,side:307};BLOCKS[FLOWERPOT]={name:'Flower Pot',all:308};BLOCKS[BEDHEAD]={name:'Bed',top:T.BED_TOP,bottom:T.PLANK,side:T.PLANK};BLOCKS[TRAPDOOR]={name:'Trapdoor',all:310};BLOCKS[CARVED_PUMPKIN]={name:'Carved Pumpkin',top:T.PUMPKIN_TOP,bottom:T.PUMPKIN_TOP,side:T.PUMPKIN_FACE};
 BLOCKS[JACK_O_LANTERN]={name:"Jack o'Lantern",top:T.PUMPKIN_TOP,bottom:T.PUMPKIN_TOP,side:284};
 ['Meadow','Caverns','Lanterns','Stormchase'].forEach((n, i) => { ITEMS[DISC_1 + i] = { name: 'Music Disc - ' + n, icon: 184 + i }; });ITEMS[TRIDENT]={name:'Trident',icon:180,tool:{type:'trident',tier:3}};ITEMS[HONEYCOMB]={name:'Honeycomb',icon:178};BLOCKS[CAMPFIRE]={name:'Campfire',top:275,bottom:275,side:274};BLOCKS[SLIME_BLOCK]={name:'Slime Block',all:272};
 ITEMS[APPLE]={name:'Apple',icon:167,food:4};ITEMS[GOLDEN_APPLE]={name:'Golden Apple',icon:168,food:4};ITEMS[CARROT]={name:'Carrot',icon:169,food:3,plant:CARROT0};
@@ -1243,8 +1243,8 @@ const partialTile = id => {
   return T.STONE;
 };
 const isDoor    = id => id === DOOR || id === DOORTOP;
-const isOpaque = id => !isFenceish(id) && id !== ANVIL && id !== COMPOSTER && id !== GRINDSTONE && id !== CAULDRON && id !== LIGHTNINGROD && id !== AIR && id !== WATER && id !== GLASS && id !== LAVA && id !== PORTAL && id !== ENDPORTAL && id !== END_GATEWAY && id !== STORM_PORTAL && !isCross(id) && !isPartial(id) && !isDoor(id) && !isFlat(id);
-const isSolid  = id => id !== GATE_OPEN && id !== AIR && id !== WATER && id !== LAVA && id !== PORTAL && id !== ENDPORTAL && id !== END_GATEWAY && id !== STORM_PORTAL && !isCross(id) && !isDoor(id) && !isFlat(id);
+const isOpaque = id => !isFenceish(id) && id !== TRAPDOOR && id !== ANVIL && id !== COMPOSTER && id !== GRINDSTONE && id !== CAULDRON && id !== LIGHTNINGROD && id !== AIR && id !== WATER && id !== GLASS && id !== LAVA && id !== PORTAL && id !== ENDPORTAL && id !== END_GATEWAY && id !== STORM_PORTAL && !isCross(id) && !isPartial(id) && !isDoor(id) && !isFlat(id);
+const isSolid  = id => id !== TRAPDOOR && id !== GATE_OPEN && id !== AIR && id !== WATER && id !== LAVA && id !== PORTAL && id !== ENDPORTAL && id !== END_GATEWAY && id !== STORM_PORTAL && !isCross(id) && !isDoor(id) && !isFlat(id);
 const isLiquid = id => id === WATER || id === LAVA;
 const emitsLight = id => id===GLOWCRYSTAL || id === ENDERCHEST || id === JACK_O_LANTERN || id === LANTERN || id === CAMPFIRE || id === STORM_PORTAL || id === CONDUIT_LIT || id === VOLTITE_ORE || id === END_ROD || id === END_GATEWAY || id === CRYING_OBSIDIAN || id === ANCHOR_LIT || id === SHROOMLIGHT || id === MAGMA || isFire(id) || id === SOUL_TORCH || id === GLOWVINE || id === AMETHYST_C || id === AMBERLAMP || id === GLOWB || id === GLOWSTONE || id === LAVA || id === PORTAL || id === ENDPORTAL || id === ENDCRYSTAL;
 const occl     = id => isOpaque(id);
@@ -1289,7 +1289,7 @@ function toolClassOf(id){
   if([DRIPSTONE,TUFF,CALCITE,AMETHYST,BUDDING,COPPERO,COPPERB].includes(id))return 'pick';
   if(id === MOSS) return 'shovel';
   if([MARBLE,MARBLEBRICK,BASALT,BASALTBRICK,MOSAIC,AMBERLAMP].includes(id))return 'pick';
-  if(isLog(id) || ANY_PLANK.includes(id) || id === CRAFTT || id === BED || id === BEDHEAD || id === CHEST || id === BARREL) return 'axe';
+  if(isLog(id) || ANY_PLANK.includes(id) || id === CRAFTT || id === BED || id === BEDHEAD || id === TRAPDOOR || id === CHEST || id === BARREL) return 'axe';
   if(id === GRASS || id === SAVGRASS || id === DIRT || id === SAND || id === SNOW || id === SNOWY_GRASS || id === SNOW_LAYER) return 'shovel';
   if(id === DEEPSLATE) return 'pick';
   if(id === STONE || id === BRICK || id === SBRICK || id === GLOWB || id === FURN || id === IRONB ||
@@ -1373,6 +1373,7 @@ const RECIPES = [
   { out: [STAIR_NBRICK, 4], in: [[NBRICK, 6]], st: 'table' },
   { out: [SANDSTONE, 1], in: [[SAND, 4]], st: 'table' },
   { out: [DOOR, 1], in: [[ANY_PLANK, 6]], st: 'table' },
+  { out: [TRAPDOOR, 2], in: [[ANY_PLANK, 4], [STICK, 1]], st: 'table' },
   { out: [WHITEWOOL, 1], in: [[WOOL, 1]], st: 'table' },
   { out: [REDWOOL, 1], in: [[WOOL, 1], [POPPYB, 1]], st: 'table' },
   { out: [GREENWOOL, 1], in: [[WOOL, 1], [TGRASSB, 2]], st: 'table' },
@@ -1842,6 +1843,12 @@ itemAtlas.width = 128; itemAtlas.height = 512;   // 256 icons
   put(305, (x, y, r) => { const k = Math.floor((r() - 0.5) * 16); return y < 3 ? [150 + k, 96 + k, 54 + k] : [196 + k, 118 + k, 62 + k]; });   // copper rod
   put(308, (x, y, r) => { const k = Math.floor((r() - 0.5) * 16); return y > 12 ? [150 + k, 82 + k, 58 + k] : [176 + k, 96 + k, 66 + k]; });   // terracotta pot
   put(309, (x, y, r) => { const k = Math.floor((r() - 0.5) * 10); return (x === 0 || y === 0 || x === 15 || y === 15) ? [214, 214, 220] : [240 + k / 2, 240 + k / 2, 244]; });   // pillow
+  put(310, (x, y, r) => {                                   // trapdoor: planks with iron straps
+    const k = Math.floor((r() - 0.5) * 14);
+    if(x === 2 || x === 13) return (y % 3 === 0) ? [70, 72, 80] : [96, 98, 106];
+    if(y === 0 || y === 15) return [110 + k, 78 + k, 46 + k];
+    return x % 4 === 0 ? [120 + k, 86 + k, 52 + k] : [150 + k, 108 + k, 64 + k];
+  });
   put(306, (x, y, r) => {                                   // smithing table top: dark iron plate with rivets
     const k = Math.floor((r() - 0.5) * 12);
     if((x === 3 || x === 12) && (y === 3 || y === 12)) return [180, 184, 190];
@@ -5567,6 +5574,15 @@ function* buildChunkSteps(c,reuseLight=false){
       pushBox(O, 262, lx + 0.0625 + bite, y + 0.4, lz + 0.0625, lx + 0.9375, y + 0.5, lz + 0.9375, llC);
       continue;
     }
+    if(b === TRAPDOOR){
+      const llT = light ? 0.2 + (sampleLight(light, lx, y, lz) / 15) * 0.8 : 1, ti = getTrapInfo(wx0 + lx, y, wz0 + lz), d = 0.14;
+      if(!ti.open) pushBox(O, 310, lx + 0.02, y + 0.84, lz + 0.02, lx + 0.98, y + 0.98, lz + 0.98, llT);
+      else if(ti.facing === 0) pushBox(O, 310, lx + 0.02, y, lz, lx + 0.98, y + 1, lz + d, llT);
+      else if(ti.facing === 1) pushBox(O, 310, lx + 0.02, y, lz + 1 - d, lx + 0.98, y + 1, lz + 1, llT);
+      else if(ti.facing === 2) pushBox(O, 310, lx, y, lz + 0.02, lx + d, y + 1, lz + 0.98, llT);
+      else pushBox(O, 310, lx + 1 - d, y, lz + 0.02, lx + 1, y + 1, lz + 0.98, llT);
+      continue;
+    }
     if(b === BED || b === BEDHEAD){
       const llB = light ? 0.2 + (sampleLight(light, lx, y, lz) / 15) * 0.8 : 1;
       pushBox(O, T.BED_TOP, lx + 0.02, y + 0.18, lz + 0.02, lx + 0.98, y + 0.5, lz + 0.98, llB);          // mattress
@@ -5875,7 +5891,7 @@ function moveAxis(ent, axis, amt){
   const z0 = Math.floor(p.z - w + e), z1 = Math.floor(p.z + w - e);
   for(let y = y0; y <= y1; y++) for(let z = z0; z <= z1; z++) for(let x = x0; x <= x1; x++){
     const block=getBlock(x,y,z);
-    if(!isSolid(block) && !(isDoor(block) && !getDoorInfo(x,y,z).open) &&
+    if(!isSolid(block) && !(isDoor(block) && !getDoorInfo(x,y,z).open) && !(block === TRAPDOOR && !getTrapInfo(x,y,z).open) &&
        !(axis !== 1 && y === y0 && p.y < y + 0.5 && (getBlock(x, y - 1, z) === FENCE || getBlock(x, y - 1, z) === GATE))) continue;
     if(axis === 0){ p.x = amt > 0 ? x - w - 2*e : x + 1 + w + 2*e; ent.vel.x = 0; }
     else if(axis === 1){
@@ -11687,6 +11703,8 @@ function onNet(c, m){
   } else if(m.t === 'pos'){
     if(m.tag !== MYTAG) updateAvatar(m);
     if(isHost) mpBroadcast(m, c);
+  } else if(m.t === 'trap'){
+    const info = getTrapInfo(m.x | 0, m.y | 0, m.z | 0); info.open = !!m.open; trapState.set((m.x|0)+','+(m.y|0)+','+(m.z|0), info); rebuild(chunkAt((m.x|0) >> 4, (m.z|0) >> 4));
   } else if(m.t === 'mobs'){
     if(!isHost){ hostDim = m.dim | 0; if(hostDim === dim && Array.isArray(m.list)) applyMobSnapshot(m.list); }
   } else if(m.t === 'bolt'){
@@ -12502,6 +12520,21 @@ function placeTorch(x,y,z){
   setBlock(x,y,z,TORCH);blockSfx(TORCH,'place');triggerViewSwing();consumePlacedItem();return true;
 }
 
+const trapState = new Map();
+function getTrapInfo(x, y, z){ return trapState.get(x + ',' + y + ',' + z) || { facing: 0, open: false }; }
+function placeTrap(x, y, z){
+  if(![AIR, WATER].includes(getBlock(x, y, z)) && !isCross(getBlock(x, y, z))) return true;
+  const fx = -Math.sin(player.yaw), fz = -Math.cos(player.yaw);
+  const facing = Math.abs(fx) > Math.abs(fz) ? (fx > 0 ? 3 : 2) : (fz > 0 ? 1 : 0);
+  trapState.set(x + ',' + y + ',' + z, { facing, open: false });
+  setBlock(x, y, z, TRAPDOOR); blockSfx(PLANK, 'place'); triggerViewSwing(); consumePlacedItem();
+  return true;
+}
+function toggleTrap(x, y, z){
+  const info = getTrapInfo(x, y, z); info.open = !info.open; trapState.set(x + ',' + y + ',' + z, info);
+  editsDirty = true; if(!netApplying && conns.length) mpBroadcast({ t: 'trap', x, y, z, open: info.open });
+  rebuild(chunkAt(x >> 4, z >> 4)); blockSfx(PLANK, info.open ? 'break' : 'place'); aabbHitsCell(x, y, z);
+}
 function toggleDoor(x, y, z){
   const ly = getDoorLowerY(x, y, z);
   const k = doorKey(x, ly, z);
@@ -12982,6 +13015,7 @@ function tickSaplings(now){
 }
 function breakBlock(x, y, z, id){
   triggerViewSwing();
+  if(id === TRAPDOOR) trapState.delete(x + ',' + y + ',' + z);
   if(id === BED || id === BEDHEAD){
     for(const [dx, dz] of [[0, -1], [0, 1], [-1, 0], [1, 0]]){ const nb = getBlock(x + dx, y, z + dz);
       if((id === BED && nb === BEDHEAD) || (id === BEDHEAD && nb === BED)){ setBlock(x + dx, y, z + dz, AIR); break; } }
@@ -13090,6 +13124,7 @@ function doPlace(){
   if(hit){
     if(hit.id === BED || hit.id === BEDHEAD){ trySleep(hit.x, hit.y, hit.z); return; }
     if(isDoor(hit.id)){ toggleDoor(hit.x, hit.y, hit.z); triggerViewSwing(); return; }
+    if(hit.id === TRAPDOOR){ toggleTrap(hit.x, hit.y, hit.z); triggerViewSwing(); return; }
     if(hit.id === CHEST || hit.id === BARREL){ openChest(hit.x, hit.y, hit.z); return; }
     if(hit.id === ENDERCHEST){ openChest(hit.x, hit.y, hit.z, 'ender'); return; }
     if(hit.id === TNT){ igniteTNT(hit.x, hit.y, hit.z); return; }
@@ -13170,6 +13205,7 @@ function doPlace(){
   if(aabbHitsCell(x, y, z)) return;
   if(!held || !BLOCKS[held]) return;                 // only blocks are placeable
   if(held===DOOR){placeDoor(x,y,z);return;}
+  if(held===TRAPDOOR){placeTrap(x,y,z);return;}
   if(held===BED){placeBed(x,y,z);return;}
   if(held===LADDER){placeLadder(x,y,z,hit);return;}
   if(held===PAINTING){placeLadder(x,y,z,hit,PAINTING);return;}
@@ -13937,6 +13973,7 @@ function vrTryPlace(){
   if(hit){
     if(hit.id === BED || hit.id === BEDHEAD){ trySleep(hit.x, hit.y, hit.z); return; }
     if(isDoor(hit.id)){ toggleDoor(hit.x, hit.y, hit.z); triggerViewSwing(); return; }
+    if(hit.id === TRAPDOOR){ toggleTrap(hit.x, hit.y, hit.z); triggerViewSwing(); return; }
     if(hit.id === CHEST || hit.id === BARREL){ openChest(hit.x, hit.y, hit.z); return; }
     if(hit.id === ENDERCHEST){ openChest(hit.x, hit.y, hit.z, 'ender'); return; }
     if(hit.id === TNT){ igniteTNT(hit.x, hit.y, hit.z); return; }
@@ -13952,6 +13989,7 @@ function vrTryPlace(){
   if(cur !== AIR && cur !== WATER && !isCross(cur)) return;
   if(aabbHitsCell(x, y, z)) return;
   if(held===DOOR){placeDoor(x,y,z);return;}
+  if(held===TRAPDOOR){placeTrap(x,y,z);return;}
   if(held===BED){placeBed(x,y,z);return;}
   if(held===LADDER){placeLadder(x,y,z,hit);return;}
   if(held===PAINTING){placeLadder(x,y,z,hit,PAINTING);return;}
@@ -17323,6 +17361,7 @@ window.__bc = {
             lrod: { rods: () => lightningRods, strike: () => strikeLightning() },
             smith: { use: useSmithing, up: SMITH_UP },
             ender: { list: () => endermen, spawn: (x,y,z)=>spawnEnderman(x,y,z) },
+            trap: { toggle: toggleTrap, info: getTrapInfo, place: placeTrap },
             grind: { use: useGrindstone },
             note: { use: useNoteBlock, pitches: noteBlocks, instrument: noteInstrument },
             frame: { use: useFrame, items: frameItems, step: dt => updateFrames(dt) },
