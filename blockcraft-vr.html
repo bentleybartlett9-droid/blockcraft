@@ -889,7 +889,7 @@ const BONE=455, BONE_MEAL=456, SHIELD=454, ROD=447, COD=448, SALMON=449, COOKED_
 const EGG_RUN = 37, EGG_EXTRA = 479;          // eggs past the first 37 carry on from 479
 const eggId = i => i < EGG_RUN ? EGG_BASE + i : EGG_EXTRA + i - EGG_RUN, eggIcon = i => i < EGG_RUN ? 120 + i : i === EGG_RUN ? 175 : 180 + i - EGG_RUN;
 const eggMob = id => { const i = id >= EGG_BASE && id < EGG_BASE + EGG_RUN ? id - EGG_BASE : id >= EGG_EXTRA ? EGG_RUN + id - EGG_EXTRA : -1; return i >= 0 && i < SPAWN_EGGS.length ? SPAWN_EGGS[i][0] : null; };
-const SLIMEBALL=477, SLIME_BLOCK=478, LANTERN=490, CAMPFIRE=491, BEEHIVE=492, BEEHIVE_FULL=493, HONEY_BOTTLE=494, HONEYCOMB=495, FENCE=496, GATE=497, GATE_OPEN=498, SHEARS=499, TRIDENT=500, JUKEBOX=501, DISC_1=502, MAP=506, ANVIL=507, CARVED_PUMPKIN=508, JACK_O_LANTERN=509, PAINTING=510, COMPOSTER=511, GRINDSTONE=512, NOTEBLOCK=513, BARREL=514, FRAME=515, ENDERCHEST=516, CAULDRON=517, LIGHTNINGROD=518, SMITHING=519, FLOWERPOT=520, BEDHEAD=521, TRAPDOOR=522, REDGUM_LOG=523, REDGUM_PLANK=524, REDGUM_LEAVES=525;   // 502-505: music discs
+const SLIMEBALL=477, SLIME_BLOCK=478, LANTERN=490, CAMPFIRE=491, BEEHIVE=492, BEEHIVE_FULL=493, HONEY_BOTTLE=494, HONEYCOMB=495, FENCE=496, GATE=497, GATE_OPEN=498, SHEARS=499, TRIDENT=500, JUKEBOX=501, DISC_1=502, MAP=506, ANVIL=507, CARVED_PUMPKIN=508, JACK_O_LANTERN=509, PAINTING=510, COMPOSTER=511, GRINDSTONE=512, NOTEBLOCK=513, BARREL=514, FRAME=515, ENDERCHEST=516, CAULDRON=517, LIGHTNINGROD=518, SMITHING=519, FLOWERPOT=520, BEDHEAD=521, TRAPDOOR=522, REDGUM_LOG=523, REDGUM_PLANK=524, REDGUM_LEAVES=525, BOAB_PLANK=526;   // 502-505: music discs
 const isFenceish = id => id === FENCE || id === GATE || id === GATE_OPEN;
 const hivesSeen = new Set();           // "x,y,z" of overworld hives the mesher has seen
 const campfires = new Set();            // "dim:x,y,z" of campfires the mesher has seen
@@ -939,7 +939,7 @@ const EXTRA_WOODS=[{log:CHERRYLOG,plank:CHERRYPLANK,leaves:CHERRYLEAVES,name:'Ch
  {log:DUSKLOG,plank:DUSKPLANK,leaves:DUSKLEAVES,name:'Duskwood',bark:[68,52,86],wood:[118,96,140],leaf:[186,96,196]}];
 const isLeaf=id=>id===LEAVES||id===SPRUCELEAVES||id===525||EXTRA_WOODS.some(w=>w.leaves===id);
 const isLog=id=>id===356||id===523||[LOG,BIRCHLOG,SPRUCELOG,JUNGLELOG,...EXTRA_WOODS.map(w=>w.log)].includes(id);   // 356: boab, 523: red gum
-const ANY_PLANK = [7, 39, 40, 41, CHERRYPLANK, MAPLEPLANK, WILLOWPLANK, GUMPLANK, REDGUM_PLANK, SUNPLANK, RIMEPLANK, DUSKPLANK, CRIM_PLANK, WARP_PLANK];   // oak, birch, spruce, jungle planks (recipe group)
+const ANY_PLANK = [7, 39, 40, 41, CHERRYPLANK, MAPLEPLANK, WILLOWPLANK, GUMPLANK, REDGUM_PLANK, BOAB_PLANK, SUNPLANK, RIMEPLANK, DUSKPLANK, CRIM_PLANK, WARP_PLANK];   // oak, birch, spruce, jungle planks (recipe group)
 const T = {GRASS_TOP:0,GRASS_SIDE:1,DIRT:2,STONE:3,SAND:4,LOG_SIDE:5,LOG_TOP:6,LEAVES:7,PLANK:8,BRICK:9,SNOW:10,GLASS:11,WATER:12,
            GLOW:13,COAL:14,IRON:15,GOLD:16,DIAMOND:17,TGRASS:18,POPPY:19,DANDELION:20,DIAMB:21,
            TORCH_T:22,CRAFT_TOP:23,CRAFT_SIDE:24,FURN_FRONT:25,FURN_SIDE:26,IRONB_T:27,GOLDB_T:28,SBRICK_T:29,WOOL_T:30,BED_TOP:31,
@@ -1182,7 +1182,7 @@ SPAWN_EGGS.forEach(([, name], i) => { ITEMS[eggId(i)] = { name: name + ' Spawn E
 ITEMS[SLIMEBALL]={name:'Slimeball',icon:176};BLOCKS[LANTERN]={name:'Lantern',all:273};BLOCKS[FENCE]={name:'Fence',all:279};BLOCKS[GATE]={name:'Fence Gate',all:280};BLOCKS[GATE_OPEN]={name:'Fence Gate',all:280};BLOCKS[BEEHIVE]={name:'Beehive',top:277,bottom:277,side:276};BLOCKS[BEEHIVE_FULL]={name:'Beehive',top:277,bottom:277,side:278};
 ITEMS[HONEY_BOTTLE]={name:'Honey Bottle',icon:177,food:6};ITEMS[SHEARS]={name:'Shears',icon:179,tool:{type:'shears',tier:2}};BLOCKS[JUKEBOX]={name:'Jukebox',top:282,bottom:281,side:281};
 ITEMS[MAP]={name:'Map',icon:188};BLOCKS[ANVIL]={name:'Anvil',all:283};BLOCKS[PAINTING]={name:'Painting',all:285};BLOCKS[COMPOSTER]={name:'Composter',top:294,bottom:294,side:293};BLOCKS[GRINDSTONE]={name:'Grindstone',all:296};BLOCKS[NOTEBLOCK]={name:'Note Block',all:297};BLOCKS[BARREL]={name:'Barrel',top:299,bottom:298,side:298};BLOCKS[FRAME]={name:'Item Frame',all:300};BLOCKS[ENDERCHEST]={name:'Ender Chest',all:301};BLOCKS[CAULDRON]={name:'Cauldron',all:302};BLOCKS[LIGHTNINGROD]={name:'Lightning Rod',all:305};BLOCKS[SMITHING]={name:'Smithing Table',top:306,bottom:281,side:307};BLOCKS[FLOWERPOT]={name:'Flower Pot',all:308};BLOCKS[BEDHEAD]={name:'Bed',top:T.BED_TOP,bottom:T.PLANK,side:T.PLANK};BLOCKS[TRAPDOOR]={name:'Trapdoor',all:310};
-BLOCKS[REDGUM_LOG]={name:'Red Gum Log',top:312,bottom:312,side:311};BLOCKS[REDGUM_PLANK]={name:'Red Gum Planks',all:313};BLOCKS[REDGUM_LEAVES]={name:'Red Gum Leaves',all:314};BLOCKS[CARVED_PUMPKIN]={name:'Carved Pumpkin',top:T.PUMPKIN_TOP,bottom:T.PUMPKIN_TOP,side:T.PUMPKIN_FACE};
+BLOCKS[REDGUM_LOG]={name:'Red Gum Log',top:312,bottom:312,side:311};BLOCKS[REDGUM_PLANK]={name:'Red Gum Planks',all:313};BLOCKS[REDGUM_LEAVES]={name:'Red Gum Leaves',all:314};BLOCKS[BOAB_PLANK]={name:'Boab Planks',all:316};BLOCKS[CARVED_PUMPKIN]={name:'Carved Pumpkin',top:T.PUMPKIN_TOP,bottom:T.PUMPKIN_TOP,side:T.PUMPKIN_FACE};
 BLOCKS[JACK_O_LANTERN]={name:"Jack o'Lantern",top:T.PUMPKIN_TOP,bottom:T.PUMPKIN_TOP,side:284};
 ['Meadow','Caverns','Lanterns','Stormchase'].forEach((n, i) => { ITEMS[DISC_1 + i] = { name: 'Music Disc - ' + n, icon: 184 + i }; });ITEMS[TRIDENT]={name:'Trident',icon:180,tool:{type:'trident',tier:3}};ITEMS[HONEYCOMB]={name:'Honeycomb',icon:178};BLOCKS[CAMPFIRE]={name:'Campfire',top:275,bottom:275,side:274};BLOCKS[SLIME_BLOCK]={name:'Slime Block',all:272};
 ITEMS[APPLE]={name:'Apple',icon:167,food:4};ITEMS[GOLDEN_APPLE]={name:'Golden Apple',icon:168,food:4};ITEMS[CARROT]={name:'Carrot',icon:169,food:3,plant:CARROT0};
@@ -1444,7 +1444,7 @@ RECIPES.push({out:[BEEHIVE,1],in:[[ANY_PLANK,6],[HONEYCOMB,3]],st:'table'});
 RECIPES.push({out:[LANTERN,1],in:[[IRONI,1],[TORCH,1]],st:'table'},
   {out:[CAMPFIRE,1],in:[[STICK,3],[COALI,1],[[LOG, BIRCHLOG, SPRUCELOG, JUNGLELOG, CHERRYLOG, MAPLELOG, WILLOWLOG, BOAB_LOG],3]],st:'table'});
 RECIPES.push({out:[SLIME_BLOCK,1],in:[[SLIMEBALL,9]]},{out:[SLIMEBALL,9],in:[[SLIME_BLOCK,1]]});
-RECIPES.push({out:[LADDER,3],in:[[STICK,7]],st:'table'},{out:[GUMPLANK,4],in:[[BOAB_LOG,1]]},{out:[ENCH_TABLE,1],in:[[DIAMI,2],[OBSIDIAN,4],[BOOKSHELF,1]],st:'table'});
+RECIPES.push({out:[LADDER,3],in:[[STICK,7]],st:'table'},{out:[BOAB_PLANK,4],in:[[BOAB_LOG,1]]},{out:[ENCH_TABLE,1],in:[[DIAMI,2],[OBSIDIAN,4],[BOOKSHELF,1]],st:'table'});
 RECIPES.push({out:[BREWING,1],in:[[BLAZEROD,1],[STONE,3]],st:'table'},{out:[GLASS_BOTTLE,3],in:[[GLASS,3]]},
   {out:[AWKWARD,1],in:[[WATER_BOTTLE,1],[NWART,1]],st:'brew'},
   {out:[POT_HEAL,1],in:[[AWKWARD,1],[MELONSLICE,1],[GNUGGET,4]],st:'brew'},{out:[POT_FIRE,1],in:[[AWKWARD,1],[MAGMACREAM,1]],st:'brew'},
@@ -2419,6 +2419,7 @@ const tileAvg = [];
  }}
  EXTRA_WOODS.forEach((w,i)=>{let t=94+i*4;paint(t,w.bark,'bark');paint(t+1,w.wood,'brick');paint(t+2,w.wood,'plank');paint(t+3,w.leaf,'leaf');});
  paint(311,[150,74,52],'bark');paint(312,[186,120,84],'brick');paint(313,[186,120,84],'plank');paint(314,[110,140,108],'leaf');   // red gum
+ paint(316,[204,176,138],'plank');   // boab planks: warm pinkish tan, matching the boab's inner wood
  // saplings: a thin stem under a little clump of that wood's foliage
  const paintSapling=(tile,leaf)=>{
    const ox=(tile%8)*16, oy=Math.floor(tile/8)*16, rnd=mulberry32(tile*733+11);
