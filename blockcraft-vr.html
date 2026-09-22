@@ -197,6 +197,7 @@
     <h2>Inventory &amp; Crafting</h2>
     <div id="invgrid"></div>
     <div id="recipes"></div>
+    <button class="mcbtn small" id="btnSortInv">Sort</button>
     <button class="mcbtn small" id="btnCraftDone">Done</button>
   </div>
 </div>
@@ -6061,6 +6062,23 @@ document.getElementById('btnRespawn').addEventListener('click', () => {
 });
 document.getElementById('btnDeathTitle').addEventListener('click', () => { respawn(); quitToTitle(); });
 document.getElementById('btnCraftDone').addEventListener('click', () => closeCraft());
+function invCategory(id){ return (ITEMS[id] && ITEMS[id].tool) ? 3 : (ITEMS[id] && ITEMS[id].armour) ? 4 : foodOf(id) ? 2 : BLOCKS[id] ? 0 : 1; }
+function sortInventory(){
+  const items = [];
+  for(let i = 9; i < 36; i++){ const s = survInv[i]; if(s.id && s.count > 0) items.push({ id: s.id, count: s.count, dur: s.dur || 0, ench: s.ench }); }
+  const merged = [];
+  for(const it of items){
+    const isTool = !!(ITEMS[it.id] && ITEMS[it.id].tool);
+    if(!isTool){ const m = merged.find(q => q.id === it.id && !q.isTool && !q.ench && !it.ench); if(m){ m.count += it.count; continue; } }
+    merged.push({ ...it, isTool });
+  }
+  const out = [];
+  for(const m of merged){ if(m.isTool){ out.push(m); continue; } let c = m.count; while(c > 0){ out.push({ id: m.id, count: Math.min(64, c), dur: 0, ench: m.ench }); c -= 64; } }
+  out.sort((a, b) => invCategory(a.id) - invCategory(b.id) || a.id - b.id);
+  for(let i = 9; i < 36; i++){ const o = out[i - 9]; survInv[i] = o ? { id: o.id, count: o.count, dur: o.dur || 0, ench: o.ench } : { id: 0, count: 0, dur: 0 }; }
+  invDirty = true; renderHotbar(); if(typeof renderInvGrid === 'function') renderInvGrid(); uiClick();
+}
+document.getElementById('btnSortInv').addEventListener('click', sortInventory);
 
 // Only a GENUINE loss of pointer lock (after having actually held it) should
 // pause the game — never on first entry, since real lock may be unavailable.
