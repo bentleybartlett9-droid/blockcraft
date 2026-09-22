@@ -5928,6 +5928,11 @@ function physics(dt){
   } else if(inWater){
     const [cx,cz]=waterCurrent(Math.floor(p.pos.x),Math.floor(p.pos.y+.2),Math.floor(p.pos.z));v.x+=cx*dt*.8;v.z+=cz*dt*.8;
     v.y += (((key('Space') || (xrActive&&readButtons('right')?.[4]?.pressed)) ? 3.4 : (xrActive&&readButtons('right')?.[5]?.pressed)?-3.2:-.65) - v.y) * Math.min(1, dt * 3);
+    // climbing out: swimming toward a shore hops you up onto it
+    if(Math.abs(v.x) + Math.abs(v.z) > 0.4){
+      const ax = Math.floor(p.pos.x + (v.x > 0 ? 0.45 : v.x < 0 ? -0.45 : 0)), az = Math.floor(p.pos.z + (v.z > 0 ? 0.45 : v.z < 0 ? -0.45 : 0)), ay = Math.floor(p.pos.y);
+      if(isSolid(getBlock(ax, ay, az)) && !isSolid(getBlock(ax, ay + 1, az)) && !isSolid(getBlock(ax, ay + 2, az))) v.y = Math.max(v.y, 5.5);
+    }
   } else if(updateGlide(dt)){
     /* gliding on elytra */
   } else {
@@ -6760,13 +6765,22 @@ function updateAnimalSpawns(dt){
     const sh = findSurfaceY(sx, sz);
     if(sh <= SEA + 1 || sh >= SNOW_H) return;
     spawnAnimal(pick, sx + 0.5, sh + 1.05, sz + 0.5);
-    const e = animals[animals.length - 1];
-    if(e && e.type === pick && !e.tamed && typeof makeBaby === 'function' && Math.random() < 0.25) makeBaby(e, BABY_TIME);
   };
   spawnOne(x, z);
   const range = HERD[pick];
-  if(range){ const n = range[0] + ((Math.random() * (range[1] - range[0] + 1)) | 0);
-    for(let f = 1; f < n && animals.length < 24; f++) spawnOne(x + ((Math.random() * 5) | 0) - 2, z + ((Math.random() * 5) | 0) - 2); }
+  if(range){
+    const n = range[0] + ((Math.random() * (range[1] - range[0] + 1)) | 0);
+    for(let f = 1; f < n && animals.length < 24; f++) spawnOne(x + ((Math.random() * 5) | 0) - 2, z + ((Math.random() * 5) | 0) - 2);
+    if(typeof makeBaby === 'function' && Math.random() < 0.55){          // one or two babies in the herd
+      const babies = 1 + ((Math.random() * 2) | 0);
+      for(let f = 0; f < babies && animals.length < 24; f++){
+        const bx = x + ((Math.random() * 5) | 0) - 2, bz = z + ((Math.random() * 5) | 0) - 2, bh = findSurfaceY(bx, bz);
+        if(bh <= SEA + 1 || bh >= SNOW_H) continue;
+        spawnAnimal(pick, bx + 0.5, bh + 1.05, bz + 0.5);
+        const e = animals[animals.length - 1]; if(e && e.type === pick) makeBaby(e, BABY_TIME);
+      }
+    }
+  }
 }
 function updateAnimals(dt){
   for(let i = animals.length - 1; i >= 0; i--){
