@@ -6766,7 +6766,7 @@ function updateAnimalSpawns(dt){
   spawnOne(x, z);
   const range = HERD[pick];
   if(range){ const n = range[0] + ((Math.random() * (range[1] - range[0] + 1)) | 0);
-    for(let f = 1; f < n && animals.length < 22; f++) spawnOne(x + ((Math.random() * 5) | 0) - 2, z + ((Math.random() * 5) | 0) - 2); }
+    for(let f = 1; f < n && animals.length < 24; f++) spawnOne(x + ((Math.random() * 5) | 0) - 2, z + ((Math.random() * 5) | 0) - 2); }
 }
 function updateAnimals(dt){
   for(let i = animals.length - 1; i >= 0; i--){
@@ -16221,6 +16221,11 @@ function useBreed(e){
   return true;
 }
 function steerHerd(e, dt){
+  if(e.baby > 0 && !mobCtx){                              // a calf/lamb trails the nearest grown-up of its kind
+    let ad = null, bd = 12 * 12;
+    for(const o of animals){ if(o === e || o.type !== e.type || o.baby > 0) continue; const d = o.pos.distanceToSquared(e.pos); if(d < bd){ bd = d; ad = o; } }
+    if(ad){ const dx = ad.pos.x - e.pos.x, dz = ad.pos.z - e.pos.z, l = Math.hypot(dx, dz); if(l > 1.4){ e.yaw = Math.atan2(-dx, -dz); e.speed = l > 6 ? 1.8 : 1.1; e.t = 0.6; } else e.speed = 0; }
+  }
   if(e.love > 0){
     // find a partner that is also in love and walk to it
     if(!e.mate || !(e.mate.love > 0) || !animals.includes(e.mate)){
