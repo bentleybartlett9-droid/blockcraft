@@ -2419,7 +2419,7 @@ const tileAvg = [];
  }}
  EXTRA_WOODS.forEach((w,i)=>{let t=94+i*4;paint(t,w.bark,'bark');paint(t+1,w.wood,'brick');paint(t+2,w.wood,'plank');paint(t+3,w.leaf,'leaf');});
  paint(311,[150,74,52],'bark');paint(312,[186,120,84],'brick');paint(313,[186,120,84],'plank');paint(314,[110,140,108],'leaf');   // red gum
- paint(316,[204,176,138],'plank');   // boab planks: warm pinkish tan, matching the boab's inner wood
+ paint(316,[198,160,156],'plank');   // boab planks: pinkish grey, from the boab's smooth bark - distinct from gum's yellow-tan
  // saplings: a thin stem under a little clump of that wood's foliage
  const paintSapling=(tile,leaf)=>{
    const ox=(tile%8)*16, oy=Math.floor(tile/8)*16, rnd=mulberry32(tile*733+11);
