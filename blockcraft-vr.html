@@ -350,7 +350,7 @@ const QUEST_DEVICE=/Quest|Oculus/i.test(navigator.userAgent);
 let RD = Math.min(7, Math.max(2, parseInt(localStorage.getItem(QUEST_DEVICE?'blockcraft-vr-rd':'blockcraft-rd')) || (QUEST_DEVICE?3:5)));
 function finishSteps(it){let r;do{r=it.next();}while(!r.done);return r.value;}
 const REACH = 5.5;
-const DAY_LENGTH = 480;
+const DAY_LENGTH = 480, DAY_SECS = 720, NIGHT_SECS = 480;   // 12-minute day, 8-minute night
 const TREE_P = 0.009;
 function parseSeed(s){
   s = String(s).trim();
@@ -6721,12 +6721,19 @@ function updateAnimalSpawns(dt){
   else if(bio === 'duskhollow') pool = ['duskmoth', 'duskmoth', 'duskmoth', 'moonhopper'];
   else if(bio === 'taiga')    pool = ['fox', 'fox', 'wolf', 'rabbit', 'sheep'];
   else if(bio === 'badlands') pool = ['llama', 'llama', 'rabbit'];
-  else if(bio === 'forest' || bio === 'birch' || bio === 'jungle') pool = ['wolf', 'pig', 'cow', 'chicken', 'wolf'];
-  else if(bio === 'savanna') pool = ['horse', 'horse', 'cow', 'chicken'];
-  else if(bio === 'plains')  pool = ['horse', 'pig', 'sheep', 'cow', 'chicken', 'rabbit'];
-  else                       pool = ['pig', 'sheep', 'cow', 'chicken'];
-  if(Math.random()<.25)pool=FANTASY;
-  spawnAnimal(pool[Math.floor(Math.random() * pool.length)], x + 0.5, h + 1.05, z + 0.5);
+  else if(bio === 'forest' || bio === 'birch') pool = ['sheep', 'sheep', 'pig', 'cow', 'chicken', 'wolf'];
+  else if(bio === 'jungle') pool = ['wolf', 'pig', 'cow', 'chicken', 'sheep'];
+  else if(bio === 'savanna') pool = ['horse', 'horse', 'cow', 'chicken', 'sheep'];
+  else if(bio === 'plains')  pool = ['sheep', 'sheep', 'sheep', 'horse', 'pig', 'cow', 'chicken', 'rabbit'];
+  else                       pool = ['sheep', 'sheep', 'pig', 'cow', 'chicken'];
+  if(Math.random()<.18)pool=FANTASY;
+  const pick = pool[Math.floor(Math.random() * pool.length)];
+  spawnAnimal(pick, x + 0.5, h + 1.05, z + 0.5);
+  if(pick === 'sheep'){                                    // sheep travel in little flocks
+    const n = 2 + ((Math.random() * 3) | 0);
+    for(let f = 0; f < n; f++){ const fx = x + ((Math.random() * 5) | 0) - 2, fz = z + ((Math.random() * 5) | 0) - 2, fh = findSurfaceY(fx, fz);
+      if(fh > SEA + 1 && fh < SNOW_H) spawnAnimal('sheep', fx + 0.5, fh + 1.05, fz + 0.5); }
+  }
 }
 function updateAnimals(dt){
   for(let i = animals.length - 1; i >= 0; i--){
@@ -16785,7 +16792,7 @@ function animate(){
     updateCrops(dt);
     updatePortal(dt);
     updateVehicles(dt);
-    timeOfDay = (timeOfDay + dt / DAY_LENGTH) % 1;
+    { const isDay = timeOfDay > 0.25 && timeOfDay < 0.75; timeOfDay = (timeOfDay + dt * 0.5 / (isDay ? DAY_SECS : NIGHT_SECS)) % 1; }
     updateHunger(dt);
     updateWater(dt);
   } else if(isHost && mpActive() && inGame){
