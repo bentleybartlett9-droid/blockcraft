@@ -888,7 +888,7 @@ const BONE=455, BONE_MEAL=456, SHIELD=454, ROD=447, COD=448, SALMON=449, COOKED_
 const EGG_RUN = 37, EGG_EXTRA = 479;          // eggs past the first 37 carry on from 479
 const eggId = i => i < EGG_RUN ? EGG_BASE + i : EGG_EXTRA + i - EGG_RUN, eggIcon = i => i < EGG_RUN ? 120 + i : i === EGG_RUN ? 175 : 180 + i - EGG_RUN;
 const eggMob = id => { const i = id >= EGG_BASE && id < EGG_BASE + EGG_RUN ? id - EGG_BASE : id >= EGG_EXTRA ? EGG_RUN + id - EGG_EXTRA : -1; return i >= 0 && i < SPAWN_EGGS.length ? SPAWN_EGGS[i][0] : null; };
-const SLIMEBALL=477, SLIME_BLOCK=478, LANTERN=490, CAMPFIRE=491, BEEHIVE=492, BEEHIVE_FULL=493, HONEY_BOTTLE=494, HONEYCOMB=495, FENCE=496, GATE=497, GATE_OPEN=498, SHEARS=499, TRIDENT=500, JUKEBOX=501, DISC_1=502, MAP=506, ANVIL=507, CARVED_PUMPKIN=508, JACK_O_LANTERN=509, PAINTING=510, COMPOSTER=511, GRINDSTONE=512, NOTEBLOCK=513, BARREL=514, FRAME=515, ENDERCHEST=516, CAULDRON=517;   // 502-505: music discs
+const SLIMEBALL=477, SLIME_BLOCK=478, LANTERN=490, CAMPFIRE=491, BEEHIVE=492, BEEHIVE_FULL=493, HONEY_BOTTLE=494, HONEYCOMB=495, FENCE=496, GATE=497, GATE_OPEN=498, SHEARS=499, TRIDENT=500, JUKEBOX=501, DISC_1=502, MAP=506, ANVIL=507, CARVED_PUMPKIN=508, JACK_O_LANTERN=509, PAINTING=510, COMPOSTER=511, GRINDSTONE=512, NOTEBLOCK=513, BARREL=514, FRAME=515, ENDERCHEST=516, CAULDRON=517, LIGHTNINGROD=518;   // 502-505: music discs
 const isFenceish = id => id === FENCE || id === GATE || id === GATE_OPEN;
 const hivesSeen = new Set();           // "x,y,z" of overworld hives the mesher has seen
 const campfires = new Set();            // "dim:x,y,z" of campfires the mesher has seen
@@ -1179,7 +1179,7 @@ ITEMS[SADDLE]={name:'Saddle',icon:100};
 SPAWN_EGGS.forEach(([, name], i) => { ITEMS[eggId(i)] = { name: name + ' Spawn Egg', icon: eggIcon(i) }; });
 ITEMS[SLIMEBALL]={name:'Slimeball',icon:176};BLOCKS[LANTERN]={name:'Lantern',all:273};BLOCKS[FENCE]={name:'Fence',all:279};BLOCKS[GATE]={name:'Fence Gate',all:280};BLOCKS[GATE_OPEN]={name:'Fence Gate',all:280};BLOCKS[BEEHIVE]={name:'Beehive',top:277,bottom:277,side:276};BLOCKS[BEEHIVE_FULL]={name:'Beehive',top:277,bottom:277,side:278};
 ITEMS[HONEY_BOTTLE]={name:'Honey Bottle',icon:177,food:6};ITEMS[SHEARS]={name:'Shears',icon:179,tool:{type:'shears',tier:2}};BLOCKS[JUKEBOX]={name:'Jukebox',top:282,bottom:281,side:281};
-ITEMS[MAP]={name:'Map',icon:188};BLOCKS[ANVIL]={name:'Anvil',all:283};BLOCKS[PAINTING]={name:'Painting',all:285};BLOCKS[COMPOSTER]={name:'Composter',top:294,bottom:294,side:293};BLOCKS[GRINDSTONE]={name:'Grindstone',all:296};BLOCKS[NOTEBLOCK]={name:'Note Block',all:297};BLOCKS[BARREL]={name:'Barrel',top:299,bottom:298,side:298};BLOCKS[FRAME]={name:'Item Frame',all:300};BLOCKS[ENDERCHEST]={name:'Ender Chest',all:301};BLOCKS[CAULDRON]={name:'Cauldron',all:302};BLOCKS[CARVED_PUMPKIN]={name:'Carved Pumpkin',top:T.PUMPKIN_TOP,bottom:T.PUMPKIN_TOP,side:T.PUMPKIN_FACE};
+ITEMS[MAP]={name:'Map',icon:188};BLOCKS[ANVIL]={name:'Anvil',all:283};BLOCKS[PAINTING]={name:'Painting',all:285};BLOCKS[COMPOSTER]={name:'Composter',top:294,bottom:294,side:293};BLOCKS[GRINDSTONE]={name:'Grindstone',all:296};BLOCKS[NOTEBLOCK]={name:'Note Block',all:297};BLOCKS[BARREL]={name:'Barrel',top:299,bottom:298,side:298};BLOCKS[FRAME]={name:'Item Frame',all:300};BLOCKS[ENDERCHEST]={name:'Ender Chest',all:301};BLOCKS[CAULDRON]={name:'Cauldron',all:302};BLOCKS[LIGHTNINGROD]={name:'Lightning Rod',all:305};BLOCKS[CARVED_PUMPKIN]={name:'Carved Pumpkin',top:T.PUMPKIN_TOP,bottom:T.PUMPKIN_TOP,side:T.PUMPKIN_FACE};
 BLOCKS[JACK_O_LANTERN]={name:"Jack o'Lantern",top:T.PUMPKIN_TOP,bottom:T.PUMPKIN_TOP,side:284};
 ['Meadow','Caverns','Lanterns','Stormchase'].forEach((n, i) => { ITEMS[DISC_1 + i] = { name: 'Music Disc - ' + n, icon: 184 + i }; });ITEMS[TRIDENT]={name:'Trident',icon:180,tool:{type:'trident',tier:3}};ITEMS[HONEYCOMB]={name:'Honeycomb',icon:178};BLOCKS[CAMPFIRE]={name:'Campfire',top:275,bottom:275,side:274};BLOCKS[SLIME_BLOCK]={name:'Slime Block',all:272};
 ITEMS[APPLE]={name:'Apple',icon:167,food:4};ITEMS[GOLDEN_APPLE]={name:'Golden Apple',icon:168,food:4};ITEMS[CARROT]={name:'Carrot',icon:169,food:3,plant:CARROT0};
@@ -1242,7 +1242,7 @@ const partialTile = id => {
   return T.STONE;
 };
 const isDoor    = id => id === DOOR || id === DOORTOP;
-const isOpaque = id => !isFenceish(id) && id !== ANVIL && id !== COMPOSTER && id !== GRINDSTONE && id !== CAULDRON && id !== AIR && id !== WATER && id !== GLASS && id !== LAVA && id !== PORTAL && id !== ENDPORTAL && id !== END_GATEWAY && id !== STORM_PORTAL && !isCross(id) && !isPartial(id) && !isDoor(id) && !isFlat(id);
+const isOpaque = id => !isFenceish(id) && id !== ANVIL && id !== COMPOSTER && id !== GRINDSTONE && id !== CAULDRON && id !== LIGHTNINGROD && id !== AIR && id !== WATER && id !== GLASS && id !== LAVA && id !== PORTAL && id !== ENDPORTAL && id !== END_GATEWAY && id !== STORM_PORTAL && !isCross(id) && !isPartial(id) && !isDoor(id) && !isFlat(id);
 const isSolid  = id => id !== GATE_OPEN && id !== AIR && id !== WATER && id !== LAVA && id !== PORTAL && id !== ENDPORTAL && id !== END_GATEWAY && id !== STORM_PORTAL && !isCross(id) && !isDoor(id) && !isFlat(id);
 const isLiquid = id => id === WATER || id === LAVA;
 const emitsLight = id => id===GLOWCRYSTAL || id === ENDERCHEST || id === JACK_O_LANTERN || id === LANTERN || id === CAMPFIRE || id === STORM_PORTAL || id === CONDUIT_LIT || id === VOLTITE_ORE || id === END_ROD || id === END_GATEWAY || id === CRYING_OBSIDIAN || id === ANCHOR_LIT || id === SHROOMLIGHT || id === MAGMA || isFire(id) || id === SOUL_TORCH || id === GLOWVINE || id === AMETHYST_C || id === AMBERLAMP || id === GLOWB || id === GLOWSTONE || id === LAVA || id === PORTAL || id === ENDPORTAL || id === ENDCRYSTAL;
@@ -1274,6 +1274,7 @@ function toolClassOf(id){
   if(id === FRAME) return 'axe';
   if(id === ENDERCHEST) return 'pick';
   if(id === CAULDRON) return 'pick';
+  if(id === LIGHTNINGROD) return 'pick';
   if(id === BEEHIVE || id === BEEHIVE_FULL || isFenceish(id) || id === JUKEBOX) return 'axe';
   if([PURPUR,PURPUR_PILLAR,ENDSTONE_BRICK,ENDSTONE,CRYING_OBSIDIAN,ANCHOR,ANCHOR_LIT].includes(id)) return 'pick';
   if(id === CHORUS_PLANT || id === CHORUS_FLOWER) return 'axe';
@@ -1427,6 +1428,7 @@ RECIPES.push({out:[BARREL,1],in:[[ANY_PLANK,6],[SLAB_WOOD,2]],st:'table'});
 RECIPES.push({out:[FRAME,1],in:[[STICK,8],[LEATHER,1]],st:'table'});
 RECIPES.push({out:[ENDERCHEST,1],in:[[OBSIDIAN,8],[EYE_ENDER,1]],st:'table'});
 RECIPES.push({out:[CAULDRON,1],in:[[IRONI,7]],st:'table'});
+RECIPES.push({out:[LIGHTNINGROD,1],in:[[COPPERI,3]],st:'table'});
 RECIPES.push({out:[MAP,1],in:[[PAPER,8],[IRONI,1]],st:'table'},{out:[SHEARS,1],in:[[IRONI,2]],st:'table'},{out:[JUKEBOX,1],in:[[ANY_PLANK,8],[DIAMI,1]],st:'table'});
 RECIPES.push({out:[FENCE,3],in:[[ANY_PLANK,4],[STICK,2]],st:'table'},{out:[GATE,1],in:[[STICK,4],[ANY_PLANK,2]],st:'table'});
 RECIPES.push({out:[BEEHIVE,1],in:[[ANY_PLANK,6],[HONEYCOMB,3]],st:'table'});
@@ -1832,6 +1834,7 @@ itemAtlas.width = 128; itemAtlas.height = 512;   // 256 icons
     if(eye || mouth) return [255, 216 + k / 2, 90];
     return x % 4 === 0 ? [176 + k, 100 + k, 24 + k] : [214 + k, 128 + k, 34 + k];
   });
+  put(305, (x, y, r) => { const k = Math.floor((r() - 0.5) * 16); return y < 3 ? [150 + k, 96 + k, 54 + k] : [196 + k, 118 + k, 62 + k]; });   // copper rod
   put(302, (x, y, r) => { const k = Math.floor((r() - 0.5) * 16); return x % 4 === 0 ? [70 + k, 72 + k, 78 + k] : [96 + k, 98 + k, 104 + k]; });   // cast iron
   put(303, (x, y, r) => { const k = Math.floor((r() - 0.5) * 20); return [40 + k, 90 + k, 190 + k]; });                                            // still water
   put(301, (x, y, r) => {                                   // ender chest: black stone with a glowing green eye and seam
@@ -5456,6 +5459,13 @@ function* buildChunkSteps(c,reuseLight=false){
       pushBox(O, 293, lx, y, lz + th, lx + th, y + 1, lz + 1 - th, llK);                         // -x wall
       pushBox(O, 293, lx + 1 - th, y, lz + th, lx + 1, y + 1, lz + 1 - th, llK);                 // +x wall
       if(lvl > 0) pushBox(O, 295, lx + th, y + th, lz + th, lx + 1 - th, y + th + (lvl / 8) * (0.88 - th), lz + 1 - th, llK);
+      continue;
+    }
+    if(b === LIGHTNINGROD){
+      if(dim === 0 || dim === 3) lightningRods.add((wx0 + lx) + ',' + y + ',' + (wz0 + lz));
+      const llR = light ? 0.2 + (sampleLight(light, lx, y, lz) / 15) * 0.8 : 1;
+      pushBox(O, 305, lx + 0.4, y, lz + 0.4, lx + 0.6, y + 0.85, lz + 0.6, llR);
+      pushBox(O, 305, lx + 0.32, y + 0.85, lz + 0.32, lx + 0.68, y + 1, lz + 0.68, llR);   // the cap
       continue;
     }
     if(b === CAULDRON){
@@ -14340,10 +14350,18 @@ function thunder(dist){
   s1.connect(lp).connect(g).connect(AC.destination); s1.start(t); s1.stop(t + 4.6);
   if(near > 0.4) playN({ f: 2400, type: 'highpass', dur: 0.25, vol: 0.25 * near, delay: dist / 340 });   // the crack of a close strike
 }
+const lightningRods = new Set();
 function strikeLightning(){
   const p = player.pos, a = Math.random() * Math.PI * 2, d = 30 + Math.random() * 70;
-  const x = p.x + Math.cos(a) * d, z = p.z + Math.sin(a) * d;
-  const gy = precipTop(Math.floor(x), Math.floor(z)), top = Math.max(gy + 60, 170);
+  let x = p.x + Math.cos(a) * d, z = p.z + Math.sin(a) * d, rod = null, best = 64 * 64;
+  for(const k of lightningRods){                                        // a rod nearby catches the bolt
+    const [rx, ry, rz] = k.split(',').map(Number);
+    if(getBlock(rx, ry, rz) !== LIGHTNINGROD){ lightningRods.delete(k); continue; }
+    const dp = (rx - p.x) ** 2 + (rz - p.z) ** 2;
+    if(dp < best){ best = dp; rod = [rx, ry, rz]; }
+  }
+  if(rod && Math.random() < 0.85){ x = rod[0] + 0.5; z = rod[2] + 0.5; }
+  const gy = rod && x === rod[0] + 0.5 ? rod[1] + 1 : precipTop(Math.floor(x), Math.floor(z)), top = Math.max(gy + 60, 170);
   const arr = boltGeo.attributes.position.array;
   let bx = x, bz = z;
   for(let i = 0; i < 26; i++){
@@ -14354,6 +14372,11 @@ function strikeLightning(){
   boltGeo.attributes.position.needsUpdate = true;
   bolt.visible = true; boltT = 0.22; flashAmt = 1;
   thunder(d);
+  if(rod && x === rod[0] + 0.5){                                       // a grounded strike sparks and zaps what's close
+    for(let i = 0; i < 16; i++) burstRGB(x + (Math.random() - 0.5), gy + Math.random() * 1.5, z + (Math.random() - 0.5), 0.7, 0.85, 1, 1, 0.6);
+    for(const l of [zombies, skeletons, creepers, spiders]) for(const m of l){ if(Math.hypot(m.pos.x - x, m.pos.z - z) < 4 && Math.abs(m.pos.y - gy) < 4){ m.hp -= 8; burstRGB(m.pos.x, m.pos.y + 1, m.pos.z, 0.8, 0.9, 1, 6, 0.4); } }
+    if(Math.hypot(p.x - x, p.z - z) < 48) grantAdv('lrod');
+  }
 }
 function updateWeather(dt){
   // the host (or a player alone) decides; friends follow the host
@@ -16518,6 +16541,7 @@ const ADVANCEMENTS = [
   { ch: 'Overworld', id: 'frame', title: 'On Display', how: 'Mount something in an item frame (8 sticks + leather) on a wall.', icon: FRAME, check: () => false },
   { ch: 'Overworld', id: 'note', title: 'Note Worthy', how: 'Play a note block (8 planks + redstone). The block underneath sets the instrument.', icon: NOTEBLOCK, check: () => false },
   { ch: 'Overworld', id: 'grind', title: 'Back to the Grind', how: 'Grind the enchantments off a tool at a grindstone (2 sticks, a stone, 2 planks) for some experience back.', icon: GRINDSTONE, check: () => false },
+  { ch: 'Overworld', id: 'lrod', title: 'Grounded', how: 'Set up a lightning rod (3 copper) and let a thunderstorm strike it.', icon: LIGHTNINGROD, check: () => false },
   { ch: 'Overworld', id: 'compost', title: 'Waste Not', how: 'Fill a composter (7 wooden slabs) with plant matter until it makes bone meal.', icon: COMPOSTER, check: () => false },
   { ch: 'Overworld', id: 'anvil', title: 'Good as New', how: 'Mend a worn tool at an anvil (3 iron blocks + 4 iron) with its material and some experience.', icon: ANVIL, check: () => false },
   { ch: 'Overworld', id: 'golem', title: 'Hired Help', how: "Carve a pumpkin with shears and put it on two snow blocks (or a T of four iron blocks).", icon: CARVED_PUMPKIN, check: () => false },
@@ -17056,6 +17080,7 @@ window.__bc = {
             anvil: { use: useAnvil, mat: repairMaterial, slot: i => survInv[i] },
             composter: { use: useComposter, levels: composters, chance: compostChance },
             cauldron: { use: useCauldron, levels: cauldrons, set: setCauldron, step: dt => updateCauldrons(dt) },
+            lrod: { rods: () => lightningRods, strike: () => strikeLightning() },
             grind: { use: useGrindstone },
             note: { use: useNoteBlock, pitches: noteBlocks, instrument: noteInstrument },
             frame: { use: useFrame, items: frameItems, step: dt => updateFrames(dt) },
