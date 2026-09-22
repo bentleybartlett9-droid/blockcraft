@@ -888,7 +888,7 @@ const BONE=455, BONE_MEAL=456, SHIELD=454, ROD=447, COD=448, SALMON=449, COOKED_
 const EGG_RUN = 37, EGG_EXTRA = 479;          // eggs past the first 37 carry on from 479
 const eggId = i => i < EGG_RUN ? EGG_BASE + i : EGG_EXTRA + i - EGG_RUN, eggIcon = i => i < EGG_RUN ? 120 + i : i === EGG_RUN ? 175 : 180 + i - EGG_RUN;
 const eggMob = id => { const i = id >= EGG_BASE && id < EGG_BASE + EGG_RUN ? id - EGG_BASE : id >= EGG_EXTRA ? EGG_RUN + id - EGG_EXTRA : -1; return i >= 0 && i < SPAWN_EGGS.length ? SPAWN_EGGS[i][0] : null; };
-const SLIMEBALL=477, SLIME_BLOCK=478, LANTERN=490, CAMPFIRE=491, BEEHIVE=492, BEEHIVE_FULL=493, HONEY_BOTTLE=494, HONEYCOMB=495, FENCE=496, GATE=497, GATE_OPEN=498, SHEARS=499, TRIDENT=500, JUKEBOX=501, DISC_1=502, MAP=506, ANVIL=507, CARVED_PUMPKIN=508, JACK_O_LANTERN=509, PAINTING=510, COMPOSTER=511, GRINDSTONE=512, NOTEBLOCK=513, BARREL=514;   // 502-505: music discs
+const SLIMEBALL=477, SLIME_BLOCK=478, LANTERN=490, CAMPFIRE=491, BEEHIVE=492, BEEHIVE_FULL=493, HONEY_BOTTLE=494, HONEYCOMB=495, FENCE=496, GATE=497, GATE_OPEN=498, SHEARS=499, TRIDENT=500, JUKEBOX=501, DISC_1=502, MAP=506, ANVIL=507, CARVED_PUMPKIN=508, JACK_O_LANTERN=509, PAINTING=510, COMPOSTER=511, GRINDSTONE=512, NOTEBLOCK=513, BARREL=514, FRAME=515;   // 502-505: music discs
 const isFenceish = id => id === FENCE || id === GATE || id === GATE_OPEN;
 const hivesSeen = new Set();           // "x,y,z" of overworld hives the mesher has seen
 const campfires = new Set();            // "dim:x,y,z" of campfires the mesher has seen
@@ -1179,7 +1179,7 @@ ITEMS[SADDLE]={name:'Saddle',icon:100};
 SPAWN_EGGS.forEach(([, name], i) => { ITEMS[eggId(i)] = { name: name + ' Spawn Egg', icon: eggIcon(i) }; });
 ITEMS[SLIMEBALL]={name:'Slimeball',icon:176};BLOCKS[LANTERN]={name:'Lantern',all:273};BLOCKS[FENCE]={name:'Fence',all:279};BLOCKS[GATE]={name:'Fence Gate',all:280};BLOCKS[GATE_OPEN]={name:'Fence Gate',all:280};BLOCKS[BEEHIVE]={name:'Beehive',top:277,bottom:277,side:276};BLOCKS[BEEHIVE_FULL]={name:'Beehive',top:277,bottom:277,side:278};
 ITEMS[HONEY_BOTTLE]={name:'Honey Bottle',icon:177,food:6};ITEMS[SHEARS]={name:'Shears',icon:179,tool:{type:'shears',tier:2}};BLOCKS[JUKEBOX]={name:'Jukebox',top:282,bottom:281,side:281};
-ITEMS[MAP]={name:'Map',icon:188};BLOCKS[ANVIL]={name:'Anvil',all:283};BLOCKS[PAINTING]={name:'Painting',all:285};BLOCKS[COMPOSTER]={name:'Composter',top:294,bottom:294,side:293};BLOCKS[GRINDSTONE]={name:'Grindstone',all:296};BLOCKS[NOTEBLOCK]={name:'Note Block',all:297};BLOCKS[BARREL]={name:'Barrel',top:299,bottom:298,side:298};BLOCKS[CARVED_PUMPKIN]={name:'Carved Pumpkin',top:T.PUMPKIN_TOP,bottom:T.PUMPKIN_TOP,side:T.PUMPKIN_FACE};
+ITEMS[MAP]={name:'Map',icon:188};BLOCKS[ANVIL]={name:'Anvil',all:283};BLOCKS[PAINTING]={name:'Painting',all:285};BLOCKS[COMPOSTER]={name:'Composter',top:294,bottom:294,side:293};BLOCKS[GRINDSTONE]={name:'Grindstone',all:296};BLOCKS[NOTEBLOCK]={name:'Note Block',all:297};BLOCKS[BARREL]={name:'Barrel',top:299,bottom:298,side:298};BLOCKS[FRAME]={name:'Item Frame',all:300};BLOCKS[CARVED_PUMPKIN]={name:'Carved Pumpkin',top:T.PUMPKIN_TOP,bottom:T.PUMPKIN_TOP,side:T.PUMPKIN_FACE};
 BLOCKS[JACK_O_LANTERN]={name:"Jack o'Lantern",top:T.PUMPKIN_TOP,bottom:T.PUMPKIN_TOP,side:284};
 ['Meadow','Caverns','Lanterns','Stormchase'].forEach((n, i) => { ITEMS[DISC_1 + i] = { name: 'Music Disc - ' + n, icon: 184 + i }; });ITEMS[TRIDENT]={name:'Trident',icon:180,tool:{type:'trident',tier:3}};ITEMS[HONEYCOMB]={name:'Honeycomb',icon:178};BLOCKS[CAMPFIRE]={name:'Campfire',top:275,bottom:275,side:274};BLOCKS[SLIME_BLOCK]={name:'Slime Block',all:272};
 ITEMS[APPLE]={name:'Apple',icon:167,food:4};ITEMS[GOLDEN_APPLE]={name:'Golden Apple',icon:168,food:4};ITEMS[CARROT]={name:'Carrot',icon:169,food:3,plant:CARROT0};
@@ -1228,7 +1228,7 @@ const isPlant  = id => isSapling(id) || FLORA_IDS.has(id) || id === TGRASSB || i
                        id === MUSHROOMR || id === MUSHROOMB ||
                        id === WHEAT0 || id === WHEAT1 || id === WHEAT2 || id === WHEAT3 || (id >= CARROT0 && id <= POTATO3) || CAVE_PLANTS.has(id) || NETHER_PLANTS.has(id);
 const isCross  = id => id===GLOWCRYSTAL || isPlant(id) || id === TORCH || id === COBWEB || id === IRONBARS || CAVE_CROSS.has(id) || NETHER_CROSS.has(id);
-const isFlat   = id => id === RAIL || id === SNOW_LAYER || id === LADDER || id === PAINTING || isCake(id) || id === LANTERN || id === CAMPFIRE;   // thin plate on the ground (or, for a ladder, on a wall)
+const isFlat   = id => id === RAIL || id === SNOW_LAYER || id === LADDER || id === PAINTING || id === FRAME || isCake(id) || id === LANTERN || id === CAMPFIRE;   // thin plate on the ground (or, for a ladder, on a wall)
 const isSlab   = id => id === SLAB_STONE || id === SLAB_WOOD || id === SLAB_BRICK || id === SLAB_SAND || id === SLAB_NBRICK;
 const isStair  = id => id === STAIR_STONE || id === STAIR_WOOD || id === STAIR_BRICK || id === STAIR_SAND || id === STAIR_NBRICK;
 const isPartial = id => isSlab(id) || isStair(id);   // custom-geometry, non-full blocks
@@ -1271,6 +1271,7 @@ function toolClassOf(id){
   if(id === COMPOSTER) return 'axe';
   if(id === GRINDSTONE) return 'pick';
   if(id === NOTEBLOCK) return 'axe';
+  if(id === FRAME) return 'axe';
   if(id === BEEHIVE || id === BEEHIVE_FULL || isFenceish(id) || id === JUKEBOX) return 'axe';
   if([PURPUR,PURPUR_PILLAR,ENDSTONE_BRICK,ENDSTONE,CRYING_OBSIDIAN,ANCHOR,ANCHOR_LIT].includes(id)) return 'pick';
   if(id === CHORUS_PLANT || id === CHORUS_FLOWER) return 'axe';
@@ -1421,6 +1422,7 @@ RECIPES.push({out:[COMPOSTER,1],in:[[SLAB_WOOD,7]],st:'table'});
 RECIPES.push({out:[GRINDSTONE,1],in:[[STICK,2],[STONE,1],[ANY_PLANK,2]],st:'table'});
 RECIPES.push({out:[NOTEBLOCK,1],in:[[ANY_PLANK,8],[AMETHYST_SHARD,1]],st:'table'});
 RECIPES.push({out:[BARREL,1],in:[[ANY_PLANK,6],[SLAB_WOOD,2]],st:'table'});
+RECIPES.push({out:[FRAME,1],in:[[STICK,8],[LEATHER,1]],st:'table'});
 RECIPES.push({out:[MAP,1],in:[[PAPER,8],[IRONI,1]],st:'table'},{out:[SHEARS,1],in:[[IRONI,2]],st:'table'},{out:[JUKEBOX,1],in:[[ANY_PLANK,8],[DIAMI,1]],st:'table'});
 RECIPES.push({out:[FENCE,3],in:[[ANY_PLANK,4],[STICK,2]],st:'table'},{out:[GATE,1],in:[[STICK,4],[ANY_PLANK,2]],st:'table'});
 RECIPES.push({out:[BEEHIVE,1],in:[[ANY_PLANK,6],[HONEYCOMB,3]],st:'table'});
@@ -1825,6 +1827,10 @@ itemAtlas.width = 128; itemAtlas.height = 512;   // 256 icons
     const mouth = (y >= 9 && y <= 11 && x >= 3 && x <= 12) && !(y === 9 && (x === 5 || x === 10)) && !(y === 11 && (x === 3 || x === 12));
     if(eye || mouth) return [255, 216 + k / 2, 90];
     return x % 4 === 0 ? [176 + k, 100 + k, 24 + k] : [214 + k, 128 + k, 34 + k];
+  });
+  put(300, (x, y, r) => {                                   // item frame: a wooden border round a pale backing
+    const k = Math.floor((r() - 0.5) * 14), edge = x < 2 || y < 2 || x > 13 || y > 13;
+    return edge ? [140 + k, 100 + k, 56 + k] : [210 + k, 198 + k, 170 + k];
   });
   put(298, (x, y, r) => {                                   // barrel side: vertical staves banded by iron hoops
     const k = Math.floor((r() - 0.5) * 14);
@@ -5405,6 +5411,14 @@ function* buildChunkSteps(c,reuseLight=false){
     if(isPartial(b)){ pushPartial(O, lx, y, lz, b, light); continue; }
     if(isDoor(b)){ pushDoor(O, lx, y, lz, b, wx0 + lx, wz0 + lz, light); continue; }
     if(b === LADDER){ pushLadder(O, lx, y, lz, gb, light); continue; }
+    if(b === FRAME){
+      const nlF = light ? sampleLight(light, lx, y, lz) : 15, llF = 0.25 + (nlF / 15) * 0.75, wf = ladderWall(gb, lx, y, lz), df = 0.06, m = 0.12;
+      if(wf === 0) pushBox(O, 300, lx + m, y + m, lz, lx + 1 - m, y + 1 - m, lz + df, llF);
+      else if(wf === 1) pushBox(O, 300, lx + m, y + m, lz + 1 - df, lx + 1 - m, y + 1 - m, lz + 1, llF);
+      else if(wf === 2) pushBox(O, 300, lx, y + m, lz + m, lx + df, y + 1 - m, lz + 1 - m, llF);
+      else pushBox(O, 300, lx + 1 - df, y + m, lz + m, lx + 1, y + 1 - m, lz + 1 - m, llF);
+      continue;
+    }
     if(b === PAINTING){
       const nlP = light ? sampleLight(light, lx, y, lz) : 15, llP = 0.25 + (nlP / 15) * 0.75, w = ladderWall(gb, lx, y, lz), t = 285 + ((hash3(wx0 + lx, y, wz0 + lz, 8641) * 8) | 0), d = 0.06;
       if(w === 0) pushBox(O, t, lx, y, lz, lx + 1, y + 1, lz + d, llP);
@@ -9660,6 +9674,7 @@ function useSpecial(o, d, hit, eh){
   if(useComposter(hit)) return true;
   if(useGrindstone(hit)) return true;
   if(useNoteBlock(hit)) return true;
+  if(useFrame(hit)) return true;
   if(carvePumpkin(hit)) return true;
   if(heldId() === TRIDENT) return throwTrident(o, d);
   if(held === ROD) return useRod(o, d);
@@ -12829,6 +12844,11 @@ function breakBlock(x, y, z, id){
     }
     return;
   }
+  if(id === FRAME){
+    const e = frameItems.get(x + ',' + y + ',' + z);
+    if(e && e.item && mode === 'survival') spawnDropAt(x + 0.5, y + 0.5, z + 0.5, e.item, 1);
+    frameItems.delete(x + ',' + y + ',' + z); saveFrames();
+  }
   if(id === CHEST || id === BARREL){
     const key = x + ',' + y + ',' + z;
     const sl = chests[key];
@@ -12956,6 +12976,7 @@ function doPlace(){
   if(held===DOOR){placeDoor(x,y,z);return;}
   if(held===LADDER){placeLadder(x,y,z,hit);return;}
   if(held===PAINTING){placeLadder(x,y,z,hit,PAINTING);return;}
+  if(held===FRAME){placeLadder(x,y,z,hit,FRAME);return;}
   if(held===TORCH){placeTorch(x,y,z);return;}
   triggerViewSwing();
   setBlock(x, y, z, held);
@@ -13712,6 +13733,7 @@ function vrTryPlace(){
   if(held===DOOR){placeDoor(x,y,z);return;}
   if(held===LADDER){placeLadder(x,y,z,hit);return;}
   if(held===PAINTING){placeLadder(x,y,z,hit,PAINTING);return;}
+  if(held===FRAME){placeLadder(x,y,z,hit,FRAME);return;}
   if(held===TORCH){placeTorch(x,y,z);return;}
   triggerViewSwing();
   setBlock(x, y, z, held);
@@ -15135,6 +15157,61 @@ function carvePumpkin(hit){
   triggerViewSwing();
   return true;
 }
+/* ============================= ITEM FRAMES ==========================
+   An item frame (8 sticks + leather) hangs on a wall. Use it holding
+   something to mount it; use it again, empty-handed, to turn what's inside
+   a step at a time. Break the frame and the item drops. Each player keeps
+   their own frame contents. */
+const frameItems = (() => { try { return new Map(JSON.parse(localStorage.getItem(SAVE_KEY + '-frames')) || []); } catch(e){ return new Map(); } })();
+const frameMeshes = new Map();
+let frameScanT = 0;
+function saveFrames(){ safeSet(SAVE_KEY + '-frames', JSON.stringify([...frameItems].filter(([k, e]) => e && e.item))); }
+function frameItemMat(id){ return !!ITEMS[id] ? matItemSolid : isCross(id) ? (id === TORCH || emitsLight(id) ? matGC : matC) : isLeaf(id) || isFenceish(id) ? matLeaf : matO; }
+const FRAME_NORMAL = [[0, 0, 1], [0, 0, -1], [1, 0, 0], [-1, 0, 0]];   // open side by wall 0..3
+const FRAME_YAW = [0, Math.PI, Math.PI / 2, -Math.PI / 2];
+function useFrame(hit){
+  if(!hit || hit.id !== FRAME) return false;
+  const k = hit.x + ',' + hit.y + ',' + hit.z;
+  const e = frameItems.get(k) || { item: 0, rot: 0 };
+  if(!e.item){
+    const held = heldId();
+    if(!held){ flashName('Hold an item to mount it'); return true; }
+    e.item = held; e.rot = 0; frameItems.set(k, e); consumePlacedItem();
+    playN({ f: 700, type: 'bandpass', dur: 0.08, vol: 0.1 });
+  } else {
+    e.rot = (e.rot + 1) % 8; frameItems.set(k, e);
+    playN({ f: 500, type: 'bandpass', dur: 0.06, vol: 0.08 });
+  }
+  saveFrames(); triggerViewSwing(); grantAdv('frame');
+  return true;
+}
+function updateFrames(dt){
+  if((frameScanT -= dt) > 0) return;
+  frameScanT = 0.5;
+  const want = new Set();
+  for(const [k, e] of frameItems){
+    if(!e || !e.item) continue;
+    const [x, y, z] = k.split(',').map(Number);
+    if((e.dim ?? dim) !== dim) continue;
+    if(getBlock(x, y, z) !== FRAME){ frameItems.delete(k); saveFrames(); continue; }
+    if(Math.abs(x - player.pos.x) > 48 || Math.abs(z - player.pos.z) > 48) continue;
+    want.add(k);
+    let m = frameMeshes.get(k);
+    if(!m || m.userData.item !== e.item){
+      if(m) scene.remove(m);
+      m = new THREE.Group();
+      const inner = new THREE.Mesh(dropGeo(e.item), frameItemMat(e.item));
+      inner.scale.setScalar(!!ITEMS[e.item] ? 0.85 : 0.5);
+      m.add(inner); m.userData.item = e.item; scene.add(m);
+      frameMeshes.set(k, m);
+    }
+    const w = ladderWall(getBlock, x, y, z), n = FRAME_NORMAL[w];
+    m.position.set(x + 0.5 + n[0] * 0.44, y + 0.5 + n[1] * 0.44, z + 0.5 + n[2] * 0.44);
+    m.rotation.set(0, FRAME_YAW[w], 0);
+    m.children[0].rotation.z = (e.rot || 0) * Math.PI / 4;
+  }
+  for(const [k, m] of frameMeshes) if(!want.has(k)){ scene.remove(m); frameMeshes.delete(k); }
+}
 /* ============================= NOTE BLOCK ============================
    A note block (8 planks + redstone) plays a note when you use it, and
    nudges its pitch up a semitone each time (25 steps, then back to the
@@ -16370,6 +16447,7 @@ const ADVANCEMENTS = [
   { ch: 'Overworld', id: 'breed', title: 'The Parrots and the Bats', how: 'Feed two animals their favourite food (wheat for cows and sheep, carrots for pigs, seeds for chickens) and watch.', icon: WHEATITEM, check: () => false },
   { ch: 'Overworld', id: 'trident', title: 'A Throwaway Joke', how: 'Get a trident from a drowned (they rise out of deep water at night) and throw it at something.', icon: TRIDENT, check: () => false },
   { ch: 'Overworld', id: 'juke', title: 'Sound of Music', how: 'Craft a jukebox (8 planks, 1 diamond) and play a music disc from a dungeon chest or a creeper.', icon: JUKEBOX, check: () => false },
+  { ch: 'Overworld', id: 'frame', title: 'On Display', how: 'Mount something in an item frame (8 sticks + leather) on a wall.', icon: FRAME, check: () => false },
   { ch: 'Overworld', id: 'note', title: 'Note Worthy', how: 'Play a note block (8 planks + redstone). The block underneath sets the instrument.', icon: NOTEBLOCK, check: () => false },
   { ch: 'Overworld', id: 'grind', title: 'Back to the Grind', how: 'Grind the enchantments off a tool at a grindstone (2 sticks, a stone, 2 planks) for some experience back.', icon: GRINDSTONE, check: () => false },
   { ch: 'Overworld', id: 'compost', title: 'Waste Not', how: 'Fill a composter (7 wooden slabs) with plant matter until it makes bone meal.', icon: COMPOSTER, check: () => false },
@@ -16553,7 +16631,7 @@ function animate(){
   updateBees(dt);
   updateJukes(dt);
   updateMap(dt);
-  if(inGame){ updateSnowGolems(dt); updateBuiltGolems(dt); }
+  if(inGame){ updateSnowGolems(dt); updateBuiltGolems(dt); updateFrames(dt); }
   if(inGame && ((xpT = (xpT || 0) - dt) <= 0)){ xpT = 1; renderXP(); }
   updateAmbience(dt);
   checkMusicMood(dt);
@@ -16910,6 +16988,7 @@ window.__bc = {
             composter: { use: useComposter, levels: composters, chance: compostChance },
             grind: { use: useGrindstone },
             note: { use: useNoteBlock, pitches: noteBlocks, instrument: noteInstrument },
+            frame: { use: useFrame, items: frameItems, step: dt => updateFrames(dt) },
             map: { step: dt => updateMap(dt), canvas: mapShow, base: mapBase },
             juke: { use: useJukebox, list: jukes, step: dt => updateJukes(dt), DISCS },
             trident: { throw: throwTrident, mesh: makeTridentMesh },
