@@ -888,7 +888,7 @@ const BONE=455, BONE_MEAL=456, SHIELD=454, ROD=447, COD=448, SALMON=449, COOKED_
 const EGG_RUN = 37, EGG_EXTRA = 479;          // eggs past the first 37 carry on from 479
 const eggId = i => i < EGG_RUN ? EGG_BASE + i : EGG_EXTRA + i - EGG_RUN, eggIcon = i => i < EGG_RUN ? 120 + i : i === EGG_RUN ? 175 : 180 + i - EGG_RUN;
 const eggMob = id => { const i = id >= EGG_BASE && id < EGG_BASE + EGG_RUN ? id - EGG_BASE : id >= EGG_EXTRA ? EGG_RUN + id - EGG_EXTRA : -1; return i >= 0 && i < SPAWN_EGGS.length ? SPAWN_EGGS[i][0] : null; };
-const SLIMEBALL=477, SLIME_BLOCK=478, LANTERN=490, CAMPFIRE=491, BEEHIVE=492, BEEHIVE_FULL=493, HONEY_BOTTLE=494, HONEYCOMB=495, FENCE=496, GATE=497, GATE_OPEN=498, SHEARS=499, TRIDENT=500, JUKEBOX=501, DISC_1=502, MAP=506, ANVIL=507, CARVED_PUMPKIN=508, JACK_O_LANTERN=509, PAINTING=510, COMPOSTER=511, GRINDSTONE=512, NOTEBLOCK=513;   // 502-505: music discs
+const SLIMEBALL=477, SLIME_BLOCK=478, LANTERN=490, CAMPFIRE=491, BEEHIVE=492, BEEHIVE_FULL=493, HONEY_BOTTLE=494, HONEYCOMB=495, FENCE=496, GATE=497, GATE_OPEN=498, SHEARS=499, TRIDENT=500, JUKEBOX=501, DISC_1=502, MAP=506, ANVIL=507, CARVED_PUMPKIN=508, JACK_O_LANTERN=509, PAINTING=510, COMPOSTER=511, GRINDSTONE=512, NOTEBLOCK=513, BARREL=514;   // 502-505: music discs
 const isFenceish = id => id === FENCE || id === GATE || id === GATE_OPEN;
 const hivesSeen = new Set();           // "x,y,z" of overworld hives the mesher has seen
 const campfires = new Set();            // "dim:x,y,z" of campfires the mesher has seen
@@ -1179,7 +1179,7 @@ ITEMS[SADDLE]={name:'Saddle',icon:100};
 SPAWN_EGGS.forEach(([, name], i) => { ITEMS[eggId(i)] = { name: name + ' Spawn Egg', icon: eggIcon(i) }; });
 ITEMS[SLIMEBALL]={name:'Slimeball',icon:176};BLOCKS[LANTERN]={name:'Lantern',all:273};BLOCKS[FENCE]={name:'Fence',all:279};BLOCKS[GATE]={name:'Fence Gate',all:280};BLOCKS[GATE_OPEN]={name:'Fence Gate',all:280};BLOCKS[BEEHIVE]={name:'Beehive',top:277,bottom:277,side:276};BLOCKS[BEEHIVE_FULL]={name:'Beehive',top:277,bottom:277,side:278};
 ITEMS[HONEY_BOTTLE]={name:'Honey Bottle',icon:177,food:6};ITEMS[SHEARS]={name:'Shears',icon:179,tool:{type:'shears',tier:2}};BLOCKS[JUKEBOX]={name:'Jukebox',top:282,bottom:281,side:281};
-ITEMS[MAP]={name:'Map',icon:188};BLOCKS[ANVIL]={name:'Anvil',all:283};BLOCKS[PAINTING]={name:'Painting',all:285};BLOCKS[COMPOSTER]={name:'Composter',top:294,bottom:294,side:293};BLOCKS[GRINDSTONE]={name:'Grindstone',all:296};BLOCKS[NOTEBLOCK]={name:'Note Block',all:297};BLOCKS[CARVED_PUMPKIN]={name:'Carved Pumpkin',top:T.PUMPKIN_TOP,bottom:T.PUMPKIN_TOP,side:T.PUMPKIN_FACE};
+ITEMS[MAP]={name:'Map',icon:188};BLOCKS[ANVIL]={name:'Anvil',all:283};BLOCKS[PAINTING]={name:'Painting',all:285};BLOCKS[COMPOSTER]={name:'Composter',top:294,bottom:294,side:293};BLOCKS[GRINDSTONE]={name:'Grindstone',all:296};BLOCKS[NOTEBLOCK]={name:'Note Block',all:297};BLOCKS[BARREL]={name:'Barrel',top:299,bottom:298,side:298};BLOCKS[CARVED_PUMPKIN]={name:'Carved Pumpkin',top:T.PUMPKIN_TOP,bottom:T.PUMPKIN_TOP,side:T.PUMPKIN_FACE};
 BLOCKS[JACK_O_LANTERN]={name:"Jack o'Lantern",top:T.PUMPKIN_TOP,bottom:T.PUMPKIN_TOP,side:284};
 ['Meadow','Caverns','Lanterns','Stormchase'].forEach((n, i) => { ITEMS[DISC_1 + i] = { name: 'Music Disc - ' + n, icon: 184 + i }; });ITEMS[TRIDENT]={name:'Trident',icon:180,tool:{type:'trident',tier:3}};ITEMS[HONEYCOMB]={name:'Honeycomb',icon:178};BLOCKS[CAMPFIRE]={name:'Campfire',top:275,bottom:275,side:274};BLOCKS[SLIME_BLOCK]={name:'Slime Block',all:272};
 ITEMS[APPLE]={name:'Apple',icon:167,food:4};ITEMS[GOLDEN_APPLE]={name:'Golden Apple',icon:168,food:4};ITEMS[CARROT]={name:'Carrot',icon:169,food:3,plant:CARROT0};
@@ -1282,7 +1282,7 @@ function toolClassOf(id){
   if([DRIPSTONE,TUFF,CALCITE,AMETHYST,BUDDING,COPPERO,COPPERB].includes(id))return 'pick';
   if(id === MOSS) return 'shovel';
   if([MARBLE,MARBLEBRICK,BASALT,BASALTBRICK,MOSAIC,AMBERLAMP].includes(id))return 'pick';
-  if(isLog(id) || ANY_PLANK.includes(id) || id === CRAFTT || id === BED || id === CHEST) return 'axe';
+  if(isLog(id) || ANY_PLANK.includes(id) || id === CRAFTT || id === BED || id === CHEST || id === BARREL) return 'axe';
   if(id === GRASS || id === SAVGRASS || id === DIRT || id === SAND || id === SNOW || id === SNOWY_GRASS || id === SNOW_LAYER) return 'shovel';
   if(id === DEEPSLATE) return 'pick';
   if(id === STONE || id === BRICK || id === SBRICK || id === GLOWB || id === FURN || id === IRONB ||
@@ -1311,7 +1311,7 @@ function handTime(id){
   if(id === GRASS || id === SAVGRASS || id === DIRT || id === SAND || id === SNOW) return 0.75;
   if(id === WOOL) return 1.0;
   if(id === GLOWB) return 2.0;
-  if(isLog(id) || ANY_PLANK.includes(id) || id === CRAFTT || id === BED || id === CHEST) return 3.0;
+  if(isLog(id) || ANY_PLANK.includes(id) || id === CRAFTT || id === BED || id === CHEST || id === BARREL) return 3.0;
   if(id === CRYSTALORE || id === DIAMO || id === IRONB || id === GOLDB || id === DIAMB) return 5.0;
   if(id === COALO || id === IRONO || id === GOLDO || id === EMERO) return 4.5;
   if(id === DEEPSLATE) return 5.5;                 // noticeably tougher than surface stone
@@ -1420,6 +1420,7 @@ RECIPES.push({out:[ANVIL,1],in:[[IRONB,3],[IRONI,4]],st:'table'});
 RECIPES.push({out:[COMPOSTER,1],in:[[SLAB_WOOD,7]],st:'table'});
 RECIPES.push({out:[GRINDSTONE,1],in:[[STICK,2],[STONE,1],[ANY_PLANK,2]],st:'table'});
 RECIPES.push({out:[NOTEBLOCK,1],in:[[ANY_PLANK,8],[AMETHYST_SHARD,1]],st:'table'});
+RECIPES.push({out:[BARREL,1],in:[[ANY_PLANK,6],[SLAB_WOOD,2]],st:'table'});
 RECIPES.push({out:[MAP,1],in:[[PAPER,8],[IRONI,1]],st:'table'},{out:[SHEARS,1],in:[[IRONI,2]],st:'table'},{out:[JUKEBOX,1],in:[[ANY_PLANK,8],[DIAMI,1]],st:'table'});
 RECIPES.push({out:[FENCE,3],in:[[ANY_PLANK,4],[STICK,2]],st:'table'},{out:[GATE,1],in:[[STICK,4],[ANY_PLANK,2]],st:'table'});
 RECIPES.push({out:[BEEHIVE,1],in:[[ANY_PLANK,6],[HONEYCOMB,3]],st:'table'});
@@ -1824,6 +1825,16 @@ itemAtlas.width = 128; itemAtlas.height = 512;   // 256 icons
     const mouth = (y >= 9 && y <= 11 && x >= 3 && x <= 12) && !(y === 9 && (x === 5 || x === 10)) && !(y === 11 && (x === 3 || x === 12));
     if(eye || mouth) return [255, 216 + k / 2, 90];
     return x % 4 === 0 ? [176 + k, 100 + k, 24 + k] : [214 + k, 128 + k, 34 + k];
+  });
+  put(298, (x, y, r) => {                                   // barrel side: vertical staves banded by iron hoops
+    const k = Math.floor((r() - 0.5) * 14);
+    if(y === 2 || y === 13) return [96 + k, 98 + k, 104 + k];                                    // iron hoops
+    return x % 3 === 0 ? [122 + k, 88 + k, 52 + k] : [150 + k, 110 + k, 66 + k];
+  });
+  put(299, (x, y, r) => {                                   // barrel lid: concentric rings round a bung
+    const k = Math.floor((r() - 0.5) * 14), d = Math.hypot(x - 7.5, y - 7.5);
+    if(d < 1.6) return [96 + k, 68 + k, 40 + k];
+    return (Math.round(d) % 2) ? [138 + k, 100 + k, 60 + k] : [160 + k, 118 + k, 72 + k];
   });
   put(297, (x, y, r) => {                                   // note block: dark wood dotted with note studs
     const k = Math.floor((r() - 0.5) * 14);
@@ -8284,7 +8295,7 @@ function explode(x, y, z, radius, dmgMax, fromNet){
     (edits[ck] = edits[ck] || {})[(bx & 15) + ',' + by + ',' + (bz & 15)] = AIR;
     touched.add(ck);
     if(b === TNT){ if(!fromNet) igniteTNT(bx, by, bz, 0.3 + Math.random() * 0.6, true); }
-    else if(b === CHEST){
+    else if(b === CHEST || b === BARREL){
       const key = bx + ',' + by + ',' + bz;
       if(chests[key]){
         for(const s of chests[key]) if(s.id && s.count > 0) spawnDropAt(bx + 0.5, by + 0.5, bz + 0.5, s.id, s.count);
@@ -11155,7 +11166,7 @@ function updateMonsterAmbience(dt){
 
 function matClass(id){
   if(id === GLASS) return 'glass';
-  if(isLog(id) || ANY_PLANK.includes(id) || id === CRAFTT || id === TORCH || id === CHEST) return 'wood';
+  if(isLog(id) || ANY_PLANK.includes(id) || id === CRAFTT || id === TORCH || id === CHEST || id === BARREL) return 'wood';
   if(id === SNOW || id === SNOWY_GRASS || id === SNOW_LAYER) return 'snow';
   if(id === SAND) return 'sand';
   if(id === GRASS || id === SAVGRASS || id === DIRT || id === TNT) return 'dirt';
@@ -12818,7 +12829,7 @@ function breakBlock(x, y, z, id){
     }
     return;
   }
-  if(id === CHEST){
+  if(id === CHEST || id === BARREL){
     const key = x + ',' + y + ',' + z;
     const sl = chests[key];
     if(sl){
@@ -12864,7 +12875,7 @@ function doPlace(){
   if(hit){
     if(hit.id === BED){ trySleep(hit.x, hit.y, hit.z); return; }
     if(isDoor(hit.id)){ toggleDoor(hit.x, hit.y, hit.z); triggerViewSwing(); return; }
-    if(hit.id === CHEST){ openChest(hit.x, hit.y, hit.z); return; }
+    if(hit.id === CHEST || hit.id === BARREL){ openChest(hit.x, hit.y, hit.z); return; }
     if(hit.id === TNT){ igniteTNT(hit.x, hit.y, hit.z); return; }
     if(hit.id === ENCH_TABLE && mode === 'survival'){ openEnchant(hit); return; }
     if((hit.id === CRAFTT || hit.id === FURN || hit.id === BREWING) && mode === 'survival'){ openCraft(); return; }
@@ -13685,7 +13696,7 @@ function vrTryPlace(){
   if(hit){
     if(hit.id === BED){ trySleep(hit.x, hit.y, hit.z); return; }
     if(isDoor(hit.id)){ toggleDoor(hit.x, hit.y, hit.z); triggerViewSwing(); return; }
-    if(hit.id === CHEST){ openChest(hit.x, hit.y, hit.z); return; }
+    if(hit.id === CHEST || hit.id === BARREL){ openChest(hit.x, hit.y, hit.z); return; }
     if(hit.id === TNT){ igniteTNT(hit.x, hit.y, hit.z); return; }
     if(hit.id === ENCH_TABLE && mode === 'survival'){ enchantAt = hit; openCraftVR('enchant'); return; }
     if((hit.id === CRAFTT || hit.id === FURN || hit.id === BREWING) && mode === 'survival'){ openCraftVR('craft'); return; }
