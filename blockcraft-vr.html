@@ -7341,9 +7341,30 @@ function partBoxes(id, x, y, z){
   const st = partState.get(pkey(x, y, z)) || PART_DEFAULT;
   if(isSlab(id)) return st.top ? [[x, y + 0.5, z, x + 1, y + 1, z + 1]] : [[x, y, z, x + 1, y + 0.5, z + 1]];
   const by = st.top ? y + 0.5 : y, sy = st.top ? y : y + 0.5;
-  const step = st.f === 0 ? [x, sy, z, x + 1, sy + 0.5, z + 0.5] : st.f === 1 ? [x, sy, z + 0.5, x + 1, sy + 0.5, z + 1]
-             : st.f === 2 ? [x, sy, z, x + 0.5, sy + 0.5, z + 1] : [x + 0.5, sy, z, x + 1, sy + 0.5, z + 1];
-  return [[x, by, z, x + 1, by + 0.5, z + 1], step];
+  const out = [[x, by, z, x + 1, by + 0.5, z + 1]];
+  for(const [qx, qz] of stairQuads(x, y, z, st)) out.push([x + qx * 0.5, sy, z + qz * 0.5, x + qx * 0.5 + 0.5, sy + 0.5, z + qz * 0.5 + 0.5]);
+  return out;
+}
+/* Stairs join at corners, by Minecraft's own rule: a stair whose high side
+   meets a stair turned across it becomes an outer corner (a single quarter
+   step); one whose low side meets a stair turned across it becomes an inner
+   corner (three quarters). The step is built of quarter-blocks. */
+const STAIR_DIR = [[0, -1], [0, 1], [-1, 0], [1, 0]];              // f: 0 north (-z), 1 south, 2 west (-x), 3 east
+const STAIR_CW = [3, 2, 0, 1], STAIR_CCW = [2, 3, 1, 0], STAIR_OPP = [1, 0, 3, 2];
+const STAIR_HALF = [[[0, 0], [1, 0]], [[0, 1], [1, 1]], [[0, 0], [0, 1]], [[1, 0], [1, 1]]];   // the quarters on each side
+function stairAt(x, y, z){ return isStair(getBlock(x, y, z)) ? (partState.get(pkey(x, y, z)) || PART_DEFAULT) : null; }
+function stairQuads(x, y, z, st){
+  const f = st.f, [dx, dz] = STAIR_DIR[f], axis = d => d < 2 ? 1 : 0;
+  const canTake = d => { const [ax, az] = STAIR_DIR[d], n = stairAt(x + ax, y, z + az); return !n || n.f !== f || n.top !== st.top; };
+  const both = (a, b) => STAIR_HALF[a].filter(q => STAIR_HALF[b].some(r => r[0] === q[0] && r[1] === q[1]));
+  const either = (a, b) => [...STAIR_HALF[a], ...STAIR_HALF[b].filter(q => !STAIR_HALF[a].some(r => r[0] === q[0] && r[1] === q[1]))];
+  const behind = stairAt(x + dx, y, z + dz);
+  if(behind && behind.top === st.top && axis(behind.f) !== axis(f) && canTake(STAIR_OPP[behind.f]))
+    return both(f, behind.f === STAIR_CCW[f] ? STAIR_CCW[f] : STAIR_CW[f]);               // outer corner
+  const front = stairAt(x - dx, y, z - dz);
+  if(front && front.top === st.top && axis(front.f) !== axis(f) && canTake(front.f))
+    return either(f, front.f === STAIR_CCW[f] ? STAIR_CCW[f] : STAIR_CW[f]);              // inner corner
+  return STAIR_HALF[f];
 }
 const lastRayO = new THREE.Vector3(), lastRayD = new THREE.Vector3(0, 0, -1);
 function placePartial(x, y, z, held, hit){
@@ -20232,7 +20253,7 @@ window.__bc = {
   addTestConn: send => { const c = { open: true, send, peer: 'test', close(){} }; conns.push(c); return c; },
   dropTestConns: () => { conns = conns.filter(c => c.peer !== 'test'); },
   mobLists: () => Object.fromEntries(MOB_LISTS.map(([k, l]) => [k, l.length])),
-  PART_BASE, WALLS, FENCES, partState, partBoxes, placePartial,
+  PART_BASE, WALLS, FENCES, partState, partBoxes, placePartial, stairQuads,
   COLORS, DYE, CONCRETE, POWDER, SGLASS, TERRA16, GLAZED, CARPET, WOOL16, hardenNear,
   playerSees, updatePale, paleState: () => ({ blossomOpen, paleHere }),
   mountainBiome, jaggedAt, vnoise, deepDarkAt, cityDef, cityBlock, vibrate, summonWarden, sculkState: () => ({ warnLevel, near: sculkNear.length }), netherMobs, spawnNetherMob,
