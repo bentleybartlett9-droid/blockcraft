@@ -1625,7 +1625,7 @@ const EXTRA_WOODS=[{log:CHERRYLOG,plank:CHERRYPLANK,leaves:CHERRYLEAVES,name:'Ch
  {log:RIMELOG,plank:RIMEPLANK,leaves:RIMELEAVES,name:'Rimewood',bark:[206,216,226],wood:[224,232,240],leaf:[158,214,232]},
  {log:DUSKLOG,plank:DUSKPLANK,leaves:DUSKLEAVES,name:'Duskwood',bark:[68,52,86],wood:[118,96,140],leaf:[186,96,196]}];
 const isLeaf=id=>id===PALE_LEAVES||id===DARK_LEAVES||id===LEAVES||id===SPRUCELEAVES||id===525||EXTRA_WOODS.some(w=>w.leaves===id);
-const isLog=id=>id===PALE_LOG||id===CREAKING_HEART||id===DARK_LOG||id===356||id===523||[LOG,BIRCHLOG,SPRUCELOG,JUNGLELOG,...EXTRA_WOODS.map(w=>w.log)].includes(id);   // 356: boab, 523: red gum
+const isLog=id=>id===PALE_LOG||id===CREAKING_HEART||id===626||id===DARK_LOG||id===356||id===523||[LOG,BIRCHLOG,SPRUCELOG,JUNGLELOG,...EXTRA_WOODS.map(w=>w.log)].includes(id);   // 356: boab, 523: red gum
 const ANY_COBBLE = [527, 3];   // cobblestone or stone (Minecraft crafts tools, furnaces etc. from cobblestone)
 const ANY_PLANK = [613, 595, 7, 39, 40, 41, CHERRYPLANK, MAPLEPLANK, WILLOWPLANK, GUMPLANK, REDGUM_PLANK, BOAB_PLANK, SUNPLANK, RIMEPLANK, DUSKPLANK, CRIM_PLANK, WARP_PLANK];   // oak, birch, spruce, jungle planks (recipe group)
 const T = {GRASS_TOP:0,GRASS_SIDE:1,DIRT:2,STONE:3,SAND:4,LOG_SIDE:5,LOG_TOP:6,LEAVES:7,PLANK:8,BRICK:9,SNOW:10,GLASS:11,WATER:12,
@@ -1923,6 +1923,9 @@ BLOCKS[PALE_GRASS]={name:'Pale Grass Block',top:403,bottom:T.DIRT,side:404};
 ITEMS[RESIN_CLUMP]={name:'Resin Clump',icon:266};ITEMS[RESIN_BRICK]={name:'Resin Brick',icon:267};
 SAPLING_FOR_LOG[PALE_LOG]=SAP_PALE; SAPLING_OF[PALE_LEAVES]=SAP_PALE; SAPLING_TREE[SAP_PALE]='paleoak';
 let blossomOpen = false;   // eyeblossoms are open at night
+const CREAKING_HEART_ON = 626;   // a creaking heart awake at night, its eye aglow
+BLOCKS[CREAKING_HEART_ON]={name:'Creaking Heart',side:401,top:392,bottom:392};
+const isHeart = id => id === CREAKING_HEART || id === CREAKING_HEART_ON;
 const OCEAN_PLANTS = new Set([SEAGRASS, KELP, SEA_PICKLE, ...CORALS, ...FANS]);
 const isWet = id => id === WATER || OCEAN_PLANTS.has(id);   // water, or a plant standing in it
 // Deepslate ores: the ores found below Y 0, set in deepslate. Same drops and tools as the plain ore, slower to mine.
@@ -1995,7 +1998,7 @@ const isDoor    = id => id === DOOR || id === DOORTOP;
 const isOpaque = id => id !== ICE && !isFenceish(id) && id !== TRAPDOOR && id !== ANVIL && id !== COMPOSTER && id !== GRINDSTONE && id !== CAULDRON && id !== LIGHTNINGROD && id !== AIR && id !== WATER && id !== GLASS && id !== LAVA && id !== PORTAL && id !== ENDPORTAL && id !== END_GATEWAY && id !== STORM_PORTAL && !isCross(id) && !isPartial(id) && !isDoor(id) && !isFlat(id);
 const isSolid  = id => id !== TRAPDOOR && id !== GATE_OPEN && id !== AIR && id !== WATER && id !== LAVA && id !== PORTAL && id !== ENDPORTAL && id !== END_GATEWAY && id !== STORM_PORTAL && !isCross(id) && !isDoor(id) && !isFlat(id);
 const isLiquid = id => id === WATER || id === LAVA;
-const emitsLight = id => id === SCULK_CATALYST || id === SCULK_SENSOR || id === SEA_LANTERN || id === AQ_CONDUIT || id === SEA_PICKLE || id === RS_TORCH || id === LAMP_ON || id===GLOWCRYSTAL || id === ENDERCHEST || id === JACK_O_LANTERN || id === LANTERN || id === CAMPFIRE || id === STORM_PORTAL || id === CONDUIT_LIT || id === VOLTITE_ORE || id === END_ROD || id === END_GATEWAY || id === CRYING_OBSIDIAN || id === ANCHOR_LIT || id === SHROOMLIGHT || id === MAGMA || isFire(id) || id === SOUL_TORCH || id === GLOWVINE || id === AMETHYST_C || id === AMBERLAMP || id === GLOWB || id === GLOWSTONE || id === LAVA || id === PORTAL || id === ENDPORTAL || id === ENDCRYSTAL;
+const emitsLight = id => id === CREAKING_HEART_ON || id === SCULK_CATALYST || id === SCULK_SENSOR || id === SEA_LANTERN || id === AQ_CONDUIT || id === SEA_PICKLE || id === RS_TORCH || id === LAMP_ON || id===GLOWCRYSTAL || id === ENDERCHEST || id === JACK_O_LANTERN || id === LANTERN || id === CAMPFIRE || id === STORM_PORTAL || id === CONDUIT_LIT || id === VOLTITE_ORE || id === END_ROD || id === END_GATEWAY || id === CRYING_OBSIDIAN || id === ANCHOR_LIT || id === SHROOMLIGHT || id === MAGMA || isFire(id) || id === SOUL_TORCH || id === GLOWVINE || id === AMETHYST_C || id === AMBERLAMP || id === GLOWB || id === GLOWSTONE || id === LAVA || id === PORTAL || id === ENDPORTAL || id === ENDCRYSTAL;
 const occl     = id => isOpaque(id);
 function tileFor(id, face){
   const d = BLOCKS[id];
@@ -2012,7 +2015,7 @@ function faceVisible(b, n){
   if(b === GLASS) return n === WATER;
   return !isOpaque(n);
 }
-const dropOf = id => id===PALE_GRASS?DIRT:id===EYEBLOSSOM_O?EYEBLOSSOM_C:id===MYCELIUM?DIRT:id===SEA_LANTERN?PRISMARINE_CRYSTALS:CORALB_SET.has(id)?DEAD_CORALB:id===RS_WIRE?REDSTONE:id===RS_TORCH_OFF?RS_TORCH:id===LAMP_ON?LAMP:DEEP_BASE[id] ? dropOf(DEEP_BASE[id]) : id===IRONO?RAW_IRON:id===GOLDO?RAW_GOLD:id===COPPERO?RAW_COPPER:id===REDSTONE_ORE?REDSTONE:id===LAPIS_ORE?LAPIS:id===STONE?COBBLE:id===BEDHEAD?BED:id===BEEHIVE_FULL?BEEHIVE:id===GATE_OPEN?GATE:id===SKYGRASS?STORMSTONE:id===VOLTITE_ORE?VOLTITE:id===CONDUIT_LIT?CONDUIT:id===CHORUS_PLANT?CHORUS_FRUIT:id===ANCHOR_LIT?ANCHOR:id===CRIM_NYL||id===WARP_NYL?NETHERRACK:id===QUARTZ_ORE?QUARTZ:id===NGOLD_ORE?GNUGGET:id===GILDED?(Math.random()<.1?GNUGGET:GILDED):id===SNOWY_GRASS?DIRT:id===GLOWVINE?BERRIES:id===AMETHYST_C||id===BUDDING?AMETHYST_SHARD:id===DRIP_DOWN?DRIP_UP:id===BERRYBUSH?BERRIES:id===CRYSTALORE||id===GLOWCRYSTAL?CRYSTALSHARD:id === GRASS || id === SAVGRASS || id === FARMLAND ? DIRT : id === COALO ? COALI : id === DIAMO ? DIAMI :
+const dropOf = id => id===CREAKING_HEART_ON?CREAKING_HEART:id===PALE_GRASS?DIRT:id===EYEBLOSSOM_O?EYEBLOSSOM_C:id===MYCELIUM?DIRT:id===SEA_LANTERN?PRISMARINE_CRYSTALS:CORALB_SET.has(id)?DEAD_CORALB:id===RS_WIRE?REDSTONE:id===RS_TORCH_OFF?RS_TORCH:id===LAMP_ON?LAMP:DEEP_BASE[id] ? dropOf(DEEP_BASE[id]) : id===IRONO?RAW_IRON:id===GOLDO?RAW_GOLD:id===COPPERO?RAW_COPPER:id===REDSTONE_ORE?REDSTONE:id===LAPIS_ORE?LAPIS:id===STONE?COBBLE:id===BEDHEAD?BED:id===BEEHIVE_FULL?BEEHIVE:id===GATE_OPEN?GATE:id===SKYGRASS?STORMSTONE:id===VOLTITE_ORE?VOLTITE:id===CONDUIT_LIT?CONDUIT:id===CHORUS_PLANT?CHORUS_FRUIT:id===ANCHOR_LIT?ANCHOR:id===CRIM_NYL||id===WARP_NYL?NETHERRACK:id===QUARTZ_ORE?QUARTZ:id===NGOLD_ORE?GNUGGET:id===GILDED?(Math.random()<.1?GNUGGET:GILDED):id===SNOWY_GRASS?DIRT:id===GLOWVINE?BERRIES:id===AMETHYST_C||id===BUDDING?AMETHYST_SHARD:id===DRIP_DOWN?DRIP_UP:id===BERRYBUSH?BERRIES:id===CRYSTALORE||id===GLOWCRYSTAL?CRYSTALSHARD:id === GRASS || id === SAVGRASS || id === FARMLAND ? DIRT : id === COALO ? COALI : id === DIAMO ? DIAMI :
                      id === EMERO ? EMERALD : id === DEADBUSH ? STICK : id;
 function toolClassOf(id){
   if(DEEP_BASE[id]) return 'pick';
@@ -2081,7 +2084,7 @@ function handTime(id){
   if(id === MYCELIUM || id === PALE_GRASS) return 0.8;
   if(id === PALE_MOSS) return 0.3;
   if(id === RESIN_BRICKS) return 2.5;
-  if(id === CREAKING_HEART) return 3.5;
+  if(isHeart(id)) return 3.5;
   if(id === SCULK) return 0.35;
   if(id === SCULK_SENSOR || id === SCULK_SHRIEKER || id === SCULK_CATALYST) return 1.5;
   if(id === DEEPSLATE_BRICKS || id === DEEPSLATE_TILES) return 5.5;
@@ -2728,7 +2731,10 @@ itemAtlas.width = 128; itemAtlas.height = 1024;   // 512 icons
   });
   { // the pale garden
     const q = r => Math.floor((r() - 0.5) * 12);
-    put(391, (x,y,r) => { const k = q(r); return x % 5 === 0 ? [150 + k, 144 + k, 136 + k] : [204 + k, 198 + k, 190 + k]; });   // pale oak bark
+    put(391, (x,y,r) => { const k = q(r), crack = hash(x, y >> 2, 1651) < 0.2 || (hash(x, y >> 1, 1652) < 0.08);   // pale oak bark: grey-white, split by dark cracks
+      if(crack) return [118 + k / 2, 110 + k / 2, 104 + k / 2];
+      const v = vnoise(x * 0.4 + 3, y * 0.15, 1653);
+      return v > 0.6 ? [222 + k / 2, 218 + k / 2, 210 + k / 2] : [196 + k, 190 + k, 182 + k]; });
     put(392, (x,y,r) => { const d = Math.max(Math.abs(x - 7.5), Math.abs(y - 7.5)), k = q(r);                                    // log end
       return d > 6.5 ? [176, 170, 162] : (Math.floor(d) % 2 ? [232 + k / 2, 222 + k / 2, 214 + k / 2] : [214 + k, 204 + k, 196 + k]); });
     put(393, (x,y,r) => { const k = q(r); return y % 4 === 0 ? [196, 188, 180] : [236 + k / 2, 228 + k / 2, 222 + k / 2]; });  // planks
@@ -2749,6 +2755,9 @@ itemAtlas.width = 128; itemAtlas.height = 1024;   // 512 icons
     put(398, bloom(false)); put(399, bloom(true));
     put(400, (x,y,r) => { const k = q(r), d = Math.hypot(x - 7.5, y - 7.5);                                                      // creaking heart: bark round an amber eye
       if(d < 2.2) return [255, 150, 40]; if(d < 3.4) return [120, 60, 20];
+      return x % 5 === 0 ? [120 + k, 108 + k, 96 + k] : [168 + k, 156 + k, 144 + k]; });
+    put(401, (x,y,r) => { const k = q(r), d = Math.hypot(x - 7.5, y - 7.5);                                                      // the heart awake: a blazing eye
+      if(d < 1.2) return [255, 250, 200]; if(d < 2.6) return [255, 170, 50]; if(d < 3.6) return [200, 90, 20];
       return x % 5 === 0 ? [120 + k, 108 + k, 96 + k] : [168 + k, 156 + k, 144 + k]; });
     put(402, (x,y,r) => { const k = q(r), row = y >> 2, bx = (x + (row % 2) * 4) % 8;                                           // resin bricks
       return (y % 4 === 3 || bx === 7) ? [150, 60, 14] : [226 + k / 2, 110 + k, 30 + k]; });
@@ -5648,7 +5657,7 @@ function* genEndChunkSteps(cx, cz){
   return data;
 }
 function biomePlant(biome,r,patch,snowy,beach){
-  if(biome === 'pale-garden') return r < .025 ? (blossomOpen ? EYEBLOSSOM_O : EYEBLOSSOM_C) : r < .3 && patch > .45 ? PALE_MOSS_CARPET : 0;
+  if(biome === 'pale-garden') return r < .025 ? (blossomOpen ? EYEBLOSSOM_O : EYEBLOSSOM_C) : r < .42 && patch > .36 ? PALE_MOSS_CARPET : 0;
   if(biome === 'meadow'){ if(r >= .55) return 0; return r < .3 ? [DAISY, POPPYB, BLUEBELL, DANDB, LAVENDER][Math.floor(patch * 5) % 5] : TGRASSB; }   // a meadow is thick with flowers
   if(biome === 'grove') return r < .05 ? FERN : 0;
   if(MOUNTAIN_BIOMES.has(biome)) return 0;
@@ -5841,7 +5850,7 @@ function* genChunkSteps(cx, cz){
       else if(MOUNTAIN_BIOMES.has(biome) && y > h - 4) b = mountainSurface(biome, wx, y, wz, h, steep);
       else if(stony && y > h - 5) b = STONE;
       else if((steep || alpine) && y > h - 4) b = y < h ? STONE : snowyTop ? SNOW : steep ? STONE : GRASS;
-      else if(y === h) b = biome === 'pale-garden' ? (vnoise(wx * .1, wz * .1, 1631) > .62 ? PALE_MOSS : PALE_GRASS) : biome === 'mushroom-fields' ? MYCELIUM : badlands ? terraBand(y - YS) : outback ? REDSAND
+      else if(y === h) b = biome === 'pale-garden' ? (vnoise(wx * .1, wz * .1, 1631) > .55 ? PALE_MOSS : PALE_GRASS) : biome === 'mushroom-fields' ? MYCELIUM : badlands ? terraBand(y - YS) : outback ? REDSAND
                          : biome === 'amberfield' ? AMBERGRASS
                          : biome === 'frostvale' ? FROSTGRASS
                          : biome === 'duskhollow' ? DUSKGRASS
@@ -5912,8 +5921,8 @@ function* genChunkSteps(cx, cz){
   if(GEN_V >= 2){ yield* decorateCavesSteps(data, cx, cz); stampGeodes(data, cx, cz); }
   // older worlds only get the new snow where nobody has built yet
   const snowBlanket = GEN_V >= 2 || !(edits && edits[cx + ',' + cz]);
-  for(let tz=-5;tz<21;tz++)for(let tx=-5;tx<21;tx++){
-    if((tx+5)%8===0)yield;
+  for(let tz=-8;tz<24;tz++)for(let tx=-8;tx<24;tx++){     // wide enough for the pale oaks' reach
+    if((tx+8)%8===0)yield;
     const wx=cx*16+tx,wz=cz*16+tz,t=treeAt(wx,wz);if(!t)continue;
     const extra=EXTRA_WOODS.find(w=>w.name.toLowerCase()===t.type);
     const log=t.type==='paleoak'?PALE_LOG:t.type==='darkoak'?DARK_LOG:t.type==='hugered'||t.type==='hugebrown'?MUSH_STEM:t.type==='boab'?BOAB_LOG:t.type==='redgum'?REDGUM_LOG:extra?extra.log:t.type==='spruce'?SPRUCELOG:t.type==='birch'?BIRCHLOG:t.type==='jungle'?JUNGLELOG:LOG;
@@ -5977,27 +5986,43 @@ function* genChunkSteps(cx, cz){
         for(let j=1;j<=n;j++)set(tx+Math.round(ox*j/n),t.h+top+Math.round(oy*j/n),tz+Math.round(oz*j/n),log);
         crown(ox,top+oy+1,oz,1.4,0.8,1.4);
       }
-    }else if(t.type==='darkoak'||t.type==='paleoak'){
+    }else if(t.type==='paleoak'){
+      // a pale oak, as in Minecraft: a tall 2x2 trunk flaring into roots, stout branches reaching
+      // out, a broad flat canopy, pale moss hanging from it, and sometimes a creaking heart inside
+      const H=t.th+2;
+      for(let k=1;k<=H;k++){set(tx,t.h+k,tz,log);set(tx+1,t.h+k,tz,log);set(tx,t.h+k,tz+1,log);set(tx+1,t.h+k,tz+1,log);}
+      [[-1,0],[-1,1],[2,0],[2,1],[0,-1],[1,-1],[0,2],[1,2]].forEach(([rx,rz],i)=>{
+        if(hash(wx+i,wz,8811)>=.55)return;
+        set(tx+rx,t.h+1,tz+rz,log);set(tx+rx,t.h,tz+rz,log);
+        if(hash(wx,wz+i,8812)<.45)set(tx+rx+(rx<0?-1:rx>1?1:0),t.h,tz+rz+(rz<0?-1:rz>1?1:0),log);
+      });
+      const nb=2+Math.floor(hash(wx,wz,8813)*3);
+      for(let i=0;i<nb;i++){
+        const a=(i/nb+hash(wx+i,wz,8814)*.3)*Math.PI*2,len=3+Math.floor(hash(wx,wz+i,8815)*2),by0=H-3-Math.floor(hash(wx+i,wz+i,8816)*2);
+        let ex=0,ez=0,ey=0;
+        for(let q=1;q<=len;q++){ex=Math.round(.5+Math.cos(a)*q);ez=Math.round(.5+Math.sin(a)*q);ey=by0+Math.floor(q*.6);set(tx+ex,t.h+ey,tz+ez,log);}
+        crown(ex,ey+1,ez,2.4,1.1,2.4);
+      }
+      crown(0,H,0,3.8,1.3,3.8);crown(1,H,1,3.8,1.3,3.8);crown(0,H+1,1,2.8,1,2.8);crown(1,H+1,0,2.8,1,2.8);
+      if(hash(wx,wz,8801)<.08)set(tx,t.h+Math.max(3,H-4),tz,CREAKING_HEART);
+      for(let dx=-7;dx<=8;dx++)for(let dz=-7;dz<=8;dz++){
+        const lx=tx+dx,lz=tz+dz;if(lx<0||lx>15||lz<0||lz>15)continue;
+        for(let y=t.h+H+2;y>t.h+H-6;y--){
+          if(data[(y<<8)|(lz<<4)|lx]!==PALE_LEAVES)continue;
+          if(data[((y-1)<<8)|(lz<<4)|lx]===AIR&&hash(wx+dx,wz+dz,8802)<.4){
+            const n=1+Math.floor(hash(wx+dx,wz+dz,8803)*4);
+            for(let k=1;k<=n&&data[((y-k)<<8)|(lz<<4)|lx]===AIR;k++)set(lx,y-k,lz,PALE_HANGING_MOSS);
+          }
+          break;
+        }
+      }
+    }else if(t.type==='darkoak'){
       // a dark oak: a thick 2x2 trunk under a broad, heavy canopy, with a few stout limbs
       for(let k=1;k<=t.th;k++){set(tx+1,t.h+k,tz,log);set(tx,t.h+k,tz+1,log);set(tx+1,t.h+k,tz+1,log);}
       for(const [dx,dz] of [[0,0],[1,0],[0,1],[1,1]])set(tx+dx,t.h,tz+dz,DIRT);
       for(const [ox,oz] of [[-1,0],[2,1],[1,-1],[0,2]])if(hash(wx+ox,wz+oz,996)<.6){set(tx+ox,t.h+t.th-1,tz+oz,log);set(tx+ox*2-(ox>1?2:0),t.h+t.th,tz+oz*2-(oz>1?2:0),log);}
       crown(0,t.th,0,3.3,1.2,3.3);crown(1,t.th,1,3.3,1.2,3.3);crown(0,t.th+1,1,2.4,1,2.4);crown(1,t.th+1,0,2.4,1,2.4);
-      if(t.type==='paleoak'){
-        // some pale oaks hide a creaking heart in the trunk; pale moss hangs from the canopy
-        if(hash(wx,wz,8801)<.08)set(tx,t.h+Math.max(2,t.th-3),tz,CREAKING_HEART);
-        for(let dx=-4;dx<=5;dx++)for(let dz=-4;dz<=5;dz++){
-          const lx=tx+dx,lz=tz+dz;if(lx<0||lx>15||lz<0||lz>15)continue;
-          for(let y=t.h+t.th+2;y>t.h+t.th-3;y--){
-            if(data[(y<<8)|(lz<<4)|lx]!==PALE_LEAVES)continue;
-            if(data[((y-1)<<8)|(lz<<4)|lx]===AIR&&hash(wx+dx,wz+dz,8802)<.35){
-              const n=1+Math.floor(hash(wx+dx,wz+dz,8803)*3);
-              for(let k=1;k<=n&&data[((y-k)<<8)|(lz<<4)|lx]===AIR;k++)set(lx,y-k,lz,PALE_HANGING_MOSS);
-            }
-            break;
-          }
-        }
-      }
+
     }else if(t.type==='hugered'){
       // a giant red mushroom: a pale stem under a dome of red cap
       for(let dx=-2;dx<=2;dx++)for(let dz=-2;dz<=2;dz++){
@@ -6644,6 +6669,7 @@ function emitLevel(id){
   if(id === SEA_PICKLE) return 6;
   if(id === SEA_LANTERN || id === AQ_CONDUIT) return 15;
   if(id === SCULK_CATALYST) return 6;
+  if(id === CREAKING_HEART_ON) return 5;
   if(id === SCULK_SENSOR) return 1;
   if(id===GLOWCRYSTAL)return 11;
   if(id === SHROOMLIGHT || id === FIRE || id === END_GATEWAY || id === ANCHOR_LIT) return 15;
@@ -8994,7 +9020,7 @@ function playerSees(e){
   return lineClear(_cEye, _cTo.add(_cEye));
 }
 function creakingThink(e, dt){
-  const heartGone = !e.heart || getBlock(e.heart[0], e.heart[1], e.heart[2]) !== CREAKING_HEART;
+  const heartGone = !e.heart || !isHeart(getBlock(e.heart[0], e.heart[1], e.heart[2]));
   if(heartGone || daylightOf(timeOfDay) > 0.35){                          // no heart, or morning: it crumbles
     burstRGB(e.pos.x, e.pos.y + 1.3, e.pos.z, 0.55, 0.5, 0.45, 24, 0.7);
     playN({ f: 500, type: 'lowpass', dur: 0.6, vol: 0.15 });
@@ -9036,7 +9062,7 @@ function animCreaking(e, dt){
 }
 // hearts in the pale oaks wake at night and send out a Creaking when you come near;
 // eyeblossoms open after dusk and close at dawn
-let creakScanT = 0, paleHere = false, paleK = 0;
+let creakScanT = 0, paleHere = false, paleK = 0, paleMuted = false;
 function updatePale(dt){
   if(dim !== 0) return;
   if((creakScanT -= dt) > 0) return;
@@ -9044,6 +9070,8 @@ function updatePale(dt){
   const night = daylightOf(timeOfDay) < 0.3;
   const px = Math.floor(player.pos.x), py = Math.floor(player.pos.y), pz = Math.floor(player.pos.z);
   paleHere = biomeAt(px, pz) === 'pale-garden' && py > terrainHeight(px, pz) - 10;
+  // the Pale Garden is silent: the music fades away while you are in it
+  if(paleHere !== paleMuted && musicGain && AC){ paleMuted = paleHere; musicGain.gain.setTargetAtTime(paleHere ? 0.0001 : (musicOn ? 0.55 : 0.0001), AC.currentTime, 1.5); }
   // eyeblossoms follow the night, in the chunks around you
   if(blossomOpen !== night) blossomOpen = night;
   for(let ccx = (px >> 4) - 4; ccx <= (px >> 4) + 4; ccx++) for(let ccz = (pz >> 4) - 4; ccz <= (pz >> 4) + 4; ccz++){
@@ -9053,8 +9081,13 @@ function updatePale(dt){
     if(biomeAt(ccx * 16 + 8, ccz * 16 + 8) !== 'pale-garden') continue;
     let changed = false;
     const from = blossomOpen ? EYEBLOSSOM_C : EYEBLOSSOM_O, to = blossomOpen ? EYEBLOSSOM_O : EYEBLOSSOM_C;
-    for(let i = (SEA << 8); i < Math.min(c.data.length, (SEA + 140) << 8); i++) if(c.data[i] === from){ c.data[i] = to; changed = true; }
-    if(changed && c.built) queueMesh(c, true);
+    const hFrom = blossomOpen ? CREAKING_HEART : CREAKING_HEART_ON, hTo = blossomOpen ? CREAKING_HEART_ON : CREAKING_HEART;   // the hearts wake at night
+    for(let i = (SEA << 8); i < Math.min(c.data.length, (SEA + 140) << 8); i++){
+      if(c.data[i] === from){ c.data[i] = to; changed = true; }
+      else if(c.data[i] === hFrom){ c.data[i] = hTo; changed = true; }
+    }
+    if(changed) c.emitters = null;                   // re-read the lights
+    if(changed && c.built) queueMesh(c, false);     // relit: the hearts glow at night
   }
   if(!night || mode !== 'survival') return;
   // creaking hearts nearby, each with its one Creaking
@@ -9062,7 +9095,7 @@ function updatePale(dt){
     const c = chunks.get(ccx + ',' + ccz);
     if(!c || !c.data) continue;
     for(let y = Math.max(1, py - 16); y <= Math.min(HEIGHT - 2, py + 24); y++) for(let i = 0; i < 256; i++){
-      if(c.data[(y << 8) | i] !== CREAKING_HEART) continue;
+      if(!isHeart(c.data[(y << 8) | i])) continue;
       const hx = ccx * 16 + (i & 15), hz = ccz * 16 + (i >> 4), key = hx + ',' + y + ',' + hz;
       if(Math.hypot(hx - px, hz - pz) > 32 || netherMobs.some(m => m.type === 'creaking' && m.heartKey === key)) continue;
       if(netherMobs.filter(m => m.type === 'creaking' && !m.remove).length >= 3) return;     // a few at most
@@ -15286,7 +15319,7 @@ function breakBlock(x, y, z, id){
     if(id === TGRASSB){ if(Math.random() < 0.25) spawnDropAt(x + 0.5, y + 0.4, z + 0.5, SEEDS, 1); return; }
     if(id === RED_MUSH_BLOCK || id === BROWN_MUSH_BLOCK){ if(Math.random() < 0.22) spawnDropAt(x + 0.5, y + 0.4, z + 0.5, id === RED_MUSH_BLOCK ? MUSHROOMR : MUSHROOMB, 1 + (Math.random() < 0.3 ? 1 : 0)); return; }
     if(id === MUSH_STEM) return;
-    if(id === CREAKING_HEART){ spawnDropAt(x + 0.5, y + 0.5, z + 0.5, RESIN_CLUMP, 1 + ((Math.random() * 3) | 0)); dropXP(x + 0.5, y + 0.5, z + 0.5, 5); return; }
+    if(isHeart(id)){ spawnDropAt(x + 0.5, y + 0.5, z + 0.5, RESIN_CLUMP, 1 + ((Math.random() * 3) | 0)); dropXP(x + 0.5, y + 0.5, z + 0.5, 5); return; }
     if(id === SEAGRASS){ if(heldId() === SHEARS){ spawnDrop(x, y, z, SEAGRASS); damageTool(['shears']); } return; }   // seagrass only to shears
     if(id === ICE || CORALS.includes(id) || FANS.includes(id)) return;                                            // these need Silk Touch in Minecraft
     if(harvestOk(id) && !isLeaf(id)){               // leaves never drop themselves except to shears (above)
@@ -15489,7 +15522,7 @@ const creativeItems = [GRASS, DIRT, STONE, LOG, PLANK, GLASS, TORCH, BRICK, GLOW
 // creative palette always includes everything (auto-updates as blocks are added).
 const ALL_CREATIVE = (() => {
   const out = [];
-  for(const id of Object.keys(BLOCKS).map(Number)){ if(id !== WATER && id !== PORTAL && id !== DOORTOP && id !== RS_TORCH_OFF && id !== RS_WIRE && id !== LAMP_ON && !(id > CAKE && id <= POTATO3)) out.push(id); }
+  for(const id of Object.keys(BLOCKS).map(Number)){ if(id !== WATER && id !== PORTAL && id !== DOORTOP && id !== RS_TORCH_OFF && id !== RS_WIRE && id !== LAMP_ON && id !== 626 && !(id > CAKE && id <= POTATO3)) out.push(id); }
   for(const k in ITEMS){ const id = +k; if(!!ITEMS[id]) out.push(id); }
   return out;
 })();
@@ -16854,7 +16887,7 @@ const hudEl = document.getElementById('hud');
 const tintEl = document.getElementById('watertint');
 const WATER_FOG = new THREE.Color(0x1f4fa8), _waterFog = new THREE.Color(), _eyeW = new THREE.Vector3();
 let eyeWasWet = false, darkWas = false, caveFogK = 0, paleWas = false;
-const PALE_FOG = new THREE.Color(0xb4b8b2);
+const PALE_FOG = new THREE.Color(0xc4c8c2);
 const CAVE_FOG = new THREE.Color(0x06070a);
 const clock = new THREE.Clock();
 let timeOfDay = 0.32, frames = 0, fps = 0, fpsT = 0, hudT = 0, saveT = 0, fluidWakeT=0;
@@ -19717,8 +19750,8 @@ function animate(){
   // the Pale Garden's grey mist
   paleK += ((paleHere && dim === 0 ? 1 : 0) - paleK) * Math.min(1, dt * 0.8);
   if(paleK > 0.01){
-    skyCol.lerp(PALE_FOG, 0.6 * paleK); renderer.setClearColor(skyCol); scene.fog.color.copy(skyCol);
-    scene.fog.near = RD * 16 * (0.55 - 0.45 * paleK); scene.fog.far = RD * 16 * (0.95 - 0.45 * paleK); paleWas = true;
+    skyCol.lerp(PALE_FOG, 0.78 * paleK); renderer.setClearColor(skyCol); scene.fog.color.copy(skyCol);
+    scene.fog.near = RD * 16 * (0.55 - 0.5 * paleK); scene.fog.far = RD * 16 * (0.95 - 0.58 * paleK); paleWas = true;
   } else if(paleWas){ paleWas = false; scene.fog.near = RD * 16 * 0.55; scene.fog.far = RD * 16 * 0.95; }
   // deep underground, out of the sky's reach, the distance fades to black rather than to sky blue
   if(dim === 0){
