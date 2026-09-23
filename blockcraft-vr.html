@@ -1644,7 +1644,7 @@ const T = {GRASS_TOP:0,GRASS_SIDE:1,DIRT:2,STONE:3,SAND:4,LOG_SIDE:5,LOG_TOP:6,L
            ENDSTONE_T:84,ENDPORTAL_T:85,DRAGONEGG_T:86,ENDCRYSTAL_T:87,
             SPAWNER_T:88,RAIL_T:89,COBWEB_T:90,CRACKED_T:91,MOSSYBRICK_T:92,IRONBARS_T:93};
 const SNOW_SIDE_TILE = 342;
-const ATLAS_COLS = 8, ATLAS_W = 128, ATLAS_H = 1024;   // 512 tiles
+const ATLAS_COLS = 8, ATLAS_W = 128, ATLAS_H = 2048;   // 1024 tiles; architecture pack uses slots 900-995
 const BLOCKS = {
   [GRASS]:{name:'Grass',  top:T.GRASS_TOP, bottom:T.DIRT, side:T.GRASS_SIDE},
   [DIRT] :{name:'Dirt',   all:T.DIRT},
@@ -1926,6 +1926,110 @@ let blossomOpen = false;   // eyeblossoms are open at night
 const CREAKING_HEART_ON = 626;   // a creaking heart awake at night, its eye aglow
 BLOCKS[CREAKING_HEART_ON]={name:'Creaking Heart',side:401,top:392,bottom:392};
 const isHeart = id => id === CREAKING_HEART || id === CREAKING_HEART_ON;
+/* Architecture expansion: 96 full building blocks in a conflict-safe range. */
+const MUD_BLOCK=2000, PACKED_MUD=2001, MUD_BRICKS=2002, MUD_TILES=2003, CHISELED_MUD=2004, POLISHED_TUFF=2005, TUFF_BRICKS=2006, CHISELED_TUFF=2007, TUFF_TILES=2008, CALCITE_BRICKS=2009, CHISELED_CALCITE=2010, CUT_COPPER=2011, EXPOSED_COPPER=2012, WEATHERED_COPPER=2013, OXIDIZED_COPPER=2014, COPPER_BRICKS=2015, EXPOSED_COPPER_BRICKS=2016, WEATHERED_COPPER_BRICKS=2017, OXIDIZED_COPPER_BRICKS=2018, CHISELED_COPPER=2019, COPPER_TILES=2020, CUT_SANDSTONE=2021, CHISELED_SANDSTONE=2022, SMOOTH_SANDSTONE=2023, SANDSTONE_BRICKS=2024, SANDSTONE_TILES=2025, RED_SANDSTONE=2026, CUT_RED_SANDSTONE=2027, CHISELED_RED_SANDSTONE=2028, SMOOTH_RED_SANDSTONE=2029, RED_SANDSTONE_BRICKS=2030, SMOOTH_QUARTZ=2031, QUARTZ_BRICKS=2032, CHISELED_QUARTZ=2033, QUARTZ_TILES=2034, QUARTZ_MOSAIC=2035, QUARTZ_PILLAR_BLOCK=2036, CRACKED_QUARTZ_BRICKS=2037, GILDED_QUARTZ=2038, POLISHED_BLACKSTONE=2039, CHISELED_BLACKSTONE=2040, CRACKED_BLACKSTONE_BRICKS=2041, BLACKSTONE_TILES=2042, CHISELED_NETHER_BRICKS=2043, CRACKED_NETHER_BRICKS=2044, NETHER_BRICK_TILES=2045, SOUL_BRICKS=2046, BASALT_TILES=2047, POLISHED_BASALT=2048, COBBLED_DEEPSLATE=2049, POLISHED_DEEPSLATE=2050, CHISELED_DEEPSLATE=2051, CRACKED_DEEPSLATE_BRICKS=2052, CRACKED_DEEPSLATE_TILES=2053, DEEPSLATE_MOSAIC=2054, SMOOTH_DEEPSLATE=2055, DEEPSLATE_PILLAR=2056, SCULK_BRICKS=2057, ANCIENT_CITY_STONE=2058, PRISMARINE_TILES=2059, CHISELED_PRISMARINE=2060, SMOOTH_PRISMARINE=2061, DARK_PRISMARINE_BRICKS=2062, DARK_PRISMARINE_TILES=2063, SEA_MOSAIC=2064, CORALSTONE=2065, BARNACLE_STONE=2066, SMOOTH_END_STONE=2067, CHISELED_END_STONE=2068, END_STONE_TILES=2069, CRACKED_END_BRICKS=2070, PURPUR_BRICKS=2071, PURPUR_TILES=2072, CHISELED_PURPUR=2073, CHORUS_STONE=2074, MOSSY_DEEPSLATE_BRICKS=2075, MOSSY_DEEPSLATE_TILES=2076, CRACKED_STONE_TILES=2077, STONE_TILES=2078, CHISELED_STONE=2079, SMOOTH_STONE_BLOCK=2080, ANCIENT_BRICKS=2081, MOSSY_ANCIENT_BRICKS=2082, AMETHYST_BRICKS=2083, AMETHYST_TILES=2084, CHISELED_AMETHYST=2085, CALCITE_TILES=2086, TUFF_MOSAIC=2087, DRIPSTONE_BRICKS=2088, CHISELED_DRIPSTONE=2089, AMBER_BRICKS=2090, AMBER_TILES=2091, STORMSTONE_TILES=2092, CHISELED_STORMSTONE=2093, CRYSTAL_TILES=2094, CHISELED_CRYSTAL=2095;
+const ARCH_BLOCKS = [
+  [MUD_BLOCK,"Mud",900,DIRT,"raw",[102,72,53]],
+  [PACKED_MUD,"Packed Mud",901,MUD_BLOCK,"packed",[126,83,55]],
+  [MUD_BRICKS,"Mud Bricks",902,PACKED_MUD,"brick",[137,82,54]],
+  [MUD_TILES,"Mud Tiles",903,MUD_BRICKS,"tile",[126,73,49]],
+  [CHISELED_MUD,"Chiseled Mud Bricks",904,MUD_BRICKS,"chiseled",[145,89,59]],
+  [POLISHED_TUFF,"Polished Tuff",905,TUFF,"polished",[104,112,106]],
+  [TUFF_BRICKS,"Tuff Bricks",906,POLISHED_TUFF,"brick",[91,102,95]],
+  [CHISELED_TUFF,"Chiseled Tuff",907,TUFF_BRICKS,"chiseled",[98,108,101]],
+  [TUFF_TILES,"Tuff Tiles",908,TUFF_BRICKS,"tile",[82,94,88]],
+  [CALCITE_BRICKS,"Calcite Bricks",909,CALCITE,"brick",[220,216,202]],
+  [CHISELED_CALCITE,"Chiseled Calcite",910,CALCITE_BRICKS,"chiseled",[226,222,208]],
+  [CUT_COPPER,"Cut Copper",911,COPPERB,"tile",[190,108,70]],
+  [EXPOSED_COPPER,"Exposed Cut Copper",912,CUT_COPPER,"tile",[151,126,83]],
+  [WEATHERED_COPPER,"Weathered Cut Copper",913,EXPOSED_COPPER,"tile",[92,140,112]],
+  [OXIDIZED_COPPER,"Oxidized Cut Copper",914,WEATHERED_COPPER,"tile",[53,132,115]],
+  [COPPER_BRICKS,"Copper Bricks",915,CUT_COPPER,"brick",[181,101,65]],
+  [EXPOSED_COPPER_BRICKS,"Exposed Copper Bricks",916,EXPOSED_COPPER,"brick",[145,120,80]],
+  [WEATHERED_COPPER_BRICKS,"Weathered Copper Bricks",917,WEATHERED_COPPER,"brick",[84,132,105]],
+  [OXIDIZED_COPPER_BRICKS,"Oxidized Copper Bricks",918,OXIDIZED_COPPER,"brick",[47,123,108]],
+  [CHISELED_COPPER,"Chiseled Copper",919,CUT_COPPER,"chiseled",[196,113,72]],
+  [COPPER_TILES,"Copper Tiles",920,CUT_COPPER,"mosaic",[173,96,62]],
+  [CUT_SANDSTONE,"Cut Sandstone",921,SANDSTONE,"tile",[218,196,142]],
+  [CHISELED_SANDSTONE,"Chiseled Sandstone",922,SANDSTONE,"chiseled",[224,203,151]],
+  [SMOOTH_SANDSTONE,"Smooth Sandstone",923,SANDSTONE,"smooth",[229,210,163]],
+  [SANDSTONE_BRICKS,"Sandstone Bricks",924,SANDSTONE,"brick",[214,190,135]],
+  [SANDSTONE_TILES,"Sandstone Tiles",925,SANDSTONE_BRICKS,"mosaic",[205,181,126]],
+  [RED_SANDSTONE,"Red Sandstone",926,REDSAND,"raw",[178,84,38]],
+  [CUT_RED_SANDSTONE,"Cut Red Sandstone",927,RED_SANDSTONE,"tile",[185,88,39]],
+  [CHISELED_RED_SANDSTONE,"Chiseled Red Sandstone",928,RED_SANDSTONE,"chiseled",[194,94,42]],
+  [SMOOTH_RED_SANDSTONE,"Smooth Red Sandstone",929,RED_SANDSTONE,"smooth",[202,101,49]],
+  [RED_SANDSTONE_BRICKS,"Red Sandstone Bricks",930,RED_SANDSTONE,"brick",[172,76,34]],
+  [SMOOTH_QUARTZ,"Smooth Quartz",931,QUARTZ_BLOCK,"smooth",[235,231,222]],
+  [QUARTZ_BRICKS,"Quartz Bricks",932,QUARTZ_BLOCK,"brick",[224,218,209]],
+  [CHISELED_QUARTZ,"Chiseled Quartz",933,QUARTZ_BLOCK,"chiseled",[232,226,216]],
+  [QUARTZ_TILES,"Quartz Tiles",934,QUARTZ_BRICKS,"tile",[216,211,204]],
+  [QUARTZ_MOSAIC,"Quartz Mosaic",935,QUARTZ_TILES,"mosaic",[228,222,213]],
+  [QUARTZ_PILLAR_BLOCK,"Quartz Pillar",936,QUARTZ_BLOCK,"pillar",[230,225,216]],
+  [CRACKED_QUARTZ_BRICKS,"Cracked Quartz Bricks",937,QUARTZ_BRICKS,"cracked",[215,209,201]],
+  [GILDED_QUARTZ,"Gilded Quartz",938,QUARTZ_BLOCK,"gilded",[230,220,191]],
+  [POLISHED_BLACKSTONE,"Polished Blackstone",939,BLACKSTONE,"polished",[54,50,60]],
+  [CHISELED_BLACKSTONE,"Chiseled Blackstone",940,POLISHED_BLACKSTONE,"chiseled",[60,55,66]],
+  [CRACKED_BLACKSTONE_BRICKS,"Cracked Blackstone Bricks",941,BSTONE_BRICK,"cracked",[50,45,57]],
+  [BLACKSTONE_TILES,"Blackstone Tiles",942,BSTONE_BRICK,"tile",[44,40,51]],
+  [CHISELED_NETHER_BRICKS,"Chiseled Nether Bricks",943,NBRICK,"chiseled",[62,28,34]],
+  [CRACKED_NETHER_BRICKS,"Cracked Nether Bricks",944,NBRICK,"cracked",[54,25,31]],
+  [NETHER_BRICK_TILES,"Nether Brick Tiles",945,NBRICK,"tile",[58,25,31]],
+  [SOUL_BRICKS,"Soul Bricks",946,SOULSOIL,"brick",[75,61,52]],
+  [BASALT_TILES,"Basalt Tiles",947,BASALT_N,"tile",[67,66,70]],
+  [POLISHED_BASALT,"Polished Basalt",948,BASALT_N,"pillar",[76,75,79]],
+  [COBBLED_DEEPSLATE,"Cobbled Deepslate",949,DEEPSLATE,"raw",[67,67,71]],
+  [POLISHED_DEEPSLATE,"Polished Deepslate",950,COBBLED_DEEPSLATE,"polished",[73,73,77]],
+  [CHISELED_DEEPSLATE,"Chiseled Deepslate",951,POLISHED_DEEPSLATE,"chiseled",[69,69,74]],
+  [CRACKED_DEEPSLATE_BRICKS,"Cracked Deepslate Bricks",952,DEEPSLATE_BRICKS,"cracked",[58,59,63]],
+  [CRACKED_DEEPSLATE_TILES,"Cracked Deepslate Tiles",953,DEEPSLATE_TILES,"cracked",[52,53,57]],
+  [DEEPSLATE_MOSAIC,"Deepslate Mosaic",954,DEEPSLATE_TILES,"mosaic",[61,62,66]],
+  [SMOOTH_DEEPSLATE,"Smooth Deepslate",955,POLISHED_DEEPSLATE,"smooth",[76,76,80]],
+  [DEEPSLATE_PILLAR,"Deepslate Pillar",956,POLISHED_DEEPSLATE,"pillar",[70,71,76]],
+  [SCULK_BRICKS,"Sculk Bricks",957,SCULK,"brick",[18,61,62]],
+  [ANCIENT_CITY_STONE,"Ancient City Stone",958,DEEPSLATE,"mosaic",[46,58,62]],
+  [PRISMARINE_TILES,"Prismarine Tiles",959,PRISMARINE,"tile",[88,154,144]],
+  [CHISELED_PRISMARINE,"Chiseled Prismarine",960,PRISMARINE,"chiseled",[98,165,153]],
+  [SMOOTH_PRISMARINE,"Smooth Prismarine",961,PRISMARINE,"smooth",[105,176,163]],
+  [DARK_PRISMARINE_BRICKS,"Dark Prismarine Bricks",962,DARK_PRISMARINE,"brick",[45,93,83]],
+  [DARK_PRISMARINE_TILES,"Dark Prismarine Tiles",963,DARK_PRISMARINE,"tile",[39,82,74]],
+  [SEA_MOSAIC,"Sea Mosaic",964,PRISMARINE_BRICKS,"mosaic",[72,142,135]],
+  [CORALSTONE,"Coralstone",965,DEAD_CORALB,"raw",[133,119,111]],
+  [BARNACLE_STONE,"Barnacle Stone",966,PRISMARINE,"organic",[91,137,129]],
+  [SMOOTH_END_STONE,"Smooth End Stone",967,ENDSTONE,"smooth",[222,224,166]],
+  [CHISELED_END_STONE,"Chiseled End Stone",968,ENDSTONE,"chiseled",[214,216,154]],
+  [END_STONE_TILES,"End Stone Tiles",969,ENDSTONE_BRICK,"tile",[205,208,148]],
+  [CRACKED_END_BRICKS,"Cracked End Stone Bricks",970,ENDSTONE_BRICK,"cracked",[198,202,145]],
+  [PURPUR_BRICKS,"Purpur Bricks",971,PURPUR,"brick",[167,119,168]],
+  [PURPUR_TILES,"Purpur Tiles",972,PURPUR,"tile",[157,106,160]],
+  [CHISELED_PURPUR,"Chiseled Purpur",973,PURPUR,"chiseled",[177,127,179]],
+  [CHORUS_STONE,"Chorus Stone",974,CHORUS_PLANT,"organic",[119,78,126]],
+  [MOSSY_DEEPSLATE_BRICKS,"Mossy Deepslate Bricks",975,DEEPSLATE_BRICKS,"mossy",[60,72,61]],
+  [MOSSY_DEEPSLATE_TILES,"Mossy Deepslate Tiles",976,DEEPSLATE_TILES,"mossy",[54,68,57]],
+  [CRACKED_STONE_TILES,"Cracked Stone Tiles",977,SBRICK,"cracked",[115,115,112]],
+  [STONE_TILES,"Stone Tiles",978,SBRICK,"tile",[123,123,120]],
+  [CHISELED_STONE,"Chiseled Stone",979,SBRICK,"chiseled",[130,130,126]],
+  [SMOOTH_STONE_BLOCK,"Smooth Stone",980,STONE,"smooth",[142,142,139]],
+  [ANCIENT_BRICKS,"Ancient Bricks",981,SBRICK,"brick",[101,98,91]],
+  [MOSSY_ANCIENT_BRICKS,"Mossy Ancient Bricks",982,ANCIENT_BRICKS,"mossy",[92,104,82]],
+  [AMETHYST_BRICKS,"Amethyst Bricks",983,AMETHYST,"brick",[126,89,166]],
+  [AMETHYST_TILES,"Amethyst Tiles",984,AMETHYST_BRICKS,"tile",[116,78,157]],
+  [CHISELED_AMETHYST,"Chiseled Amethyst",985,AMETHYST_BRICKS,"chiseled",[143,101,184]],
+  [CALCITE_TILES,"Calcite Tiles",986,CALCITE_BRICKS,"tile",[211,207,194]],
+  [TUFF_MOSAIC,"Tuff Mosaic",987,TUFF_BRICKS,"mosaic",[87,98,91]],
+  [DRIPSTONE_BRICKS,"Dripstone Bricks",988,DRIPSTONE,"brick",[132,92,70]],
+  [CHISELED_DRIPSTONE,"Chiseled Dripstone",989,DRIPSTONE_BRICKS,"chiseled",[143,99,74]],
+  [AMBER_BRICKS,"Amber Bricks",990,AMBERLAMP,"brick",[196,128,52]],
+  [AMBER_TILES,"Amber Tiles",991,AMBER_BRICKS,"tile",[184,113,43]],
+  [STORMSTONE_TILES,"Stormstone Tiles",992,STORMSTONE,"tile",[79,87,111]],
+  [CHISELED_STORMSTONE,"Chiseled Stormstone",993,STORMSTONE,"chiseled",[91,101,131]],
+  [CRYSTAL_TILES,"Crystal Tiles",994,CRYSTALBRICK,"tile",[78,74,119]],
+  [CHISELED_CRYSTAL,"Chiseled Crystal",995,CRYSTALBRICK,"chiseled",[94,88,143]]
+];
+ARCH_BLOCKS.forEach(([id,name,tile])=>BLOCKS[id]={name,all:tile});
+const ARCHITECTURE_BLOCKS = new Set(ARCH_BLOCKS.map(b=>b[0]));
+const MUD_BUILDING=new Set([MUD_BLOCK,PACKED_MUD,MUD_BRICKS,MUD_TILES,CHISELED_MUD]);
+const STONE_BUILDING=new Set([...ARCHITECTURE_BLOCKS].filter(id=>!MUD_BUILDING.has(id)));
 /* Minecraft's sixteen colours: a dye for each, and in each colour wool, carpet,
    concrete, concrete powder (it sets hard where it meets water), stained glass,
    terracotta and glazed terracotta. Plus granite, diorite and andesite, which
@@ -2049,6 +2153,8 @@ function faceVisible(b, n){
 const dropOf = id => id===CREAKING_HEART_ON?CREAKING_HEART:id===PALE_GRASS?DIRT:id===EYEBLOSSOM_O?EYEBLOSSOM_C:id===MYCELIUM?DIRT:id===SEA_LANTERN?PRISMARINE_CRYSTALS:CORALB_SET.has(id)?DEAD_CORALB:id===RS_WIRE?REDSTONE:id===RS_TORCH_OFF?RS_TORCH:id===LAMP_ON?LAMP:DEEP_BASE[id] ? dropOf(DEEP_BASE[id]) : id===IRONO?RAW_IRON:id===GOLDO?RAW_GOLD:id===COPPERO?RAW_COPPER:id===REDSTONE_ORE?REDSTONE:id===LAPIS_ORE?LAPIS:id===STONE?COBBLE:id===BEDHEAD?BED:id===BEEHIVE_FULL?BEEHIVE:id===GATE_OPEN?GATE:id===SKYGRASS?STORMSTONE:id===VOLTITE_ORE?VOLTITE:id===CONDUIT_LIT?CONDUIT:id===CHORUS_PLANT?CHORUS_FRUIT:id===ANCHOR_LIT?ANCHOR:id===CRIM_NYL||id===WARP_NYL?NETHERRACK:id===QUARTZ_ORE?QUARTZ:id===NGOLD_ORE?GNUGGET:id===GILDED?(Math.random()<.1?GNUGGET:GILDED):id===SNOWY_GRASS?DIRT:id===GLOWVINE?BERRIES:id===AMETHYST_C||id===BUDDING?AMETHYST_SHARD:id===DRIP_DOWN?DRIP_UP:id===BERRYBUSH?BERRIES:id===CRYSTALORE||id===GLOWCRYSTAL?CRYSTALSHARD:id === GRASS || id === SAVGRASS || id === FARMLAND ? DIRT : id === COALO ? COALI : id === DIAMO ? DIAMI :
                      id === EMERO ? EMERALD : id === DEADBUSH ? STICK : id;
 function toolClassOf(id){
+  if(id === MUD_BLOCK) return 'shovel';
+  if(ARCHITECTURE_BLOCKS.has(id)) return 'pick';
   if(PART_BASE[id] !== undefined) return toolClassOf(PART_BASE[id]);
   if(WALL_BASE[id] !== undefined) return toolClassOf(WALL_BASE[id]);
   if(DEEP_BASE[id]) return 'pick';
@@ -2093,6 +2199,10 @@ function toolClassOf(id){
   return null;
 }
 function handTime(id){
+  if(id === MUD_BLOCK) return 0.7;
+  if(id === PACKED_MUD) return 1.1;
+  if(MUD_BUILDING.has(id)) return 2.0;
+  if(ARCHITECTURE_BLOCKS.has(id)) return 3.8;
   if(PART_BASE[id] !== undefined) return handTime(PART_BASE[id]);
   if(WALL_BASE[id] !== undefined) return handTime(WALL_BASE[id]);
   if(FENCES.has(id)) return 2.0;
@@ -2363,6 +2473,13 @@ RECIPES.push({out:[CRIM_PLANK,4],in:[[CRIM_STEM,1]]},{out:[WARP_PLANK,4],in:[[WA
   {out:[BSTONE_BRICK,4],in:[[BLACKSTONE,4]]},{out:[RED_NBRICK,1],in:[[NWART,2],[NBRICK,2]],st:'table'},
   {out:[NB_FENCE,6],in:[[NBRICK,6]],st:'table'},{out:[FLINTSTEEL,1],in:[[IRONI,1],[GRAVEL,1]]});
 RECIPES.push({out:[CRYSTALPICK,1],in:[[CRYSTALSHARD,4],[STICK,2],[IRONI,1]],st:'table'},{out:[CRYSTALSWORD,1],in:[[CRYSTALSHARD,3],[STICK,1],[IRONI,1]],st:'table'},{out:[GLOWCRYSTAL,1],in:[[CRYSTALSHARD,2]]},{out:[CRYSTALBRICK,4],in:[[CRYSTALSHARD,1],[STONE,4]],st:'table'});
+// Architecture expansion recipes. Every new block is obtainable in survival.
+RECIPES.push(
+  {out:[MUD_BLOCK,4],in:[[DIRT,2],[CLAY,2]]},
+  {out:[PACKED_MUD,2],in:[[MUD_BLOCK,2],[WHEATITEM,1]]}
+);
+for(const [id,name,tile,source] of ARCH_BLOCKS.slice(2))
+  RECIPES.push({out:[id,4],in:[[source,4]],st:'table'});
 /* ========================= texture atlases ========================== */
 function mulberry32(a){
   return () => { a |= 0; a = a + 0x6D2B79F5 | 0;
@@ -2894,6 +3011,30 @@ itemAtlas.width = 128; itemAtlas.height = 1024;   // 512 icons
     put(404, (x,y,r) => { const k = q(r), edge = 3 + (hash(x, 0, 1646) < 0.5 ? 1 : 0);                                           // pale grass side
       if(y < edge) return [124 + k, 136 + k, 120 + k];
       return r() < 0.05 ? [88, 62, 42] : [121 + k, 85 + k, 58 + k]; });
+  }
+  { // 96-block architecture pack, atlas slots 900-995
+    const clamp=v=>Math.max(0,Math.min(255,v));
+    const tone=(c,n)=>[clamp(c[0]+n),clamp(c[1]+n),clamp(c[2]+n)];
+    const archPx=(style,c,salt)=>(x,y,r)=>{
+      const grain=(r()-.5)*14, edge=[c[0]-38,c[1]-38,c[2]-38], light=[c[0]+22,c[1]+22,c[2]+22];
+      const row=y>>2, stagger=(x+((row&1)?4:0))&7, border=x===0||y===0||x===15||y===15;
+      const crack=hash(x,y,salt)<.055 || (hash(x>>1,y,salt+1)<.035 && ((x+y)&1));
+      if(style==='brick' && (y%4===0||stagger===0)) return tone(edge,(r()-.5)*8);
+      if(style==='tile' && (x%4===0||y%4===0)) return tone(edge,(r()-.5)*6);
+      if(style==='mosaic' && ((x+y)%8===0||(x-y+32)%8===0)) return tone(edge,5);
+      if(style==='chiseled'){ const d=Math.max(Math.abs(x-7.5),Math.abs(y-7.5)); if(border||d>5.7&&d<7||d>2.5&&d<3.8)return tone(edge,4); if((x===7||x===8||y===7||y===8)&&d<5)return tone(light,3); }
+      if(style==='pillar' && (x%5===0||x%5===4)) return tone(edge,8);
+      if(style==='polished' && border) return tone(edge,12);
+      if(style==='smooth') return tone(c,grain*.35+(x===0||y===0?-8:0));
+      if(style==='cracked' && crack) return tone(edge,-12);
+      if(style==='mossy' && (hash(x,y,salt+9)<.18||y>11&&hash(x,y,salt+10)<.38)) return [55+grain,91+grain,55+grain];
+      if(style==='organic' && hash(x>>1,y>>1,salt+11)<.2) return tone(edge,-6);
+      if(style==='gilded' && ((x*3+y*5+salt)%17<2)) return [238+grain,191+grain,62+grain];
+      if(style==='packed' && hash(x,y,salt+12)<.18) return tone(edge,8);
+      if(style==='raw' && hash(x,y,salt+13)<.13) return tone(edge,-5);
+      return tone(c,grain + (((x+y+salt)%11===0)?10:0));
+    };
+    ARCH_BLOCKS.forEach(([id,name,tile,source,style,color],i)=>put(tile,archPx(style,color,1900+i*17)));
   }
   { // the deep dark
     const q = r => Math.floor((r() - 0.5) * 14);
