@@ -479,6 +479,42 @@ function caveCarve(x, y, z, h){
   }
   return false;
 }
+/* ---- Minecraft-style ore veins ------------------------------------------
+   Ores come in clustered veins, not lone blocks, and each has its own height
+   band (Minecraft 1.18's triangle distributions, squeezed to fit this world's
+   depth): coal is thick in the upper stone and the mountains, iron has a middle
+   band plus a mountain band, copper sits mid-depth, gold runs deep (and high in
+   badlands), diamonds grow commoner the deeper you go, and emeralds are lone
+   blocks found only inside mountains. One blob noise shapes every vein; a
+   4-block cell decides which ore (if any) that blob becomes. */
+const tri = (y, lo, pk, hi) => y <= lo || y >= hi ? 0 : y < pk ? (y - lo) / (pk - lo) : (hi - y) / (hi - pk);
+function oreAt(x, y, z, h, badlands){
+  if(h > SEA + 40 && y > SEA - 10 && y < h - 2 && hash3(x, y, z, 4343) < 0.00035) return EMERO;   // mountain emeralds
+  const u = hash3(x >> 2, y >> 2, z >> 2, 7778);                                                   // this cell's ore roll
+  // [ore, cell chance at this height, blob threshold, vein box size]: the box keeps each
+  // vein inside its own cell so neighbouring veins never merge (Minecraft vein sizes)
+  const w = [
+    [COALO,  0.190 * tri(y, SEA - 28, SEA + 22, SEA + 120) * (y > SEA + 16 ? 0.55 : 1), 0.57, 3],
+    [IRONO,  0.075 * tri(y, 16, 42, 66) + 0.062 * tri(y, SEA + 14, SEA + 80, HEIGHT) + 0.011 * (y < 72 ? 1 : 0), 0.63, 3],
+    [COPPERO, GEN_V >= 2 ? 0.062 * tri(y, 24, 58, SEA + 50) : 0, 0.63, 3],
+    [GOLDO,  0.0165 * tri(y, 0, 24, 52) + (badlands && y > 52 ? 0.022 : 0), 0.64, 3],
+    [DIAMO,  y < 42 ? 0.019 * (42 - y) / 42 : 0, 0.55, 2],
+  ];
+  let acc = 0;
+  for(const [id, c, t, k] of w){
+    acc += c;
+    if(u < acc){
+      // the vein lives in a k-block box within cell coords 0..2; coord 3 stays stone,
+      // so there is always a one-block gap and neighbouring veins never merge
+      const cx = x >> 2, cy = y >> 2, cz = z >> 2, span = 3 - k + 1;
+      const ox = Math.floor(hash3(cx, cy, cz, 7781) * span), oy = Math.floor(hash3(cx, cy, cz, 7782) * span), oz = Math.floor(hash3(cx, cy, cz, 7783) * span);
+      const lx = (x & 3) - ox, ly = (y & 3) - oy, lz = (z & 3) - oz;
+      if(lx < 0 || ly < 0 || lz < 0 || lx >= k || ly >= k || lz >= k) return 0;
+      return vnoise3(x * 0.34, y * 0.34, z * 0.34, 7777) > t ? id : 0;
+    }
+  }
+  return 0;
+}
 // cave biomes cover whole regions underground
 const lushAt = (x, z) => vnoise(x * 0.008 + 71, z * 0.008 - 19, 1501) > 0.64;
 const dripAt = (x, z) => !lushAt(x, z) && vnoise(x * 0.008 - 40, z * 0.008 + 90, 1502) > 0.64;
@@ -879,7 +915,7 @@ const BONE=455, BONE_MEAL=456, SHIELD=454, ROD=447, COD=448, SALMON=449, COOKED_
 const EGG_RUN = 37, EGG_EXTRA = 479;          // eggs past the first 37 carry on from 479
 const eggId = i => i < EGG_RUN ? EGG_BASE + i : EGG_EXTRA + i - EGG_RUN, eggIcon = i => i < EGG_RUN ? 120 + i : i === EGG_RUN ? 175 : 180 + i - EGG_RUN;
 const eggMob = id => { const i = id >= EGG_BASE && id < EGG_BASE + EGG_RUN ? id - EGG_BASE : id >= EGG_EXTRA ? EGG_RUN + id - EGG_EXTRA : -1; return i >= 0 && i < SPAWN_EGGS.length ? SPAWN_EGGS[i][0] : null; };
-const SLIMEBALL=477, SLIME_BLOCK=478, LANTERN=490, CAMPFIRE=491, BEEHIVE=492, BEEHIVE_FULL=493, HONEY_BOTTLE=494, HONEYCOMB=495, FENCE=496, GATE=497, GATE_OPEN=498, SHEARS=499, TRIDENT=500, JUKEBOX=501, DISC_1=502, MAP=506, ANVIL=507, CARVED_PUMPKIN=508, JACK_O_LANTERN=509, PAINTING=510, COMPOSTER=511, GRINDSTONE=512, NOTEBLOCK=513, BARREL=514, FRAME=515, ENDERCHEST=516, CAULDRON=517, LIGHTNINGROD=518, SMITHING=519, FLOWERPOT=520, BEDHEAD=521, TRAPDOOR=522, REDGUM_LOG=523, REDGUM_PLANK=524, REDGUM_LEAVES=525, BOAB_PLANK=526;   // 502-505: music discs
+const SLIMEBALL=477, SLIME_BLOCK=478, LANTERN=490, CAMPFIRE=491, BEEHIVE=492, BEEHIVE_FULL=493, HONEY_BOTTLE=494, HONEYCOMB=495, FENCE=496, GATE=497, GATE_OPEN=498, SHEARS=499, TRIDENT=500, JUKEBOX=501, DISC_1=502, MAP=506, ANVIL=507, CARVED_PUMPKIN=508, JACK_O_LANTERN=509, PAINTING=510, COMPOSTER=511, GRINDSTONE=512, NOTEBLOCK=513, BARREL=514, FRAME=515, ENDERCHEST=516, CAULDRON=517, LIGHTNINGROD=518, SMITHING=519, FLOWERPOT=520, BEDHEAD=521, TRAPDOOR=522, REDGUM_LOG=523, REDGUM_PLANK=524, REDGUM_LEAVES=525, BOAB_PLANK=526, COBBLE=527;   // 502-505: music discs
 const isFenceish = id => id === FENCE || id === GATE || id === GATE_OPEN;
 const hivesSeen = new Set();           // "x,y,z" of overworld hives the mesher has seen
 const campfires = new Set();            // "dim:x,y,z" of campfires the mesher has seen
@@ -929,6 +965,7 @@ const EXTRA_WOODS=[{log:CHERRYLOG,plank:CHERRYPLANK,leaves:CHERRYLEAVES,name:'Ch
  {log:DUSKLOG,plank:DUSKPLANK,leaves:DUSKLEAVES,name:'Duskwood',bark:[68,52,86],wood:[118,96,140],leaf:[186,96,196]}];
 const isLeaf=id=>id===LEAVES||id===SPRUCELEAVES||id===525||EXTRA_WOODS.some(w=>w.leaves===id);
 const isLog=id=>id===356||id===523||[LOG,BIRCHLOG,SPRUCELOG,JUNGLELOG,...EXTRA_WOODS.map(w=>w.log)].includes(id);   // 356: boab, 523: red gum
+const ANY_COBBLE = [527, 3];   // cobblestone or stone (Minecraft crafts tools, furnaces etc. from cobblestone)
 const ANY_PLANK = [7, 39, 40, 41, CHERRYPLANK, MAPLEPLANK, WILLOWPLANK, GUMPLANK, REDGUM_PLANK, BOAB_PLANK, SUNPLANK, RIMEPLANK, DUSKPLANK, CRIM_PLANK, WARP_PLANK];   // oak, birch, spruce, jungle planks (recipe group)
 const T = {GRASS_TOP:0,GRASS_SIDE:1,DIRT:2,STONE:3,SAND:4,LOG_SIDE:5,LOG_TOP:6,LEAVES:7,PLANK:8,BRICK:9,SNOW:10,GLASS:11,WATER:12,
            GLOW:13,COAL:14,IRON:15,GOLD:16,DIAMOND:17,TGRASS:18,POPPY:19,DANDELION:20,DIAMB:21,
@@ -1172,7 +1209,7 @@ SPAWN_EGGS.forEach(([, name], i) => { ITEMS[eggId(i)] = { name: name + ' Spawn E
 ITEMS[SLIMEBALL]={name:'Slimeball',icon:176};BLOCKS[LANTERN]={name:'Lantern',all:273};BLOCKS[FENCE]={name:'Fence',all:279};BLOCKS[GATE]={name:'Fence Gate',all:280};BLOCKS[GATE_OPEN]={name:'Fence Gate',all:280};BLOCKS[BEEHIVE]={name:'Beehive',top:277,bottom:277,side:276};BLOCKS[BEEHIVE_FULL]={name:'Beehive',top:277,bottom:277,side:278};
 ITEMS[HONEY_BOTTLE]={name:'Honey Bottle',icon:177,food:6};ITEMS[SHEARS]={name:'Shears',icon:179,tool:{type:'shears',tier:2}};BLOCKS[JUKEBOX]={name:'Jukebox',top:282,bottom:281,side:281};
 ITEMS[MAP]={name:'Map',icon:188};BLOCKS[ANVIL]={name:'Anvil',all:283};BLOCKS[PAINTING]={name:'Painting',all:285};BLOCKS[COMPOSTER]={name:'Composter',top:294,bottom:294,side:293};BLOCKS[GRINDSTONE]={name:'Grindstone',all:296};BLOCKS[NOTEBLOCK]={name:'Note Block',all:297};BLOCKS[BARREL]={name:'Barrel',top:299,bottom:298,side:298};BLOCKS[FRAME]={name:'Item Frame',all:300};BLOCKS[ENDERCHEST]={name:'Ender Chest',all:301};BLOCKS[CAULDRON]={name:'Cauldron',all:302};BLOCKS[LIGHTNINGROD]={name:'Lightning Rod',all:305};BLOCKS[SMITHING]={name:'Smithing Table',top:306,bottom:281,side:307};BLOCKS[FLOWERPOT]={name:'Flower Pot',all:308};BLOCKS[BEDHEAD]={name:'Bed',top:T.BED_TOP,bottom:T.PLANK,side:T.PLANK};BLOCKS[TRAPDOOR]={name:'Trapdoor',all:310};
-BLOCKS[REDGUM_LOG]={name:'Red Gum Log',top:312,bottom:312,side:311};BLOCKS[REDGUM_PLANK]={name:'Red Gum Planks',all:313};BLOCKS[REDGUM_LEAVES]={name:'Red Gum Leaves',all:314};BLOCKS[BOAB_PLANK]={name:'Boab Planks',all:316};BLOCKS[CARVED_PUMPKIN]={name:'Carved Pumpkin',top:T.PUMPKIN_TOP,bottom:T.PUMPKIN_TOP,side:T.PUMPKIN_FACE};
+BLOCKS[REDGUM_LOG]={name:'Red Gum Log',top:312,bottom:312,side:311};BLOCKS[REDGUM_PLANK]={name:'Red Gum Planks',all:313};BLOCKS[REDGUM_LEAVES]={name:'Red Gum Leaves',all:314};BLOCKS[BOAB_PLANK]={name:'Boab Planks',all:316};BLOCKS[COBBLE]={name:'Cobblestone',all:317};BLOCKS[CARVED_PUMPKIN]={name:'Carved Pumpkin',top:T.PUMPKIN_TOP,bottom:T.PUMPKIN_TOP,side:T.PUMPKIN_FACE};
 BLOCKS[JACK_O_LANTERN]={name:"Jack o'Lantern",top:T.PUMPKIN_TOP,bottom:T.PUMPKIN_TOP,side:284};
 ['Meadow','Caverns','Lanterns','Stormchase'].forEach((n, i) => { ITEMS[DISC_1 + i] = { name: 'Music Disc - ' + n, icon: 184 + i }; });ITEMS[TRIDENT]={name:'Trident',icon:180,tool:{type:'trident',tier:3}};ITEMS[HONEYCOMB]={name:'Honeycomb',icon:178};BLOCKS[CAMPFIRE]={name:'Campfire',top:275,bottom:275,side:274};BLOCKS[SLIME_BLOCK]={name:'Slime Block',all:272};
 ITEMS[APPLE]={name:'Apple',icon:167,food:4};ITEMS[GOLDEN_APPLE]={name:'Golden Apple',icon:168,food:4};ITEMS[CARROT]={name:'Carrot',icon:169,food:3,plant:CARROT0};
@@ -1253,7 +1290,7 @@ function faceVisible(b, n){
   if(b === GLASS) return n === WATER;
   return !isOpaque(n);
 }
-const dropOf = id => id===BEDHEAD?BED:id===BEEHIVE_FULL?BEEHIVE:id===GATE_OPEN?GATE:id===SKYGRASS?STORMSTONE:id===VOLTITE_ORE?VOLTITE:id===CONDUIT_LIT?CONDUIT:id===CHORUS_PLANT?CHORUS_FRUIT:id===ANCHOR_LIT?ANCHOR:id===CRIM_NYL||id===WARP_NYL?NETHERRACK:id===QUARTZ_ORE?QUARTZ:id===NGOLD_ORE?GNUGGET:id===GILDED?(Math.random()<.1?GNUGGET:GILDED):id===SNOWY_GRASS?DIRT:id===GLOWVINE?BERRIES:id===AMETHYST_C||id===BUDDING?AMETHYST_SHARD:id===DRIP_DOWN?DRIP_UP:id===BERRYBUSH?BERRIES:id===CRYSTALORE||id===GLOWCRYSTAL?CRYSTALSHARD:id === GRASS || id === SAVGRASS || id === FARMLAND ? DIRT : id === COALO ? COALI : id === DIAMO ? DIAMI :
+const dropOf = id => id===STONE?COBBLE:id===BEDHEAD?BED:id===BEEHIVE_FULL?BEEHIVE:id===GATE_OPEN?GATE:id===SKYGRASS?STORMSTONE:id===VOLTITE_ORE?VOLTITE:id===CONDUIT_LIT?CONDUIT:id===CHORUS_PLANT?CHORUS_FRUIT:id===ANCHOR_LIT?ANCHOR:id===CRIM_NYL||id===WARP_NYL?NETHERRACK:id===QUARTZ_ORE?QUARTZ:id===NGOLD_ORE?GNUGGET:id===GILDED?(Math.random()<.1?GNUGGET:GILDED):id===SNOWY_GRASS?DIRT:id===GLOWVINE?BERRIES:id===AMETHYST_C||id===BUDDING?AMETHYST_SHARD:id===DRIP_DOWN?DRIP_UP:id===BERRYBUSH?BERRIES:id===CRYSTALORE||id===GLOWCRYSTAL?CRYSTALSHARD:id === GRASS || id === SAVGRASS || id === FARMLAND ? DIRT : id === COALO ? COALI : id === DIAMO ? DIAMI :
                      id === EMERO ? EMERALD : id === DEADBUSH ? STICK : id;
 function toolClassOf(id){
   if([STORMSTONE,VOLTITE_ORE,STORM_BRICK,CONDUIT,CONDUIT_LIT].includes(id)) return 'pick';
@@ -1274,7 +1311,7 @@ function toolClassOf(id){
   if([PURPUR,PURPUR_PILLAR,ENDSTONE_BRICK,ENDSTONE,CRYING_OBSIDIAN,ANCHOR,ANCHOR_LIT].includes(id)) return 'pick';
   if(id === CHORUS_PLANT || id === CHORUS_FLOWER) return 'axe';
   if([NETHERRACK,NBRICK,SLAB_NBRICK,STAIR_NBRICK,OBSIDIAN,CRIM_NYL,WARP_NYL,BASALT_N,BLACKSTONE,BSTONE_BRICK,GILDED,MAGMA,
-      QUARTZ_ORE,NGOLD_ORE,DEBRIS,QUARTZ_BLOCK,BONE_BLOCK,NB_FENCE,RED_NBRICK,GLOWSTONE].includes(id)) return 'pick';
+      QUARTZ_ORE,NGOLD_ORE,DEBRIS,QUARTZ_BLOCK,BONE_BLOCK,NB_FENCE,RED_NBRICK,GLOWSTONE,COBBLE].includes(id)) return 'pick';
   if(id === SOULSAND || id === SOULSOIL || id === GRAVEL) return 'shovel';
   if(id === CRIM_STEM || id === WARP_STEM || id === CRIM_PLANK || id === WARP_PLANK) return 'axe';
   if([CRYSTALORE,GLOWCRYSTAL,CRYSTALBRICK].includes(id))return 'pick';
@@ -1284,7 +1321,7 @@ function toolClassOf(id){
   if(isLog(id) || ANY_PLANK.includes(id) || id === CRAFTT || id === BED || id === BEDHEAD || id === TRAPDOOR || id === CHEST || id === BARREL) return 'axe';
   if(id === GRASS || id === SAVGRASS || id === DIRT || id === SAND || id === SNOW || id === SNOWY_GRASS || id === SNOW_LAYER) return 'shovel';
   if(id === DEEPSLATE) return 'pick';
-  if(id === STONE || id === BRICK || id === SBRICK || id === GLOWB || id === FURN || id === IRONB ||
+  if(id === STONE || id === COBBLE || id === BRICK || id === SBRICK || id === GLOWB || id === FURN || id === IRONB ||
      id === GOLDB || id === DIAMB || id === COALO || id === IRONO || id === GOLDO || id === DIAMO || id === EMERO) return 'pick';
   return null;
 }
@@ -1325,22 +1362,22 @@ const RECIPES = [
   { out: [STICK, 4],  in: [[ANY_PLANK, 2]] },
   { out: [CRAFTT, 1], in: [[ANY_PLANK, 4]] },
   { out: [TORCH, 4],  in: [[STICK, 1], [COALI, 1]] },
-  { out: [FURN, 1],   in: [[STONE, 8]], st: 'table' },
+  { out: [FURN, 1],   in: [[ANY_COBBLE, 8]], st: 'table' },
   { out: [WPICK, 1],  in: [[ANY_PLANK, 3], [STICK, 2]], st: 'table' },
-  { out: [SPICK, 1],  in: [[STONE, 3], [STICK, 2]], st: 'table' },
+  { out: [SPICK, 1],  in: [[ANY_COBBLE, 3], [STICK, 2]], st: 'table' },
   { out: [IPICK, 1],  in: [[IRONI, 3], [STICK, 2]], st: 'table' },
   { out: [DPICK, 1],  in: [[DIAMI, 3], [STICK, 2]], st: 'table' },
   { out: [WAXE, 1],   in: [[ANY_PLANK, 3], [STICK, 2]], st: 'table' },
-  { out: [SAXE, 1],   in: [[STONE, 3], [STICK, 2]], st: 'table' },
+  { out: [SAXE, 1],   in: [[ANY_COBBLE, 3], [STICK, 2]], st: 'table' },
   { out: [IAXE, 1],   in: [[IRONI, 3], [STICK, 2]], st: 'table' },
   { out: [DAXE, 1],   in: [[DIAMI, 3], [STICK, 2]], st: 'table' },
   { out: [WSHOV, 1],  in: [[ANY_PLANK, 1], [STICK, 2]], st: 'table' },
-  { out: [SSHOV, 1],  in: [[STONE, 1], [STICK, 2]], st: 'table' },
+  { out: [SSHOV, 1],  in: [[ANY_COBBLE, 1], [STICK, 2]], st: 'table' },
   { out: [ISHOV, 1],  in: [[IRONI, 1], [STICK, 2]], st: 'table' },
   { out: [DSHOV, 1],  in: [[DIAMI, 1], [STICK, 2]], st: 'table' },
   { out: [WSWORD, 1], in: [[ANY_PLANK, 2], [STICK, 1]], st: 'table' },
   { out: [WOODHOE, 1], in: [[ANY_PLANK, 2], [STICK, 2]], st: 'table' },
-  { out: [STONEHOE, 1], in: [[STONE, 2], [STICK, 2]], st: 'table' },
+  { out: [STONEHOE, 1], in: [[ANY_COBBLE, 2], [STICK, 2]], st: 'table' },
   { out: [IRONHOE, 1], in: [[IRONI, 2], [STICK, 2]], st: 'table' },
   { out: [BREAD, 1],  in: [[WHEATITEM, 3]], st: 'table' },
   { out: [FLINTSTEEL, 1], in: [[IRONI, 1], [COALI, 1]], st: 'table' },
@@ -1356,7 +1393,7 @@ const RECIPES = [
   { out: [STAIR_BRICK, 4], in: [[BRICK, 6]], st: 'table' },
   { out: [BOOKSHELF, 1], in: [[ANY_PLANK, 6], [WHEATITEM, 3]], st: 'table' },
   { out: [CLAY, 1], in: [[SAND, 4]], st: 'table' },
-  { out: [MOSSY, 1], in: [[STONE, 1], [SEEDS, 1]], st: 'table' },
+  { out: [MOSSY, 1], in: [[ANY_COBBLE, 1], [SEEDS, 1]], st: 'table' },
   { out: [POLISHED, 4], in: [[STONE, 4]], st: 'table' },
   { out: [TERRACOTTA, 1], in: [[CLAY, 1]], st: 'furnace' },
   { out: [SLAB_SAND, 6], in: [[SAND, 3]], st: 'table' },
@@ -1370,7 +1407,7 @@ const RECIPES = [
   { out: [REDWOOL, 1], in: [[WOOL, 1], [POPPYB, 1]], st: 'table' },
   { out: [GREENWOOL, 1], in: [[WOOL, 1], [TGRASSB, 2]], st: 'table' },
   { out: [BLUEWOOL, 1], in: [[WOOL, 1], [DIAMI, 1]], st: 'table' },
-  { out: [SSWORD, 1], in: [[STONE, 2], [STICK, 1]], st: 'table' },
+  { out: [SSWORD, 1], in: [[ANY_COBBLE, 2], [STICK, 1]], st: 'table' },
   { out: [ISWORD, 1], in: [[IRONI, 2], [STICK, 1]], st: 'table' },
   { out: [DSWORD, 1], in: [[DIAMI, 2], [STICK, 1]], st: 'table' },
   { out: [SBRICK, 4], in: [[STONE, 4]], st: 'table' },
@@ -1385,6 +1422,7 @@ const RECIPES = [
   { out: [IRONI, 1],  in: [[IRONO, 1], [COALI, 1]], st: 'furnace' },
   { out: [GOLDI, 1],  in: [[GOLDO, 1], [COALI, 1]], st: 'furnace' },
   { out: [GLASS, 2],  in: [[SAND, 2], [COALI, 1]], st: 'furnace' },
+  { out: [STONE, 1],  in: [[527, 1], [COALI, 1]], st: 'furnace' },
   { out: [PORKC, 1],  in: [[PORK, 1], [COALI, 1]], st: 'furnace' },
   { out: [MUTTONC, 1],in: [[MUTTON, 1], [COALI, 1]], st: 'furnace' },
   { out: [BEEFC, 1],  in: [[BEEF, 1], [COALI, 1]], st: 'furnace' },
@@ -1419,7 +1457,7 @@ RECIPES.push({out:[PAINTING,1],in:[[STICK,8],[WOOL,1]],st:'table'});
 RECIPES.push({out:[JACK_O_LANTERN,1],in:[[CARVED_PUMPKIN,1],[TORCH,1]]});
 RECIPES.push({out:[ANVIL,1],in:[[IRONB,3],[IRONI,4]],st:'table'});
 RECIPES.push({out:[COMPOSTER,1],in:[[SLAB_WOOD,7]],st:'table'});
-RECIPES.push({out:[GRINDSTONE,1],in:[[STICK,2],[STONE,1],[ANY_PLANK,2]],st:'table'});
+RECIPES.push({out:[GRINDSTONE,1],in:[[STICK,2],[ANY_COBBLE,1],[ANY_PLANK,2]],st:'table'});
 RECIPES.push({out:[NOTEBLOCK,1],in:[[ANY_PLANK,8],[AMETHYST_SHARD,1]],st:'table'});
 RECIPES.push({out:[BARREL,1],in:[[ANY_PLANK,6],[SLAB_WOOD,2]],st:'table'});
 RECIPES.push({out:[FRAME,1],in:[[STICK,8],[LEATHER,1]],st:'table'});
@@ -1435,7 +1473,7 @@ RECIPES.push({out:[LANTERN,1],in:[[IRONI,1],[TORCH,1]],st:'table'},
   {out:[CAMPFIRE,1],in:[[STICK,3],[COALI,1],[[LOG, BIRCHLOG, SPRUCELOG, JUNGLELOG, CHERRYLOG, MAPLELOG, WILLOWLOG, BOAB_LOG],3]],st:'table'});
 RECIPES.push({out:[SLIME_BLOCK,1],in:[[SLIMEBALL,9]]},{out:[SLIMEBALL,9],in:[[SLIME_BLOCK,1]]});
 RECIPES.push({out:[LADDER,3],in:[[STICK,7]],st:'table'},{out:[BOAB_PLANK,4],in:[[BOAB_LOG,1]]},{out:[ENCH_TABLE,1],in:[[DIAMI,2],[OBSIDIAN,4],[BOOKSHELF,1]],st:'table'});
-RECIPES.push({out:[BREWING,1],in:[[BLAZEROD,1],[STONE,3]],st:'table'},{out:[GLASS_BOTTLE,3],in:[[GLASS,3]]},
+RECIPES.push({out:[BREWING,1],in:[[BLAZEROD,1],[ANY_COBBLE,3]],st:'table'},{out:[GLASS_BOTTLE,3],in:[[GLASS,3]]},
   {out:[AWKWARD,1],in:[[WATER_BOTTLE,1],[NWART,1]],st:'brew'},
   {out:[POT_HEAL,1],in:[[AWKWARD,1],[MELONSLICE,1],[GNUGGET,4]],st:'brew'},{out:[POT_FIRE,1],in:[[AWKWARD,1],[MAGMACREAM,1]],st:'brew'},
   {out:[POT_STR,1],in:[[AWKWARD,1],[BLAZEPOWDER,1]],st:'brew'},{out:[POT_SPEED,1],in:[[AWKWARD,1],[REEDS,1]],st:'brew'},
@@ -1482,10 +1520,11 @@ itemAtlas.width = 128; itemAtlas.height = 512;   // 256 icons
   const put = painter(atlas), puti = painter(itemAtlas);
   const GRASS_SH = [[94,144,52],[106,160,60],[118,174,68],[130,188,76]];
   const DIRT_SH  = [[100,71,49],[121,85,58],[134,96,67],[152,110,76]];
-  const STONE_SH = [[90,90,90],[104,104,104],[118,118,118],[133,133,133]];
+  const STONE_SH = [[112,112,112],[120,120,120],[127,127,127],[134,134,134]];
   const grassPx = (x,y,r) => pick(tn(x,y,0.9,1)*0.7 + r()*0.3, GRASS_SH);
   const dirtPx  = (x,y,r) => r() < 0.05 ? [88,62,42] : pick(tn(x,y,0.8,2)*0.6 + r()*0.4, DIRT_SH);
-  const stonePx = (x,y,r) => pick(tn(x,y,0.55,3)*0.78 + r()*0.22, STONE_SH);
+  const stonePx = (x,y,r) => { const v = tn(x,y,0.42,3)*0.72 + tn(x,y,1.3,9)*0.18 + r()*0.10;   // soft blotches, little pixel noise
+    return r() < 0.03 ? [104,104,104] : pick(v, STONE_SH); };
   const plankPx = (x,y,r) => {
     const board = y >> 2;
     if(y % 4 === 3) return [92,72,44];
@@ -1496,14 +1535,23 @@ itemAtlas.width = 128; itemAtlas.height = 512;   // 256 icons
     return [base[0]+k, base[1]+k, base[2]+Math.floor(k*0.7)];
   };
   const orePx = (x,y,r,salt,cMain,cLight) => {
-    for(let s = 0; s < 5; s++){
-      const sx = 2 + Math.floor(hash(s, 1, salt) * 12), sy = 2 + Math.floor(hash(s, 7, salt) * 12);
-      const md = Math.abs(x - sx) + Math.abs(y - sy);
-      const rad = hash(s, 13, salt) > 0.5 ? 2 : 1;
-      if(md === 0) return cLight;
-      if(md <= rad) return [cMain[0] + Math.floor((r()-0.5)*16), cMain[1] + Math.floor((r()-0.5)*16), cMain[2] + Math.floor((r()-0.5)*16)];
-    }
-    return stonePx(x,y,r);
+    // Minecraft-style ore: 4 irregular chunky clusters; each pixel is lit on its top-left edge
+    // and shaded on its bottom-right edge, so the ore looks embedded in the stone
+    const inOre = (px, py) => {
+      if(px < 1 || py < 1 || px > 14 || py > 14) return false;
+      for(let s = 0; s < 5; s++){                                        // five chunky lumps
+        const cx = 2 + Math.floor(hash(s, 1, salt) * 11), cy = 2 + Math.floor(hash(s, 7, salt) * 11);
+        const dx = px - cx, dy = py - cy;
+        if(dx >= 0 && dx <= 1 && dy >= 0 && dy <= 1) return true;         // solid 2x2 core
+        if(dx >= -1 && dx <= 2 && dy >= -1 && dy <= 2 && hash(px * 13 + s, py * 7, salt + 50) < 0.42) return true;   // knobbly rim
+      }
+      return false;
+    };
+    if(!inOre(x, y)) return stonePx(x,y,r);
+    const k = Math.floor((r()-0.5)*10);
+    if(!inOre(x, y + 1)) return [Math.floor(cMain[0]*0.6)+k, Math.floor(cMain[1]*0.6)+k, Math.floor(cMain[2]*0.6)+k];   // shaded underside
+    if(!inOre(x, y - 1)) return cLight;                                                                               // lit top
+    return [cMain[0]+k, cMain[1]+k, cMain[2]+k];
   };
   put(T.GRASS_TOP , (x,y,r) => grassPx(x,y,r));
   put(T.GRASS_SIDE, (x,y,r) => {
@@ -1587,9 +1635,11 @@ itemAtlas.width = 128; itemAtlas.height = 512;   // 256 icons
     return [0,0,0,0];
   });
   put(T.CRAFT_TOP , (x,y,r) => {
-    if(x===0||y===0||x===15||y===15) return [92,72,44];
-    if(x===7||x===8||y===7||y===8) return [110,86,52];
-    return plankPx(x,y,r);
+    if(x===0||y===0||x===15||y===15) return [74,56,34];                                  // dark rim
+    if(x===1||y===1||x===14||y===14) return [120,94,58];                                 // frame
+    if(x===5||x===10||y===5||y===10) return [70,52,32];                                  // 3x3 grid lines
+    const k = Math.floor((r()-0.5)*10);
+    return [150+k, 118+k, 72+Math.floor(k*0.7)];                                         // light crafting surface
   });
   put(T.CRAFT_SIDE, (x,y,r) => {
     if(y < 2) return [92,72,44];
@@ -2409,7 +2459,19 @@ const tileAvg = [];
  }}
  EXTRA_WOODS.forEach((w,i)=>{let t=94+i*4;paint(t,w.bark,'bark');paint(t+1,w.wood,'brick');paint(t+2,w.wood,'plank');paint(t+3,w.leaf,'leaf');});
  paint(311,[150,74,52],'bark');paint(312,[186,120,84],'brick');paint(313,[186,120,84],'plank');paint(314,[110,140,108],'leaf');   // red gum
- paint(316,[198,160,156],'plank');   // boab planks: pinkish grey, from the boab's smooth bark - distinct from gum's yellow-tan
+ paint(316,[198,160,156],'plank');
+ { // cobblestone: rounded grey stones set in dark mortar (tileable voronoi)
+   const ctx = atlas.getContext('2d'), ox = (317 % 8) * 16, oy = ((317 / 8) | 0) * 16, img = ctx.createImageData(16, 16);
+   const pts = []; for(let i = 0; i < 9; i++) pts.push([hash(i, 3, 7101) * 16, hash(i, 9, 7102) * 16, 96 + Math.floor(hash(i, 5, 7103) * 48)]);
+   for(let y = 0; y < 16; y++) for(let x = 0; x < 16; x++){
+     let d1 = 1e9, d2 = 1e9, c = 0;
+     for(const [px, py, sh] of pts) for(const ox2 of [-16, 0, 16]) for(const oy2 of [-16, 0, 16]){ const d = (x + 0.5 - px - ox2) ** 2 + (y + 0.5 - py - oy2) ** 2; if(d < d1){ d2 = d1; d1 = d; c = sh; } else if(d < d2) d2 = d; }
+     const edge = Math.sqrt(d2) - Math.sqrt(d1), n = Math.floor((hash(x, y, 7104) - 0.5) * 14);
+     const v = edge < 0.9 ? 62 + n : Math.min(160, c + n + (edge < 1.8 ? -14 : 0));
+     const i = (y * 16 + x) * 4; img.data[i] = img.data[i + 1] = img.data[i + 2] = v; img.data[i + 3] = 255;
+   }
+   ctx.putImageData(img, ox, oy);
+ }   // boab planks: pinkish grey, from the boab's smooth bark - distinct from gum's yellow-tan
  // saplings: a thin stem under a little clump of that wood's foliage
  const paintSapling=(tile,leaf)=>{
    const ox=(tile%8)*16, oy=Math.floor(tile/8)*16, rnd=mulberry32(tile*733+11);
@@ -4597,14 +4659,16 @@ function* genChunkSteps(cx, cz){
         if(b!==STONE){data[(y<<8)|(lz<<4)|lx]=b;continue;}
         if(GEN_V >= 2){
           if(y < DEEP_Y + 3 && vnoise3(wx * .07, y * .07, wz * .07, 1601) > .73){ data[(y << 8) | (lz << 4) | lx] = TUFF; continue; }
-          if(y > 36 && y < 112 && hash3(wx, y, wz, 4444) < .011){ data[(y << 8) | (lz << 4) | lx] = COPPERO; continue; }
+          const ore = oreAt(wx, y, wz, h, badlands);            // Minecraft-style veins and height bands
+          if(ore){ data[(y << 8) | (lz << 4) | lx] = ore; continue; }
+        } else {
+          if(y >= 30 && hash3(wx, y, wz, 4343) < 0.0022){ data[(y << 8) | (lz << 4) | lx] = EMERO; continue; }
+          const r = hash3(wx, y, wz, 4242);
+          if(y < 26 && r < 0.0030) b = DIAMO;              // deep down, a real journey
+          else if(y < 34 && r < 0.006) b = GOLDO;
+          else if(y < 60 && r < 0.013) b = IRONO;
+          else if(y < 82 && r < 0.024) b = COALO;
         }
-        if(y >= 30 && hash3(wx, y, wz, 4343) < 0.0022){ data[(y << 8) | (lz << 4) | lx] = EMERO; continue; }
-        const r = hash3(wx, y, wz, 4242);
-        if(y < 26 && r < 0.0030) b = DIAMO;              // deep down, a real journey
-        else if(y < 34 && r < 0.006) b = GOLDO;
-        else if(y < 60 && r < 0.013) b = IRONO;
-        else if(y < 82 && r < 0.024) b = COALO;
       }
       if(b === STONE && y > 0 && y < DEEP_Y) b = DEEPSLATE;
       data[(y << 8) | (lz << 4) | lx] = b;
@@ -6155,7 +6219,7 @@ document.addEventListener('pointerlockerror', () => {});
 /* =========================== crafting =============================== */
 const recipesEl = document.getElementById('recipes');
 const idMatch = (want, have) => Array.isArray(want) ? want.includes(have) : want === have;
-const inName = id => Array.isArray(id) ? (id===ANY_PLANK?'any Planks':'any Log') : nameOf(id);
+const inName = id => Array.isArray(id) ? (id===ANY_PLANK?'any Planks':id===ANY_COBBLE?'Cobblestone':'any Log') : nameOf(id);
 function invCount(id){
   return survInv.reduce((n, s) => n + (idMatch(id, s.id) ? s.count : 0), 0);
 }
@@ -17394,6 +17458,7 @@ window.__bc = {
   addTestConn: send => { const c = { open: true, send, peer: 'test', close(){} }; conns.push(c); return c; },
   dropTestConns: () => { conns = conns.filter(c => c.peer !== 'test'); },
   mobLists: () => Object.fromEntries(MOB_LISTS.map(([k, l]) => [k, l.length])),
+  atlas, BLOCKS, tileFor,
   stateAt: (kind, k) => ({ comp: composters, cauld: cauldrons, pot: pottedPlants, frame: frameItems }[kind] || new Map()).get(k),
   mpState: () => ({ code: mpRoomCode, status: mpStatusText, conns: conns.length,
                     voiceOn, vrMpMode, vrJoinCode, remotes: remotes.size }),
