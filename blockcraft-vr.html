@@ -1134,6 +1134,73 @@ function treasureDef(gx, gz){ return cellDef(treasureCache, gx, gz, () => {
 }); }
 const cellsNear = (def, size, wx, wz, r = 1) => { const out = [], gx = Math.floor(wx / size), gz = Math.floor(wz / size);
   for(let a = -r; a <= r; a++) for(let b = -r; b <= r; b++){ const d = def(gx + a, gz + b); if(d) out.push(d); } return out; };
+/* Pillager outposts, as in Minecraft: a dark oak watchtower with birch walls
+   on a cobblestone footing, windows barred with fences, a ladder up the
+   inside, a lookout platform under a roof with loot at the top - and near it
+   an allay shut in a cage and a target dummy. Kept well away from villages,
+   and only ever on new land. */
+const outpostCache = new Map();
+const OUTPOST_BIOMES = new Set(['plains', 'desert', 'savanna', 'taiga', 'snowy', 'meadow', 'grove', 'snowy-slopes', 'cherry-grove', 'outback']);
+function outpostDef(gx, gz){ return cellDef(outpostCache, gx, gz, () => {
+  if(GEN_V < 4 || hash(gx, gz, 6401) > 0.5) return null;
+  const x = gx * 400 + 60 + Math.floor(hash(gx, gz, 6402) * 280), z = gz * 400 + 60 + Math.floor(hash(gx, gz, 6403) * 280);
+  if(!OUTPOST_BIOMES.has(biomeAt(x, z))) return null;
+  for(const [dx, dz] of [[0, 0], [-14, -14], [14, -14], [-14, 14], [14, 14]]) if(oldLandFade(x + dx, z + dz) > 0) return null;   // never where you've lived
+  const y = terrainHeight(x, z);
+  if(y <= SEA + 1) return null;
+  let lo = y, hi = y;
+  for(const [dx, dz] of [[-6, -6], [6, -6], [-6, 6], [6, 6]]){ const h = terrainHeight(x + dx, z + dz); lo = Math.min(lo, h); hi = Math.max(hi, h); }
+  if(hi - lo > 6) return null;                                            // a fairly level site
+  for(const v of villagesNear(x, z)) if(Math.hypot(v.cx - x, v.cz - z) < 160) return null;
+  const s = hash(gx, gz, 6404) < 0.5 ? 1 : -1, cgx = x + 10 * s, cgz = z - 3, dmx = x - 9 * s, dmz = z + 4;
+  return { x, z, y, cage: [cgx, terrainHeight(cgx, cgz) + 1, cgz], dummy: [dmx, terrainHeight(dmx, dmz), dmz], key: 'outpost:' + gx + ',' + gz };
+}); }
+const outpostsNear = (wx, wz) => cellsNear(outpostDef, 400, wx, wz);
+function stampOutpost(o, set, cx, cz){
+  const x0 = cx * 16, z0 = cz * 16, base = o.y, y0 = base + 1, FEN = 863, SLAB = 816;   // dark oak fence and slab
+  const put = (wx, y, wz, id) => { if(wx >= x0 && wx < x0 + 16 && wz >= z0 && wz < z0 + 16) set(wx - x0, y, wz - z0, id); };
+  for(let i = -6; i <= 6; i++) for(let k = -6; k <= 6; k++){
+    const wx = o.x + i, wz = o.z + k;
+    if(wx < x0 || wx >= x0 + 16 || wz < z0 || wz >= z0 + 16) continue;
+    const ai = Math.abs(i), ak = Math.abs(k);
+    for(let y = y0; y <= y0 + 22; y++) put(wx, y, wz, AIR);             // clear the site
+    if(ai <= 4 && ak <= 4){
+      const th = terrainHeight(wx, wz);
+      for(let y = Math.min(th, base); y <= base; y++) put(wx, y, wz, COBBLE);   // the footing
+      const wall = ai === 4 || ak === 4, corner = ai === 4 && ak === 4;
+      for(let dy = 0; dy <= 14; dy++){
+        const band = dy % 5 === 4, along = ai === 4 ? k : i;
+        let id = AIR;
+        if(corner) id = DARK_LOG;
+        else if(wall){
+          if(band) id = DARK_PLANK;
+          else if(k === -4 && i === 0 && dy <= 1) id = AIR;                                  // the doorway
+          else if((dy % 5 === 1 || dy % 5 === 2) && Math.abs(along) === 2) id = FEN;         // barred windows
+          else id = BPLANK;
+        } else if(band && dy < 14) id = DARK_PLANK;                                           // the floors
+        if(i === 3 && k === 0) id = LADDER;                                                   // up the inside
+        put(wx, y0 + dy, wz, id);
+      }
+    }
+    put(wx, y0 + 15, wz, i === 3 && k === 0 ? LADDER : DARK_PLANK);                          // the lookout
+    if(ai === 6 || ak === 6) put(wx, y0 + 16, wz, FEN);                                      // its railing
+    if(ai === 5 && ak === 5) for(let dy = 16; dy <= 19; dy++) put(wx, y0 + dy, wz, DARK_LOG);
+    put(wx, y0 + 20, wz, DARK_PLANK);                                                         // the roof
+    if(ai <= 3 && ak <= 3) put(wx, y0 + 21, wz, SLAB);
+  }
+  const chX = o.x - 3, chZ = o.z - 3;
+  if(chX >= x0 && chX < x0 + 16 && chZ >= z0 && chZ < z0 + 16){ put(chX, y0 + 16, chZ, CHEST); stockLootChest(chX, y0 + 16, chZ, o.key, 'outpost'); }
+  // the allay's cage
+  const [gx, gy, gz] = o.cage;
+  for(let i = -1; i <= 1; i++) for(let k = -1; k <= 1; k++){
+    put(gx + i, gy - 1, gz + k, DARK_PLANK);
+    for(let dy = 0; dy <= 1; dy++) put(gx + i, gy + dy, gz + k, i || k ? FEN : AIR);
+    put(gx + i, gy + 2, gz + k, DARK_PLANK);
+  }
+  // a target dummy
+  const [dx, dyb, dz] = o.dummy;
+  put(dx, dyb + 1, dz, FEN); put(dx, dyb + 2, dz, FEN); put(dx - 1, dyb + 2, dz, FEN); put(dx + 1, dyb + 2, dz, FEN); put(dx, dyb + 3, dz, CARVED_PUMPKIN);
+}
 const wrecksNear = (wx, wz) => cellsNear(wreckDef, 240, wx, wz), ruinsNear = (wx, wz) => cellsNear(ruinDef, 176, wx, wz), treasuresNear = (wx, wz, r) => cellsNear(treasureDef, 192, wx, wz, r);
 // the treasure a buried-treasure map points to: the nearest one
 let treasureAim = null;
@@ -1575,6 +1642,8 @@ const SPAWN_EGGS = [
   ['zombie_horse','Zombie Horse','#315234','#97c284'],
   ['bat','Bat','#4c3e30','#0f0f0f'], ['parrot','Parrot','#0da70b','#ff0000'], ['allay','Allay','#00daff','#00adff'],
   ['glowsquid','Glow Squid','#095656','#85f1bc'], ['pufferfish','Pufferfish','#f6b201','#37c3f2'], ['tadpole','Tadpole','#6d533d','#160a00'],
+  ['pillager','Pillager','#532f36','#959b9b'], ['vindicator','Vindicator','#959b9b','#275e61'], ['evoker','Evoker','#959b9b','#1e1c1a'], ['vex','Vex','#7a90a4','#e8edf1'],
+  ['ravager','Ravager','#757470','#5b5049'], ['wandering_trader','Wandering Trader','#456296','#eaa430'],
 ];
 const EGG_BASE = 410;                      // 410-446
 const APPLE=457, GOLDEN_APPLE=458, CARROT=459, POTATO=460, BAKED_POTATO=461, MILK=462, EGG=463, SUGAR=464,
@@ -1584,9 +1653,11 @@ const isCake = id => id >= CAKE && id <= CAKE3;
 const CROP_GROWING = new Set([WHEAT0, WHEAT1, WHEAT2, CARROT0, CARROT1, CARROT2, POTATO0, POTATO1, POTATO2]);
 const BONE=455, BONE_MEAL=456, SHIELD=454, ROD=447, COD=448, SALMON=449, COOKED_COD=450, COOKED_SALMON=451, PUFFERFISH=452, TROPICAL=453;
 const EGG_RUN = 37, EGG_EXTRA = 479;          // eggs past the first 37 carry on from 479
-// eggs past the 38th have their own run of ids (900-) and icons (285-)
-const eggId = i => i < EGG_RUN ? EGG_BASE + i : i <= EGG_RUN + 1 ? EGG_EXTRA + i - EGG_RUN : 900 + i - EGG_RUN - 2, eggIcon = i => i < EGG_RUN ? 120 + i : i === EGG_RUN ? 175 : i === EGG_RUN + 1 ? 181 : 285 + i - EGG_RUN - 2;
-const eggMob = id => { const i = id >= EGG_BASE && id < EGG_BASE + EGG_RUN ? id - EGG_BASE : id === EGG_EXTRA || id === EGG_EXTRA + 1 ? EGG_RUN + id - EGG_EXTRA : id >= 900 && id < 960 ? EGG_RUN + 2 + id - 900 : -1; return i >= 0 && i < SPAWN_EGGS.length ? SPAWN_EGGS[i][0] : null; };
+// eggs past the 38th have their own run of ids (900-929, then 960-) and icons (285-300, then 304-),
+// stepping round the items at 930-959 and their icons at 301-303
+const eggId = i => i < EGG_RUN ? EGG_BASE + i : i <= EGG_RUN + 1 ? EGG_EXTRA + i - EGG_RUN : i < EGG_RUN + 32 ? 900 + i - EGG_RUN - 2 : 960 + i - EGG_RUN - 32,
+      eggIcon = i => i < EGG_RUN ? 120 + i : i === EGG_RUN ? 175 : i === EGG_RUN + 1 ? 181 : i < EGG_RUN + 18 ? 285 + i - EGG_RUN - 2 : 304 + i - EGG_RUN - 18;
+const eggMob = id => { const i = id >= EGG_BASE && id < EGG_BASE + EGG_RUN ? id - EGG_BASE : id === EGG_EXTRA || id === EGG_EXTRA + 1 ? EGG_RUN + id - EGG_EXTRA : id >= 900 && id < 930 ? EGG_RUN + 2 + id - 900 : id >= 960 && id < 1000 ? EGG_RUN + 32 + id - 960 : -1; return i >= 0 && i < SPAWN_EGGS.length ? SPAWN_EGGS[i][0] : null; };
 const SLIMEBALL=477, SLIME_BLOCK=478, LANTERN=490, CAMPFIRE=491, BEEHIVE=492, BEEHIVE_FULL=493, HONEY_BOTTLE=494, HONEYCOMB=495, FENCE=496, GATE=497, GATE_OPEN=498, SHEARS=499, TRIDENT=500, JUKEBOX=501, DISC_1=502, MAP=506, ANVIL=507, CARVED_PUMPKIN=508, JACK_O_LANTERN=509, PAINTING=510, COMPOSTER=511, GRINDSTONE=512, NOTEBLOCK=513, BARREL=514, FRAME=515, ENDERCHEST=516, CAULDRON=517, LIGHTNINGROD=518, SMITHING=519, FLOWERPOT=520, BEDHEAD=521, TRAPDOOR=522, REDGUM_LOG=523, REDGUM_PLANK=524, REDGUM_LEAVES=525, BOAB_PLANK=526, COBBLE=527, REDSTONE_ORE=528, REDSTONE=529, LAPIS_ORE=530, LAPIS=531, REDSTONE_BLOCK=532, LAPIS_BLOCK=533, DS_COAL=534, DS_IRON=535, DS_COPPER=536, DS_GOLD=537, DS_REDSTONE=538, DS_LAPIS=539, DS_DIAMOND=540, DS_EMERALD=541, RAW_IRON=542, RAW_GOLD=543, RAW_COPPER=544, RAW_IRON_BLOCK=545, RAW_GOLD_BLOCK=546, RAW_COPPER_BLOCK=547, LEVER=548, BUTTON_STONE=549, BUTTON_WOOD=550, PLATE_STONE=551, PLATE_WOOD=552, RS_TORCH=553, RS_TORCH_OFF=554, RS_WIRE=555, LAMP=556, LAMP_ON=557, REPEATER=558;   // 502-505: music discs
 const isFenceish = id => id === FENCE || id === GATE || id === GATE_OPEN || FENCES.has(id);
 const hivesSeen = new Set();           // "x,y,z" of overworld hives the mesher has seen
@@ -1923,7 +1994,8 @@ BLOCKS[SCULK]={name:'Sculk',all:380};BLOCKS[SCULK_SENSOR]={name:'Sculk Sensor',t
 BLOCKS[SCULK_SHRIEKER]={name:'Sculk Shrieker',top:383,bottom:380,side:384};BLOCKS[SCULK_CATALYST]={name:'Sculk Catalyst',top:385,bottom:387,side:386};
 BLOCKS[DEEPSLATE_BRICKS]={name:'Deepslate Bricks',all:387};BLOCKS[DEEPSLATE_TILES]={name:'Deepslate Tiles',all:388};BLOCKS[REINFORCED]={name:'Reinforced Deepslate',top:390,bottom:390,side:389};
 ITEMS[ECHO_SHARD]={name:'Echo Shard',icon:265};
-const PHANTOM_MEMBRANE = 930, ARMADILLO_SCUTE = 931, GLOW_INK_SAC = 932;
+const PHANTOM_MEMBRANE = 930, ARMADILLO_SCUTE = 931, GLOW_INK_SAC = 932, TOTEM = 935;
+ITEMS[TOTEM]={name:'Totem of Undying',icon:380};
 ITEMS[GLOW_INK_SAC]={name:'Glow Ink Sac',icon:303};
 ITEMS[ARMADILLO_SCUTE]={name:'Armadillo Scute',icon:302};
 ITEMS[PHANTOM_MEMBRANE]={name:'Phantom Membrane',icon:301};
@@ -2559,6 +2631,13 @@ itemAtlas.width = 128; itemAtlas.height = 1024;   // 512 icons
     const d = Math.hypot((x - 7.5) * 1.1, (y - 9) * 0.95);
     if(d > 5.6 && !(y < 5 && Math.abs(x - 7.5) < 1.5 && y > 1)) return null;
     return y < 5 ? [30, 90, 96] : d > 4.6 ? [16, 60, 66] : (x + y) % 4 === 0 ? [160, 255, 240] : [60, 200, 190]; });
+  px(380, (x, y) => {                                                   // Totem of Undying: a little golden figure with emerald eyes
+    const G = [236, 196, 70], D = [176, 132, 40], E = [50, 200, 100];
+    if(y >= 1 && y <= 6 && x >= 5 && x <= 10){ if(y === 3 && (x === 6 || x === 9)) return E; return y === 1 || x === 5 || x === 10 ? D : G; }
+    if(y >= 7 && y <= 12 && x >= 4 && x <= 11) return (x + y) % 4 === 0 ? D : G;
+    if(y >= 7 && y <= 10 && (x === 2 || x === 3 || x === 12 || x === 13)) return y === 7 ? G : D;   // its wings
+    if(y >= 13 && y <= 14 && x >= 5 && x <= 10) return D;
+    return null; });
   px(302, (x, y) => {                                                   // armadillo scute: a pink-brown plate
     const d = Math.abs(x - 7.5) * 0.9 + Math.abs(y - 8) * 1.2; if(d > 6.5) return null;
     return d > 5.5 ? [110, 70, 60] : (y % 3 === 0) ? [150, 100, 86] : [196, 136, 118]; });
@@ -6365,6 +6444,8 @@ function* genChunkSteps(cx, cz){
        cz * 16 > p.cz + 16 || (cz + 1) * 16 < p.cz - 16) continue;
     stampPyramid(p, set, data, cx, cz);
   }
+  // pillager outposts
+  if(GEN_V >= 4) for(const o of outpostsNear(cx * 16 + 8, cz * 16 + 8)) if(Math.abs(o.x - cx * 16 - 8) < 30 && Math.abs(o.z - cz * 16 - 8) < 30) stampOutpost(o, set, cx, cz);
   // the sea's structures
   if(GEN_V >= 4){
     const mx = cx * 16 + 8, mz = cz * 16 + 8;
@@ -6642,6 +6723,10 @@ function stockLootChest(x, y, z, key, kind){
             [DIAMI, R() < 0.2 ? 1 : 0], [GNUGGET, R() < 0.5 ? 1 + ((R()*10)|0) : 0]];
   } else if(kind === 'wreck-map'){
     loot = [[TREASURE_MAP, 1], [PAPER, 1 + ((R()*10)|0)], [FEATHER, 1 + ((R()*5)|0)], [MAP, R() < 0.3 ? 1 : 0]];
+  } else if(kind === 'outpost'){
+    loot = [[ARROW_I, 2 + ((R()*7)|0)], [WHEATITEM, 3 + ((R()*3)|0)], [CARROT, R() < 0.5 ? 2 + ((R()*4)|0) : 0], [POTATO, R() < 0.5 ? 2 + ((R()*4)|0) : 0],
+            [DARK_LOG, 2 + ((R()*2)|0)], [STRING, R() < 0.5 ? 1 + ((R()*5)|0) : 0], [IRONI, R() < 0.4 ? 1 + ((R()*3)|0) : 0], [BOW, R() < 0.3 ? 1 : 0],
+            [EMERALD, R() < 0.35 ? 1 + ((R()*2)|0) : 0]];
   } else if(kind === 'ruin'){
     loot = [[COALI, 1 + ((R()*4)|0)], [WHEATITEM, 2 + ((R()*3)|0)], [GNUGGET, 1 + ((R()*3)|0)], [ROTTEN, R() < 0.5 ? 1 : 0],
             [EMERALD, R() < 0.3 ? 1 : 0], [GOLDEN_APPLE, R() < 0.05 ? 1 : 0], [ROD, R() < 0.2 ? 1 : 0], [TREASURE_MAP, R() < 0.35 ? 1 : 0]];
@@ -8201,6 +8286,7 @@ function damage(n, pierce){
   hapticPulse(null, 1, 120);              // both controllers jolt when you're hit
   hurtEl.style.opacity = 0.85;
   setTimeout(() => hurtEl.style.opacity = 0, 60);
+  if(hp <= 0 && useTotem()) return;
   if(hp <= 0){
     dead = true;
     tone(300, 40, 0.6, 'sawtooth', 0.18);
@@ -9585,6 +9671,12 @@ const NETHER_TYPES = {
   bat:        { hp: 6, w: 0.25, h: 0.45, build: buildBat },
   parrot:     { hp: 6, w: 0.22, h: 0.6, build: buildParrot },
   allay:      { hp: 20, w: 0.2, h: 0.6, build: buildAllay },
+  pillager:   { hp: 24, w: 0.3, h: 1.95, build: buildIllager },
+  vindicator: { hp: 24, w: 0.3, h: 1.95, build: buildIllager },
+  evoker:     { hp: 24, w: 0.3, h: 1.95, build: buildIllager },
+  vex:        { hp: 14, w: 0.2, h: 0.8, build: buildVex },
+  ravager:    { hp: 100, w: 0.6, h: 2.2, build: buildRavager },
+  wandering_trader: { hp: 20, w: 0.3, h: 1.95, build: buildTrader },
 };
 /* The Warden: blind, three blocks tall, 500 health. It finds you by sound
    (footsteps, mining, placing - sneak to stay quiet) and by smell when you
@@ -9851,6 +9943,627 @@ function updateSplashes(dt){
     scene.remove(q.mesh); splashes.splice(i, 1);
   }
 }
+/* ---- illagers ----------------------------------------------------------------
+   Pillagers carry crossbows and walk in patrols behind a captain who wears
+   the ominous banner, and they hold the dark oak outposts. Vindicators swing
+   iron axes. Evokers raise rows of fangs out of the ground and summon vexes,
+   which fly straight through walls. Ravagers are great horned beasts that
+   trample leaves and crops, and roar when a shield stops them. Kill a captain
+   and you carry the Bad Omen: walk into a village with it and a raid begins -
+   five waves of them. Win and you are the Hero of the Village: the villagers
+   bring you gifts and trade for less. The wandering trader turns up now and
+   then with his two llamas on leads, selling things from far away. */
+const ILL = {
+  skin: entMat(0x949c9a), brow: entMat(0x2a2a2a), eyeW: entMat(0xe8e8e0), eyeG: entMat(0x2f5f3a),
+  pJacket: entMat(0x4b3a31), pShirt: entMat(0x6a6a6a), pPants: entMat(0x353535),
+  vJacket: entMat(0x2d3436), vShirt: entMat(0x3e5052), vPants: entMat(0x1f2426),
+  eRobe: entMat(0x1d1c20), eTrim: entMat(0xcaa13a), eShirt: entMat(0x2e2c33),
+  wood: entMat(0x6b4a2a), iron: entMat(0xc8c8c8), string: entMat(0xe0e0d0),
+  bannerW: entMat(0xefefef), bannerG: entMat(0x8a8a8a), bannerB: entMat(0x1a1a1a), bannerC: entMat(0x2a8a8a),
+};
+function buildIllager(g, e){
+  const T = e.type, M = ILL;
+  e.illager = true;
+  const jacket = T === 'pillager' ? M.pJacket : T === 'vindicator' ? M.vJacket : M.eRobe;
+  const shirt = T === 'pillager' ? M.pShirt : T === 'vindicator' ? M.vShirt : M.eShirt;
+  const pants = T === 'pillager' ? M.pPants : T === 'vindicator' ? M.vPants : M.eRobe;
+  e.legs = [limb(0.24, 0.75, 0.24, pants, -0.125, 0.75, 0, g), limb(0.24, 0.75, 0.24, pants, 0.125, 0.75, 0, g)];
+  box(0.5, 0.75, 0.3, jacket, 0, 1.125, 0, g);
+  box(0.28, 0.55, 0.02, shirt, 0, 1.18, -0.16, g);                  // the shirt under the open coat
+  if(T === 'evoker'){
+    box(0.56, 0.62, 0.36, M.eRobe, 0, 0.55, 0, g);                  // a robe down to the ankles
+    box(0.58, 0.08, 0.38, M.eTrim, 0, 0.28, 0, g);                  // with a gold hem
+    box(0.08, 1.1, 0.02, M.eTrim, 0, 0.95, -0.19, g);               // and a gold front
+  }
+  const head = new THREE.Group(); head.position.set(0, 1.5, 0); g.add(head); e.head = head;
+  box(0.5, 0.62, 0.5, M.skin, 0, 0.31, 0, head);
+  box(0.12, 0.25, 0.12, M.skin, 0, 0.13, -0.31, head);              // the long nose
+  box(0.46, 0.07, 0.02, M.brow, 0, 0.43, -0.255, head);             // one heavy brow
+  for(const sx of [-1, 1]){ box(0.12, 0.07, 0.02, M.eyeW, sx * 0.12, 0.36, -0.255, head); box(0.05, 0.07, 0.02, M.eyeG, sx * 0.09, 0.36, -0.262, head); }
+  e.arms = [limb(0.24, 0.72, 0.24, jacket, -0.37, 1.48, 0, g), limb(0.24, 0.72, 0.24, jacket, 0.37, 1.48, 0, g)];
+  e.crossed = new THREE.Group(); g.add(e.crossed);                  // arms folded, as illagers stand about
+  box(0.64, 0.24, 0.26, jacket, 0, 1.2, -0.22, e.crossed);
+  box(0.24, 0.2, 0.27, M.skin, 0, 1.2, -0.23, e.crossed);
+  const hand = new THREE.Group(); hand.position.set(0, -0.66, -0.06); e.arms[1].add(hand); e.hand = hand;
+  if(T === 'pillager'){                                              // the crossbow
+    box(0.07, 0.07, 0.55, M.wood, 0, 0, -0.2, hand);
+    box(0.56, 0.06, 0.07, M.wood, 0, 0.02, -0.42, hand);
+    box(0.54, 0.02, 0.02, M.string, 0, 0.02, -0.34, hand);
+  } else if(T === 'vindicator'){                                     // the iron axe, drawn only to fight
+    hand.rotation.x = -1.35;
+    box(0.05, 0.78, 0.05, M.wood, 0, 0.3, 0, hand);
+    box(0.05, 0.24, 0.28, M.iron, 0, 0.6, -0.12, hand);
+  }
+  if(e.captain){                                                     // the captain wears the ominous banner
+    const b = new THREE.Group(); b.position.set(0, 0.62, 0.02); head.add(b);
+    box(0.56, 1.0, 0.03, M.bannerW, 0, 0.45, 0, b);
+    box(0.56, 0.07, 0.035, M.bannerB, 0, 0.9, 0, b); box(0.56, 0.07, 0.035, M.bannerB, 0, 0.0, 0, b);
+    box(0.56, 0.1, 0.035, M.bannerG, 0, 0.28, 0, b);
+    const dia = box(0.22, 0.22, 0.036, M.bannerC, 0, 0.55, 0, b); dia.rotation.z = Math.PI / 4;
+    box(0.12, 0.14, 0.04, M.bannerB, 0, 0.56, 0, b);
+    box(0.04, 1.06, 0.04, M.wood, 0, 0.45, 0.03, b);
+  }
+}
+const VEXM = { body: entMat(0xb4c2d0), red: entMat(0xd88484), dark: entMat(0x8391a0), iron: entMat(0xdadada), hilt: entMat(0x6b4a2a), eye: entMat(0x1a1a2a),
+  wing: new THREE.MeshBasicMaterial({ color: 0xe6eef6, transparent: true, opacity: 0.55, side: THREE.DoubleSide }) };
+function buildVex(g, e){
+  e.illager = true; e.legs = [];
+  const M = VEXM, root = new THREE.Group(); root.position.y = 0.05; g.add(root);
+  e.tint = [box(0.22, 0.26, 0.14, M.body, 0, 0.42, 0, root)];        // torso
+  box(0.14, 0.2, 0.1, M.dark, 0, 0.2, 0.02, root);                   // a wisp of a tail for legs
+  box(0.07, 0.12, 0.07, M.dark, 0, 0.06, 0.05, root);
+  const head = new THREE.Group(); head.position.set(0, 0.55, 0); root.add(head); e.head = head;
+  e.tint.push(box(0.3, 0.3, 0.3, M.body, 0, 0.15, 0, head));
+  box(0.07, 0.05, 0.02, M.eye, -0.07, 0.16, -0.155, head); box(0.07, 0.05, 0.02, M.eye, 0.07, 0.16, -0.155, head);
+  box(0.08, 0.03, 0.02, M.eye, 0, 0.07, -0.155, head);
+  e.arms = [limb(0.07, 0.22, 0.07, M.body, -0.15, 0.53, 0, root), limb(0.07, 0.22, 0.07, M.body, 0.15, 0.53, 0, root)];
+  const hand = new THREE.Group(); hand.position.set(0, -0.2, -0.02); hand.rotation.x = -1.4; e.arms[1].add(hand);
+  box(0.03, 0.36, 0.08, M.iron, 0, 0.24, 0, hand); box(0.03, 0.03, 0.18, M.hilt, 0, 0.05, 0, hand); box(0.03, 0.08, 0.03, M.hilt, 0, -0.01, 0, hand);
+  e.wings = [];
+  for(const sx of [-1, 1]){ const w = new THREE.Group(); w.position.set(sx * 0.05, 0.5, 0.08); root.add(w); box(0.34, 0.24, 0.01, M.wing, sx * 0.17, 0.04, 0, w); e.wings.push(w); }
+}
+const RAV = { hide: entMat(0x5f5a54), dark: entMat(0x403c38), face: entMat(0x77716a), horn: entMat(0x9c8f7a), eye: entMat(0x151515), tooth: entMat(0xe8e0cc), mouth: entMat(0x3a2020) };
+function buildRavager(g, e){
+  e.illager = true;
+  const M = RAV;
+  for(const [x, z] of [[-0.42, -0.62], [0.42, -0.62], [-0.42, 0.64], [0.42, 0.64]]) e.legs.push(limb(0.38, 1.05, 0.38, M.dark, x, 1.05, z, g));
+  box(1.15, 1.05, 1.95, M.hide, 0, 1.55, 0.05, g);                  // the great barrel of its body
+  box(1.0, 0.36, 1.2, M.dark, 0, 2.2, 0.1, g);                      // shoulders humped over the neck
+  box(0.7, 0.62, 0.5, M.hide, 0, 1.75, -0.98, g);                   // neck
+  const head = new THREE.Group(); head.position.set(0, 1.85, -1.18); g.add(head); e.head = head;
+  box(0.82, 0.8, 0.9, M.face, 0, 0.05, -0.4, head);
+  box(0.52, 0.36, 0.3, M.face, 0, -0.14, -0.96, head);              // snout
+  box(0.12, 0.08, 0.02, M.eye, -0.26, 0.2, -0.86, head); box(0.12, 0.08, 0.02, M.eye, 0.26, 0.2, -0.86, head);
+  const jaw = new THREE.Group(); jaw.position.set(0, -0.35, -0.3); head.add(jaw); e.jaw = jaw;
+  box(0.6, 0.18, 0.8, M.face, 0, -0.08, -0.4, jaw);
+  box(0.5, 0.05, 0.6, M.mouth, 0, 0.02, -0.4, jaw);
+  box(0.5, 0.07, 0.04, M.tooth, 0, 0.05, -0.78, jaw);
+  for(const sx of [-1, 1]){                                         // horns, curling up and back
+    const h1 = new THREE.Group(); h1.position.set(sx * 0.36, 0.4, -0.25); h1.rotation.z = -sx * 0.5; head.add(h1);
+    box(0.15, 0.45, 0.15, M.horn, 0, 0.22, 0, h1);
+    const h2 = new THREE.Group(); h2.position.set(0, 0.42, 0); h2.rotation.x = 1.0; h1.add(h2);
+    box(0.12, 0.42, 0.12, M.horn, 0, 0.2, 0, h2);
+  }
+}
+const WTM = { robe: entMat(0x3f5d9c), trim: entMat(0xe2a73a), hood: entMat(0x30497e) };
+const TRADER_POOL = [
+  [SAP_OAK, 1, 1], [SAP_BIRCH, 1, 1], [SAP_SPRUCE, 1, 1], [SAP_JUNGLE, 1, 1], [SAP_DARK, 1, 1], [SAP_PALE, 1, 1], [FERN, 1, 1], [KELP, 1, 1],
+  [CACTUS, 3, 1], [PUMPKIN, 1, 1], [REDSAND, 1, 4], [SAND, 1, 8], [PACKEDICE, 3, 1], [DRIP_DOWN, 2, 2], [MOSS, 1, 2], [PODZOL, 1, 3],
+  [GLOWSTONE, 2, 1], [CORAL_TUBE, 3, 1], [CORALB_TUBE, 3, 1], [SEA_PICKLE, 2, 1], [NAUTILUS, 5, 1], [SLIMEBALL, 4, 1], [GUNPOWDER, 1, 1],
+  [DYE[4], 1, 3], [DYE[11], 1, 3], [DYE[13], 1, 3], [DYE[14], 1, 3],
+].map(([id, cost, n]) => ({ in: [[EMERALD, cost]], out: [id, n] }));
+const TRADER_BUYS = [{ in: [[WATER_BOTTLE, 1]], out: [EMERALD, 1] }, { in: [[BAKED_POTATO, 4]], out: [EMERALD, 1] }, { in: [[MILK, 1]], out: [EMERALD, 1] }];
+function traderTrades(){
+  const pool = [...TRADER_POOL], out = [];
+  for(let i = 0; i < 4; i++) out.push(pool.splice((Math.random() * pool.length) | 0, 1)[0]);
+  out.push(TRADER_BUYS[(Math.random() * TRADER_BUYS.length) | 0]);
+  return out;
+}
+function buildTrader(g, e){
+  e.trader = true; e.trades = traderTrades();
+  e.legs = [limb(0.18, 0.42, 0.2, vilMats.boot, -0.13, 0.42, 0, g), limb(0.18, 0.42, 0.2, vilMats.boot, 0.13, 0.42, 0, g)];
+  box(0.52, 1.05, 0.34, WTM.robe, 0, 0.9, 0, g);
+  box(0.54, 0.08, 0.36, WTM.trim, 0, 0.42, 0, g);                   // a gold hem
+  box(0.54, 0.06, 0.36, WTM.trim, 0, 1.2, 0, g);                    // and a gold belt
+  box(0.5, 0.2, 0.22, WTM.robe, 0, 1.02, -0.24, g);                 // arms folded in the sleeves
+  box(0.5, 0.5, 0.5, vilMats.skin, 0, 1.62, 0, g);
+  box(0.14, 0.32, 0.16, vilMats.skin, 0, 1.5, -0.33, g);            // the nose
+  box(0.56, 0.22, 0.56, WTM.hood, 0, 1.88, 0.01, g);                // the hood
+  box(0.56, 0.52, 0.1, WTM.hood, 0, 1.6, 0.27, g);
+  for(const sx of [-1, 1]) box(0.04, 0.5, 0.5, WTM.hood, sx * 0.27, 1.64, 0.02, g);
+}
+// the trader's llamas: blue and gold carpets, and a lead back to him
+const TLM = { blue: entMat(0x3a5aa8), gold: entMat(0xe8b23a) };
+const leashes = [], leashMat = new THREE.LineBasicMaterial({ color: 0x7a5a32 });
+function traderLlama(L, e){
+  L.traderLlama = true;
+  // lay it over the biggest piece of the body, whatever shape that's built from
+  let best = null, bv = 0, bb = null;
+  for(const o of L.group.children){
+    if(!o.isMesh) continue;
+    o.geometry.computeBoundingBox();
+    const q = o.geometry.boundingBox.clone().translate(o.position), sz = q.getSize(new THREE.Vector3()), v = sz.x * sz.y * sz.z;
+    if(v > bv){ bv = v; best = o; bb = q; }
+  }
+  if(best){
+    const c = bb.getCenter(new THREE.Vector3()), sz = bb.getSize(new THREE.Vector3());
+    const p = { width: sz.x, height: sz.y, depth: sz.z }, par = L.group, b = c, top = bb.max.y;
+    box(p.width + 0.06, 0.05, p.depth * 0.8, TLM.blue, b.x, top + 0.02, b.z, par);
+    for(const dz of [-0.2, 0.2]) box(0.14, 0.06, 0.14, TLM.gold, b.x, top + 0.04, b.z + dz * p.depth, par);
+    for(const sx of [-1, 1]){ box(0.03, p.height * 0.6, p.depth * 0.6, TLM.blue, b.x + sx * (p.width / 2 + 0.03), b.y + p.height * 0.2, b.z, par);
+      box(0.035, 0.07, p.depth * 0.6, TLM.gold, b.x + sx * (p.width / 2 + 0.03), b.y - p.height * 0.08, b.z, par); }
+  }
+  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6), 3));
+  const line = new THREE.Line(geo, leashMat); line.frustumCulled = false; scene.add(line);
+  leashes.push({ line, e, L });
+}
+function updateLeashes(){
+  for(let i = leashes.length - 1; i >= 0; i--){
+    const q = leashes[i], { e, L } = q;
+    if(!netherMobs.includes(e) || !animals.includes(L)){ scene.remove(q.line); q.line.geometry.dispose(); leashes.splice(i, 1); continue; }
+    const dx = L.pos.x - e.pos.x, dz = L.pos.z - e.pos.z, d = Math.hypot(dx, dz);
+    if(d > 14){ L.pos.set(e.pos.x + dx / d * 3, e.pos.y + 0.5, e.pos.z + dz / d * 3); L.vel.set(0, 0, 0); }
+    else if(d > 4.5){ const k = (d - 4.5) / d * 0.12; L.pos.x -= dx * k; L.pos.z -= dz * k; }   // the lead pulls it along
+    const a = q.line.geometry.attributes.position;
+    a.setXYZ(0, e.pos.x - Math.sin(e.yaw) * 0.3, e.pos.y + 1.05, e.pos.z - Math.cos(e.yaw) * 0.3);
+    a.setXYZ(1, L.pos.x, L.pos.y + 1.35, L.pos.z); a.needsUpdate = true;
+  }
+}
+function traderThink(e, dt){
+  e.life = (e.life ?? 1200) - dt;
+  // an invisibility potion at dusk, a bucket of milk at dawn
+  const night = daylightOf(timeOfDay) < 0.3;
+  if(night !== !!e.invis){ e.invis = night; burstRGB(e.pos.x, e.pos.y + 1.2, e.pos.z, night ? 0.5 : 1, night ? 0.5 : 1, night ? 0.6 : 1, 14, 0.6); playN({ f: 400, type: 'lowpass', dur: 0.4, vol: 0.1 }); }
+  if(e.life <= 0){                                          // he moves on, llamas and all
+    burstRGB(e.pos.x, e.pos.y + 1, e.pos.z, 0.8, 0.8, 0.9, 20, 0.8);
+    for(const q of leashes) if(q.e === e){ const i = animals.indexOf(q.L); if(i >= 0) removeEnt(animals, i); }
+    if(tradeVillager === e && tradeOpen) closeTrade();
+    e.remove = true; return;
+  }
+  const threat = hostilesNear(e.pos, 8);
+  if(threat){ const dx = e.pos.x - threat.pos.x, dz = e.pos.z - threat.pos.z, l = Math.hypot(dx, dz) || 1; e.yaw = Math.atan2(-dx / l, -dz / l); e.speed = 2.6; }
+  else if(tradeVillager === e){ faceTo(e, player.pos.x, player.pos.z); e.speed = 0; }
+  else wander(e, dt, 0.9);
+  stepMob(e, dt, 24);
+}
+function illagerTarget(e, range){
+  let best = null, bd = range;
+  if(mode === 'survival' && !dead){ const d = Math.hypot(player.pos.x - e.pos.x, player.pos.z - e.pos.z); if(d < bd && Math.abs(player.pos.y - e.pos.y) < 8){ best = player; bd = d; } }
+  for(const v of villagers){ const d = Math.hypot(v.pos.x - e.pos.x, v.pos.z - e.pos.z); if(d < bd && Math.abs(v.pos.y - e.pos.y) < 8){ best = v; bd = d; } }
+  for(const m of netherMobs) if(m.trader && !m.invis){ const d = Math.hypot(m.pos.x - e.pos.x, m.pos.z - e.pos.z); if(d < bd){ best = m; bd = d; } }
+  if(e.type !== 'pillager' && e.type !== 'evoker') for(const g of golems){ const d = Math.hypot(g.pos.x - e.pos.x, g.pos.z - e.pos.z); if(d < bd * 0.7){ best = g; bd = d; } }
+  return best ? { t: best, d: bd } : null;
+}
+// a blow from an illager, to you or to someone they've caught
+function illagerHit(e, t, dmg, kb){
+  const dx = t.pos.x - e.pos.x, dz = t.pos.z - e.pos.z, l = Math.hypot(dx, dz) || 1;
+  if(t === player){
+    if(shieldBlocks(e.pos)) return 'blocked';
+    damage(dmg);
+    player.vel.x += dx / l * kb; player.vel.z += dz / l * kb; player.vel.y = Math.max(player.vel.y, Math.min(9, kb * 0.7));
+    return true;
+  }
+  t.hp -= dmg;
+  t.vel.x += dx / l * kb; t.vel.z += dz / l * kb; t.vel.y = 4;
+  burstRGB(t.pos.x, t.pos.y + 1, t.pos.z, 0.8, 0.2, 0.2, 8, 0.4);
+  if(t.kind === 'villager'){
+    t.flee = 2.5; villagerVoice(t, t.hp <= 0 ? 'die' : 'hurt');
+    if(t.hp <= 0){ const vi = villagers.indexOf(t); if(vi >= 0) removeEnt(villagers, vi); }
+  }
+  return true;
+}
+function illagerThink(e, dt){
+  const T = e.type;
+  e.swing = Math.max(0, (e.swing || 0) - dt);
+  if(e.trader){ traderThink(e, dt); return; }
+  if(T === 'vex'){ vexThink(e, dt); return; }
+  if(e.mount){                                                   // riding a ravager into battle
+    if(!netherMobs.includes(e.mount)) e.mount = null;
+    else { e.pos.set(e.mount.pos.x, e.mount.pos.y + 1.85, e.mount.pos.z); e.vel.set(0, 0, 0); e.yaw = e.mount.yaw; }
+  }
+  const tg = illagerTarget(e, e.raid ? 28 : T === 'ravager' ? 20 : 16);
+  e.hostile = !!tg; e.aiming = false; e.casting = Math.max(0, (e.casting || 0) - dt);
+  if(tg){
+    const t = tg.t, l = faceTo(e, t.pos.x, t.pos.z);
+    if(T === 'pillager'){
+      e.aiming = true;
+      e.speed = e.mount ? 0 : l > 10 ? 2.4 : l < 5 ? -1.6 : 0;
+      e.charge = (e.charge || 0) + dt;                             // winding the crossbow
+      if(e.charge > 1.25 && e.atkCd <= 0 && l < 18 && lineOfSight(new THREE.Vector3(e.pos.x, e.pos.y + 1.5, e.pos.z), new THREE.Vector3(t.pos.x, t.pos.y + 1.5, t.pos.z))){
+        e.charge = 0; e.atkCd = 1.5 + Math.random();
+        const dy = (t.pos.y + 1.2) - (e.pos.y + 1.45), sp = 26;
+        spawnArrow(e.pos.x - Math.sin(e.yaw) * 0.5, e.pos.y + 1.45, e.pos.z - Math.cos(e.yaw) * 0.5, (t.pos.x - e.pos.x) / l * sp, dy / l * sp + l * 0.18, (t.pos.z - e.pos.z) / l * sp);
+        arrows[arrows.length - 1].dmg = 4;
+        if(t !== player) illagerHit(e, t, 4, 2);                    // a villager or golem: the bolt finds its mark
+        nNoise(e.pos, 2600, 0.12, 0.3, -1600);
+      }
+    } else if(T === 'vindicator'){
+      e.speed = 3.9;
+      if(l < 1.7 && Math.abs(t.pos.y - e.pos.y) < 2 && e.atkCd <= 0){ e.atkCd = 1.0; e.swing = 0.35; illagerHit(e, t, 13, 4); netherVoice(e, 'attack'); }
+    } else if(T === 'evoker'){
+      e.speed = e.casting > 0 ? 0 : l < 6 ? -2.2 : l > 12 ? 2 : 0;    // it keeps its distance
+      e.vexCd = (e.vexCd ?? 2) - dt; e.fangCd = (e.fangCd ?? 1) - dt;
+      if(e.vexCd <= 0 && netherMobs.filter(m => m.type === 'vex').length < 8){
+        e.vexCd = 17; e.casting = 1.2; e.spell = 'vex';
+        nTone(e.pos, 700, 1400, 0.8, 'triangle', 0.16); nTone(e.pos, 900, 1800, 0.6, 'sine', 0.1, 40, 0.2);
+        for(let k = 0; k < 3; k++){
+          const v = spawnNetherMob('vex', e.pos.x + (Math.random() - 0.5) * 2, e.pos.y + 1.2 + Math.random(), e.pos.z + (Math.random() - 0.5) * 2);
+          if(v){ v.owner = e; burstRGB(v.pos.x, v.pos.y + 0.4, v.pos.z, 0.8, 0.85, 0.9, 10, 0.5); }
+        }
+      } else if(e.fangCd <= 0 && l < 16){
+        e.fangCd = 5; e.casting = 1.0; e.spell = 'fangs';
+        nTone(e.pos, 400, 900, 0.6, 'sine', 0.15); nNoise(e.pos, 700, 0.5, 0.15, 400);
+        if(l < 3){                                                   // too close: a ring of fangs all round
+          for(let k = 0; k < 5; k++){ const a = k / 5 * 6.283; spawnFang(e.pos.x + Math.cos(a) * 1.5, e.pos.y, e.pos.z + Math.sin(a) * 1.5, 0); }
+          for(let k = 0; k < 8; k++){ const a = (k + 0.5) / 8 * 6.283; spawnFang(e.pos.x + Math.cos(a) * 2.5, e.pos.y, e.pos.z + Math.sin(a) * 2.5, 0.15); }
+        } else for(let k = 0; k < 16; k++){                          // otherwise a line of them racing along the ground at you
+          const s2 = 1.25 + k; spawnFang(e.pos.x + (t.pos.x - e.pos.x) / l * s2, e.pos.y, e.pos.z + (t.pos.z - e.pos.z) / l * s2, k * 0.05);
+        }
+      }
+    } else if(T === 'ravager'){
+      if(e.stun > 0){
+        e.stun -= dt; e.speed = 0;
+        if(e.stun <= 0) ravagerRoar(e);
+      } else {
+        e.speed = 3.6;
+        if(l < 2.5 && Math.abs(t.pos.y - e.pos.y) < 2.5 && e.atkCd <= 0){
+          e.atkCd = 1.6; e.bite = 0.4;
+          if(illagerHit(e, t, 12, 9) === 'blocked'){ e.stun = 2; e.atkCd = 3; flashName('Your shield stunned the ravager'); }   // then it roars
+          netherVoice(e, 'attack');
+        }
+      }
+    }
+  } else {
+    e.charge = 0;
+    // no one to fight: raiders make for the village, a patrol follows its captain, the rest idle about
+    if(e.raid && raid){ const l = faceTo(e, raid.v.cx + 0.5, raid.v.cz + 0.5); if(l > 6) e.speed = 2.2; else wander(e, dt, 1.2); }
+    else if(e.leader && netherMobs.includes(e.leader)){ const l = faceTo(e, e.leader.pos.x + e.offX, e.leader.pos.z + e.offZ); e.speed = l > 1.5 ? Math.min(2.2, l) : 0; }
+    else if(e.goal){ const l = faceTo(e, e.goal.x, e.goal.z); e.speed = 1.6; if(l < 3) e.goal = null; }
+    else if(e.home && Math.hypot(e.home[0] - e.pos.x, e.home[1] - e.pos.z) > 14){ faceTo(e, e.home[0], e.home[1]); e.speed = 1.4; }
+    else wander(e, dt, 1.1);
+  }
+  if(e.mount) return;
+  unstick(e, dt);
+  if(T === 'ravager' && e.speed > 0) trample(e, dt);
+  stepMob(e, dt, 24);
+}
+// with no paths to follow, a raider that walks into a wall or a cliff steps aside and tries again
+function unstick(e, dt){
+  if(e.detour > 0){ e.detour -= dt; e.yaw = e.detourYaw; e.speed = Math.max(e.speed, 1.8); return; }
+  if((e.progT = (e.progT || 0) + dt) < 2) return;
+  const moved = e.progP ? Math.hypot(e.pos.x - e.progP.x, e.pos.z - e.progP.z) : 99;
+  e.progP = { x: e.pos.x, z: e.pos.z }; e.progT = 0;
+  if(e.speed > 0.5 && moved < 0.8){ e.detour = 1.2 + Math.random(); e.detourYaw = e.yaw + (Math.random() < 0.5 ? 1 : -1) * (1.2 + Math.random() * 0.8); e.stuckN = (e.stuckN || 0) + 1; }
+  else if(moved > 2) e.stuckN = 0;
+}
+// vexes: summoned by evokers, they fly through walls and charge with their swords
+function vexThink(e, dt){
+  e.life = (e.life ?? 30 + Math.random() * 89) - dt;
+  if(e.life <= 0) e.hp -= dt;                                      // their borrowed time runs out
+  const tg = illagerTarget(e, 24);
+  e.chargeT = (e.chargeT ?? 1 + Math.random() * 2) - dt;
+  let tx, ty, tz, sp = 3.5;
+  if(tg){
+    const t = tg.t;
+    if(e.chargeT <= 0){
+      e.charging = true; tx = t.pos.x; ty = t.pos.y + 1.1; tz = t.pos.z; sp = 9;
+      if(Math.hypot(tx - e.pos.x, ty - e.pos.y - 0.4, tz - e.pos.z) < 1.1){
+        if(e.atkCd <= 0){ e.atkCd = 1; illagerHit(e, t, 9, 3); netherVoice(e, 'attack'); }
+        e.charging = false; e.chargeT = 1.5 + Math.random() * 2;
+      }
+      if(e.chargeT < -2.5){ e.charging = false; e.chargeT = 1.5; }
+    } else {
+      e.charging = false;
+      const a = (e.orbitA = (e.orbitA ?? Math.random() * 6.283) + dt * 1.3);
+      tx = t.pos.x + Math.cos(a) * 3.5; ty = t.pos.y + 2.6; tz = t.pos.z + Math.sin(a) * 3.5;
+    }
+  } else {
+    e.charging = false;
+    const o = e.owner && netherMobs.includes(e.owner) ? e.owner.pos : e.pos;
+    if(!e.goal || e.pos.distanceTo(e.goal) < 0.8 || (e.t -= dt) <= 0){ e.t = 3; e.goal = new THREE.Vector3(o.x + (Math.random() - 0.5) * 8, o.y + 2 + Math.random() * 2, o.z + (Math.random() - 0.5) * 8); }
+    tx = e.goal.x; ty = e.goal.y; tz = e.goal.z;
+  }
+  const dir = _gTo.set(tx - e.pos.x, ty - e.pos.y, tz - e.pos.z), l = dir.length() || 1;
+  e.vel.lerp(dir.multiplyScalar(Math.min(sp, l * 3) / l), Math.min(1, dt * 4));
+  e.pos.addScaledVector(e.vel, dt);                                // straight through walls
+  if(e.charging && tg) faceTo(e, tg.t.pos.x, tg.t.pos.z);
+  else if(Math.hypot(e.vel.x, e.vel.z) > 0.3) e.yaw = Math.atan2(-e.vel.x, -e.vel.z);
+}
+// the ravager tramples leaves and crops in its way (never anything you placed)
+function trample(e, dt){
+  if((e.trampleT = (e.trampleT || 0) - dt) > 0) return;
+  e.trampleT = 0.25;
+  const fx = -Math.sin(e.yaw), fz = -Math.cos(e.yaw);
+  for(const s2 of [-0.6, 0, 0.6]) for(let dy = 0; dy <= 2; dy++){
+    const x = Math.floor(e.pos.x + fx * 1.5 - fz * s2), y = Math.floor(e.pos.y + dy), z = Math.floor(e.pos.z + fz * 1.5 + fx * s2);
+    const b = getBlock(x, y, z);
+    if(!isLeaf(b) && !CROP_GROWING.has(b)) continue;
+    const ed = edits[(x >> 4) + ',' + (z >> 4)];
+    if(ed && ed[(x & 15) + ',' + y + ',' + (z & 15)] !== undefined) continue;
+    setBlock(x, y, z, AIR); burstRGB(x + 0.5, y + 0.5, z + 0.5, 0.3, 0.6, 0.2, 6, 0.4);
+  }
+}
+function ravagerRoar(e){
+  e.roar = 0.8;
+  nTone(e.pos, 130, 60, 1.1, 'sawtooth', 0.35, 70); nNoise(e.pos, 320, 1.1, 0.45, -220, 70);
+  burstRGB(e.pos.x, e.pos.y + 1.2, e.pos.z, 0.75, 0.72, 0.65, 34, 1.8);
+  const dx = player.pos.x - e.pos.x, dz = player.pos.z - e.pos.z, l = Math.hypot(dx, dz) || 1;
+  if(l < 5 && mode === 'survival' && !dead){ damage(6); player.vel.x += dx / l * 12; player.vel.z += dz / l * 12; player.vel.y = Math.max(player.vel.y, 6); }
+  for(const v of villagers) if(v.pos.distanceTo(e.pos) < 5) illagerHit(e, v, 6, 8);
+}
+// evoker fangs: jaws that burst out of the ground and snap shut
+const fangs = [], FANG_M = { bone: entMat(0xcdc3a8), tooth: entMat(0xf4f0e4) };
+function spawnFang(x, y, z, delay){
+  const fx = Math.floor(x), fz = Math.floor(z);
+  let gy = Math.floor(y) + 2;
+  while(gy > y - 4 && !(isSolid(getBlock(fx, gy - 1, fz)) && !isSolid(getBlock(fx, gy, fz)))) gy--;
+  if(gy <= y - 4) return;
+  const g = new THREE.Group(); g.position.set(x, gy - 0.8, z); g.rotation.y = Math.random() * 6.283; g.visible = false; scene.add(g);
+  const jaws = [];
+  for(const sx of [-1, 1]){
+    const j = new THREE.Group(); j.position.set(sx * 0.14, 0, 0); g.add(j);
+    box(0.18, 0.75, 0.46, FANG_M.bone, sx * 0.09, 0.37, 0, j);
+    for(let k = 0; k < 3; k++) box(0.08, 0.12, 0.08, FANG_M.tooth, -sx * 0.02, 0.6 - k * 0.2, -0.14 + k * 0.14, j);
+    jaws.push(j);
+  }
+  fangs.push({ g, jaws, delay, t: 0, x, y: gy, z, hit: false });
+}
+function updateFangs(dt){
+  for(let i = fangs.length - 1; i >= 0; i--){
+    const f = fangs[i];
+    if(f.delay > 0){ f.delay -= dt; continue; }
+    f.g.visible = true; f.t += dt;
+    f.g.position.y = f.y - 0.8 + Math.min(1, f.t / 0.25) * 0.8 - Math.max(0, f.t - 0.65) * 2.2;   // up, snap, and back down
+    const open = f.t < 0.3 ? 1 : Math.max(0, 1 - (f.t - 0.3) / 0.08);
+    f.jaws.forEach((j, k) => { j.rotation.z = (k ? -1 : 1) * open * 0.9; });
+    if(!f.hit && f.t >= 0.36){
+      f.hit = true;
+      nNoise(_gTo.set(f.x, f.y, f.z), 1300, 0.15, 0.3, -700);
+      if(mode === 'survival' && !dead && Math.hypot(player.pos.x - f.x, player.pos.z - f.z) < 0.9 && Math.abs(player.pos.y - f.y) < 1.5) damage(6, true);
+      for(const v of villagers) if(Math.hypot(v.pos.x - f.x, v.pos.z - f.z) < 0.9 && Math.abs(v.pos.y - f.y) < 1.5){ v.hp -= 6; v.flee = 2.5; if(v.hp <= 0){ const vi = villagers.indexOf(v); if(vi >= 0) removeEnt(villagers, vi); } }
+      for(const g of golems) if(Math.hypot(g.pos.x - f.x, g.pos.z - f.z) < 1.1) g.hp -= 6;
+    }
+    if(f.t > 1.1){ scene.remove(f.g); f.g.traverse(o => { if(o.isMesh) o.geometry.dispose(); }); fangs.splice(i, 1); }
+  }
+}
+function animIllager(e, dt){
+  const T = e.type;
+  if(T === 'vex'){
+    e.anim += dt * 3;
+    e.group.position.copy(e.pos); e.group.position.y += Math.sin(e.anim) * 0.06;
+    e.group.rotation.y = e.yaw;
+    e.wings.forEach((w, j) => { w.rotation.y = (j ? -1 : 1) * (0.5 + Math.sin(e.anim * 9) * 0.4); });
+    const mat = e.charging ? VEXM.red : VEXM.body;                  // red with rage as it charges
+    if(e.tint[0].material !== mat) e.tint.forEach(m => { m.material = mat; });
+    e.arms[1].rotation.x = e.charging ? -2.3 : -0.5;
+    e.arms[0].rotation.x = -0.3 + Math.sin(e.anim * 2) * 0.1;
+    return;
+  }
+  animMob(e, dt);
+  if(e.trader){ e.group.visible = !e.invis; return; }
+  if(T === 'ravager'){
+    e.bite = Math.max(0, (e.bite || 0) - dt); e.roar = Math.max(0, (e.roar || 0) - dt);
+    const b = e.bite > 0 ? Math.sin(e.bite / 0.4 * Math.PI) : 0;
+    e.jaw.rotation.x = e.roar > 0 ? 0.75 : b * 0.6 + 0.05;
+    e.head.rotation.x = e.stun > 0 ? Math.sin(e.anim * 20) * 0.12 : e.roar > 0 ? -0.35 : b * 0.4;
+    e.head.rotation.y = e.stun > 0 ? Math.sin(e.anim * 7) * 0.45 : 0;
+    return;
+  }
+  const casting = e.casting > 0, fight = !!e.hostile;
+  const crossed = (T === 'evoker' && !casting) || (T === 'vindicator' && !fight);
+  e.crossed.visible = crossed; e.arms.forEach(a => { a.visible = !crossed; });
+  const walk = Math.sin(e.anim * 3) * 0.5 * Math.min(1, Math.hypot(e.vel.x, e.vel.z));
+  if(T === 'pillager'){
+    const wind = e.aiming && e.charge < 1.25;
+    e.arms[1].rotation.x = e.aiming ? -1.45 : -0.35;                 // the crossbow held across the body
+    e.arms[0].rotation.x = e.aiming ? (wind ? -1.0 + Math.sin(e.anim * 9) * 0.2 : -1.35) : walk;
+    e.arms[0].rotation.y = e.aiming ? 0.5 : 0;
+  } else if(T === 'vindicator'){
+    const t = e.swing > 0 ? 1 - e.swing / 0.35 : 0;
+    e.arms[1].rotation.x = e.swing > 0 ? -2.6 + Math.sin(t * Math.PI) * 2.0 : -2.4 + Math.sin(e.anim * 4) * 0.1;   // the axe raised, then brought down
+    e.arms[0].rotation.x = walk;
+  } else if(T === 'evoker' && casting){
+    const w = Math.sin(e.anim * 6) * 0.2;
+    e.arms[0].rotation.set(0, 0, -2.4 + w); e.arms[1].rotation.set(0, 0, 2.4 - w);
+    if(Math.random() < dt * 25){
+      const c = e.spell === 'vex' ? [0.75, 0.8, 0.85] : [0.45, 0.35, 0.55];
+      burstRGB(e.pos.x + (Math.random() - 0.5) * 1.2, e.pos.y + 2.1, e.pos.z + (Math.random() - 0.5) * 1.2, c[0], c[1], c[2], 1, 0.3);
+    }
+  }
+  if(e.mount) e.legs.forEach((l, j) => { l.rotation.x = -1.4; l.rotation.z = (j ? -1 : 1) * 0.3; });
+}
+/* ---- raids ---- */
+let raid = null;
+const RAID_WAVES = [
+  ['pillager', 'pillager', 'pillager', 'pillager'],
+  ['pillager', 'pillager', 'pillager', 'vindicator', 'vindicator'],
+  ['pillager', 'pillager', 'vindicator', 'ravager+pillager'],
+  ['pillager', 'pillager', 'vindicator', 'vindicator', 'witch', 'evoker'],
+  ['pillager', 'pillager', 'pillager', 'vindicator', 'vindicator', 'evoker', 'ravager+evoker'],
+];
+const raidEl = document.createElement('div');
+raidEl.style.cssText = 'position:fixed;left:50%;top:10px;transform:translateX(-50%);z-index:6;color:#fff;font:bold 14px system-ui;text-shadow:0 1px 2px #000;pointer-events:none;display:none;text-align:center';
+document.body.appendChild(raidEl);
+let raidShown = '';
+function giveBadOmen(){
+  effects.omen = 6000;
+  flashName('Bad Omen - the next village you enter will be raided');
+  tone(90, 70, 1.4, 'sawtooth', 0.1); tone(135, 100, 1.4, 'triangle', 0.08, 0.2);
+}
+function raidHorn(){ tone(146, 150, 1.6, 'sawtooth', 0.1); tone(110, 112, 1.6, 'triangle', 0.12); tone(165, 160, 1.3, 'sawtooth', 0.09, 1.7); }
+function startRaid(v){
+  raid = { v, wave: 0, t: 5, mobs: [], total: 1, awayT: 0, lastT: 0, hadVillagers: false };
+  effects.omen = 0;
+  raidHorn();
+  flashName('A raid has begun!');
+}
+function spawnWave(){
+  const list = RAID_WAVES[raid.wave - 1];
+  let sx = 0, sz = 0, bestD = Infinity;
+  for(let k = 0; k < 16; k++){                                   // somewhere at the village's own level, not up a cliff or in a lake
+    const a = Math.random() * 6.283, x = raid.v.cx + Math.cos(a) * 32, z = raid.v.cz + Math.sin(a) * 32, h = terrainHeight(Math.floor(x), Math.floor(z));
+    const d = Math.abs(h - raid.v.cy) + (h <= SEA ? 50 : 0);
+    if(d < bestD){ bestD = d; sx = x; sz = z; }
+    if(d <= 3) break;
+  }
+  raid.mobs = [];
+  for(const entry of list){
+    const [t, rider] = entry.split('+');
+    const x = sx + (Math.random() - 0.5) * 6, z = sz + (Math.random() - 0.5) * 6;
+    let gy = findSurfaceY(Math.floor(x), Math.floor(z)); if(gy < 0) gy = terrainHeight(Math.floor(x), Math.floor(z));
+    const m = spawnNetherMob(t, x, gy + 1.05, z);
+    if(!m) continue;
+    m.raid = true; raid.mobs.push(m);
+    if(rider){ const r = spawnNetherMob(rider, x, gy + 3, z); if(r){ r.raid = true; r.mount = m; raid.mobs.push(r); } }
+  }
+  raid.total = Math.max(1, raid.mobs.length);
+  flashName('Raid - wave ' + raid.wave + ' of ' + RAID_WAVES.length);
+  raidHorn();
+}
+function endRaid(won){
+  if(won){
+    effects.hero = 2400;
+    flashName('Victory! You are the Hero of the Village');
+    [523, 659, 784, 1046, 1318].forEach((f, j) => tone(f, f, 0.25, 'triangle', 0.1, j * 0.12));
+    // the villagers come out with gifts
+    for(const v of villagers) if(Math.hypot(v.pos.x - raid.v.cx, v.pos.z - raid.v.cz) < 64 && Math.random() < 0.85){
+      const gift = [EMERALD, EMERALD, BREAD, IRONI, COOKED_COD, GOLDI][(Math.random() * 6) | 0];
+      spawnDropAt(v.pos.x, v.pos.y + 1.2, v.pos.z, gift, 1 + ((Math.random() * 2) | 0));
+      burstRGB(v.pos.x, v.pos.y + 2.2, v.pos.z, 0.3, 1, 0.4, 8, 0.5);
+    }
+    for(let k = 0; k < 6; k++) burstRGB(raid.v.cx + (Math.random() - 0.5) * 20, player.pos.y + 12 + Math.random() * 6, raid.v.cz + (Math.random() - 0.5) * 20, Math.random(), Math.random(), Math.random(), 30, 2);
+  } else flashName('The raid is lost - the village has fallen');
+  raid = null;
+}
+function updateRaid(dt){
+  if(!raid){
+    if(effects.omen > 0 && mode === 'survival' && !dead)
+      for(const v of villagesNear(player.pos.x, player.pos.z)) if(Math.hypot(v.cx - player.pos.x, v.cz - player.pos.z) < 48){ startRaid(v); break; }
+    if(raidShown){ raidShown = ''; raidEl.style.display = 'none'; }
+    return;
+  }
+  raid.mobs = raid.mobs.filter(m => netherMobs.includes(m) && m.hp > 0);
+  for(const m of raid.mobs) if(m.stuckN >= 8 && !m.mount && m.pos.distanceTo(player.pos) > 20 && !playerSees(m)){
+    const a = Math.random() * 6.283, x = Math.floor(raid.v.cx + Math.cos(a) * 12), z = Math.floor(raid.v.cz + Math.sin(a) * 12), y = findSurfaceY(x, z);
+    if(y > 0){ m.pos.set(x + 0.5, y + 1.05, z + 0.5); m.vel.set(0, 0, 0); m.stuckN = 0; }
+  }
+  const far = Math.hypot(raid.v.cx - player.pos.x, raid.v.cz - player.pos.z) > 112;
+  raid.awayT = far ? raid.awayT + dt : 0;
+  if(raid.awayT > 30 || mode !== 'survival'){ flashName('The raid is over'); raid = null; return; }
+  const home = villagers.some(v => Math.hypot(v.pos.x - raid.v.cx, v.pos.z - raid.v.cz) < 64);
+  if(home) raid.hadVillagers = true;
+  else if(raid.hadVillagers && raid.wave > 0){ endRaid(false); return; }
+  if(raid.mobs.length === 0){
+    if(raid.wave >= RAID_WAVES.length){ endRaid(true); return; }
+    if((raid.t -= dt) <= 0){ raid.wave++; spawnWave(); raid.t = 8; }
+  } else if(raid.mobs.length <= 2){                           // the last few stragglers glow, so you can find them
+    raid.lastT += dt;
+    if(raid.lastT > 15 && Math.random() < dt * 4) for(const m of raid.mobs) burstRGB(m.pos.x, m.pos.y + m.h + 0.4, m.pos.z, 1, 1, 1, 2, 0.3);
+  } else raid.lastT = 0;
+  const pct = raid.wave === 0 ? 100 : Math.round(raid.mobs.length / raid.total * 100);
+  const txt = 'Raid' + (raid.wave ? ' - wave ' + raid.wave + ' of ' + RAID_WAVES.length + ' - raiders left: ' + raid.mobs.length : '') + '|' + pct;
+  if(txt !== raidShown){
+    raidShown = txt; raidEl.style.display = 'block';
+    raidEl.innerHTML = txt.split('|')[0] + '<div style="width:260px;height:7px;background:#3a0a0a;margin:4px auto 0;border:1px solid #000"><div style="height:100%;width:' + pct + '%;background:#d22"></div></div>';
+  }
+}
+// the Hero of the Village trades for less
+function tradeIn(t){
+  if(!(effects.hero > 0) || !tradeVillager || tradeVillager.kind !== 'villager') return t.in;
+  return t.in.map(([id, n]) => [id, id === EMERALD ? Math.max(1, Math.ceil(n * 0.7)) : n]);
+}
+/* The Totem of Undying: carry one in your hotbar and, instead of dying, you
+   are brought back with half a heart, Regeneration and Fire Resistance. */
+function useTotem(){
+  if(mode !== 'survival') return false;
+  let i = survInv[sel] && survInv[sel].id === TOTEM && survInv[sel].count > 0 ? sel : -1;
+  for(let k = 0; k < 9 && i < 0; k++) if(survInv[k].id === TOTEM && survInv[k].count > 0) i = k;
+  if(i < 0) return false;
+  const s = survInv[i];
+  if(--s.count <= 0){ s.id = 0; s.count = 0; s.dur = 0; }
+  invDirty = true; renderHotbar();
+  hp = 1; renderHearts();
+  for(const k in effects) effects[k] = 0;
+  effects.regen = 45; effects.fire = 40; burnT = 0;
+  const pp = player.pos;
+  for(let k = 0; k < 4; k++){ burstRGB(pp.x, pp.y + 1.2, pp.z, 0.95, 0.85, 0.2, 24, 1.4); burstRGB(pp.x, pp.y + 1.2, pp.z, 0.3, 0.9, 0.35, 24, 1.4); }
+  [523, 659, 784, 1046].forEach((f, j) => tone(f, f * 1.02, 0.3, 'triangle', 0.12, j * 0.08));
+  hapticPulse(null, 1, 200);
+  flashName('The Totem of Undying saved you!');
+  return true;
+}
+/* ---- where they turn up ---- */
+function surfaceSpot(r0, r1){
+  for(let t = 0; t < 12; t++){
+    const a = Math.random() * 6.283, d = r0 + Math.random() * (r1 - r0);
+    const x = Math.floor(player.pos.x + Math.cos(a) * d), z = Math.floor(player.pos.z + Math.sin(a) * d);
+    const bm = biomeAt(x, z);
+    if(bm === 'mushroom-fields' || OCEAN_WATER.has(bm)) continue;
+    const y = findSurfaceY(x, z);
+    if(y < 0 || isWet(getBlock(x, y, z)) || isWet(getBlock(x, y + 1, z))) continue;
+    return [x + 0.5, y + 1.05, z + 0.5];
+  }
+  return null;
+}
+function spawnPatrol(){
+  const s = surfaceSpot(28, 44);
+  if(!s) return null;
+  const cap = spawnNetherMob('pillager', s[0], s[1], s[2], { captain: true });
+  if(!cap) return null;
+  const a = Math.random() * 6.283; cap.goal = new THREE.Vector3(s[0] + Math.cos(a) * 90, 0, s[2] + Math.sin(a) * 90);
+  for(let k = 1 + ((Math.random() * 4) | 0); k > 0; k--){
+    const m = spawnNetherMob('pillager', s[0] + (Math.random() - 0.5) * 3, s[1], s[2] + (Math.random() - 0.5) * 3);
+    if(m){ m.leader = cap; m.offX = (Math.random() - 0.5) * 5; m.offZ = (Math.random() - 0.5) * 5; }
+  }
+  return cap;
+}
+function spawnTrader(){
+  const s = surfaceSpot(16, 30);
+  if(!s) return null;
+  const e = spawnNetherMob('wandering_trader', s[0], s[1], s[2]);
+  if(!e) return null;
+  for(const k of [-1, 1]){
+    const n = animals.length;
+    spawnAnimal('llama', s[0] + k * 2, s[1], s[2] + 1.5);
+    if(animals.length > n) traderLlama(animals[animals.length - 1], e);
+  }
+  flashName('A wandering trader has come by');
+  return e;
+}
+let illT = 2, patrolT = 300 + Math.random() * 300, traderT = 90;
+const outpostSeen = new Set();
+function updateIllagers(dt){
+  updateFangs(dt);
+  updateLeashes();
+  updateRaid(dt);
+  if((illT -= dt) > 0) return;
+  illT = 3;
+  const px = player.pos.x, pz = player.pos.z;
+  // outposts: a captain up top, an allay in its cage, and pillagers about the foot of the tower
+  for(const o of outpostsNear(px, pz)){
+    if(Math.hypot(o.x - px, o.z - pz) > 96) continue;
+    if(!outpostSeen.has(o.key)){
+      if(getBlock(o.x + 4, o.y + 16, o.z) !== DARK_PLANK) continue;       // not built yet
+      outpostSeen.add(o.key);
+      const c = spawnNetherMob('pillager', o.x + 0.5, o.y + 17.05, o.z - 2.5, { captain: true });
+      if(c){ c.home = [o.x, o.z]; c.outpost = o.key; }
+      const al = spawnNetherMob('allay', o.cage[0] + 0.5, o.cage[1] + 0.3, o.cage[2] + 0.5);
+      if(al) al.caged = o.cage.slice();
+    }
+    if(netherMobs.filter(m => m.outpost === o.key).length < 5 && Math.random() < 0.35){
+      const a = Math.random() * 6.283, d = 6 + Math.random() * 8, x = Math.floor(o.x + Math.cos(a) * d), z = Math.floor(o.z + Math.sin(a) * d);
+      const y = findSurfaceY(x, z);
+      if(y > 0 && Math.hypot(x - px, z - pz) > 10){ const m = spawnNetherMob('pillager', x + 0.5, y + 1.05, z + 0.5); if(m){ m.home = [o.x, o.z]; m.outpost = o.key; } }
+    }
+  }
+  // patrols, now and then
+  if(mode === 'survival' && !dead && (patrolT -= 3) <= 0){ patrolT = 300 + Math.random() * 400; spawnPatrol(); }
+  // the wandering trader
+  if((traderT -= 3) <= 0){
+    traderT = 240;
+    if(daylightOf(timeOfDay) > 0.5 && Math.random() < 0.35 && !netherMobs.some(m => m.trader)) spawnTrader();
+  }
+}
 /* ---- flyers ----------------------------------------------------------------
    Bats flit about the dark caves. Parrots live in the jungle: feed one seeds
    until it trusts you, and it follows you and rides on your shoulder (they
@@ -9934,6 +10647,13 @@ function flyerThink(e, dt){
   }
   if(T === 'allay'){
     flapAnim(e, dt, 18);
+    if(e.caged){                                      // shut in an outpost's cage until you break it open
+      const [cx, cy, cz] = e.caged;
+      if([[1, 0], [-1, 0], [0, 1], [0, -1]].every(([dx, dz]) => isFenceish(getBlock(cx + dx, cy, cz + dz)))){
+        e.vel.set(0, 0, 0); e.pos.set(cx + 0.5, cy + 0.35 + Math.sin(e.wingT * 0.15) * 0.1, cz + 0.5); return;
+      }
+      e.caged = null; flashName('You set the allay free'); tone(1500, 2100, 0.2, 'sine', 0.06); tone(1900, 2500, 0.2, 'sine', 0.05, 0.12);
+    }
     if(e.want){
       if(!e.carry){
         let best = null, bd = 32 * 32;
@@ -10013,6 +10733,7 @@ function updateNightMobs(dt){
   if((restSaveT -= dt) <= 0){ restSaveT = 30; safeSet(SAVE_KEY + '-rest', String(Math.floor(sinceRest))); }
   updateSplashes(dt);
   updateFlyers(dt);
+  updateIllagers(dt);
   // a hoglin brought into the Overworld turns into a zoglin
   for(const e of netherMobs) if(e.type === 'hoglin' && !e.puppet && (e.zomT = (e.zomT || 0) + dt) > 15){
     const z = spawnNetherMob('zoglin', e.pos.x, e.pos.y, e.pos.z); if(z) z.yaw = e.yaw; e.remove = true;
@@ -10123,7 +10844,7 @@ function spawnNetherMob(type, x, y, z, opt = {}){
     w: T.w, h: T.h, hp: T.hp, maxHp: T.hp,
     yaw: Math.random() * Math.PI * 2, speed: 0, t: 0.5 + Math.random(),
     onGround: false, anim: Math.random() * 9, atkCd: 1 + Math.random(), callT: 2 + Math.random() * 6,
-    seed: (Math.random() * 1e9) | 0, size: opt.size || 1, crossbow: !!opt.crossbow,
+    seed: (Math.random() * 1e9) | 0, size: opt.size || 1, crossbow: !!opt.crossbow, captain: !!opt.captain,
     angry: 0, state: 0, swing: 0,
   };
   if(type === 'magma' || type === 'slime'){
@@ -10234,6 +10955,23 @@ function netherVoice(e, mood = 'idle'){
     case 'stormling':
       nTone(p, mood === 'die' ? 1400 : 1100, mood === 'die' ? 500 : 1500, mood === 'die' ? 0.35 : 0.12, 'square', idle ? 0.05 : 0.09);
       break;
+    case 'pillager': case 'vindicator': case 'evoker': {
+      const f = e.type === 'evoker' ? 150 : e.type === 'vindicator' ? 172 : 200;     // the illagers' sullen 'hrmm'
+      if(mood === 'die') nTone(p, f * 1.3, f * 0.5, 0.7, 'sawtooth', 0.12);
+      else if(mood === 'hurt') nTone(p, f * 1.6, f, 0.25, 'sawtooth', 0.14);
+      else { nTone(p, f, f * 0.85, 0.35, 'sawtooth', idle ? 0.07 : 0.12, 40, 0, 6); nTone(p, f * 0.85, f * 0.95, 0.25, 'sawtooth', idle ? 0.06 : 0.1, 40, 0.3, 6); }
+      break;
+    }
+    case 'vex':
+      nTone(p, mood === 'die' ? 1800 : 1500, mood === 'die' ? 600 : 1900, mood === 'die' ? 0.5 : 0.15, 'square', idle ? 0.04 : 0.08);
+      break;
+    case 'ravager':
+      nNoise(p, mood === 'die' ? 200 : 260, mood === 'die' ? 1.4 : 0.6, idle ? 0.2 : 0.35, -100, 60);
+      nTone(p, 95, 70, mood === 'die' ? 1.4 : 0.6, 'sawtooth', idle ? 0.1 : 0.18, 60);
+      break;
+    case 'wandering_trader':
+      if(!e.invis) villagerVoice(e, mood === 'die' ? 'die' : mood === 'hurt' ? 'hurt' : 'idle');
+      break;
     case 'strider':
       if(mood === 'die') nTone(p, 700, 240, 0.5, 'triangle', 0.25);
       else if(e.cold) { nTone(p, 820, 760, 0.1, 'triangle', 0.14); nTone(p, 800, 740, 0.1, 'triangle', 0.14, 40, 0.13); }
@@ -10321,6 +11059,7 @@ function updateNetherMob(e, dt){
   if(e.type === 'phantom'){ phantomThink(e, dt, daylightOf(timeOfDay)); return; }
   if(e.type === 'witch'){ e.atkCd -= dt; witchThink(e, dt); return; }
   if(e.type === 'bat' || e.type === 'parrot' || e.type === 'allay'){ flyerThink(e, dt); return; }
+  if(e.illager || e.trader){ e.atkCd -= dt; illagerThink(e, dt); return; }
   e.atkCd -= dt; e.swing = Math.max(0, e.swing - dt);
   if(e.angry > 0) e.angry -= dt;
   const toP = Math.hypot(player.pos.x - e.pos.x, player.pos.z - e.pos.z);
@@ -10526,6 +11265,7 @@ function animNether(e, dt){
   if(T === 'warden'){ animWarden(e, dt); return; }
   if(T === 'creaking'){ animCreaking(e, dt); return; }
   if(T === 'bat' || T === 'parrot' || T === 'allay'){ e.group.position.copy(e.pos); e.group.rotation.y = e.yaw; return; }
+  if(e.illager || e.trader){ animIllager(e, dt); return; }
   if(T === 'phantom'){ e.group.position.copy(e.pos); e.group.rotation.y = e.yaw; e.group.rotation.x = Math.max(-0.8, Math.min(0.8, Math.atan2(e.vel.y, Math.hypot(e.vel.x, e.vel.z)) )); return; }
   if(T === 'silverfish' || T === 'endermite'){ animMob(e, dt); e.anim += dt * 8; if(e.segs) e.segs.forEach((q, i) => { q.position.x = Math.sin(e.anim + i * 1.2) * 0.04 * Math.min(1, e.speed); }); return; }
   if(T === 'wisp'){ animWisp(e, dt); return; }
@@ -10596,6 +11336,7 @@ function hurtNether(e, dmg, byPlayer){
     return;
   }
   if(e.type === 'ghast' && e.charge > 0) e.charge = 0.01;
+  e.lastHitByPlayer = !!byPlayer;
   e.hp -= dmg;
   e.swing = 0;
   burstRGB(e.pos.x, e.pos.y + Math.min(e.h, 2) * 0.6, e.pos.z, e.type === 'magma' || e.type === 'blaze' ? 1 : 0.75, e.type === 'blaze' ? 0.6 : 0.2, 0.12, 6, 0.4);
@@ -10611,7 +11352,7 @@ function hurtNether(e, dmg, byPlayer){
 function killNether(e){
   const i = netherMobs.indexOf(e);
   if(i < 0) return;
-  dropXP(e.pos.x, e.pos.y + 0.8, e.pos.z, { ghast: 5, blaze: 10, brute: 20, hoglin: 5, strider: 2, magma: e.size || 1, slime: e.size || 1, stormling: 2, wisp: 4 }[e.type] || 5);
+  dropXP(e.pos.x, e.pos.y + 0.8, e.pos.z, { ghast: 5, blaze: 10, brute: 20, ravager: 20, evoker: 10, vex: 3, wandering_trader: 1, hoglin: 5, strider: 2, magma: e.size || 1, slime: e.size || 1, stormling: 2, wisp: 4 }[e.type] || 5);
   netherVoice(e, 'die');
   const p = e.pos, drop = (id, lo, hi) => { const n = lo + ((Math.random() * (hi - lo + 1)) | 0); if(n > 0) spawnDropAt(p.x, p.y + 0.5, p.z, id, n); };
   if(mode === 'survival') switch(e.type){
@@ -10628,8 +11369,14 @@ function killNether(e){
     case 'phantom': drop(PHANTOM_MEMBRANE, 0, 1); break;
     case 'parrot': drop(FEATHER, 1, 2); if(e.tamedP){ tamedParrots.splice(0, 1); saveParrots(); flashName('Your parrot died'); } break;
     case 'zoglin': drop(ROTTEN, 1, 3); break;
+    case 'pillager': drop(ARROW_I, 0, 2); if(e.raid) drop(EMERALD, 0, 1); break;
+    case 'vindicator': drop(EMERALD, 0, 1); if(Math.random() < 0.085) drop(IAXE, 1, 1); break;
+    case 'evoker': drop(TOTEM, 1, 1); drop(EMERALD, 0, 1); break;
+    case 'ravager': drop(SADDLE, 1, 1); break;
+    case 'wandering_trader': if(Math.random() < 0.5) drop(MILK, 1, 1); break;
     case 'witch': for(let k = 1 + ((Math.random() * 3) | 0); k > 0; k--) drop([GLASS_BOTTLE, GLOWDUST, GUNPOWDER, REDSTONE, SUGAR, STICK][(Math.random() * 6) | 0], 1, 2); break;
   }
+  if(e.captain && e.lastHitByPlayer && !e.raid && !raid && mode === 'survival' && dim === 0) giveBadOmen();   // kill a captain and you carry the Bad Omen
   const big = e.type === 'ghast' ? 3 : 1;
   if(e.type === 'slime') burstRGB(p.x, p.y + e.h * 0.5, p.z, 0.4, 0.8, 0.3, 14, 0.6);
   else burstRGB(p.x, p.y + e.h * 0.5, p.z, e.type === 'wskel' ? 0.2 : 0.8, e.type === 'wskel' ? 0.2 : 0.75, e.type === 'wskel' ? 0.2 : 0.7, 14 * big, 0.6 * big);
@@ -11564,7 +12311,7 @@ function pickTrades(prof){
 }
 let tradeVillager = null;
 function tradeOk(t){
-  return t.in.every(([id, n]) => invCount(id) >= n) &&
+  return tradeIn(t).every(([id, n]) => invCount(id) >= n) &&
          (ITEMS[t.out[0]] && ITEMS[t.out[0]].tool
            ? survInv.some(s => !s.id || s.count === 0)
            : spaceFor(t.out[0]) >= t.out[1]);
@@ -11572,7 +12319,7 @@ function tradeOk(t){
 function doTrade(i){
   const t = tradeVillager && tradeVillager.trades[i];
   if(!t || !tradeOk(t)) return;
-  for(const [id, n] of t.in) removeItems(id, n);
+  for(const [id, n] of tradeIn(t)) removeItems(id, n);
   for(let k = 0; k < t.out[1]; k++) addItem(t.out[0], true);
   renderHotbar();
   renderTrade();
@@ -11596,7 +12343,7 @@ function renderTrade(){
     name.textContent = nameOf(t.out[0]) + (t.out[1] > 1 ? ' ×' + t.out[1] : '');
     const cost = document.createElement('div');
     cost.className = 'rcost';
-    cost.textContent = 'costs ' + t.in.map(([id, n]) => n + ' ' + nameOf(id) + ' (' + invCount(id) + ')').join(' + ');
+    cost.textContent = 'costs ' + tradeIn(t).map(([id, n]) => n + ' ' + nameOf(id) + ' (' + invCount(id) + ')').join(' + ');
     const btn = document.createElement('button');
     btn.className = 'mcbtn';
     btn.textContent = 'Trade';
@@ -11840,7 +12587,7 @@ function updateGolemSpawns(dt){
    outranks a nearer one wandering by itself.                          */
 function golemTarget(e){
   let best = null, score = Infinity;
-  for(const list of [zombies, skeletons, creepers, spiders]){
+  for(const list of [zombies, skeletons, creepers, spiders, netherMobs.filter(m => m.illager)]){
     for(const m of list){
       const d = e.pos.distanceTo(m.pos);
       if(d > 22) continue;
@@ -11873,7 +12620,7 @@ function healGolem(g){
 }
 function hostilesNear(pos, range){
   let best = null, bd = range * range;
-  for(const list of [zombies, skeletons, creepers, spiders]){
+  for(const list of [zombies, skeletons, creepers, spiders, netherMobs.filter(m => m.illager)]){
     for(const m of list){
       const d = pos.distanceToSquared(m.pos);
       if(d < bd){ bd = d; best = m; }
@@ -12576,6 +13323,7 @@ function spawnFromEgg(type, x, y, z){
   if(type === 'cavespider') return spawnSpider(x, y, z, false, true);
   if(['guardian', 'elder', 'dolphin', 'squid', 'glowsquid', 'pufferfish', 'tadpole'].includes(type)) return spawnSea(type, x, y + 0.3, z);
   if(type === 'bat' || type === 'parrot' || type === 'allay') return spawnNetherMob(type, x, y + 1.2, z);
+  if(type === 'vex') return spawnNetherMob(type, x, y + 0.8, z);
   if(type === 'drowned') return spawnZombie(x, y, z, 'drowned');
   if(type === 'skeleton') return spawnSkeleton(x, y, z);
   if(type === 'creeper') return spawnCreeper(x, y, z);
@@ -16316,7 +17064,7 @@ function doPlace(){
   if(eh && eh.e.kind === 'golem' && (!hit || eh.t < hit.t) && mode === 'survival' && heldId() === IRONI){
     if(healGolem(eh.e)) return;
   }
-  if(eh && eh.e.kind === 'villager' && (!hit || eh.t < hit.t) && mode === 'survival'){ openTrade(eh.e); return; }
+  if(eh && (eh.e.kind === 'villager' || eh.e.trader) && (!hit || eh.t < hit.t) && mode === 'survival'){ openTrade(eh.e); return; }
   // interactions first (bed, crafting table, furnace)
   if(equipArmour())return;
   if(useFlintSteel(hit))return;
@@ -16494,7 +17242,7 @@ const ALL_CREATIVE = (() => {
 // ---- item categories (used to group the creative palette and the crafting list) ----
 const CAT_NAMES = ['Building', 'Nature', 'Ores & Minerals', 'Decoration', 'Utility', 'Tools', 'Combat', 'Food', 'Misc'];
 const _oreBlocks = new Set([RAW_IRON_BLOCK, RAW_GOLD_BLOCK, RAW_COPPER_BLOCK, COALO, IRONO, GOLDO, DIAMO, EMERO, COPPERO, REDSTONE_ORE, LAPIS_ORE, QUARTZ_ORE, DEBRIS, ...Object.keys(DEEP_BASE).map(Number)]);
-const _matItems = new Set([GLOW_INK_SAC, ARMADILLO_SCUTE, PHANTOM_MEMBRANE, ...DYE, COCOA, RESIN_CLUMP, RESIN_BRICK, ECHO_SHARD, HEART_OF_SEA, NAUTILUS, PRISMARINE_SHARD, PRISMARINE_CRYSTALS, INK_SAC, RAW_IRON, RAW_GOLD, RAW_COPPER, REDSTONE, LAPIS, COALI, IRONI, GOLDI, DIAMI, COPPERI, EMERALD, NETHERITE, QUARTZ, AMETHYST_SHARD, GNUGGET, NSCRAP, STICK, STRING, LEATHER, FEATHER, GUNPOWDER, BLAZEROD, BLAZEPOWDER, GHASTTEAR, MAGMACREAM, ENDERPEARL, SLIMEBALL, BONE, BONE_MEAL, HONEYCOMB, PAPER]);
+const _matItems = new Set([TOTEM, GLOW_INK_SAC, ARMADILLO_SCUTE, PHANTOM_MEMBRANE, ...DYE, COCOA, RESIN_CLUMP, RESIN_BRICK, ECHO_SHARD, HEART_OF_SEA, NAUTILUS, PRISMARINE_SHARD, PRISMARINE_CRYSTALS, INK_SAC, RAW_IRON, RAW_GOLD, RAW_COPPER, REDSTONE, LAPIS, COALI, IRONI, GOLDI, DIAMI, COPPERI, EMERALD, NETHERITE, QUARTZ, AMETHYST_SHARD, GNUGGET, NSCRAP, STICK, STRING, LEATHER, FEATHER, GUNPOWDER, BLAZEROD, BLAZEPOWDER, GHASTTEAR, MAGMACREAM, ENDERPEARL, SLIMEBALL, BONE, BONE_MEAL, HONEYCOMB, PAPER]);
 const _decoBlocks = new Set([...CARPET, SEA_LANTERN, TORCH, SOUL_TORCH, PAINTING, FRAME, FLOWERPOT, LANTERN, JACK_O_LANTERN, CARVED_PUMPKIN, GLOWB, CAMPFIRE]);
 const _utilBlocks = new Set([AQ_CONDUIT, REPEATER, LEVER, BUTTON_STONE, BUTTON_WOOD, PLATE_STONE, PLATE_WOOD, RS_TORCH, LAMP, CHEST, CRAFTT, FURN, BREWING, BARREL, ENDERCHEST, COMPOSTER, GRINDSTONE, NOTEBLOCK, JUKEBOX, ANVIL, SMITHING, CAULDRON, LADDER, FENCE, GATE, GATE_OPEN, BED, BEDHEAD, LIGHTNINGROD, TNT, BOOKSHELF, ENCH_TABLE]);
 const _natureBlocks = new Set([PALE_MOSS, PALE_MOSS_CARPET, PALE_HANGING_MOSS, EYEBLOSSOM_C, PALE_GRASS, CREAKING_HEART, SCULK, SCULK_SENSOR, SCULK_SHRIEKER, SCULK_CATALYST, MYCELIUM, MUSH_STEM, RED_MUSH_BLOCK, BROWN_MUSH_BLOCK, ...OCEAN_PLANTS, ...CORAL_BLOCKS, DEAD_CORALB, ICE, SPONGE, WET_SPONGE, GRASS, DIRT, SAND, REDSAND, GRAVEL, SNOW, PODZOL, CACTUS, DEADBUSH, MUSHROOMR, MUSHROOMB, TGRASSB, POPPYB, DANDB]);
@@ -17004,8 +17752,8 @@ function buildCraftPanel(){
         g.strokeStyle='#8f8f8f';g.lineWidth=2;g.strokeRect(35,y-14,1365,132);
         icon(t.out[0],58,y+14,74);
         text(nameOf(t.out[0])+(t.out[1]>1?'  x'+t.out[1]:''),156,y+30,30);
-        const have=t.in.every(([id,n])=>invCount(id)>=n);
-        text('costs '+t.in.map(([id,n])=>n+' '+nameOf(id)+' ('+invCount(id)+')').join(' + '),
+        const have=tradeIn(t).every(([id,n])=>invCount(id)>=n);
+        text('costs '+tradeIn(t).map(([id,n])=>n+' '+nameOf(id)+' ('+invCount(id)+')').join(' + '),
              156,y+74,24,have?'#28572d':'#8a2f2f',880);
         const ok=tradeOk(t);
         button(1078,y+18,300,66,ok?'Trade':'Need more',()=>{
@@ -17269,7 +18017,7 @@ function vrTryPlace(){
   if(eh && eh.e.kind === 'golem' && (!hit || eh.t < hit.t) && mode === 'survival' && heldId() === IRONI){
     if(healGolem(eh.e)){ hapticPulse('right', 0.6, 60); return; }
   }
-  if(eh && eh.e.kind === 'villager' && (!hit || eh.t < hit.t) && mode === 'survival'){
+  if(eh && (eh.e.kind === 'villager' || eh.e.trader) && (!hit || eh.t < hit.t) && mode === 'survival'){
     tradeVillager = eh.e;                    // the DOM trade panel is invisible in a headset,
     tone(220 * jr(0.15), 170, 0.25, 'sawtooth', 0.1);
     hapticPulse('right', 0.5, 45);
@@ -18183,8 +18931,8 @@ function updateAmbience(dt){
    lava and flame off you, strength adds to every blow, swiftness quickens
    you, regeneration heals, night vision lights the dark and slow falling
    floats you down. */
-const effects = { fire: 0, strength: 0, speed: 0, regen: 0, night: 0, slow: 0, breath: 0, conduit: 0, fatigue: 0, darkness: 0, slowness: 0, poison: 0 };
-const EFFECT_NAMES = { fire: 'Fire Resistance', strength: 'Strength', speed: 'Swiftness', regen: 'Regeneration', night: 'Night Vision', slow: 'Slow Falling', breath: 'Water Breathing', conduit: 'Conduit Power', fatigue: 'Mining Fatigue', darkness: 'Darkness', slowness: 'Slowness', poison: 'Poison' };
+const effects = { fire: 0, strength: 0, speed: 0, regen: 0, night: 0, slow: 0, breath: 0, conduit: 0, fatigue: 0, darkness: 0, slowness: 0, poison: 0, omen: 0, hero: 0 };
+const EFFECT_NAMES = { fire: 'Fire Resistance', strength: 'Strength', speed: 'Swiftness', regen: 'Regeneration', night: 'Night Vision', slow: 'Slow Falling', breath: 'Water Breathing', conduit: 'Conduit Power', fatigue: 'Mining Fatigue', darkness: 'Darkness', slowness: 'Slowness', poison: 'Poison', omen: 'Bad Omen', hero: 'Hero of the Village' };
 let regenTick = 0, xpT = 0, poisonTick = 0;
 const fireproof = () => effects.fire > 0;
 function drinkPotion(id){
@@ -18361,7 +19109,7 @@ function updateEffects(dt){
     if(on.length){
       const pickFx = on[(Math.random() * on.length) | 0];
       const id = Object.keys(POTIONS).find(q => POTIONS[q].fx === pickFx);
-      const c = new THREE.Color(id ? POTIONS[id].col : pickFx === 'conduit' ? '#6ad8f0' : pickFx === 'darkness' ? '#101018' : pickFx === 'slowness' ? '#5a6c81' : pickFx === 'poison' ? '#4e9331' : '#5a6a3a'), pp = player.pos;
+      const c = new THREE.Color(id ? POTIONS[id].col : pickFx === 'conduit' ? '#6ad8f0' : pickFx === 'darkness' ? '#101018' : pickFx === 'slowness' ? '#5a6c81' : pickFx === 'poison' ? '#4e9331' : pickFx === 'omen' ? '#0b6138' : pickFx === 'hero' ? '#44ff44' : '#5a6a3a'), pp = player.pos;
       burstRGB(pp.x + (Math.random() - 0.5), pp.y + Math.random() * 1.8, pp.z + (Math.random() - 0.5), c.r, c.g, c.b, 1, 0.2);
     }
   }
@@ -21038,7 +21786,7 @@ window.__bc = {
   PART_BASE, WALLS, FENCES, partState, partBoxes, placePartial, stairQuads,
   COLORS, DYE, CONCRETE, POWDER, SGLASS, TERRA16, GLAZED, CARPET, WOOL16, hardenNear,
   playerSees, updatePale, paleState: () => ({ blossomOpen, paleHere }),
-  splashes, sinceRestSet: v => { sinceRest = v; }, updateNightMobs, spawnFromEgg, useOnFlyer, rideState: () => rideHorse, useRideable, updateHorseRide,
+  splashes, sinceRestSet: v => { sinceRest = v; }, updateNightMobs, spawnFromEgg, useOnFlyer, raidState: () => raid, startRaid, spawnPatrol, spawnTrader, outpostsNear, outpostDef, fangs, useTotem, updateIllagers, rideState: () => rideHorse, useRideable, updateHorseRide,
   mountainBiome, jaggedAt, vnoise, deepDarkAt, cityDef, cityBlock, vibrate, summonWarden, sculkState: () => ({ warnLevel, near: sculkNear.length }), netherMobs, spawnNetherMob,
   monumentDef, monumentBlock, conduitFrame, soakSponge, airState: () => air, effectsNow: () => effects, spawnSea, seaLife, deadElders,
   colInfo, continentAt, waterBiome, wreckDef, ruinDef, treasureDef, wrecksNear, ruinsNear, treasuresNear, nearestTreasure, OCEAN, setOldLand, oldLandKeys: () => oldLandKeys, isWet,
