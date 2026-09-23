@@ -1116,6 +1116,91 @@ function stampRuin(r, set, cx, cz){
     }
   }
 }
+/* Ocean monuments: the great prismarine temples of the deep ocean, as in
+   Minecraft - a 58-block hall, three storeys at the middle, wings to either
+   side, sea lanterns glowing through the murk. Inside: a maze of rooms, a
+   room of wet sponges, and a core of eight gold blocks shut in dark
+   prismarine. Guardians patrol it and three elder guardians keep it: one in
+   the top chamber and one in each wing. */
+const monumentCache = new Map();
+function monumentDef(gx, gz){ return cellDef(monumentCache, gx, gz, () => {
+  if(GEN_V < 4 || hash(gx, gz, 6401) > 0.7) return null;
+  const x = gx * 448 + 64 + Math.floor(hash(gx, gz, 6402) * 320), z = gz * 448 + 64 + Math.floor(hash(gx, gz, 6403) * 320);
+  for(const [dx, dz] of [[0, 0], [-29, -29], [29, -29], [-29, 29], [29, 29]]) if(!biomeAt(x + dx, z + dz).startsWith('deep-')) return null;
+  const ax = x - 29, az = z - 29, y0 = SEA - 22;
+  return { x, z, ax, az, y0, key: 'monument:' + gx + ',' + gz, elders: [[28.5, 18, 30.5], [7.5, 11, 31.5], [50.5, 11, 31.5]] };
+}); }
+const monumentsNear = (wx, wz) => cellsNear(monumentDef, 448, wx, wz);
+function monumentBlock(dx, dy, dz){
+  const PB = PRISMARINE_BRICKS, PR = PRISMARINE, DP = DARK_PRISMARINE, SL = SEA_LANTERN, W = WATER;
+  const within = (x0, x1, z0, z1) => dx >= x0 && dx <= x1 && dz >= z0 && dz <= z1;
+  if(dz < 4){                                               // the portico at the front
+    if(dy === 0) return within(18, 39, 0, 3) ? PB : PR;
+    if((dx === 22 || dx === 35) && dz === 1 && dy <= 9) return DP;
+    if(dy === 10 && within(22, 35, 0, 3)) return dx === 28 || dx === 29 ? SL : PR;
+    return W;
+  }
+  if(dy === 0) return (dx + dz) % 9 === 0 ? PR : PB;         // the floor
+  if(dy <= 7){                                              // the great hall
+    const outer = dx === 0 || dx === 57 || dz === 4 || dz === 57;
+    if(outer){
+      if(dz === 4 && dx >= 25 && dx <= 32 && dy <= 5) return W;                                    // the doorway
+      if(dy === 4 && ((dz === 4 || dz === 57) ? dx % 8 === 4 : dz % 8 === 0)) return SL;
+      return dy === 1 || dy === 7 ? PR : PB;
+    }
+    // the rooms: two walls each way, with doorways
+    if(dx === 19 || dx === 38){ if(dy <= 3 && ((dz >= 12 && dz <= 14) || (dz >= 29 && dz <= 31) || (dz >= 46 && dz <= 48))) return W; return PB; }
+    if(dz === 22 || dz === 39){ if(dy <= 3 && ((dx >= 8 && dx <= 10) || (dx >= 27 && dx <= 30) || (dx >= 46 && dx <= 48))) return W; return PB; }
+    if(within(27, 30, 29, 32) && dy <= 4){                  // the treasure: eight gold blocks in dark prismarine
+      return within(28, 29, 30, 31) && dy >= 2 && dy <= 3 ? GOLDB : DP;
+    }
+    if(dy === 7 && within(42, 53, 43, 53) && (dx + dz) % 3 === 0) return WET_SPONGE;                  // the sponge room
+    return W;
+  }
+  if(dy === 8){                                             // the hall's roof
+    if(within(27, 30, 26, 28)) return W;                    // the way up
+    return dx % 12 === 6 && dz % 12 === 10 ? SL : PR;
+  }
+  if(dy <= 16){
+    if(within(14, 43, 16, 45)){                             // the middle storey
+      const wall = dx === 14 || dx === 43 || dz === 16 || dz === 45;
+      if(dy === 16) return within(27, 30, 30, 32) ? W : dx % 8 === 5 && dz % 8 === 5 ? SL : PB;
+      if(wall){
+        if(dy >= 11 && dy <= 13 && ((dx >= 28 && dx <= 29) || (dz >= 30 && dz <= 31))) return W;     // windows
+        if(dy === 12 && (dx === 14 || dx === 43) && (dz === 20 || dz === 41)) return SL;
+        return dy === 9 || dy === 15 ? PB : DP;
+      }
+      return W;
+    }
+    for(const [x0, x1] of [[2, 12], [45, 55]]){            // the two wings
+      if(dy <= 14 && within(x0, x1, 22, 40)){
+        if(dy === 14) return dx === ((x0 + x1) >> 1) && dz === 31 ? SL : PR;
+        const wall = dx === x0 || dx === x1 || dz === 22 || dz === 40;
+        if(wall) return dy >= 10 && dy <= 12 && dz >= 30 && dz <= 32 && (dx === 2 || dx === 55) ? W : PB;
+        return W;
+      }
+    }
+    if(dy === 9 && (dx === 0 || dx === 57 || dz === 4 || dz === 57) && (dx + dz) % 4 === 0) return PR;   // the roof's battlements
+    return W;
+  }
+  if(dy <= 22 && within(21, 36, 23, 38)){                   // the top chamber
+    if(dy === 22) return within(28, 29, 30, 31) ? SL : DP;
+    const wall = dx === 21 || dx === 36 || dz === 23 || dz === 38;
+    if(wall) return dy >= 19 && dy <= 20 && ((dx >= 28 && dx <= 29) || (dz >= 30 && dz <= 31)) ? W : PB;
+    return W;
+  }
+  return W;
+}
+function stampMonument(m, set, data, cx, cz){
+  const x0 = cx * 16, z0 = cz * 16;
+  if(m.ax > x0 + 15 || m.ax + 57 < x0 || m.az > z0 + 15 || m.az + 57 < z0) return;
+  for(let lx = 0; lx < 16; lx++) for(let lz = 0; lz < 16; lz++){
+    const dx = x0 + lx - m.ax, dz = z0 + lz - m.az;
+    if(dx < 0 || dx > 57 || dz < 0 || dz > 57) continue;
+    for(let dy = 0; dy <= SEA - m.y0; dy++) set(lx, m.y0 + dy, lz, monumentBlock(dx, dy, dz));
+    for(let y = m.y0 - 1; y > 0 && !isSolid(data[(y << 8) | (lz << 4) | lx]); y--) set(lx, y, lz, PRISMARINE);   // it stands on the sea floor
+  }
+}
 function stampTreasure(t, set, cx, cz){
   if(t.x >> 4 !== cx || t.z >> 4 !== cz) return;
   set(t.x & 15, t.y, t.z & 15, CHEST);
@@ -1634,6 +1719,13 @@ ITEMS[DRIED_KELP]={name:'Dried Kelp',icon:255,food:1};
 // treasure of the sea: buried treasure holds the Heart of the Sea; drowned and fishing give nautilus shells
 const HEART_OF_SEA=580, NAUTILUS=581, TREASURE_MAP=582;
 ITEMS[HEART_OF_SEA]={name:'Heart of the Sea',icon:256};ITEMS[NAUTILUS]={name:'Nautilus Shell',icon:257};ITEMS[TREASURE_MAP]={name:'Buried Treasure Map',icon:258};
+// ocean monuments: prismarine, sea lanterns, sponges; the conduit; and what guardians and squid drop
+const PRISMARINE=583, PRISMARINE_BRICKS=584, DARK_PRISMARINE=585, SEA_LANTERN=586, SPONGE=587, WET_SPONGE=588, AQ_CONDUIT=589,
+      PRISMARINE_SHARD=590, PRISMARINE_CRYSTALS=591, INK_SAC=592, POT_BREATH=593;
+BLOCKS[PRISMARINE]={name:'Prismarine',all:362};BLOCKS[PRISMARINE_BRICKS]={name:'Prismarine Bricks',all:363};BLOCKS[DARK_PRISMARINE]={name:'Dark Prismarine',all:364};
+BLOCKS[SEA_LANTERN]={name:'Sea Lantern',all:365};BLOCKS[SPONGE]={name:'Sponge',all:366};BLOCKS[WET_SPONGE]={name:'Wet Sponge',all:367};BLOCKS[AQ_CONDUIT]={name:'Conduit',all:368};
+ITEMS[PRISMARINE_SHARD]={name:'Prismarine Shard',icon:259};ITEMS[PRISMARINE_CRYSTALS]={name:'Prismarine Crystals',icon:260};ITEMS[INK_SAC]={name:'Ink Sac',icon:261};
+const PRISMARINE_SET = new Set([PRISMARINE, PRISMARINE_BRICKS, DARK_PRISMARINE, SEA_LANTERN]);   // what a conduit's frame is built from
 const OCEAN_PLANTS = new Set([SEAGRASS, KELP, SEA_PICKLE, ...CORALS, ...FANS]);
 const isWet = id => id === WATER || OCEAN_PLANTS.has(id);   // water, or a plant standing in it
 // Deepslate ores: the ores found below Y 0, set in deepslate. Same drops and tools as the plain ore, slower to mine.
@@ -1651,7 +1743,8 @@ ITEMS[BONE]={name:'Bone',icon:165};ITEMS[BONE_MEAL]={name:'Bone Meal',icon:166};
 ITEMS[COOKED_COD]={name:'Cooked Cod',icon:160,food:5};ITEMS[COOKED_SALMON]={name:'Cooked Salmon',icon:161,food:6};
 ITEMS[PUFFERFISH]={name:'Pufferfish',icon:162,food:1};ITEMS[TROPICAL]={name:'Tropical Fish',icon:163,food:1};ITEMS[GLASS_BOTTLE]={name:'Glass Bottle',icon:107};ITEMS[WATER_BOTTLE]={name:'Water Bottle',icon:108};
 ITEMS[AWKWARD]={name:'Awkward Potion',icon:109};
-Object.keys(POTIONS).forEach((id, i) => { ITEMS[id] = { name: POTIONS[id].name, icon: 110 + i }; });ITEMS[STORMKEY_I]={name:'Storm Key',icon:102};ITEMS[VOLTITE]={name:'Voltite Shard',icon:103};
+Object.keys(POTIONS).forEach((id, i) => { ITEMS[id] = { name: POTIONS[id].name, icon: 110 + i }; });
+POTIONS[POT_BREATH] = { name: 'Potion of Water Breathing', fx: 'breath', t: 180, col: '#2e5299' }; ITEMS[POT_BREATH] = { name: POTIONS[POT_BREATH].name, icon: 262 };ITEMS[STORMKEY_I]={name:'Storm Key',icon:102};ITEMS[VOLTITE]={name:'Voltite Shard',icon:103};
 ITEMS[TEMPEST_HEART]={name:'Tempest Heart',icon:104};ITEMS[STORMBREAKER]={name:'Stormbreaker',icon:105,tool:{type:'sword',tier:6}};
 ITEMS[VOLT_PICK]={name:'Voltite Pickaxe',icon:106,tool:{type:'pick',tier:6}};ITEMS[FUNGUS_STICK]={name:'Warped Fungus on a Stick',icon:101};
 ITEMS[CRYSTALSHARD]={name:'Crystal Shard',icon:66};ITEMS[CRYSTALPICK]={name:'Crystal Pickaxe',icon:67,tool:{type:'pick',tier:4}};ITEMS[CRYSTALSWORD]={name:'Crystal Sword',icon:68,tool:{type:'sword',tier:4}};
@@ -1687,7 +1780,7 @@ const nameOf = id => BLOCKS[id]?.name || ITEMS[id]?.name || 'Empty';
 const isPlant  = id => isSapling(id) || FLORA_IDS.has(id) || id === TGRASSB || id === POPPYB || id === DANDB || id === DEADBUSH ||
                        id === MUSHROOMR || id === MUSHROOMB ||
                        id === WHEAT0 || id === WHEAT1 || id === WHEAT2 || id === WHEAT3 || (id >= CARROT0 && id <= POTATO3) || CAVE_PLANTS.has(id) || NETHER_PLANTS.has(id);
-const isCross  = id => OCEAN_PLANTS.has(id) || id === RS_TORCH || id === RS_TORCH_OFF || id===GLOWCRYSTAL || isPlant(id) || id === TORCH || id === COBWEB || id === IRONBARS || CAVE_CROSS.has(id) || NETHER_CROSS.has(id);
+const isCross  = id => OCEAN_PLANTS.has(id) || id === AQ_CONDUIT || id === RS_TORCH || id === RS_TORCH_OFF || id===GLOWCRYSTAL || isPlant(id) || id === TORCH || id === COBWEB || id === IRONBARS || CAVE_CROSS.has(id) || NETHER_CROSS.has(id);
 const isFlat   = id => (id >= LEVER && id <= PLATE_WOOD) || id === RS_WIRE || id === REPEATER || id === BED || id === BEDHEAD || id === RAIL || id === SNOW_LAYER || id === LADDER || id === PAINTING || id === FRAME || id === FLOWERPOT || isCake(id) || id === LANTERN || id === CAMPFIRE;   // thin plate on the ground (or, for a ladder, on a wall)
 const isSlab   = id => id === SLAB_STONE || id === SLAB_WOOD || id === SLAB_BRICK || id === SLAB_SAND || id === SLAB_NBRICK;
 const isStair  = id => id === STAIR_STONE || id === STAIR_WOOD || id === STAIR_BRICK || id === STAIR_SAND || id === STAIR_NBRICK;
@@ -1705,7 +1798,7 @@ const isDoor    = id => id === DOOR || id === DOORTOP;
 const isOpaque = id => id !== ICE && !isFenceish(id) && id !== TRAPDOOR && id !== ANVIL && id !== COMPOSTER && id !== GRINDSTONE && id !== CAULDRON && id !== LIGHTNINGROD && id !== AIR && id !== WATER && id !== GLASS && id !== LAVA && id !== PORTAL && id !== ENDPORTAL && id !== END_GATEWAY && id !== STORM_PORTAL && !isCross(id) && !isPartial(id) && !isDoor(id) && !isFlat(id);
 const isSolid  = id => id !== TRAPDOOR && id !== GATE_OPEN && id !== AIR && id !== WATER && id !== LAVA && id !== PORTAL && id !== ENDPORTAL && id !== END_GATEWAY && id !== STORM_PORTAL && !isCross(id) && !isDoor(id) && !isFlat(id);
 const isLiquid = id => id === WATER || id === LAVA;
-const emitsLight = id => id === SEA_PICKLE || id === RS_TORCH || id === LAMP_ON || id===GLOWCRYSTAL || id === ENDERCHEST || id === JACK_O_LANTERN || id === LANTERN || id === CAMPFIRE || id === STORM_PORTAL || id === CONDUIT_LIT || id === VOLTITE_ORE || id === END_ROD || id === END_GATEWAY || id === CRYING_OBSIDIAN || id === ANCHOR_LIT || id === SHROOMLIGHT || id === MAGMA || isFire(id) || id === SOUL_TORCH || id === GLOWVINE || id === AMETHYST_C || id === AMBERLAMP || id === GLOWB || id === GLOWSTONE || id === LAVA || id === PORTAL || id === ENDPORTAL || id === ENDCRYSTAL;
+const emitsLight = id => id === SEA_LANTERN || id === AQ_CONDUIT || id === SEA_PICKLE || id === RS_TORCH || id === LAMP_ON || id===GLOWCRYSTAL || id === ENDERCHEST || id === JACK_O_LANTERN || id === LANTERN || id === CAMPFIRE || id === STORM_PORTAL || id === CONDUIT_LIT || id === VOLTITE_ORE || id === END_ROD || id === END_GATEWAY || id === CRYING_OBSIDIAN || id === ANCHOR_LIT || id === SHROOMLIGHT || id === MAGMA || isFire(id) || id === SOUL_TORCH || id === GLOWVINE || id === AMETHYST_C || id === AMBERLAMP || id === GLOWB || id === GLOWSTONE || id === LAVA || id === PORTAL || id === ENDPORTAL || id === ENDCRYSTAL;
 const occl     = id => isOpaque(id);
 function tileFor(id, face){
   const d = BLOCKS[id];
@@ -1713,7 +1806,7 @@ function tileFor(id, face){
   return face === 3 ? d.top : face === 2 ? d.bottom : d.side;
 }
 function faceVisible(b, n){
-  if(b === WATER && OCEAN_PLANTS.has(n)) return false;   // the plant stands in the water
+  if(b === WATER && (OCEAN_PLANTS.has(n) || n === AQ_CONDUIT)) return false;   // the plant stands in the water
   if(n === AIR || isCross(n)) return true;
   if(b === WATER) return n === GLASS;
   if(b === ICE) return n !== ICE && !isOpaque(n);
@@ -1722,11 +1815,11 @@ function faceVisible(b, n){
   if(b === GLASS) return n === WATER;
   return !isOpaque(n);
 }
-const dropOf = id => CORALB_SET.has(id)?DEAD_CORALB:id===RS_WIRE?REDSTONE:id===RS_TORCH_OFF?RS_TORCH:id===LAMP_ON?LAMP:DEEP_BASE[id] ? dropOf(DEEP_BASE[id]) : id===IRONO?RAW_IRON:id===GOLDO?RAW_GOLD:id===COPPERO?RAW_COPPER:id===REDSTONE_ORE?REDSTONE:id===LAPIS_ORE?LAPIS:id===STONE?COBBLE:id===BEDHEAD?BED:id===BEEHIVE_FULL?BEEHIVE:id===GATE_OPEN?GATE:id===SKYGRASS?STORMSTONE:id===VOLTITE_ORE?VOLTITE:id===CONDUIT_LIT?CONDUIT:id===CHORUS_PLANT?CHORUS_FRUIT:id===ANCHOR_LIT?ANCHOR:id===CRIM_NYL||id===WARP_NYL?NETHERRACK:id===QUARTZ_ORE?QUARTZ:id===NGOLD_ORE?GNUGGET:id===GILDED?(Math.random()<.1?GNUGGET:GILDED):id===SNOWY_GRASS?DIRT:id===GLOWVINE?BERRIES:id===AMETHYST_C||id===BUDDING?AMETHYST_SHARD:id===DRIP_DOWN?DRIP_UP:id===BERRYBUSH?BERRIES:id===CRYSTALORE||id===GLOWCRYSTAL?CRYSTALSHARD:id === GRASS || id === SAVGRASS || id === FARMLAND ? DIRT : id === COALO ? COALI : id === DIAMO ? DIAMI :
+const dropOf = id => id===SEA_LANTERN?PRISMARINE_CRYSTALS:CORALB_SET.has(id)?DEAD_CORALB:id===RS_WIRE?REDSTONE:id===RS_TORCH_OFF?RS_TORCH:id===LAMP_ON?LAMP:DEEP_BASE[id] ? dropOf(DEEP_BASE[id]) : id===IRONO?RAW_IRON:id===GOLDO?RAW_GOLD:id===COPPERO?RAW_COPPER:id===REDSTONE_ORE?REDSTONE:id===LAPIS_ORE?LAPIS:id===STONE?COBBLE:id===BEDHEAD?BED:id===BEEHIVE_FULL?BEEHIVE:id===GATE_OPEN?GATE:id===SKYGRASS?STORMSTONE:id===VOLTITE_ORE?VOLTITE:id===CONDUIT_LIT?CONDUIT:id===CHORUS_PLANT?CHORUS_FRUIT:id===ANCHOR_LIT?ANCHOR:id===CRIM_NYL||id===WARP_NYL?NETHERRACK:id===QUARTZ_ORE?QUARTZ:id===NGOLD_ORE?GNUGGET:id===GILDED?(Math.random()<.1?GNUGGET:GILDED):id===SNOWY_GRASS?DIRT:id===GLOWVINE?BERRIES:id===AMETHYST_C||id===BUDDING?AMETHYST_SHARD:id===DRIP_DOWN?DRIP_UP:id===BERRYBUSH?BERRIES:id===CRYSTALORE||id===GLOWCRYSTAL?CRYSTALSHARD:id === GRASS || id === SAVGRASS || id === FARMLAND ? DIRT : id === COALO ? COALI : id === DIAMO ? DIAMI :
                      id === EMERO ? EMERALD : id === DEADBUSH ? STICK : id;
 function toolClassOf(id){
   if(DEEP_BASE[id]) return 'pick';
-  if(CORALB_SET.has(id) || id === DEAD_CORALB || id === ICE) return 'pick';
+  if(CORALB_SET.has(id) || id === DEAD_CORALB || id === ICE || PRISMARINE_SET.has(id) || id === AQ_CONDUIT) return 'pick';
   if([STORMSTONE,VOLTITE_ORE,STORM_BRICK,CONDUIT,CONDUIT_LIT].includes(id)) return 'pick';
   if(id === SKYGRASS || id === CLOUD) return 'shovel';
   if(id === ENCH_TABLE) return 'pick';
@@ -1780,7 +1873,8 @@ function handTime(id){
   if(id === OBSIDIAN) return 60;
   if(isCross(id)) return 0.05;
   if(isLeaf(id)) return 0.35;
-  if(id === GLASS || id === CACTUS || id === TNT || id === ICE) return 0.5;
+  if(id === GLASS || id === CACTUS || id === TNT || id === ICE || id === SEA_LANTERN) return 0.5;
+  if(id === SPONGE || id === WET_SPONGE) return 0.9;
   if(id === GRASS || id === SAVGRASS || id === DIRT || id === SAND || id === SNOW) return 0.75;
   if(id === WOOL) return 1.0;
   if(id === GLOWB) return 2.0;
@@ -1859,6 +1953,13 @@ const RECIPES = [
   { out: [IRONI, 1],  in: [[IRONO, 1], [COALI, 1]], st: 'furnace' },
   { out: [GOLDI, 1],  in: [[GOLDO, 1], [COALI, 1]], st: 'furnace' },
   { out: [DRIED_KELP, 1], in: [[KELP, 1], [COALI, 1]], st: 'furnace' },
+  { out: [SPONGE, 1], in: [[WET_SPONGE, 1], [COALI, 1]], st: 'furnace' },
+  { out: [PRISMARINE, 1], in: [[PRISMARINE_SHARD, 4]] },
+  { out: [PRISMARINE_BRICKS, 1], in: [[PRISMARINE_SHARD, 9]], st: 'table' },
+  { out: [DARK_PRISMARINE, 1], in: [[PRISMARINE_SHARD, 8], [INK_SAC, 1]], st: 'table' },
+  { out: [SEA_LANTERN, 1], in: [[PRISMARINE_SHARD, 4], [PRISMARINE_CRYSTALS, 5]], st: 'table' },
+  { out: [AQ_CONDUIT, 1], in: [[HEART_OF_SEA, 1], [NAUTILUS, 8]], st: 'table' },
+  { out: [POT_BREATH, 1], in: [[AWKWARD, 1], [PUFFERFISH, 1]], st: 'brew' },
   { out: [PACKEDICE, 1], in: [[ICE, 9]], st: 'table' },
   { out: [IRONI, 1],  in: [[RAW_IRON, 1], [COALI, 1]], st: 'furnace' },
   { out: [GOLDI, 1],  in: [[RAW_GOLD, 1], [COALI, 1]], st: 'furnace' },
@@ -2001,6 +2102,17 @@ itemAtlas.width = 128; itemAtlas.height = 1024;   // 512 icons
     if((x - y === 0 || x + y === 19) && x >= 8 && x <= 11) return [200, 30, 30];
     if(y === 11 - (x >> 1) && x < 8 && x % 2 === 0) return [110, 80, 50];
     return (x * 3 + y) % 7 === 0 ? [214, 196, 150] : [232, 216, 172]; });
+  px(259, (x, y) => {                                                   // prismarine shard: a teal sliver
+    const u = x - y; if(u < -3 || u > 3 || x + y < 7 || x + y > 25) return null;
+    return u === -3 || u === 3 ? [50, 96, 90] : (x + y) % 4 === 0 ? [150, 214, 200] : [96, 164, 150]; });
+  px(260, (x, y) => {                                                   // prismarine crystals: a little heap of bright facets
+    const blobs = [[5, 10, 3], [10, 9, 3.2], [8, 5, 2.6]];
+    for(const [bx, by, br] of blobs){ const d = Math.abs(x - bx) + Math.abs(y - by); if(d <= br) return d > br - 1 ? [120, 170, 170] : (x + y) % 3 === 0 ? [255, 255, 255] : [200, 236, 228]; }
+    return null; });
+  px(261, (x, y) => {                                                   // ink sac: a black pouch
+    const d = Math.hypot((x - 7.5) * 1.1, (y - 9) * 0.95);
+    if(d > 5.6 && !(y < 5 && Math.abs(x - 7.5) < 1.5 && y > 1)) return null;
+    return y < 5 ? [40, 40, 48] : d > 4.6 ? [16, 16, 20] : (x + y) % 5 === 0 ? [70, 70, 84] : [28, 28, 34]; });
 }
 {
   const tn = (x, y, s, salt) => vnoise(x * s + 37.7, y * s + 11.3, 5000 + salt);
@@ -2375,6 +2487,43 @@ itemAtlas.width = 128; itemAtlas.height = 1024;   // 512 icons
     }
     return [0,0,0,0];
   });
+  { // prismarine: the sea-green stone of ocean monuments
+    put(362, (x,y,r) => {                                               // prismarine: mottled teal and cyan
+      const v = vnoise(x * 0.35 + 3, y * 0.35, 1371) * 0.7 + r() * 0.3;
+      return v > 0.66 ? [120, 190, 176] : v > 0.45 ? [96, 160, 150] : v > 0.3 ? [84, 140, 132] : [70, 122, 120];
+    });
+    put(363, (x,y,r) => {                                               // prismarine bricks
+      const row = y >> 2, bx = (x + (row % 2) * 4) % 8;
+      if(y % 4 === 3 || bx === 7) return [58, 98, 90];
+      const k = Math.floor((r() - 0.5) * 16);
+      return [102 + k, 170 + k, 156 + k];
+    });
+    put(364, (x,y,r) => {                                               // dark prismarine: dark slabs framed in lighter lines
+      const k = Math.floor((r() - 0.5) * 12);
+      if(x === 0 || y === 0 || x === 15 || y === 15 || y === 7 || y === 8) return [78, 124, 104];
+      return [48 + k, 88 + k, 72 + k];
+    });
+    put(365, (x,y,r) => {                                               // sea lantern: a glowing pale lamp with crossing panes
+      const d = Math.max(Math.abs(x - 7.5), Math.abs(y - 7.5));
+      if(d > 6.5) return [168, 200, 196];
+      if(x === 7 || x === 8 || y === 7 || y === 8) return [220, 240, 236];
+      return (x + y) % 3 === 0 ? [255, 255, 250] : [200, 232, 228];
+    });
+    const spongePx = (dark) => (x,y,r) => {
+      const hole = hash(x, y, dark ? 1381 : 1380) < 0.14 || hash(x >> 1, y >> 1, 1382) < 0.06;
+      const k = Math.floor((r() - 0.5) * 18);
+      return dark ? (hole ? [70, 74, 40] : [150 + k, 150 + k, 64 + k]) : (hole ? [150, 138, 40] : [206 + k, 200 + k, 80 + k]);
+    };
+    put(366, spongePx(false)); put(367, spongePx(true));
+    put(368, (x,y,r) => {                                               // conduit: a wooden cage around a glowing eye
+      if(x < 3 || x > 12 || y < 3 || y > 12) return [0,0,0,0];
+      const d = Math.hypot(x - 7.5, y - 7.5);
+      if(d < 1.6) return [30, 40, 60, 1];
+      if(d < 3) return [120, 220, 255, 1];
+      if(x === 3 || x === 12 || y === 3 || y === 12 || x === y || x + y === 15) return [150, 116, 70, 1];
+      return [0,0,0,0];
+    });
+  }
   put(360, (x,y,r) => {                                                 // ice: clear pale blue, a few streaks
     const streak = ((x + y * 2) % 11 === 0) || ((x * 3 - y + 40) % 13 === 0);
     const k = Math.floor((r() - 0.5) * 10);
@@ -3779,7 +3928,7 @@ const tileAvg = [];
     I.fillStyle = 'rgba(255,255,255,0.8)'; I.fillRect(x + 5, y + 7, 1, 3);
   };
   bottle(107, null); bottle(108, '#3a6ae0'); bottle(109, '#4a78e8');
-  Object.keys(POTIONS).forEach((id, i) => bottle(110 + i, POTIONS[id].col));
+  Object.keys(POTIONS).forEach(id => bottle(ITEMS[id].icon, POTIONS[id].col));
 }
 /* ---- Caves & Cliffs textures ---- */
 {
@@ -5538,6 +5687,7 @@ function* genChunkSteps(cx, cz){
     for(const w of wrecksNear(mx, mz)) if(Math.abs(w.x - mx) < 24 + 8 && Math.abs(w.z - mz) < 24 + 8) stampWreck(w, set, cx, cz);
     for(const r of ruinsNear(mx, mz)) if(Math.abs(r.x - mx) < 40 && Math.abs(r.z - mz) < 40) stampRuin(r, set, cx, cz);
     for(const t of treasuresNear(mx, mz)) stampTreasure(t, set, cx, cz);
+    for(const m of monumentsNear(mx, mz)) stampMonument(m, set, data, cx, cz);
   }
   // underground structures: dungeons, mineshafts, strongholds
   for(const d of dungeonsNear(cx * 16 + 8, cz * 16 + 8)){
@@ -6120,6 +6270,7 @@ function emitLevel(id){
   if(id === RS_TORCH) return 7;
   if(id === LAMP_ON) return 15;
   if(id === SEA_PICKLE) return 6;
+  if(id === SEA_LANTERN || id === AQ_CONDUIT) return 15;
   if(id===GLOWCRYSTAL)return 11;
   if(id === SHROOMLIGHT || id === FIRE || id === END_GATEWAY || id === ANCHOR_LIT) return 15;
   if(id === END_ROD) return 14;
@@ -7253,9 +7404,9 @@ function renderHearts(){
   for(let i = 0; i < 10; i++)
     heartSpans[i].style.opacity = hp >= (i + 1) * 2 ? 1 : hp >= i * 2 + 1 ? 0.55 : 0.15;
 }
-function damage(n){
+function damage(n, pierce){
   if(dead || n <= 0 || mode !== 'survival') return;
-  hp = Math.max(0, hp - n*(1-armourProtection()));
+  hp = Math.max(0, hp - n*(pierce ? 1 : 1-armourProtection()));
   renderHearts();
   tone(140 * jr(0.15), 45, 0.2, 'sawtooth', 0.22);
   playN({ f: 220, type: 'lowpass', dur: 0.18, vol: 0.2 });
@@ -14192,6 +14343,9 @@ function calcMineTime(id){
   const tool = it && it.tool, cls = toolClassOf(id);
   if(tool && cls && tool.type === cls){ t /= TIER_SPEED[tool.tier - 1]; t /= 1 + 0.35 * heldEnch('efficiency'); }
   if(tool && tool.type === 'shears' && (isLeaf(id) || id === WOOL || id === COBWEB)) t = Math.min(t, 0.12);
+  camera.getWorldPosition(_eyeW);
+  if(effects.conduit <= 0 && isWet(getBlock(Math.floor(_eyeW.x), Math.floor(_eyeW.y), Math.floor(_eyeW.z)))) t *= 5;   // digging under water is slow, as in Minecraft
+  if(effects.fatigue > 0) t *= 30;
   return t;
 }
 /* ---------------- leaf decay, saplings and regrowth ----------------
@@ -14350,6 +14504,25 @@ function tickSaplings(now){
     growTree(x, y, z, SAPLING_TREE[id] || 'oak');
   }
 }
+// a sponge drinks up to 65 blocks of water within 7 steps of it, and turns wet
+function soakSponge(x, y, z){
+  const seen = new Set([x + ',' + y + ',' + z]), q = [[x, y, z, 0]];
+  let n = 0;
+  for(let h = 0; h < q.length && n < 65; h++){
+    const [a, b, c, d] = q[h];
+    for(const [dx, dy, dz] of [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]]){
+      const nx = a + dx, ny = b + dy, nz = c + dz, k = nx + ',' + ny + ',' + nz;
+      if(seen.has(k) || d >= 7) continue;
+      seen.add(k);
+      const id = getBlock(nx, ny, nz);
+      if(!isWet(id)) continue;
+      setBlock(nx, ny, nz, AIR); n++;
+      q.push([nx, ny, nz, d + 1]);
+      if(n >= 65) break;
+    }
+  }
+  if(n){ setBlock(x, y, z, WET_SPONGE); playN({ f: 900, type: 'bandpass', dur: 0.3, vol: 0.12 }); }
+}
 function breakBlock(x, y, z, id){
   triggerViewSwing();
   if(id === TRAPDOOR) trapState.delete(x + ',' + y + ',' + z);
@@ -14375,7 +14548,7 @@ function breakBlock(x, y, z, id){
   }
   // a sea plant leaves its water behind; ice melts back to water over anything but a drop
   const belowB = getBlock(x, y - 1, z);
-  setBlock(x, y, z, OCEAN_PLANTS.has(id) || (id === ICE && dim !== 1 && (isSolid(belowB) || isWet(belowB))) ? WATER : AIR);
+  setBlock(x, y, z, OCEAN_PLANTS.has(id) || id === AQ_CONDUIT || (id === ICE && dim !== 1 && (isSolid(belowB) || isWet(belowB))) ? WATER : AIR);
   if(id === KELP) for(let k = y + 1; getBlock(x, k, z) === KELP; k++){ setBlock(x, k, z, WATER); if(mode === 'survival') spawnDropAt(x + 0.5, k + 0.4, z + 0.5, KELP, 1); }
   if(isLeaf(id)){
     keepLeaf(x, y, z, false);
@@ -14574,6 +14747,7 @@ function doPlace(){
   rsNotify(x, y, z);                                // it may join, cut or feed a redstone line
   blockSfx(held, 'place');
   if(held === CARVED_PUMPKIN || held === JACK_O_LANTERN) tryBuildGolem(x, y, z);
+  if(held === SPONGE) soakSponge(x, y, z);
   if(mode === 'survival'){
     const s = survInv[sel];
     s.count--;
@@ -14638,10 +14812,10 @@ const ALL_CREATIVE = (() => {
 // ---- item categories (used to group the creative palette and the crafting list) ----
 const CAT_NAMES = ['Building', 'Nature', 'Ores & Minerals', 'Decoration', 'Utility', 'Tools', 'Combat', 'Food', 'Misc'];
 const _oreBlocks = new Set([RAW_IRON_BLOCK, RAW_GOLD_BLOCK, RAW_COPPER_BLOCK, COALO, IRONO, GOLDO, DIAMO, EMERO, COPPERO, REDSTONE_ORE, LAPIS_ORE, QUARTZ_ORE, DEBRIS, ...Object.keys(DEEP_BASE).map(Number)]);
-const _matItems = new Set([HEART_OF_SEA, NAUTILUS, RAW_IRON, RAW_GOLD, RAW_COPPER, REDSTONE, LAPIS, COALI, IRONI, GOLDI, DIAMI, COPPERI, EMERALD, NETHERITE, QUARTZ, AMETHYST_SHARD, GNUGGET, NSCRAP, STICK, STRING, LEATHER, FEATHER, GUNPOWDER, BLAZEROD, BLAZEPOWDER, GHASTTEAR, MAGMACREAM, ENDERPEARL, SLIMEBALL, BONE, BONE_MEAL, HONEYCOMB, PAPER]);
-const _decoBlocks = new Set([TORCH, SOUL_TORCH, PAINTING, FRAME, FLOWERPOT, LANTERN, JACK_O_LANTERN, CARVED_PUMPKIN, GLOWB, CAMPFIRE]);
-const _utilBlocks = new Set([REPEATER, LEVER, BUTTON_STONE, BUTTON_WOOD, PLATE_STONE, PLATE_WOOD, RS_TORCH, LAMP, CHEST, CRAFTT, FURN, BREWING, BARREL, ENDERCHEST, COMPOSTER, GRINDSTONE, NOTEBLOCK, JUKEBOX, ANVIL, SMITHING, CAULDRON, LADDER, FENCE, GATE, GATE_OPEN, BED, BEDHEAD, LIGHTNINGROD, TNT, BOOKSHELF, ENCH_TABLE]);
-const _natureBlocks = new Set([...OCEAN_PLANTS, ...CORAL_BLOCKS, DEAD_CORALB, ICE, GRASS, DIRT, SAND, REDSAND, GRAVEL, SNOW, PODZOL, CACTUS, DEADBUSH, MUSHROOMR, MUSHROOMB, TGRASSB, POPPYB, DANDB]);
+const _matItems = new Set([HEART_OF_SEA, NAUTILUS, PRISMARINE_SHARD, PRISMARINE_CRYSTALS, INK_SAC, RAW_IRON, RAW_GOLD, RAW_COPPER, REDSTONE, LAPIS, COALI, IRONI, GOLDI, DIAMI, COPPERI, EMERALD, NETHERITE, QUARTZ, AMETHYST_SHARD, GNUGGET, NSCRAP, STICK, STRING, LEATHER, FEATHER, GUNPOWDER, BLAZEROD, BLAZEPOWDER, GHASTTEAR, MAGMACREAM, ENDERPEARL, SLIMEBALL, BONE, BONE_MEAL, HONEYCOMB, PAPER]);
+const _decoBlocks = new Set([SEA_LANTERN, TORCH, SOUL_TORCH, PAINTING, FRAME, FLOWERPOT, LANTERN, JACK_O_LANTERN, CARVED_PUMPKIN, GLOWB, CAMPFIRE]);
+const _utilBlocks = new Set([AQ_CONDUIT, REPEATER, LEVER, BUTTON_STONE, BUTTON_WOOD, PLATE_STONE, PLATE_WOOD, RS_TORCH, LAMP, CHEST, CRAFTT, FURN, BREWING, BARREL, ENDERCHEST, COMPOSTER, GRINDSTONE, NOTEBLOCK, JUKEBOX, ANVIL, SMITHING, CAULDRON, LADDER, FENCE, GATE, GATE_OPEN, BED, BEDHEAD, LIGHTNINGROD, TNT, BOOKSHELF, ENCH_TABLE]);
+const _natureBlocks = new Set([...OCEAN_PLANTS, ...CORAL_BLOCKS, DEAD_CORALB, ICE, SPONGE, WET_SPONGE, GRASS, DIRT, SAND, REDSAND, GRAVEL, SNOW, PODZOL, CACTUS, DEADBUSH, MUSHROOMR, MUSHROOMB, TGRASSB, POPPYB, DANDB]);
 function itemCat(id){
   const it = ITEMS[id];
   if(id === BOW || id === ARROW_I) return 6;
@@ -14842,12 +15016,12 @@ wristPanel.add(wristScreen);wristPanel.position.set(0,.075,.24);wristPanel.rotat
 wristPanel.visible=false;controllerGrips[0].add(wristPanel);
 let wristDrawKey='',wristHover=-1;
 function updateWristHotbar(){
-  const key=mode+':'+sel+':'+Math.ceil(hp)+':'+Math.ceil(hunger)+':'+xpLevel+':'+wristHover+':'+Array.from({length:9},(_,i)=>JSON.stringify(slotInfo(i))).join('|');
+  const key=mode+':'+sel+':'+Math.ceil(hp)+':'+Math.ceil(hunger)+':'+xpLevel+':'+airBubbles()+':'+wristHover+':'+Array.from({length:9},(_,i)=>JSON.stringify(slotInfo(i))).join('|');
   if(key===wristDrawKey)return;wristDrawKey=key;
   const g=wristCanvas.getContext('2d');g.clearRect(0,0,1000,300);g.fillStyle='rgba(24,24,27,.90)';g.fillRect(0,0,1000,300);
   g.strokeStyle='#dedede';g.lineWidth=8;g.strokeRect(4,4,992,292);g.textBaseline='middle';g.font='bold 24px monospace';
   g.fillStyle='#ef7777';g.fillText(mode==='survival'?'♥'.repeat(Math.ceil(hp/2)):'CREATIVE',22,32);
-  if(mode==='survival'){g.fillStyle='#f4c37b';g.fillText('◆'.repeat(Math.ceil(hunger/2)),390,32);g.fillStyle='#8cf06a';g.fillText('Lv '+xpLevel,680,32);}
+  if(mode==='survival'){g.fillStyle='#f4c37b';g.fillText('◆'.repeat(Math.ceil(hunger/2)),390,32);if(air<15){g.fillStyle='#9fdcff';g.fillText('o'.repeat(airBubbles()),560,32);}else{g.fillStyle='#8cf06a';g.fillText('Lv '+xpLevel,680,32);}}
   g.fillStyle=wristHover===9?'#e5e5e5':'#919191';g.fillRect(780,13,195,40);g.fillStyle='#161616';g.fillText('Inventory',795,33);
   for(let i=0;i<9;i++){
     const x=20+i*107,info=slotInfo(i);g.fillStyle='#747474';g.fillRect(x,77,101,143);g.strokeStyle=i===sel?'#fff':i===wristHover?'#dfedb9':'#bbb';g.lineWidth=i===sel?6:3;g.strokeRect(x,77,101,143);
@@ -16318,8 +16492,8 @@ function updateAmbience(dt){
    lava and flame off you, strength adds to every blow, swiftness quickens
    you, regeneration heals, night vision lights the dark and slow falling
    floats you down. */
-const effects = { fire: 0, strength: 0, speed: 0, regen: 0, night: 0, slow: 0 };
-const EFFECT_NAMES = { fire: 'Fire Resistance', strength: 'Strength', speed: 'Swiftness', regen: 'Regeneration', night: 'Night Vision', slow: 'Slow Falling' };
+const effects = { fire: 0, strength: 0, speed: 0, regen: 0, night: 0, slow: 0, breath: 0, conduit: 0, fatigue: 0 };
+const EFFECT_NAMES = { fire: 'Fire Resistance', strength: 'Strength', speed: 'Swiftness', regen: 'Regeneration', night: 'Night Vision', slow: 'Slow Falling', breath: 'Water Breathing', conduit: 'Conduit Power', fatigue: 'Mining Fatigue' };
 let regenTick = 0, xpT = 0;
 const fireproof = () => effects.fire > 0;
 function drinkPotion(id){
@@ -16345,12 +16519,78 @@ function fillBottle(hit){
   flashName('Water Bottle');
   return true;
 }
+/* Holding your breath, as in Minecraft: 15 seconds of air under water (the
+   bubbles), then drowning - 2 hearts' worth a second, through any armour.
+   Water Breathing and Conduit Power let you breathe. */
+let air = 15, drownT = 0;
+const airEl = document.createElement('div');
+airEl.style.cssText = 'position:fixed;left:50%;bottom:138px;transform:translateX(-50%);color:#9fdcff;z-index:3;font:15px system-ui;pointer-events:none;display:none;text-shadow:0 1px 2px #000';
+document.body.appendChild(airEl);
+const airBubbles = () => Math.max(0, Math.ceil(air / 1.5));
+function updateAir(dt){
+  camera.getWorldPosition(_eyeW);
+  const under = dim !== 1 && isWet(getBlock(Math.floor(_eyeW.x), Math.floor(_eyeW.y), Math.floor(_eyeW.z)));
+  if(under && mode === 'survival' && !dead && effects.breath <= 0 && effects.conduit <= 0){
+    air -= dt;
+    if(air <= 0){ air = 0; drownT -= dt; if(drownT <= 0){ drownT = 1; damage(2, true); flashName('Drowning! Swim up for air'); } }
+  } else { air = Math.min(15, air + dt * (under ? 0 : 7.5)); drownT = 0; }
+  const show = mode === 'survival' && inGame && air < 15;
+  airEl.style.display = show ? 'block' : 'none';
+  if(show) airEl.textContent = Array.from({ length: 10 }, (_, i) => i < airBubbles() ? 'O' : ' ').join(' ');
+}
+/* A conduit: build a frame of prismarine round it (up to 42 blocks in three
+   rings) with water all about it, and it wakes. Anyone in the water nearby
+   gets Conduit Power - they breathe, see further and dig at full speed - out
+   to 16 blocks for every 7 frame blocks. With the full frame it also strikes
+   hostile sea creatures within 8 blocks. */
+let conduitT = 0;
+const conduitsOn = new Map();          // 'x,y,z' -> frame size, for the ones near you
+function conduitFrame(x, y, z){
+  for(let dx = -1; dx <= 1; dx++) for(let dy = -1; dy <= 1; dy++) for(let dz = -1; dz <= 1; dz++)
+    if((dx || dy || dz) && !isWet(getBlock(x + dx, y + dy, z + dz))) return 0;
+  let n = 0;
+  for(let a = -2; a <= 2; a++) for(let b = -2; b <= 2; b++){
+    if(Math.max(Math.abs(a), Math.abs(b)) !== 2) continue;
+    if(PRISMARINE_SET.has(getBlock(x, y + a, z + b))) n++;            // the three rings
+    if(PRISMARINE_SET.has(getBlock(x + a, y, z + b)) && a) n++;
+    if(PRISMARINE_SET.has(getBlock(x + a, y + b, z)) && a && b) n++;
+  }
+  return n;
+}
+function updateConduits(dt){
+  if((conduitT -= dt) > 0 || dim !== 0) return;
+  conduitT = 1;
+  conduitsOn.clear();
+  const px = Math.floor(player.pos.x), py = Math.floor(player.pos.y), pz = Math.floor(player.pos.z);
+  for(let ccx = (px >> 4) - 1; ccx <= (px >> 4) + 1; ccx++) for(let ccz = (pz >> 4) - 1; ccz <= (pz >> 4) + 1; ccz++){
+   const c = chunks.get(ccx + ',' + ccz);
+   if(!c || !c.data) continue;
+   for(let y = Math.max(1, py - 16); y <= Math.min(HEIGHT - 2, py + 16); y++) for(let i = 0; i < 256; i++){
+    if(c.data[(y << 8) | i] !== AQ_CONDUIT) continue;
+    const x = ccx * 16 + (i & 15), z = ccz * 16 + (i >> 4);
+    const n = conduitFrame(x, y, z);
+    if(n < 16) continue;
+    conduitsOn.set(x + ',' + y + ',' + z, n);
+    const range = Math.floor(n / 7) * 16;
+    if(isWet(getBlock(px, Math.floor(player.pos.y + 1), pz)) && Math.hypot(player.pos.x - x - 0.5, player.pos.y - y, player.pos.z - z - 0.5) <= range){
+      if(effects.conduit <= 0) flashName('Conduit Power');
+      effects.conduit = Math.max(effects.conduit, 13);
+    }
+    burstRGB(x + 0.5 + (Math.random() - 0.5) * 3, y + 0.5 + (Math.random() - 0.5) * 3, z + 0.5 + (Math.random() - 0.5) * 3, 0.5, 0.85, 1, 3, 0.4);
+    if(n >= 42){                                            // the full frame: it strikes back
+      const near = q => q.pos.distanceTo(_gTo.set(x + 0.5, y + 0.5, z + 0.5)) < 8;
+      for(const q of seaLife) if((q.type === 'guardian' || q.type === 'elder') && near(q)) q.hp -= 4;
+      for(const q of zombies) if(q.drowned && near(q)) q.hp -= 4;
+    }
+   }
+  }
+}
 function updateEffects(dt){
   for(const k in effects){
     if(effects[k] <= 0) continue;
     effects[k] -= dt;
-    if(effects[k] <= 0){ effects[k] = 0; flashName(EFFECT_NAMES[k] + ' has worn off'); }
-    else if(effects[k] < 10 && effects[k] + dt >= 10) flashName(EFFECT_NAMES[k] + ' is wearing off');
+    if(effects[k] <= 0){ effects[k] = 0; if(k !== 'conduit') flashName(EFFECT_NAMES[k] + ' has worn off'); }
+    else if(effects[k] < 10 && effects[k] + dt >= 10 && k !== 'conduit') flashName(EFFECT_NAMES[k] + ' is wearing off');
   }
   if(effects.regen > 0 && !dead){ regenTick -= dt; if(regenTick <= 0){ regenTick = 2.5; if(hp < 20){ hp = Math.min(20, hp + 1); renderHearts(); } } }
   // a thin coloured shimmer around you shows an effect is on
@@ -16359,7 +16599,7 @@ function updateEffects(dt){
     if(on.length){
       const pickFx = on[(Math.random() * on.length) | 0];
       const id = Object.keys(POTIONS).find(q => POTIONS[q].fx === pickFx);
-      const c = new THREE.Color(POTIONS[id].col), pp = player.pos;
+      const c = new THREE.Color(id ? POTIONS[id].col : pickFx === 'conduit' ? '#6ad8f0' : '#5a6a3a'), pp = player.pos;
       burstRGB(pp.x + (Math.random() - 0.5), pp.y + Math.random() * 1.8, pp.z + (Math.random() - 0.5), c.r, c.g, c.b, 1, 0.2);
     }
   }
@@ -17571,12 +17811,30 @@ const SEA_TYPES = {
   tropical: { hp: 3, w: 0.14, h: 0.3, speed: 1.4, drop: TROPICAL },
   squid:    { hp: 10, w: 0.36, h: 1.4, speed: 1.3, drop: 0 },
   dolphin:  { hp: 10, w: 0.45, h: 0.55, speed: 4.2, drop: COD },
+  guardian: { hp: 30, w: 0.85, h: 0.85, speed: 2.4, drop: 0 },
+  elder:    { hp: 80, w: 1.9, h: 1.9, speed: 0.9, drop: 0 },
 };
 function buildSea(e){
   const g = e.group, T = e.type;
   const pivot = (x, y, z) => { const q = new THREE.Group(); q.position.set(x, y, z); g.add(q); return q; };
   const eye = entMat(0x101010), white = entMat(0xf4f4f4);
-  if(T === 'squid'){
+  if(T === 'guardian' || T === 'elder'){
+    // a guardian: a spiked box with one great eye and a tail; the elder is bigger and pale
+    const big = T === 'elder' ? 2.35 : 1, sz = 0.75 * big, cy = sz / 2 + 0.05;
+    const skin = entMat(T === 'elder' ? 0xcfc8b4 : 0x5f9c8c), belly = entMat(T === 'elder' ? 0xa9a290 : 0x467a6a), spike = entMat(T === 'elder' ? 0xe0d8c8 : 0xd8894a);
+    e.body = box(sz, sz, sz, skin, 0, cy, 0, g);
+    box(sz * 0.92, sz * 0.12, sz * 0.92, belly, 0, 0.05 + sz * 0.06, 0, g);
+    box(sz * 0.4, sz * 0.4, 0.02, white, 0, cy, -sz / 2 - 0.01, g);
+    e.eye = box(sz * 0.16, sz * 0.16, 0.02, entMat(T === 'elder' ? 0x8a3a9a : 0xe07830), 0, cy, -sz / 2 - 0.022, g);
+    const L = 0.3 * big, t = 0.05 * big;
+    for(const [ax, ay, az, dx, dy, dz] of [[1,0,0, 1,0.25,0.25],[1,0,0, 1,-0.25,-0.25],[-1,0,0, -1,0.25,-0.25],[-1,0,0, -1,-0.25,0.25],
+                                           [0,1,0, 0.25,1,0.25],[0,1,0, -0.25,1,-0.25],[0,-1,0, 0.25,-1,-0.25],[0,-1,0, -0.25,-1,0.25],[0,0,1, 0.3,0.3,1],[0,0,1, -0.3,-0.3,1]])
+      box(ax ? L : t, ay ? L : t, az ? L : t, spike, dx * (sz / 2 + (ax ? L / 2 : 0)), cy + dy * (sz / 2 + (ay ? L / 2 : 0)), dz * (sz / 2 + (az ? L / 2 : 0)), g);
+    e.tail = pivot(0, cy, sz / 2);
+    box(sz * 0.45, sz * 0.45, sz * 0.5, skin, 0, 0, sz * 0.25, e.tail);
+    box(sz * 0.3, sz * 0.3, sz * 0.5, skin, 0, 0, sz * 0.72, e.tail);
+    box(sz * 0.12, sz * 0.4, sz * 0.36, spike, 0, 0, sz * 1.1, e.tail);
+  } else if(T === 'squid'){
     const m = entMat(0x2a4478), d = entMat(0x1c2e56);
     e.body = box(0.62, 0.86, 0.62, m, 0, 1.0, 0, g);
     box(0.12, 0.12, 0.02, white, -0.17, 0.78, -0.32, g); box(0.12, 0.12, 0.02, white, 0.17, 0.78, -0.32, g);
@@ -17618,12 +17876,13 @@ function spawnSea(type, x, y, z){
   return e;
 }
 const waterAt = (x, y, z) => isWet(getBlock(Math.floor(x), Math.floor(y), Math.floor(z)));
-function removeSea(i){ scene.remove(seaLife[i].group); seaLife.splice(i, 1); }
+function removeSea(i){ scene.remove(seaLife[i].group); if(seaLife[i].beam) scene.remove(seaLife[i].beam); seaLife.splice(i, 1); }
 function hurtSea(e, dmg){
   e.hp -= dmg;
   const dx = e.pos.x - player.pos.x, dz = e.pos.z - player.pos.z;
   e.yaw = Math.atan2(-dx, -dz); e.speed = e.base * 2.6; e.t = 1.4; e.pitch = -0.2;
   if(e.type === 'squid') burstRGB(e.pos.x, e.pos.y + 0.8, e.pos.z, 0.05, 0.05, 0.08, 20, 0.9);           // a cloud of ink
+  else if((e.type === 'guardian' || e.type === 'elder') && Math.random() < 0.5 && player.pos.distanceTo(e.pos) < 4){ damage(2); flashName('Its spikes!'); }   // guardians' spikes bite back
   else burstRGB(e.pos.x, e.pos.y + e.h / 2, e.pos.z, 0.8, 0.2, 0.2, 4, 0.2);
   playN({ f: 400, type: 'lowpass', dur: 0.12, vol: 0.15 });
 }
@@ -17633,6 +17892,16 @@ function killSea(e){
   const T = SEA_TYPES[e.type];
   dropXP(e.pos.x, e.pos.y + 0.4, e.pos.z, 1 + ((Math.random() * 3) | 0));
   if(mode === 'survival' && T.drop && (e.type !== 'dolphin' || Math.random() < 0.6)) spawnDropAt(e.pos.x, e.pos.y + 0.3, e.pos.z, T.drop);
+  if(mode === 'survival' && e.type === 'squid') for(let k = 1 + ((Math.random() * 3) | 0); k > 0; k--) spawnDropAt(e.pos.x, e.pos.y + 0.5, e.pos.z, INK_SAC);
+  if(e.type === 'guardian' || e.type === 'elder'){
+    dropXP(e.pos.x, e.pos.y + 0.4, e.pos.z, 9);
+    if(mode === 'survival'){
+      for(let k = (Math.random() * 3) | 0; k > 0; k--) spawnDropAt(e.pos.x, e.pos.y + 0.4, e.pos.z, PRISMARINE_SHARD);
+      const r = Math.random(); if(r < 0.4) spawnDropAt(e.pos.x, e.pos.y + 0.4, e.pos.z, PRISMARINE_CRYSTALS); else if(r < 0.8) spawnDropAt(e.pos.x, e.pos.y + 0.4, e.pos.z, COD);
+      if(e.type === 'elder') spawnDropAt(e.pos.x, e.pos.y + 0.6, e.pos.z, WET_SPONGE);
+    }
+    if(e.elderKey){ deadElders.add(e.elderKey); safeSet(SAVE_KEY + '-elders', JSON.stringify([...deadElders])); flashName('An elder guardian is slain'); }
+  }
   burstRGB(e.pos.x, e.pos.y + e.h / 2, e.pos.z, 0.9, 0.9, 0.95, 10, 0.4);
   removeSea(i);
 }
@@ -17681,7 +17950,8 @@ function stepSea(e, dt){
     e.leap = false; e.dryT = 0;
     e.t -= dt;
     const toP = e.pos.distanceTo(player.pos);
-    if(T !== 'dolphin' && T !== 'squid' && toP < 4){
+    if(T === 'guardian' || T === 'elder') guardianThink(e, dt);
+    else if(T !== 'dolphin' && T !== 'squid' && toP < 4){
       const dx = e.pos.x - player.pos.x, dz = e.pos.z - player.pos.z;
       e.yaw = Math.atan2(-dx, -dz); e.speed = e.base * 2.2; e.t = Math.max(e.t, 0.6);                // dart away
     } else if(e.t <= 0){
@@ -17720,11 +17990,91 @@ function stepSea(e, dt){
   if(e.tail){ if(T === 'dolphin') e.tail.rotation.x = Math.sin(e.anim * 1.6) * 0.35; else e.tail.rotation.y = Math.sin(e.anim * 2.4) * 0.6; }
   if(e.tent){ const open = 0.25 + 0.3 * Math.sin(e.anim * 0.8); for(const [t, a] of e.tent){ t.rotation.x = Math.cos(a) * open; t.rotation.z = -Math.sin(a) * open; } }
 }
+/* Guardians hold still in the water and lock a beam on you: it charges from
+   purple to yellow over two seconds, then hurts. Hit one while its spikes are
+   out and they hurt you back. Elder guardians do the same, and once a minute
+   curse anyone nearby with Mining Fatigue - you see the elder's face as it
+   does. They stay dead once killed. */
+const deadElders = (() => { try { return new Set(JSON.parse(localStorage.getItem(SAVE_KEY + '-elders')) || []); } catch(e){ return new Set(); } })();
+function lineClear(a, b){
+  const d = b.clone().sub(a), n = Math.ceil(d.length() / 0.4);
+  for(let i = 1; i < n; i++){ const t = i / n; if(isSolid(getBlock(Math.floor(a.x + d.x * t), Math.floor(a.y + d.y * t), Math.floor(a.z + d.z * t)))) return false; }
+  return true;
+}
+const _gEye = new THREE.Vector3(), _gTo = new THREE.Vector3(), BEAM_A = new THREE.Color(0x7a3aa8), BEAM_B = new THREE.Color(0xf4e070);
+function guardianThink(e, dt){
+  const elder = e.type === 'elder';
+  _gEye.set(e.pos.x, e.pos.y + e.h * 0.5, e.pos.z);
+  _gTo.set(player.pos.x, player.pos.y + 1.3, player.pos.z);
+  const d = _gEye.distanceTo(_gTo);
+  const sees = !dead && mode === 'survival' && d < 16 && lineClear(_gEye, _gTo);
+  if(sees){
+    e.yaw = Math.atan2(-(_gTo.x - _gEye.x), -(_gTo.z - _gEye.z));
+    e.pitch = Math.atan2(_gTo.y - _gEye.y, Math.hypot(_gTo.x - _gEye.x, _gTo.z - _gEye.z)) * 0.6;
+    e.speed = elder ? 0 : d > 9 ? e.base : d < 5 ? -e.base * 0.6 : 0.2;             // keep its distance
+    e.charge = (e.charge || 0) + dt;
+    if(e.charge >= 2){ e.charge = -1.5; damage(elder ? 8 : 6); flashName(elder ? 'The elder guardian\'s beam!' : 'The guardian\'s beam!'); }
+  } else {
+    e.charge = Math.min(e.charge || 0, 0) + dt;
+    if(e.charge > 0) e.charge = 0;
+    e.t -= dt;
+    if(e.t <= 0){ e.t = 2 + Math.random() * 3; e.yaw += (Math.random() - 0.5) * 2.4; e.pitch = (Math.random() - 0.5) * 0.4; e.speed = elder ? e.base * 0.3 : e.base * (0.3 + Math.random() * 0.6); }
+  }
+  // the beam, while it charges
+  if(e.charge > 0){
+    if(!e.beam){ e.beam = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), new THREE.LineBasicMaterial({ color: 0x7a3aa8, fog: false })); scene.add(e.beam); }
+    const pa = e.beam.geometry.attributes.position;
+    pa.setXYZ(0, _gEye.x, _gEye.y, _gEye.z); pa.setXYZ(1, _gTo.x, _gTo.y - 0.2, _gTo.z); pa.needsUpdate = true;
+    e.beam.geometry.computeBoundingSphere();
+    e.beam.material.color.copy(BEAM_A).lerp(BEAM_B, Math.min(1, e.charge / 2));
+    e.beam.visible = true;
+    if(Math.random() < dt * 4) tone(300 + e.charge * 300, 320 + e.charge * 300, 0.08, 'sine', 0.03);
+  } else if(e.beam) e.beam.visible = false;
+  if(elder){
+    e.fatT = (e.fatT ?? 20) - dt;
+    if(e.fatT <= 0){
+      e.fatT = 60;
+      if(mode === 'survival' && !dead && player.pos.distanceTo(e.pos) < 50){ effects.fatigue = Math.max(effects.fatigue, 300); elderGhost(); flashName('Mining Fatigue'); }
+    }
+  }
+}
+function elderGhost(){
+  const ghost = { type: 'elder', group: new THREE.Group() };
+  buildSea(ghost);
+  camera.getWorldPosition(_gEye); camera.getWorldDirection(_gTo);
+  ghost.group.position.copy(_gEye).addScaledVector(_gTo, 3.2); ghost.group.position.y -= 1.2;
+  ghost.group.rotation.y = Math.atan2(_gTo.x, _gTo.z);           // its eye on you
+  scene.add(ghost.group);
+  tone(90, 55, 1.4, 'sawtooth', 0.1); playN({ f: 260, type: 'bandpass', dur: 1.2, vol: 0.12 });
+  setTimeout(() => scene.remove(ghost.group), 1500);
+}
+// guardians gather around a monument; its three elders wait in their rooms
+let monT = 0;
+function monumentSpawns(dt){
+  if((monT -= dt) > 0) return;
+  monT = 1.5;
+  for(const m of monumentsNear(player.pos.x, player.pos.z)){
+    if(Math.abs(player.pos.x - m.x) > 60 || Math.abs(player.pos.z - m.z) > 60) continue;
+    m.elders.forEach(([dx, dy, dz], i) => {
+      const key = m.key + ':' + i;
+      if(deadElders.has(key) || seaLife.some(e => e.elderKey === key)) return;
+      const e = spawnSea('elder', m.ax + dx, m.y0 + dy, m.az + dz); e.elderKey = key;
+    });
+    if(seaLife.filter(e => e.type === 'guardian').length >= 7) continue;
+    for(let k = 0; k < 8; k++){
+      const x = m.ax + 1 + Math.floor(Math.random() * 56), y = m.y0 + 1 + Math.floor(Math.random() * 18), z = m.az + 5 + Math.floor(Math.random() * 52);
+      if(!isWet(getBlock(x, y, z)) || !isWet(getBlock(x, y + 1, z)) || Math.hypot(x - player.pos.x, z - player.pos.z) < 8) continue;
+      spawnSea('guardian', x + 0.5, y, z + 0.5);
+      break;
+    }
+  }
+}
 function updateSeaLife(dt){
   if(mobsFromHost()) return;
   if(dim !== 0 || !inGame){ while(seaLife.length) removeSea(seaLife.length - 1); return; }
   seaSpawnT -= dt;
   if(seaSpawnT <= 0){ seaSpawnT = 2; trySpawnSea(); }
+  monumentSpawns(dt);
   for(let i = seaLife.length - 1; i >= 0; i--){
     const e = seaLife[i];
     if(e.pos.distanceToSquared(player.pos) > 72 * 72){ removeSea(i); continue; }
@@ -18533,7 +18883,7 @@ function animate(){
   updateWeather(dt);
   updateNetherAir(dt);
   updateAdvancements(dt);
-  if(inGame && !dead) updateEffects(dt);
+  if(inGame && !dead){ updateEffects(dt); updateAir(dt); updateConduits(dt); }
   updateXPOrbs(dt);
   updateFishing(dt);
   updateShield(dt);
@@ -18586,7 +18936,7 @@ function animate(){
   if(isWet(getBlock(Math.floor(_eyeW.x), Math.floor(_eyeW.y), Math.floor(_eyeW.z)))){
     _waterFog.copy(WATER_FOG).multiplyScalar(dim === 0 ? 0.2 + 0.8 * Math.pow(daylight, 0.7) : 0.5);
     renderer.setClearColor(_waterFog); scene.fog.color.copy(_waterFog);
-    scene.fog.near = 4; scene.fog.far = 52; eyeWasWet = true;
+    scene.fog.near = 4; scene.fog.far = effects.conduit > 0 ? 110 : 52; eyeWasWet = true;
   } else if(eyeWasWet){ eyeWasWet = false; scene.fog.near = RD * 16 * 0.55; scene.fog.far = RD * 16 * 0.95; }
   matO.color.setScalar(b);
   matT.color.setScalar(b);
@@ -18848,6 +19198,7 @@ window.__bc = {
   addTestConn: send => { const c = { open: true, send, peer: 'test', close(){} }; conns.push(c); return c; },
   dropTestConns: () => { conns = conns.filter(c => c.peer !== 'test'); },
   mobLists: () => Object.fromEntries(MOB_LISTS.map(([k, l]) => [k, l.length])),
+  monumentDef, monumentBlock, conduitFrame, soakSponge, airState: () => air, effectsNow: () => effects, spawnSea, seaLife, deadElders,
   colInfo, continentAt, waterBiome, wreckDef, ruinDef, treasureDef, wrecksNear, ruinsNear, treasuresNear, nearestTreasure, OCEAN, setOldLand, oldLandKeys: () => oldLandKeys, isWet,
   atlas, BLOCKS, tileFor, ORE_K, YDISP, CAVE, cavernsNear, dungeonsNear, ravinesNear, leafQueue, keepLeaf, keptLeaves, rs: { place: placeRS, use: useRS, parts: rsParts, power: rsPower, step: dt => updateRedstone(dt), notify: rsNotify },
   stateAt: (kind, k) => ({ comp: composters, cauld: cauldrons, pot: pottedPlants, frame: frameItems }[kind] || new Map()).get(k),
