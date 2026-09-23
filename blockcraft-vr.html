@@ -1569,6 +1569,10 @@ const SPAWN_EGGS = [
   ['silverfish','Silverfish','#6e6e6e','#303030'], ['endermite','Endermite','#161616','#6e6e6e'], ['phantom','Phantom','#43518a','#88ff00'], ['zoglin','Zoglin','#c66e55','#e6e6e6'],
   ['witch','Witch','#340000','#51a03e'], ['cavespider','Cave Spider','#0c424e','#a80e0e'], ['mooshroom','Mooshroom','#a00f10','#b7b7b7'], ['warden','Warden','#0f4649','#39d6e0'],
   ['guardian','Guardian','#5a8272','#f17d30'], ['elder','Elder Guardian','#ceccba','#747693'], ['dolphin','Dolphin','#223b4d','#f9f9f9'], ['squid','Squid','#223b4d','#708899'],
+  ['cat','Cat','#efc88e','#957256'], ['ocelot','Ocelot','#efde7d','#564434'], ['panda','Panda','#e7e7e7','#1b1b22'], ['polar_bear','Polar Bear','#eeeede','#d5d6cd'],
+  ['turtle','Turtle','#e7e7e7','#00afaf'], ['frog','Frog','#d07444','#ffc77c'], ['armadillo','Armadillo','#ad716d','#824848'], ['camel','Camel','#fcc369','#cb9337'],
+  ['sniffer','Sniffer','#871e09','#2da69b'], ['donkey','Donkey','#534539','#867566'], ['mule','Mule','#1b0200','#51331d'], ['skeleton_horse','Skeleton Horse','#68684f','#e5e5d8'],
+  ['zombie_horse','Zombie Horse','#315234','#97c284'],
 ];
 const EGG_BASE = 410;                      // 410-446
 const APPLE=457, GOLDEN_APPLE=458, CARROT=459, POTATO=460, BAKED_POTATO=461, MILK=462, EGG=463, SUGAR=464,
@@ -1917,7 +1921,8 @@ BLOCKS[SCULK]={name:'Sculk',all:380};BLOCKS[SCULK_SENSOR]={name:'Sculk Sensor',t
 BLOCKS[SCULK_SHRIEKER]={name:'Sculk Shrieker',top:383,bottom:380,side:384};BLOCKS[SCULK_CATALYST]={name:'Sculk Catalyst',top:385,bottom:387,side:386};
 BLOCKS[DEEPSLATE_BRICKS]={name:'Deepslate Bricks',all:387};BLOCKS[DEEPSLATE_TILES]={name:'Deepslate Tiles',all:388};BLOCKS[REINFORCED]={name:'Reinforced Deepslate',top:390,bottom:390,side:389};
 ITEMS[ECHO_SHARD]={name:'Echo Shard',icon:265};
-const PHANTOM_MEMBRANE = 930;
+const PHANTOM_MEMBRANE = 930, ARMADILLO_SCUTE = 931;
+ITEMS[ARMADILLO_SCUTE]={name:'Armadillo Scute',icon:302};
 ITEMS[PHANTOM_MEMBRANE]={name:'Phantom Membrane',icon:301};
 // the Pale Garden: pale oak, pale moss, eyeblossoms, the creaking heart and its resin
 const PALE_LOG=612, PALE_PLANK=613, PALE_LEAVES=614, SAP_PALE=615, PALE_MOSS=616, PALE_MOSS_CARPET=617, PALE_HANGING_MOSS=618,
@@ -2547,6 +2552,9 @@ itemAtlas.width = 128; itemAtlas.height = 1024;   // 512 icons
   px(284, (x, y) => {                                                   // cocoa beans
     for(const [bx, by] of [[5, 8], [10, 7], [8, 11]]){ const d = Math.hypot((x - bx) * 1.2, y - by); if(d < 2.8) return d > 2 ? [70, 40, 20] : [120, 70, 36]; }
     return null; });
+  px(302, (x, y) => {                                                   // armadillo scute: a pink-brown plate
+    const d = Math.abs(x - 7.5) * 0.9 + Math.abs(y - 8) * 1.2; if(d > 6.5) return null;
+    return d > 5.5 ? [110, 70, 60] : (y % 3 === 0) ? [150, 100, 86] : [196, 136, 118]; });
   px(301, (x, y) => {                                                   // phantom membrane: a grey-violet leathery sheet
     if(y < 3 || y > 13 || x < 2 || x > 13 || (x + y) % 7 === 0 && x > 10) return null;
     return (x === 2 || y === 3) ? [150, 150, 170] : (x * 3 + y) % 5 === 0 ? [110, 110, 140] : [180, 176, 196]; });
@@ -7746,6 +7754,7 @@ let bobT = 0, bobAmt = 0, fov = 72, fallPeak = player.pos.y, stepAcc = 0, cactus
 function physics(dt){
   const p = player, v = p.vel;
   if(updateStriderRide(dt)) return;   // on a strider it carries you
+  if(updateHorseRide(dt)) return;     // on a horse, a donkey, a camel...
   if(riding) return;                 // vehicle controls the player's position
   const inWater = isWet(getBlock(Math.floor(p.pos.x), Math.floor(p.pos.y + 0.2), Math.floor(p.pos.z)));
   const sprint = key('ShiftLeft') && !p.fly && key('KeyW') && !inWater;
@@ -8356,6 +8365,20 @@ const mooMats = { body: entMat(0xa3201c), spot: entMat(0xdcd6cc), head: entMat(0
                   horn: entMat(0xd8d0be), eye: entMat(0x150d0a), udder: entMat(0xe6a3a8), stem: entMat(0xe8e0d0), cap: entMat(0xc41c18) };
 const cowMats = { body: entMat(0x4b3226), spot: entMat(0xe9e4d6), head: entMat(0x5a4030), snout: entMat(0xc7a58f), leg: entMat(0x3a2820), hoof: entMat(0x1f1712), horn: entMat(0xd8d0be), eye: entMat(0x150d0a), udder: entMat(0xe6a3a8) };
 const chickMats = { body: entMat(0xf4f4ef), wing: entMat(0xdedcd2), head: entMat(0xf7f7f2), beak: entMat(0xe0a021), wattle: entMat(0xcf3b32), comb: entMat(0xcf3b32), leg: entMat(0xe0a021), eye: entMat(0x141414) };
+const donkeyMats = { body: entMat(0x857563), belly: entMat(0x9c8c7a), head: entMat(0x7c6c5a), mane: entMat(0x3a3028), snout: entMat(0xb8aa98), leg: entMat(0x75685a), hoof: entMat(0x2a2018), eye: entMat(0x120b06), ear: entMat(0x75685a) };
+const muleMats = { body: entMat(0x5c3a22), belly: entMat(0x4c301c), head: entMat(0x553520), mane: entMat(0x24160c), snout: entMat(0x8a6a50), leg: entMat(0x4a2e1a), hoof: entMat(0x1f140c), eye: entMat(0x120b06), ear: entMat(0x4a2e1a) };
+const skelHorseMats = { body: entMat(0xd8d8cc), belly: entMat(0xbcbcae), head: entMat(0xe0e0d4), mane: entMat(0xa8a89c), snout: entMat(0xc8c8bc), leg: entMat(0xd0d0c4), hoof: entMat(0x8a8a80), eye: entMat(0x101010), ear: entMat(0xd0d0c4) };
+const zomHorseMats = { body: entMat(0x4f7a4a), belly: entMat(0x3f6a3a), head: entMat(0x557f4f), mane: entMat(0x2a3a24), snout: entMat(0x6a9a62), leg: entMat(0x44703f), hoof: entMat(0x1a2a16), eye: entMat(0x101010), ear: entMat(0x44703f) };
+const CAT_PALS = [0xd08a3a, 0x8a8272, 0x2a2a2e, 0xe8e4dc, 0xe0cfae, 0x6a4a30].map(c => ({ body: entMat(c), head: entMat(c), snout: entMat(0xe8e0d0), paw: entMat(c === 0x2a2a2e ? 0x3a3a3e : 0xf0e8dc), eye: entMat(0x2a8a30) }));
+const ocelotMats = { body: entMat(0xdcc070), head: entMat(0xdcc070), snout: entMat(0xf0e4c0), paw: entMat(0xd0b060), eye: entMat(0x2a8a30), spot: entMat(0x6a4a20) };
+const pandaMats = { body: entMat(0xecece6), dark: entMat(0x222226), eye: entMat(0x101010) };
+const bearMats = { body: entMat(0xf2f0e8), snout: entMat(0xe0dccf), nose: entMat(0x1a1a1a), eye: entMat(0x101010) };
+const turtleMats = { shell: entMat(0x3f7a3a), shellTop: entMat(0x5a8a3e), belly: entMat(0xd8d2a0), skin: entMat(0x5aa05a), eye: entMat(0x101010) };
+const FROG_PALS = { temperate: { body: entMat(0xc8783a), belly: entMat(0xe8c890), eye: entMat(0x101010) }, cold: { body: entMat(0x5a9a4a), belly: entMat(0xb8d890), eye: entMat(0x101010) },
+                    warm: { body: entMat(0xd8d0b8), belly: entMat(0xf0e8d8), eye: entMat(0x101010) } };
+const armaMats = { shell: entMat(0xa06a5a), band: entMat(0x7a4a3c), skin: entMat(0xe0a898), eye: entMat(0x101010) };
+const camelMats = { body: entMat(0xd8b070), hump: entMat(0xc89e60), snout: entMat(0xe6c690), leg: entMat(0xc8a064), hoof: entMat(0x5a4028), eye: entMat(0x101010) };
+const snifferMats = { body: entMat(0x8a3a2a), moss: entMat(0x4f8a3a), belly: entMat(0xb05a3a), nose: entMat(0xc07a50), leg: entMat(0x6a2a20), eye: entMat(0x101010) };
 const horseMats = { body: entMat(0x7a5230), belly: entMat(0x633f22), head: entMat(0x6b4728), mane: entMat(0x2c1c10), snout: entMat(0x4a3320), leg: entMat(0x5a3d24), hoof: entMat(0x241811), eye: entMat(0x120b06), ear: entMat(0x5a3d24) };
 const wolfMats  = { body: entMat(0x9a9a9a), belly: entMat(0xcfcfca), head: entMat(0xa6a6a6), snout: entMat(0x5f5f5f), nose: entMat(0x1a1a1a), leg: entMat(0x808080), ear: entMat(0x6a6a6a), eye: entMat(0xc9b23a), tail: entMat(0x8a8a8a) };
 const rabbitMats= { body: entMat(0xbfa78f), belly: entMat(0xe6dccb), head: entMat(0xc9b39d), earIn: entMat(0xe0b7b0), ear: entMat(0xb09a82), leg: entMat(0xa8927b), eye: entMat(0x241a12), tail: entMat(0xf0ebe1), nose: entMat(0x9a6a63) };
@@ -8379,13 +8402,29 @@ function mergeAnimalParts(parent){
     const geo=new THREE.BufferGeometry();for(const [key,data] of Object.entries(arrays))geo.setAttribute(key,new THREE.Float32BufferAttribute(data,key==='uv'?2:3));parent.add(new THREE.Mesh(geo,material));
   }
 }
+const HORSEY = new Set(['horse', 'donkey', 'mule', 'skeleton_horse', 'zombie_horse']);
+const ANIMAL_STATS = { donkey: [20, 0.42, 1.5], mule: [22, 0.44, 1.6], skeleton_horse: [15, 0.45, 1.6], zombie_horse: [15, 0.45, 1.6],
+  cat: [10, 0.25, 0.7], ocelot: [10, 0.25, 0.7], panda: [20, 0.55, 1.25], polar_bear: [30, 0.55, 1.4], turtle: [30, 0.5, 0.6],
+  frog: [10, 0.25, 0.55], armadillo: [12, 0.25, 0.65], camel: [32, 0.6, 2.4], sniffer: [14, 0.8, 1.8] };
+const ALL_NEW_ANIMALS = Object.keys(ANIMAL_STATS);
+const ANIMAL_DROPS = {
+  donkey: p => spawnDropAt(p.x, p.y + 0.5, p.z, LEATHER, 1 + (Math.random() < 0.5 ? 1 : 0)), mule: p => spawnDropAt(p.x, p.y + 0.5, p.z, LEATHER, 1 + (Math.random() < 0.5 ? 1 : 0)),
+  skeleton_horse: p => spawnDropAt(p.x, p.y + 0.5, p.z, BONE, 1 + ((Math.random() * 2) | 0)), zombie_horse: p => spawnDropAt(p.x, p.y + 0.5, p.z, ROTTEN, 1 + ((Math.random() * 2) | 0)),
+  cat: p => { if(Math.random() < 0.6) spawnDropAt(p.x, p.y + 0.4, p.z, STRING, 1 + ((Math.random() * 2) | 0)); },
+  polar_bear: p => spawnDropAt(p.x, p.y + 0.5, p.z, Math.random() < 0.75 ? COD : SALMON, 1 + ((Math.random() * 2) | 0)),
+  turtle: p => spawnDropAt(p.x, p.y + 0.4, p.z, SEAGRASS, (Math.random() * 3) | 0 || 1),
+};
 function spawnAnimal(type, x, y, z){
   const moosh = type === 'mooshroom';               // a mooshroom is a red cow with mushrooms growing on it
   if(moosh) type = 'cow';
   const g = new THREE.Group();
   const legs = [];
   const palettes={pig:pigMats,sheep:sheepMats,cow:cowMats,horse:horseMats,wolf:wolfMats,rabbit:rabbitMats,chicken:chickMats,
-                  kangaroo:rooMats,fox:foxMats,llama:llamaMats,goat:goatMats,axolotl:axoMats};
+                  kangaroo:rooMats,fox:foxMats,llama:llamaMats,goat:goatMats,axolotl:axoMats,
+                  donkey:donkeyMats,mule:muleMats,skeleton_horse:skelHorseMats,zombie_horse:zomHorseMats,ocelot:ocelotMats,panda:pandaMats,polar_bear:bearMats,
+                  turtle:turtleMats,armadillo:armaMats,camel:camelMats,sniffer:snifferMats,
+                  cat:CAT_PALS[(Math.random() * CAT_PALS.length) | 0],
+                  frog:FROG_PALS[(() => { const t = climateT(Math.floor(x), Math.floor(z)); return t < 0.38 ? 'cold' : t > 0.6 ? 'warm' : 'temperate'; })()]};
   const m=moosh?mooMats:palettes[type];
   const part=(w,h,d,mat,x,y,z,parent=g)=>box(w,h,d,mat,x,y,z,parent);
   const limb=(x,z,height,width,mat,footMat,footDepth=width)=>{
@@ -8431,6 +8470,70 @@ function spawnAnimal(type, x, y, z){
     part(.08,.06,.05,m.nose,0,1.42,-.51);
     eyes(.1,1.49,-.335,m.eye);
     for(const side of [-1,1])ear(side*.1,1.57,-.12,.09,.27,m.ear,m.earIn,side*.17);
+   } else if(type==='cat'||type==='ocelot'){
+    // a cat (or an ocelot, spotted): long low body, a small head with pointed ears, a tail held up
+    part(.3,.28,.62,m.body,0,.38,0);
+    part(.32,.26,.3,m.head,0,.52,-.42);
+    part(.16,.1,.08,m.snout,0,.46,-.58);
+    eyes(.08,.56,-.575,m.eye);
+    for(const side of [-1,1]) part(.08,.1,.05,m.body,side*.09,.69,-.4);
+    const tail=part(.07,.07,.5,m.body,0,.58,.48);tail.rotation.x=.75;
+    if(m.spot) for(const [sx,sz] of [[-.12,-.15],[.1,.05],[-.05,.2],[.13,-.2],[0,-.02]]) part(.07,.05,.07,m.spot,sx,.53,sz);
+    for(const [side,back] of [[-1,-1],[1,-1],[-1,1],[1,1]]) limb(side*.09,back*.22,.26,.08,m.body,m.paw);
+   } else if(type==='panda'){
+    // a panda: a big round body, black shoulders, legs, ears and eye patches
+    part(.95,.8,1.25,m.body,0,.8,0);
+    part(.97,.32,.45,m.dark,0,.96,-.22);
+    part(.72,.62,.6,m.body,0,.9,-.84);
+    part(.34,.22,.2,m.body,0,.76,-1.15);part(.12,.08,.04,m.dark,0,.84,-1.26);
+    for(const side of [-1,1]){ part(.18,.2,.02,m.dark,side*.18,.94,-1.145); part(.2,.18,.1,m.dark,side*.28,1.26,-.82); }
+    eyes(.18,.95,-1.16,m.eye);
+    part(.2,.2,.12,m.body,0,.98,.66);
+    for(const [side,back] of [[-1,-1],[1,-1],[-1,1],[1,1]]) limb(side*.3,back*.4,.45,.32,m.dark,m.dark);
+   } else if(type==='polar_bear'){
+    // a polar bear: massive and white, a long snout with a black nose
+    part(.9,.85,1.4,m.body,0,.92,0);
+    part(.6,.55,.6,m.body,0,1.07,-.9);
+    part(.34,.28,.3,m.snout,0,.97,-1.33);part(.14,.08,.04,m.nose,0,1.05,-1.49);
+    eyes(.16,1.17,-1.205,m.eye);
+    for(const side of [-1,1]) part(.14,.14,.08,m.body,side*.22,1.4,-.82);
+    part(.2,.18,.14,m.body,0,1.05,.74);
+    for(const [side,back] of [[-1,-1],[1,-1],[-1,1],[1,1]]) limb(side*.3,back*.45,.52,.34,m.body,m.body);
+   } else if(type==='turtle'){
+    // a sea turtle: a broad domed shell, flippers, a small head
+    part(.95,.3,1.05,m.shell,0,.3,0);part(.7,.12,.8,m.shellTop,0,.5,0);part(1.0,.08,1.1,m.belly,0,.14,0);
+    part(.26,.22,.3,m.skin,0,.28,-.68);eyes(.09,.33,-.835,m.eye);
+    for(const side of [-1,1]){ const f=part(.45,.06,.22,m.skin,side*.62,.2,-.3); f.rotation.y=side*.3; part(.28,.06,.2,m.skin,side*.45,.18,.45); }
+   } else if(type==='frog'){
+    // a frog: squat, wide-mouthed, with bulging eyes on top and folded back legs
+    part(.5,.28,.55,m.body,0,.22,0);
+    part(.52,.18,.42,m.body,0,.35,-.2);part(.5,.07,.4,m.belly,0,.14,-.18);
+    for(const side of [-1,1]){ part(.14,.12,.14,m.body,side*.17,.48,-.3); part(.07,.07,.02,m.eye,side*.17,.49,-.375); part(.18,.14,.36,m.body,side*.27,.12,.14); }
+    for(const side of [-1,1]) limb(side*.18,-.22,.12,.08,m.body,m.belly);
+   } else if(type==='armadillo'){
+    // an armadillo: a banded shell, a small pink head with big ears, and a tail
+    part(.42,.36,.72,m.shell,0,.4,.02);
+    for(const bz of [-.2,0,.2]) part(.44,.38,.05,m.band,0,.4,bz);
+    part(.18,.18,.26,m.skin,0,.32,-.46);eyes(.06,.36,-.595,m.eye);
+    for(const side of [-1,1]){ const ea=part(.06,.16,.04,m.skin,side*.08,.48,-.4); ea.rotation.z=side*.3; }
+    const tl=part(.06,.06,.32,m.shell,0,.3,.5);tl.rotation.x=.3;
+    for(const [side,back] of [[-1,-1],[1,-1],[-1,1],[1,1]]) limb(side*.14,back*.22,.22,.09,m.skin,m.skin);
+   } else if(type==='camel'){
+    // a camel: tall legs, a hump, a long neck carrying the head forward
+    part(.95,.85,1.55,m.body,0,1.65,0);part(.55,.4,.6,m.hump,0,2.25,.05);
+    const nk=part(.32,.9,.34,m.body,0,2.12,-.86);nk.rotation.x=.35;
+    part(.38,.34,.7,m.body,0,2.52,-1.18);part(.3,.26,.2,m.snout,0,2.44,-1.58);
+    eyes(.13,2.6,-1.535,m.eye);
+    for(const side of [-1,1]) part(.08,.12,.06,m.body,side*.16,2.74,-1.0);
+    part(.1,.42,.1,m.body,0,1.6,.8);
+    for(const [side,back] of [[-1,-1],[1,-1],[-1,1],[1,1]]) limb(side*.28,back*.55,1.22,.24,m.leg,m.hoof);
+   } else if(type==='sniffer'){
+    // the sniffer: huge, mossy-backed, six-legged, with a long twitching nose
+    part(1.35,.95,2.0,m.body,0,1.35,0);part(1.2,.22,1.6,m.moss,0,1.92,.1);part(1.2,.3,1.8,m.belly,0,.95,0);
+    part(.9,.7,.7,m.body,0,1.15,-1.25);part(.8,.35,.35,m.nose,0,.95,-1.7);
+    eyes(.3,1.36,-1.605,m.eye);
+    for(const side of [-1,1]) part(.12,.42,.26,m.body,side*.5,1.12,-1.2);
+    for(const back of [-.65,0,.65]) for(const side of [-1,1]) limb(side*.5,back,.88,.3,m.leg,m.leg);
    } else if(type==='goat'){
     // Minecraft's goat: a deep, shaggy body on short legs, a long head held low,
     // two horns sweeping back, flat ears out to the side and a beard
@@ -8463,13 +8566,14 @@ function spawnAnimal(type, x, y, z){
     part(.06,.2,.52,m.fin,0,.24,.52);
     for(const [side,back] of [[-1,-1],[1,-1],[-1,1],[1,1]])limb(side*.15,back*.2,.12,.06,m.leg,m.leg);
    } else {
-    const profiles={pig:[.76,.49,1.05,.62,.46,.43,.42,.72,-.68,.34],sheep:[.88,.65,1.18,.81,.35,.4,.38,.9,-.76,.45],cow:[.86,.66,1.28,.94,.44,.45,.45,1.12,-.79,.59],horse:[.67,.69,1.38,1.15,.33,.43,.48,1.58,-.91,.8],wolf:[.44,.44,.85,.64,.36,.35,.38,.84,-.56,.42],rabbit:[.34,.34,.48,.35,.25,.26,.27,.48,-.29,.2],chicken:[.4,.4,.55,.44,.25,.29,.26,.75,-.28,.24],
+    const profiles={donkey:[.6,.6,1.2,1.0,.3,.4,.45,1.4,-.8,.7],mule:[.64,.64,1.3,1.08,.32,.42,.47,1.5,-.86,.76],
+      skeleton_horse:[.67,.69,1.38,1.15,.33,.43,.48,1.58,-.91,.8],zombie_horse:[.67,.69,1.38,1.15,.33,.43,.48,1.58,-.91,.8],pig:[.76,.49,1.05,.62,.46,.43,.42,.72,-.68,.34],sheep:[.88,.65,1.18,.81,.35,.4,.38,.9,-.76,.45],cow:[.86,.66,1.28,.94,.44,.45,.45,1.12,-.79,.59],horse:[.67,.69,1.38,1.15,.33,.43,.48,1.58,-.91,.8],wolf:[.44,.44,.85,.64,.36,.35,.38,.84,-.56,.42],rabbit:[.34,.34,.48,.35,.25,.26,.27,.48,-.29,.2],chicken:[.4,.4,.55,.44,.25,.29,.26,.75,-.28,.24],
       fox:[.36,.34,.82,.46,.3,.28,.34,.62,-.52,.26],
       llama:[.56,.68,1.02,1.0,.34,.4,.44,1.78,-.5,.6]};
     const [bw,bh,bd,by,hw,hh,hd,hy,hz,lh]=profiles[type];
     const body=m.body||m.wool,head=m.head||body;
     part(bw,bh,bd,body,0,by,0);part(bw*.8,bh*.28,bd*.85,m.belly||m.woolSh||body,0,by-bh*.34,0);
-    if(type==='horse'){const neck=part(.34,.65,.38,body,0,1.37,-.55);neck.rotation.x=.22;}
+    if(HORSEY.has(type)){const neck=part(.34,.65,.38,body,0,1.37-(type==='donkey'?.15:0),-.55);neck.rotation.x=.22;}
     part(hw,hh,hd,head,0,hy,hz);eyes(hw*.32,hy+.045,hz-hd/2-.018,m.eye);
     const small=type==='rabbit'||type==='chicken';
     if(type==='chicken'){
@@ -8503,8 +8607,10 @@ function spawnAnimal(type, x, y, z){
         for(const side of [-1,1]){part(.02,.3,.4,m.spot,side*.436,1.05,.22);part(.02,.23,.3,m.spot,side*.437,.88,-.32);ear(side*.29,1.15,-.72,.2,.10,m.head,m.snout,side*.7);const horn=part(.085,.22,.09,m.horn,side*.2,1.4,-.74);horn.rotation.z=-side*.3;}
         part(.37,.23,.17,m.snout,0,1.01,-1.06);part(.045,.43,.045,body,0,.81,.68);part(.09,.14,.08,m.hoof,0,.56,.68);
         if(moosh)for(const [mx,my,mz] of [[.16,1.3,.1],[-.14,1.3,.34],[.05,1.3,-.2],[0,1.38,-.8]]){part(.07,.12,.07,m.stem,mx,my,mz);part(.22,.09,.22,m.cap,mx,my+.1,mz);part(.05,.02,.05,m.stem,mx+.05,my+.155,mz-.04);}
-      }else if(type==='horse'){
-        for(const side of [-1,1])ear(side*.13,1.78,-.88,.09,.2,m.ear,null,side*.12);
+      }else if(HORSEY.has(type)){
+        const longEar=type==='donkey'||type==='mule';
+        for(const side of [-1,1])ear(side*.13,1.78-(type==='donkey'?.18:0),-.88,.09,longEar?.4:.2,m.ear,null,side*(longEar?.25:.12));
+        if(type==='skeleton_horse')for(let i=0;i<4;i++)part(.72,.06,.08,m.belly,0,1.2,-.4+i*.25);   // its ribs
         part(.28,.23,.26,m.snout,0,1.43,-1.12);for(let i=0;i<4;i++)part(.13,.24,.16,m.mane,0,1.76-i*.13,-.43+i*.06);
         const tail=part(.18,.64,.2,m.mane,0,1.0,.76);tail.rotation.x=-.2;
       }else if(type==='wolf'){
@@ -8598,6 +8704,8 @@ function spawnAnimal(type, x, y, z){
     flee: 0, onGround: false, anim: Math.random() * 9,
     callT: 1.5 + Math.random() * 4,
   });
+  const ST = ANIMAL_STATS[type];
+  if(ST){ const a = animals[animals.length - 1]; a.hp = ST[0]; a.w = ST[1]; a.h = ST[2]; }
 }
 let animalSpawnT = 2;
 // Find the real solid ground surface at (x,z), respecting caves and player
@@ -8648,24 +8756,26 @@ function updateAnimalSpawns(dt){
   let pool;
   if(bio==='pale-garden')return;                    // the Pale Garden is silent: nothing lives there
   if(bio==='mushroom-fields')pool=['mooshroom'];
-  else if(bio==='meadow')pool=['sheep','sheep','rabbit','horse','cow'];
+  else if(bio==='meadow')pool=['sheep','sheep','rabbit','horse','cow','donkey'];
+  else if(bio==='beach')pool=['turtle','turtle','turtle'];
+  else if(bio==='swamp'||bio==='willow-marsh')pool=['frog','frog','frog','cow','sheep'];
   else if(bio==='grove')pool=['fox','fox','wolf','rabbit'];
   else if(bio==='cherry-grove')pool=['moonhopper','moonhopper','mossling'];
   else if(bio==='maple-woods')pool=['mossling','crystalback','mossling'];
   else if(bio==='willow-marsh')pool=['crystalback','mossling','crystalback'];
-  else if(bio === 'snowy')        pool = ['rabbit', 'wolf', 'sheep', 'rabbit'];
-  else if(bio === 'desert')  pool = ['rabbit'];
+  else if(bio === 'snowy')        pool = ['rabbit', 'wolf', 'sheep', 'rabbit', 'polar_bear', 'frog'];
+  else if(bio === 'desert')  pool = ['rabbit', 'rabbit', 'camel'];
   else if(bio === 'outback')  pool = ['kangaroo', 'kangaroo', 'kangaroo', 'rabbit'];
   else if(bio === 'bushland') pool = ['kangaroo', 'sheep', 'sheep', 'kangaroo', 'rabbit'];
   else if(bio === 'amberfield') pool = ['gildhorn', 'gildhorn', 'gildhorn', 'sheep'];
   else if(bio === 'frostvale')  pool = ['frostpaw', 'frostpaw', 'frostpaw', 'rabbit'];
   else if(bio === 'duskhollow') pool = ['duskmoth', 'duskmoth', 'duskmoth', 'moonhopper'];
   else if(bio === 'taiga')    pool = ['fox', 'fox', 'wolf', 'rabbit', 'sheep'];
-  else if(bio === 'badlands') pool = ['llama', 'llama', 'rabbit'];
+  else if(bio === 'badlands') pool = ['llama', 'llama', 'rabbit', 'armadillo'];
   else if(bio === 'forest' || bio === 'birch') pool = ['sheep', 'sheep', 'pig', 'cow', 'chicken', 'wolf'];
-  else if(bio === 'jungle') pool = ['wolf', 'pig', 'cow', 'chicken', 'sheep'];
-  else if(bio === 'savanna') pool = ['horse', 'horse', 'cow', 'chicken', 'sheep'];
-  else if(bio === 'plains')  pool = ['sheep', 'sheep', 'sheep', 'horse', 'pig', 'cow', 'chicken', 'rabbit'];
+  else if(bio === 'jungle') pool = ['ocelot', 'panda', 'panda', 'pig', 'chicken', 'frog'];
+  else if(bio === 'savanna') pool = ['horse', 'horse', 'donkey', 'armadillo', 'cow', 'chicken', 'sheep'];
+  else if(bio === 'plains')  pool = ['sheep', 'sheep', 'sheep', 'horse', 'donkey', 'pig', 'cow', 'chicken', 'rabbit', 'cat'];
   else                       pool = ['sheep', 'sheep', 'pig', 'cow', 'chicken'];
   if(Math.random()<.15&&bio!=='mushroom-fields')pool=FANTASY;
   const pick = pool[Math.floor(Math.random() * pool.length)];
@@ -8692,6 +8802,108 @@ function updateAnimalSpawns(dt){
     }
   }
 }
+/* Riding, as in Minecraft: get on with an empty hand. A wild horse, donkey
+   or mule bucks you off until, now and then, it decides to trust you (it
+   shows hearts); then it takes a saddle, and you steer it where you look,
+   go with forward, jump with jump, and get off by sneaking. Camels and
+   skeleton and zombie horses take a saddle straight away. Tamed and
+   saddled animals are kept with the world. */
+const RIDE = { horse: { seat: 1.45, speed: 8.5, jump: 8.5, tame: true }, donkey: { seat: 1.3, speed: 6, jump: 7.5, tame: true },
+               mule: { seat: 1.35, speed: 6.5, jump: 7.5, tame: true }, skeleton_horse: { seat: 1.45, speed: 9, jump: 8.5, tame: false },
+               zombie_horse: { seat: 1.45, speed: 7, jump: 8, tame: false }, camel: { seat: 2.25, speed: 5.5, jump: 5, tame: false } };
+let rideHorse = null;
+const rideSaddleMat = entMat(0x6a3e1a);
+function addSaddle(e){ if(!e.saddleM) e.saddleM = box(0.66, 0.12, 0.72, rideSaddleMat, 0, RIDE[e.type].seat - 0.08, 0.05, e.group); }
+function horseRec(e, patch){ keepAnimal(e); const r = herd.find(q => q.id === e.keepId); if(r){ Object.assign(r, patch); saveHerd(); } }
+function useRideable(e){
+  const R = RIDE[e.type], held = heldId();
+  if(held === SADDLE){
+    if(e.saddled){ flashName('It already has a saddle'); return true; }
+    if(R.tame && !e.horseTamed){ flashName('Tame it first: climb on until it stops throwing you'); return true; }
+    consumePlacedItem(); e.saddled = true; addSaddle(e); horseRec(e, { sad: 1 });
+    playN({ f: 300, type: 'lowpass', dur: 0.2, vol: 0.12 }); flashName('Saddled');
+    return true;
+  }
+  if(held && BREED_FOOD[e.type] && BREED_FOOD[e.type].includes(held)) return false;      // feeding: that's breeding
+  if(e.baby > 0) return false;
+  rideHorse = e; e.rideT = 0; e.rideDim = dim; player.fly = false;
+  if(R.tame && !e.horseTamed){ e.buckT = 1 + Math.random() * 1.5; flashName('Hold on...'); }
+  else flashName(e.saddled ? 'Look to steer, forward to go, jump to jump, sneak to get off' : 'Put a saddle on it to ride it');
+  return true;
+}
+function dismountHorse(push){
+  const e = rideHorse; rideHorse = null;
+  if(e){ const a = e.yaw + Math.PI / 2; player.pos.set(e.pos.x + Math.cos(a) * (push ? 1.6 : 1), e.pos.y + 0.2, e.pos.z - Math.sin(a) * (push ? 1.6 : 1)); if(push) player.vel.set(0, 4, 0); }
+}
+function updateHorseRide(dt){
+  const e = rideHorse;
+  if(!e) return false;
+  const sneak = key('ShiftLeft') || player.crouching;
+  if(!animals.includes(e) || dead || dim !== e.rideDim || (sneak && e.rideT > 0.4)){ dismountHorse(false); return false; }
+  e.rideT += dt;
+  const R = RIDE[e.type];
+  if(R.tame && !e.horseTamed){                      // taming: it bucks, and one day it doesn't
+    e.buckT -= dt;
+    if(e.buckT <= 0){
+      e.temper = (e.temper || 0) + 10;
+      if(Math.random() * 100 < e.temper){ e.horseTamed = true; hearts(e); horseRec(e, { tam: 1 }); flashName('Tamed! Now it will take a saddle'); }
+      else { burstRGB(e.pos.x, e.pos.y + 1.5, e.pos.z, 0.5, 0.5, 0.5, 8, 0.4); animalCall(e.type, e.pos, 'hurt'); flashName('It threw you off'); dismountHorse(true); return false; }
+    }
+  }
+  player.pos.set(e.pos.x, e.pos.y + R.seat, e.pos.z);
+  player.vel.set(0, 0, 0); player.onGround = true; fallPeak = player.pos.y;
+  return true;
+}
+function steerHorse(e, dt){
+  const R = RIDE[e.type];
+  if(!e.saddled || (R.tame && !e.horseTamed)){ e.speed = 0; if(e.buckT > 0) e.yaw += Math.sin(e.rideT * 9) * dt * 3; return; }   // bucking about
+  camera.getWorldDirection(_cDir);
+  e.yaw = Math.atan2(-_cDir.x, -_cDir.z);
+  const la = xrActive ? readAxes('left') : null;
+  const fwd = key('KeyW') || (la && (la[3] || 0) < -0.35), back = key('KeyS') || (la && (la[3] || 0) > 0.35);
+  e.speed = fwd ? R.speed : back ? -R.speed * 0.3 : 0;
+  if((key('Space') || (xrActive && readButtons('right')?.[4]?.pressed)) && e.onGround) e.vel.y = R.jump;
+}
+/* Other habits: an angry polar bear charges; an armadillo curls into a
+   ball when you rush up to it (and sheds a scute now and then); a sniffer
+   stops to dig up an old flower; a panda flops down for a sit. */
+function animalExtras(e, dt){
+  if(e === rideHorse){ steerHorse(e, dt); stepMob(e, dt, 24); animMob(e, dt); return true; }
+  if(e.angry > 0){
+    e.angry -= dt; e.atkCd = (e.atkCd || 0) - dt;
+    const d = faceTo(e, player.pos.x, player.pos.z);
+    e.speed = mode === 'survival' && !dead && d < 20 ? 3.8 : 0;
+    if(d < 1.9 && Math.abs(player.pos.y - e.pos.y) < 2 && e.atkCd <= 0 && mode === 'survival' && !dead){
+      e.atkCd = 1.2; if(!shieldBlocks(e.pos)) damage(6); animalCall(e.type, e.pos, 'hurt');
+      const k = player.pos.clone().sub(e.pos).setY(0).normalize(); player.vel.x += k.x * 6; player.vel.z += k.z * 6; player.vel.y = Math.max(player.vel.y, 4);
+    }
+    stepMob(e, dt, 24); animMob(e, dt); return true;
+  }
+  if(e.type === 'armadillo'){
+    if(player.pos.distanceTo(e.pos) < 3.5 && Math.hypot(player.vel.x, player.vel.z) > 5) e.rolled = 5;
+    if(e.rolled > 0){
+      e.rolled -= dt; e.speed = 0;
+      e.group.scale.set(1.08, 0.72, 0.82); e.legs.forEach(l => { l.visible = false; });
+      stepMob(e, dt, 24); animMob(e, dt); return true;
+    }
+    if(e.legs[0] && !e.legs[0].visible){ e.group.scale.set(1, 1, 1); e.legs.forEach(l => { l.visible = true; }); }
+    if((e.scuteT = (e.scuteT ?? 300 + Math.random() * 300) - dt) <= 0){ e.scuteT = 300 + Math.random() * 300; if(mode === 'survival') spawnDropAt(e.pos.x, e.pos.y + 0.3, e.pos.z, ARMADILLO_SCUTE); }
+  }
+  if(e.type === 'sniffer'){
+    if(e.digging > 0){
+      e.digging -= dt; e.speed = 0;
+      if(Math.random() < dt * 12) burstRGB(e.pos.x - Math.sin(e.yaw) * 1.6, e.pos.y + 0.2, e.pos.z - Math.cos(e.yaw) * 1.6, 0.45, 0.32, 0.2, 2, 0.4);
+      if(e.digging <= 0 && mode === 'survival'){ const f = FLORA[(Math.random() * FLORA.length) | 0]; spawnDropAt(e.pos.x - Math.sin(e.yaw) * 1.6, e.pos.y + 0.4, e.pos.z - Math.cos(e.yaw) * 1.6, f.id, 1); }
+      stepMob(e, dt, 24); animMob(e, dt); return true;
+    }
+    if((e.digT = (e.digT ?? 40 + Math.random() * 80) - dt) <= 0 && e.onGround){ e.digT = 120 + Math.random() * 180; e.digging = 4; playN({ f: 220, type: 'lowpass', dur: 0.8, vol: 0.12 }); }
+  }
+  if(e.type === 'panda'){
+    if(e.sitT > 0){ e.sitT -= dt; e.speed = 0; e.group.rotation.x = -0.45; stepMob(e, dt, 24); animMob(e, dt); if(e.sitT <= 0) e.group.rotation.x = 0; return true; }
+    if(Math.random() < dt * 0.02) e.sitT = 4 + Math.random() * 6;
+  }
+  return false;
+}
 function updateAnimals(dt){
   for(let i = animals.length - 1; i >= 0; i--){
     const e = animals[i];
@@ -8700,6 +8912,7 @@ function updateAnimals(dt){
     if(e.baby > 0) growBaby(e, dt);
     if(e.love > 0) e.love -= dt;
     if(e.breedCd > 0) e.breedCd -= dt;
+    if(!mobCtx && animalExtras(e, dt)) continue;
     if(e.shorn) regrowWool(e, dt);
     if(e.flee > 0){
       e.flee -= dt;
@@ -8716,6 +8929,7 @@ function updateAnimals(dt){
     }
     if(!(e.flee > 0) && !mobCtx) steerHerd(e, dt);
     if(e.type==='moonhopper'&&e.onGround&&e.speed>0)e.vel.y=5.5;
+    if(e.type==='frog'&&e.onGround&&e.speed>0&&Math.random()<dt*2.5)e.vel.y=6;   // frogs get about in hops
     if(e.type==='goat'&&e.onGround&&e.speed>0&&Math.random()<dt*.3)e.vel.y=9.5;   // goats make big leaps
     if(FANTASY.includes(e.type)&&heldId()===BERRIES&&e.pos.distanceToSquared(player.pos)<144){
       const dx=player.pos.x-e.pos.x,dz=player.pos.z-e.pos.z;e.yaw=Math.atan2(-dx,-dz);e.speed=Math.hypot(dx,dz)>2?1.6:0;
@@ -9642,6 +9856,11 @@ function updateNightMobs(dt){
   if((phantomT -= dt) > 0) return;
   phantomT = 30 + Math.random() * 30;
   const night = daylightOf(timeOfDay) < 0.3, px = Math.floor(player.pos.x), pz = Math.floor(player.pos.z);
+  // in a thunderstorm, now and then, a skeleton horse turns up where the lightning fell
+  if(stormAmt > 0.5 && Math.random() < 0.15 && animals.filter(a => a.type === 'skeleton_horse').length < 2){
+    const a = Math.random() * 6.28, sx = player.pos.x + Math.cos(a) * 16, sz = player.pos.z + Math.sin(a) * 16, sy = findSurfaceY(Math.floor(sx), Math.floor(sz));
+    if(sy > 0){ spawnAnimal('skeleton_horse', sx, sy + 1.05, sz); burstRGB(sx, sy + 2, sz, 0.9, 0.9, 1, 20, 1); }
+  }
   if(!night || mode !== 'survival' || dead || sinceRest < 3600 || netherMobs.filter(m => m.type === 'phantom').length >= 4) return;
   if(!skyExposed(px, Math.ceil(player.pos.y + 2), pz)) return;
   const n = 1 + ((Math.random() * 3) | 0);
@@ -10962,6 +11181,10 @@ function updateCreepers(dt){
         explode(ex.x, ex.y + 0.8, ex.z, R, D);
         continue;
       }
+    } else if(animals.some(a => (a.type === 'cat' || a.type === 'ocelot') && a.pos.distanceToSquared(c.pos) < 36)){
+      // creepers are afraid of cats: they back off and won't go near
+      const cat = animals.find(a => (a.type === 'cat' || a.type === 'ocelot') && a.pos.distanceToSquared(c.pos) < 36);
+      c.yaw = Math.atan2(c.pos.x - cat.pos.x, c.pos.z - cat.pos.z); c.speed = 2.8;
     } else if(hunting && distP < 16){
       const l = distP || 1;
       c.yaw = Math.atan2(-dx / l, -dz / l);
@@ -12178,7 +12401,7 @@ function launchFirework(){
 }
 // right-click / grip with one of the new items; returns true if it was used
 function spawnFromEgg(type, x, y, z){
-  if(FANTASY.includes(type) || ['mooshroom','pig','cow','sheep','chicken','horse','wolf','rabbit','fox','llama','goat','axolotl','kangaroo'].includes(type)) return spawnAnimal(type, x, y, z);
+  if(FANTASY.includes(type) || ALL_NEW_ANIMALS.includes(type) || ['mooshroom','pig','cow','sheep','chicken','horse','wolf','rabbit','fox','llama','goat','axolotl','kangaroo'].includes(type)) return spawnAnimal(type, x, y, z);
   if(type === 'zombie') return spawnZombie(x, y, z, Math.random() < 0.05 ? 'baby' : undefined);
   if(type === 'husk' || type === 'zvillager') return spawnZombie(x, y, z, type);
   if(type === 'stray' || type === 'bogged') return spawnSkeleton(x, y, z, type);
@@ -12207,7 +12430,8 @@ function useSpawnEgg(hit){
 }
 function useSpecial(o, d, hit, eh){
   const held = heldId();
-  if(eh && eh.e.kind === 'animal' && eh.e.type === 'wolf' && !eh.e.puppet && (!hit || eh.t < hit.t) && useOnWolf(eh.e)){ triggerViewSwing(); return true; }
+  if(eh && eh.e.kind === 'animal' && (eh.e.type === 'wolf' || eh.e.type === 'cat') && !eh.e.puppet && (!hit || eh.t < hit.t) && useOnWolf(eh.e)){ triggerViewSwing(); return true; }
+  if(eh && (!hit || eh.t < hit.t) && eh.e.kind === 'animal' && RIDE[eh.e.type] && !eh.e.puppet && useRideable(eh.e)){ triggerViewSwing(); return true; }
   if(eh && (!hit || eh.t < hit.t) && useBreed(eh.e)){ triggerViewSwing(); return true; }
   if(eh && (!hit || eh.t < hit.t) && useShears(eh.e)) return true;
   if(useBoneMeal(hit)) return true;
@@ -13316,7 +13540,9 @@ function punchEntity(e){
           if(Math.random() < 0.5) spawnDropAt(p.x, p.y + 0.4, p.z, LEATHER);
         } else if(e.type === 'kangaroo' || e.type === 'llama'){
           spawnDropAt(p.x, p.y + 0.5, p.z, LEATHER, 1 + (Math.random() < 0.4 ? 1 : 0));
-        } else if(e.type === 'goat' || e.type === 'axolotl' || e.type === 'fox'){
+        } else if(ANIMAL_DROPS[e.type]){
+          ANIMAL_DROPS[e.type](p);
+        } else if(e.type === 'goat' || e.type === 'axolotl' || e.type === 'fox' || ALL_NEW_ANIMALS.includes(e.type)){
           // nothing, as in Minecraft
         } else {
           spawnDropAt(p.x, p.y + 0.4, p.z, CHICKENM);
@@ -13324,11 +13550,13 @@ function punchEntity(e){
         }
       }
       const i = animals.indexOf(e);
-      if(e.tamed){ pets = pets.filter(r => r.id !== e.petId); savePets(); flashName('Your wolf died'); }
+      if(e.tamed){ pets = pets.filter(r => r.id !== e.petId); savePets(); flashName(e.type === 'cat' ? 'Your cat died' : 'Your wolf died'); }
       if(e.keepId){ herd = herd.filter(r => r.id !== e.keepId); saveHerd(); }
       if(i >= 0) removeEnt(animals, i);
     } else {
       animalCall(e.type, e.pos, 'hurt');
+      if(e.type === 'polar_bear'){ e.angry = 20; e.flee = 0; }
+      if(e.type === 'armadillo') e.rolled = 5;
     }
   }
 }
@@ -13596,7 +13824,7 @@ function animalCall(type,pos,mood='idle'){
  const dx=(pos?.x||0)-player.pos.x,dy=(pos?.y??player.pos.y)-player.pos.y,dz=(pos?.z||0)-player.pos.z,d=Math.hypot(dx,dy,dz);
  if(d>40)return false;const idle=mood==='idle';
  if(idle&&(animalVoices>=3||AC.currentTime<animalIdleAt))return false;
- const fantasy={mooshroom:['cow',1],mossling:['cow',.67],moonhopper:['pigHurt',1.65],crystalback:['wolf',.55],goat:['sheep',.8],axolotl:['chicken',1.7]};
+ const fantasy={donkey:['horse',.85],mule:['horse',.9],skeleton_horse:['horse',1.25],zombie_horse:['horse',.7],camel:['horse',.6],polar_bear:['cow',.55],mooshroom:['cow',1],mossling:['cow',.67],moonhopper:['pigHurt',1.65],crystalback:['wolf',.55],goat:['sheep',.8],axolotl:['chicken',1.7]};
  const spec=fantasy[type];let key=spec?spec[0]:type;
  if(!idle&&type==='pig')key='pigHurt';if(!idle&&type==='wolf')key='wolfHurt';
  if(type==='rabbit'&&!idle)key='wolfHurt';
@@ -16096,7 +16324,7 @@ const ALL_CREATIVE = (() => {
 // ---- item categories (used to group the creative palette and the crafting list) ----
 const CAT_NAMES = ['Building', 'Nature', 'Ores & Minerals', 'Decoration', 'Utility', 'Tools', 'Combat', 'Food', 'Misc'];
 const _oreBlocks = new Set([RAW_IRON_BLOCK, RAW_GOLD_BLOCK, RAW_COPPER_BLOCK, COALO, IRONO, GOLDO, DIAMO, EMERO, COPPERO, REDSTONE_ORE, LAPIS_ORE, QUARTZ_ORE, DEBRIS, ...Object.keys(DEEP_BASE).map(Number)]);
-const _matItems = new Set([PHANTOM_MEMBRANE, ...DYE, COCOA, RESIN_CLUMP, RESIN_BRICK, ECHO_SHARD, HEART_OF_SEA, NAUTILUS, PRISMARINE_SHARD, PRISMARINE_CRYSTALS, INK_SAC, RAW_IRON, RAW_GOLD, RAW_COPPER, REDSTONE, LAPIS, COALI, IRONI, GOLDI, DIAMI, COPPERI, EMERALD, NETHERITE, QUARTZ, AMETHYST_SHARD, GNUGGET, NSCRAP, STICK, STRING, LEATHER, FEATHER, GUNPOWDER, BLAZEROD, BLAZEPOWDER, GHASTTEAR, MAGMACREAM, ENDERPEARL, SLIMEBALL, BONE, BONE_MEAL, HONEYCOMB, PAPER]);
+const _matItems = new Set([ARMADILLO_SCUTE, PHANTOM_MEMBRANE, ...DYE, COCOA, RESIN_CLUMP, RESIN_BRICK, ECHO_SHARD, HEART_OF_SEA, NAUTILUS, PRISMARINE_SHARD, PRISMARINE_CRYSTALS, INK_SAC, RAW_IRON, RAW_GOLD, RAW_COPPER, REDSTONE, LAPIS, COALI, IRONI, GOLDI, DIAMI, COPPERI, EMERALD, NETHERITE, QUARTZ, AMETHYST_SHARD, GNUGGET, NSCRAP, STICK, STRING, LEATHER, FEATHER, GUNPOWDER, BLAZEROD, BLAZEPOWDER, GHASTTEAR, MAGMACREAM, ENDERPEARL, SLIMEBALL, BONE, BONE_MEAL, HONEYCOMB, PAPER]);
 const _decoBlocks = new Set([...CARPET, SEA_LANTERN, TORCH, SOUL_TORCH, PAINTING, FRAME, FLOWERPOT, LANTERN, JACK_O_LANTERN, CARVED_PUMPKIN, GLOWB, CAMPFIRE]);
 const _utilBlocks = new Set([AQ_CONDUIT, REPEATER, LEVER, BUTTON_STONE, BUTTON_WOOD, PLATE_STONE, PLATE_WOOD, RS_TORCH, LAMP, CHEST, CRAFTT, FURN, BREWING, BARREL, ENDERCHEST, COMPOSTER, GRINDSTONE, NOTEBLOCK, JUKEBOX, ANVIL, SMITHING, CAULDRON, LADDER, FENCE, GATE, GATE_OPEN, BED, BEDHEAD, LIGHTNINGROD, TNT, BOOKSHELF, ENCH_TABLE]);
 const _natureBlocks = new Set([PALE_MOSS, PALE_MOSS_CARPET, PALE_HANGING_MOSS, EYEBLOSSOM_C, PALE_GRASS, CREAKING_HEART, SCULK, SCULK_SENSOR, SCULK_SHRIEKER, SCULK_CATALYST, MYCELIUM, MUSH_STEM, RED_MUSH_BLOCK, BROWN_MUSH_BLOCK, ...OCEAN_PLANTS, ...CORAL_BLOCKS, DEAD_CORALB, ICE, SPONGE, WET_SPONGE, GRASS, DIRT, SAND, REDSAND, GRAVEL, SNOW, PODZOL, CACTUS, DEADBUSH, MUSHROOMR, MUSHROOMB, TGRASSB, POPPYB, DANDB]);
@@ -19555,6 +19783,7 @@ function useFarm(hit, eh){
 const BREED_FOOD = { cow: [WHEATITEM], sheep: [WHEATITEM], goat: [WHEATITEM], llama: [WHEATITEM], kangaroo: [WHEATITEM],
                      pig: [CARROT, POTATO], rabbit: [CARROT], chicken: [SEEDS], horse: [APPLE, GOLDEN_APPLE], fox: [BERRIES] };
 const BABY_TIME = 300;
+Object.assign(BREED_FOOD, { donkey: [APPLE, GOLDEN_APPLE], cat: [COD, SALMON], ocelot: [COD, SALMON], turtle: [SEAGRASS], frog: [SLIMEBALL], camel: [CACTUS], panda: [SUGAR], armadillo: [ROTTEN] });
 let herd = (() => { try { return JSON.parse(localStorage.getItem(SAVE_KEY + '-herd')) || []; } catch(e){ return []; } })();
 let herdScanT = 0, herdSaveT = 0;
 const saveHerd = () => safeSet(SAVE_KEY + '-herd', JSON.stringify(herd));
@@ -19646,6 +19875,7 @@ function updateHerd(dt){
     const n = animals.length;
     spawnAnimal(r.type, r.x, r.y + 0.2, r.z);
     if(animals.length > n){ const e = animals[animals.length - 1]; e.keepId = r.id; if(r.baby > 0) makeBaby(e, r.baby);
+      if(r.tam) e.horseTamed = true; if(r.sad && RIDE[e.type]){ e.saddled = true; addSaddle(e); }
       if(r.shorn){ e.shorn = true; for(const f of e.group.userData.fleece || []) f.visible = false; } }
   }
   herdSaveT -= 2;
@@ -19663,20 +19893,20 @@ let petTarget = null, petSaveT = 0, petDim = -1, petScanT = 0;
 const savePets = () => safeSet(SAVE_KEY + '-pets', JSON.stringify(pets));
 function petify(e, rec){
   e.tamed = true; e.petId = rec.id; e.sitting = !!rec.sit; e.hp = rec.hp || 20; e.atkCd = 0;
-  if(!e.collar) e.collar = box(0.3, 0.07, 0.24, collarMat, 0, 0.82, -0.5, e.group);
+  if(!e.collar) e.collar = e.type === 'cat' ? box(0.2, 0.05, 0.16, collarMat, 0, 0.47, -0.3, e.group) : box(0.3, 0.07, 0.24, collarMat, 0, 0.82, -0.5, e.group);
 }
 function tameWolf(e){
-  const rec = { id: Date.now() + '' + ((Math.random() * 1e4) | 0), dim, x: e.pos.x, y: e.pos.y, z: e.pos.z, sit: 0, hp: 20 };
+  const rec = { id: Date.now() + '' + ((Math.random() * 1e4) | 0), dim, x: e.pos.x, y: e.pos.y, z: e.pos.z, sit: 0, hp: 20, type: e.type };
   pets.push(rec); petify(e, rec); savePets();
   for(let k = 0; k < 8; k++) burstRGB(e.pos.x + (Math.random() - 0.5), e.pos.y + 1 + Math.random() * 0.5, e.pos.z + (Math.random() - 0.5), 1, 0.3, 0.4, 1, 0.1);
-  animalCall('wolf', e.pos, 'idle');
-  flashName('Wolf tamed!');
+  animalCall(e.type, e.pos, 'idle');
+  flashName(e.type === 'cat' ? 'Cat tamed!' : 'Wolf tamed!');
   grantAdv('tame');
 }
 function useOnWolf(e){
   const held = heldId();
   if(!e.tamed){
-    if(held !== BONE) return false;
+    if(!(e.type === 'cat' ? [COD, SALMON] : [BONE]).includes(held)) return false;
     consumePlacedItem();
     if(Math.random() < 1 / 3 || mode === 'creative') tameWolf(e);
     else burstRGB(e.pos.x, e.pos.y + 1.1, e.pos.z, 0.4, 0.4, 0.4, 6, 0.3);              // smoke: not yet
@@ -19735,7 +19965,7 @@ function updatePet(e, dt){
       }
       e.foe = best;
     }
-    const foe = petTarget || (e.foe && stillThere(e.foe) && petFoe(e.foe) ? e.foe : null);
+    const foe = e.type === 'cat' ? null : petTarget || (e.foe && stillThere(e.foe) && petFoe(e.foe) ? e.foe : null);   // cats don't fight
     if(foe){
       const dx = foe.pos.x - e.pos.x, dz = foe.pos.z - e.pos.z, l = Math.hypot(dx, dz) || 1;
       e.yaw = Math.atan2(-dx / l, -dz / l); e.speed = 5.2;
@@ -19790,7 +20020,7 @@ function updatePetsWorld(dt){
       const c = chunks.get((Math.floor(r.x) >> 4) + ',' + (Math.floor(r.z) >> 4));
       if(!c || !c.built) continue;                                   // wait for the ground under it
       const n = animals.length;
-      spawnAnimal('wolf', r.x, r.y + 0.2, r.z);
+      spawnAnimal(r.type || 'wolf', r.x, r.y + 0.2, r.z);
       if(animals.length > n){ petify(animals[animals.length - 1], r); r.spawned = true; }
     }
   }
@@ -20602,7 +20832,7 @@ window.__bc = {
   PART_BASE, WALLS, FENCES, partState, partBoxes, placePartial, stairQuads,
   COLORS, DYE, CONCRETE, POWDER, SGLASS, TERRA16, GLAZED, CARPET, WOOL16, hardenNear,
   playerSees, updatePale, paleState: () => ({ blossomOpen, paleHere }),
-  splashes, sinceRestSet: v => { sinceRest = v; }, updateNightMobs, spawnFromEgg,
+  splashes, sinceRestSet: v => { sinceRest = v; }, updateNightMobs, spawnFromEgg, rideState: () => rideHorse, useRideable, updateHorseRide,
   mountainBiome, jaggedAt, vnoise, deepDarkAt, cityDef, cityBlock, vibrate, summonWarden, sculkState: () => ({ warnLevel, near: sculkNear.length }), netherMobs, spawnNetherMob,
   monumentDef, monumentBlock, conduitFrame, soakSponge, airState: () => air, effectsNow: () => effects, spawnSea, seaLife, deadElders,
   colInfo, continentAt, waterBiome, wreckDef, ruinDef, treasureDef, wrecksNear, ruinsNear, treasuresNear, nearestTreasure, OCEAN, setOldLand, oldLandKeys: () => oldLandKeys, isWet,
