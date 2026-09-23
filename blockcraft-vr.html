@@ -167,7 +167,7 @@
   <p id="storageNote" class="meta" style="margin:2px 0"></p>
   <button class="mcbtn small" id="fsBtn">Fullscreen</button>
   <p id="vrnote" style="display:none;color:#ffcf6b;font-size:12px;margin:6px 0 0">VR headset not detected — open this build in a WebXR headset browser (e.g. Meta Quest Browser) over https.</p>
-  <p style="max-width:580px;font-size:13px;line-height:1.6">VR controls: Left stick: move / click for sprint or flight boost · Right stick: turn / select<br>Right trigger: hold to mine / attack · Right grip: place / use<br>A: jump / fly up · B: fly down · Right stick click: creative flight<br>X: inventory / crafting · Point at wrist + trigger: equip · Y: crouch</p>
+  <p style="max-width:580px;font-size:13px;line-height:1.6">VR controls: Left stick: move / click for sprint or flight boost · Right stick: turn / select<br>Swing an equipped tool into blocks, or hold right trigger to mine · Right grip: place / use<br>A: jump / fly up · B: fly down · Right stick click: creative flight<br>X: inventory / crafting · Point at wrist + trigger: equip · Y: crouch</p>
 <details style="font:12px system-ui;color:#ddd;max-width:640px;margin:8px auto"><summary>Audio credits</summary>
 <p>Animal recordings embedded in this game: <a href="https://opengameart.org/content/farm-animals" target="_blank" rel="noopener">Cow — Secretlondon / OpenGameArt</a>, <a href="https://creativecommons.org/licenses/by-sa/3.0/">CC BY-SA 3.0</a>; the cow audio and its playback adaptations remain under that licence. <a href="https://opengameart.org/content/pig-sfx-pack">Pig SFX — Vinrax</a> and <a href="https://opengameart.org/content/chicken-sound-effect">Chicken — IMadeIt</a>, <a href="https://creativecommons.org/licenses/by/3.0/">CC BY 3.0</a>. <a href="https://opengameart.org/content/sheep-baa">Sheep — mikewest / AntumDeluge</a>, <a href="https://opengameart.org/content/dog-sounds">Dog vocals — pauliuw</a>, <a href="https://opengameart.org/content/rabbit-eating">Rabbit — Voltiment555</a>, and <a href="https://bigsoundbank.com/neighing-of-a-horse-s0460.html">Horse — BigSoundBank #0460</a>, <a href="https://creativecommons.org/publicdomain/zero/1.0/">CC0</a>. Clips are volume-normalised; rabbit/dog excerpts are trimmed and resampled; hurt and fantasy calls use pitch/filter adaptations.</p><p>Monster voices: <a href="https://opengameart.org/content/zombie-skeleton-monster-voice-effects" target="_blank" rel="noopener">ArcadeParty</a>; snarls: <a href="https://opengameart.org/content/monster-snarls" target="_blank" rel="noopener">Darsycho</a>; bones: <a href="https://opengameart.org/content/bones-2" target="_blank" rel="noopener">AntumDeluge</a>. All CC0; playback adapted with pitch, filtering and normalization.</p></details>
   <p class="meta">seed <span id="seedLabel"></span> · <span id="buildLabel"></span>world &amp; inventory auto-save in this browser</p>
@@ -390,7 +390,7 @@ const SPLASHES = ['Punch trees!', 'Now with zombies!', 'Diamonds are deep!', 'On
 document.getElementById('splash').textContent = SPLASHES[Math.floor(Math.random() * SPLASHES.length)];
 {
   const bl = document.getElementById('buildLabel');
-  const label = IS_DESKTOP ? 'Desktop Edition · ' : IS_MOBILE ? 'Mobile Edition · ' : IS_VR ? 'VR · Non-Sticking Gorilla Arms · ' : '';
+  const label = IS_DESKTOP ? 'Desktop Edition · ' : IS_MOBILE ? 'Mobile Edition · ' : IS_VR ? 'VR · Swing Mining + Gorilla Arms · ' : '';
   if(bl) bl.textContent = label;
 }
 
@@ -13502,6 +13502,8 @@ let vrTool = null, vrToolId = -1;       // held-item model on the right controll
 const controllers = [], controllerGrips = [];
 const _ctrlDir = new THREE.Vector3(), _ctrlPos = new THREE.Vector3(), _ctrlQuat = new THREE.Quaternion();
 let vrBreakHeld = false, vrActCd = 0, vrMineFrom = null, vrAtkCd = 0, vrGripWas = false, vrYawOffset = 0, vrCraftWas = false, vrTrigWas = false, vrSelectHeld = false;
+const VR_SWING_MIN = 1.1, VR_SWING_TIP = .46;
+let vrSwingPrevWorld = null, vrSwingPrevLocal = null, vrSwingCd = 0, vrSwingKey = null, vrSwingProg = 0, vrSwingIdle = 0;
 
 function makeControllerRay(){
   const geo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0), new THREE.Vector3(0,0,-1)]);
@@ -13865,7 +13867,7 @@ function buildCraftPanel(){
       text('Emeralds are the village currency - sell goods to earn them.',35,690,23,'#454545');
     }
   } else {
-    const lines=['X (left controller): open / close inventory','Point RIGHT controller + trigger: select menu buttons','Inventory: select backpack item, then a hotbar slot to equip','Crafting: select recipe, then Craft or Craft & equip','Right grip: place / use / eat food / fill or pour bucket','Right trigger: hold to mine / attack','Wrist: point + trigger on a slot to equip; Inventory opens all items','A: jump / swim up / fly up • B: swim down / fly down / close menu','Left stick click: sprint / flight boost • Right stick click: flight • Y: crouch'];
+    const lines=['X (left controller): open / close inventory','Point RIGHT controller + trigger: select menu buttons','Inventory: select backpack item, then a hotbar slot to equip','Crafting: select recipe, then Craft or Craft & equip','Right grip: place / use / eat food / fill or pour bucket','Swing equipped tools into blocks, or hold right trigger to mine','Wrist: point + trigger on a slot to equip; Inventory opens all items','A: jump / swim up / fly up • B: swim down / fly down / close menu','Left stick click: sprint / flight boost • Right stick click: flight • Y: crouch'];
     lines.forEach((line,i)=>text(line,50,215+i*44,25,'#333333',1330));
     const gorilla=vrMoveMode==='gorilla';
     button(50,612,520,70,gorilla?'Gorilla arms: ON':'Gorilla arms: off',()=>{
@@ -13890,7 +13892,7 @@ function openCraftVR(tab='inventory'){
   fwd.y=0;if(fwd.lengthSq()<0.001)fwd.set(0,0,-1);fwd.normalize();
   craftPanel.position.copy(cp).addScaledVector(fwd,1.35);craftPanel.position.y-=0.12;
   craftPanel.lookAt(cp.x,craftPanel.position.y,cp.z);craftPanel.updateMatrixWorld(true);
-  craftPanel.visible=true;player.vel.x=player.vel.z=0;resetMine();buildCraftPanel();
+  craftPanel.visible=true;player.vel.x=player.vel.z=0;resetMine();resetVRSwing();buildCraftPanel();
 }
 function closeCraftVR(){
   chestOpen=false;chestPos=null;tradeVillager=null;
@@ -14003,6 +14005,7 @@ function updateAvatarArms(){
 function vrBuildTool(){
   const id = heldId();
   if(id === vrToolId) return;
+  resetVRSwing();
   vrToolId = id;
   if(vrTool){ rightCtrl.remove(vrTool); vrTool = null; }
   if(!id) return;
@@ -14038,6 +14041,42 @@ function vrTryBreak(){
   if(eh && (!bh || eh.t < bh.t)){ punchEntity(eh.e); return; }
   if(mode === 'creative' && bh && bh.y > 0){ breakBlock(bh.x, bh.y, bh.z, bh.id); }
   // survival mining handled continuously in updateVR
+}
+function resetVRSwing(clearTarget=true){
+  vrSwingPrevWorld=vrSwingPrevLocal=null;vrSwingCd=0;
+  if(clearTarget){vrSwingKey=null;vrSwingProg=0;vrSwingIdle=0;}
+}
+function vrSwingWork(speed){
+  if(speed<VR_SWING_MIN)return 0;
+  return .14+Math.min(1,(speed-VR_SWING_MIN)/3)*.26;
+}
+function applyVRSwingHit(hit,speed){
+  const tool=ITEMS[heldId()]?.tool;if(!tool||!hit||hit.y<=0)return false;
+  const key=hit.x+','+hit.y+','+hit.z;
+  blockSfx(hit.id,'mine');hapticPulse('right',Math.min(.9,.28+speed*.12),38);
+  if(mode==='creative'){breakBlock(hit.x,hit.y,hit.z,hit.id);vrSwingKey=null;vrSwingProg=0;return true;}
+  if(key!==vrSwingKey){vrSwingKey=key;vrSwingProg=0;}
+  vrSwingIdle=1.25;vrSwingProg+=vrSwingWork(speed);
+  const need=calcMineTime(hit.id);
+  if(vrSwingProg>=need){breakBlock(hit.x,hit.y,hit.z,hit.id);vrSwingKey=null;vrSwingProg=0;vrSwingIdle=0;hapticPulse('right',.9,65);}
+  return true;
+}
+function updateVRSwingMining(dt){
+  vrSwingCd=Math.max(0,vrSwingCd-dt);vrSwingIdle=Math.max(0,vrSwingIdle-dt);
+  if(vrSwingKey&&vrSwingIdle<=0){vrSwingKey=null;vrSwingProg=0;}
+  const tool=ITEMS[heldId()]?.tool;
+  if(!xrActive||!inGame||dead||vrCraftOpen||!rightCtrl.userData.inputSource||!tool){resetVRSwing();return;}
+  rightCtrl.updateWorldMatrix(true,false);
+  const tip=rightCtrl.localToWorld(new THREE.Vector3(0,0,-VR_SWING_TIP));
+  const local=xrRig.worldToLocal(tip.clone());
+  if(!vrSwingPrevWorld||!vrSwingPrevLocal||dt<=0||dt>.06){vrSwingPrevWorld=tip;vrSwingPrevLocal=local;return;}
+  const physical=local.clone().sub(vrSwingPrevLocal),distance=physical.length(),speed=distance/dt;
+  if(distance>.8){vrSwingPrevWorld=tip;vrSwingPrevLocal=local;return;}
+  if(vrSwingCd<=0&&speed>=VR_SWING_MIN){
+    const path=tip.clone().sub(vrSwingPrevWorld),length=path.length();
+    if(length>.001){const hit=raycast(vrSwingPrevWorld,path.normalize(),length+.06);if(applyVRSwingHit(hit,speed))vrSwingCd=.12;}
+  }
+  vrSwingPrevWorld=tip;vrSwingPrevLocal=local;
 }
 function vrTryPlace(){
   if(!inGame || dead || vrCraftOpen || !rightCtrl.userData.inputSource) return;
@@ -14476,6 +14515,7 @@ function updateVR(dt){
     if(triggerEdge){if(wristHover===9)openCraftVR();else{selectSlot(wristHover);vrBuildTool();}vrActionRelease=true;}
     vrGripWas=!!rbtn?.[1]?.pressed;resetMine();hl.visible=false;updateWristHotbar();return;
   }
+  updateVRSwingMining(dt);
   if(triggerDown){
     const { o, d } = ctrlOriginDir(rightCtrl);
     const eh = rayEntity(o, d, REACH);
