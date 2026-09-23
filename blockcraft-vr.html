@@ -1994,7 +1994,10 @@ BLOCKS[SCULK]={name:'Sculk',all:380};BLOCKS[SCULK_SENSOR]={name:'Sculk Sensor',t
 BLOCKS[SCULK_SHRIEKER]={name:'Sculk Shrieker',top:383,bottom:380,side:384};BLOCKS[SCULK_CATALYST]={name:'Sculk Catalyst',top:385,bottom:387,side:386};
 BLOCKS[DEEPSLATE_BRICKS]={name:'Deepslate Bricks',all:387};BLOCKS[DEEPSLATE_TILES]={name:'Deepslate Tiles',all:388};BLOCKS[REINFORCED]={name:'Reinforced Deepslate',top:390,bottom:390,side:389};
 ITEMS[ECHO_SHARD]={name:'Echo Shard',icon:265};
-const PHANTOM_MEMBRANE = 930, ARMADILLO_SCUTE = 931, GLOW_INK_SAC = 932, TOTEM = 935;
+const PHANTOM_MEMBRANE = 930, ARMADILLO_SCUTE = 931, GLOW_INK_SAC = 932, TOTEM = 935, NETHER_STAR = 936;
+const WITHER_SKULL = 876, BEACON = 877, EMERALD_BLOCK = 878;
+BLOCKS[WITHER_SKULL]={name:'Wither Skeleton Skull',all:700};BLOCKS[BEACON]={name:'Beacon',all:702};BLOCKS[EMERALD_BLOCK]={name:'Block of Emerald',all:703};
+ITEMS[NETHER_STAR]={name:'Nether Star',icon:381};
 ITEMS[TOTEM]={name:'Totem of Undying',icon:380};
 ITEMS[GLOW_INK_SAC]={name:'Glow Ink Sac',icon:303};
 ITEMS[ARMADILLO_SCUTE]={name:'Armadillo Scute',icon:302};
@@ -2216,10 +2219,10 @@ const partialTile = id => {
   return T.STONE;
 };
 const isDoor    = id => id === DOOR || id === DOORTOP;
-const isOpaque = id => id !== ICE && !STAINED.has(id) && !WALLS.has(id) && !isFenceish(id) && id !== TRAPDOOR && id !== ANVIL && id !== COMPOSTER && id !== GRINDSTONE && id !== CAULDRON && id !== LIGHTNINGROD && id !== AIR && id !== WATER && id !== GLASS && id !== LAVA && id !== PORTAL && id !== ENDPORTAL && id !== END_GATEWAY && id !== STORM_PORTAL && !isCross(id) && !isPartial(id) && !isDoor(id) && !isFlat(id);
+const isOpaque = id => id !== ICE && id !== WITHER_SKULL && !STAINED.has(id) && !WALLS.has(id) && !isFenceish(id) && id !== TRAPDOOR && id !== ANVIL && id !== COMPOSTER && id !== GRINDSTONE && id !== CAULDRON && id !== LIGHTNINGROD && id !== AIR && id !== WATER && id !== GLASS && id !== LAVA && id !== PORTAL && id !== ENDPORTAL && id !== END_GATEWAY && id !== STORM_PORTAL && !isCross(id) && !isPartial(id) && !isDoor(id) && !isFlat(id);
 const isSolid  = id => id !== TRAPDOOR && id !== GATE_OPEN && id !== AIR && id !== WATER && id !== LAVA && id !== PORTAL && id !== ENDPORTAL && id !== END_GATEWAY && id !== STORM_PORTAL && !isCross(id) && !isDoor(id) && !isFlat(id);
 const isLiquid = id => id === WATER || id === LAVA;
-const emitsLight = id => id === CREAKING_HEART_ON || id === SCULK_CATALYST || id === SCULK_SENSOR || id === SEA_LANTERN || id === AQ_CONDUIT || id === SEA_PICKLE || id === RS_TORCH || id === LAMP_ON || id===GLOWCRYSTAL || id === ENDERCHEST || id === JACK_O_LANTERN || id === LANTERN || id === CAMPFIRE || id === STORM_PORTAL || id === CONDUIT_LIT || id === VOLTITE_ORE || id === END_ROD || id === END_GATEWAY || id === CRYING_OBSIDIAN || id === ANCHOR_LIT || id === SHROOMLIGHT || id === MAGMA || isFire(id) || id === SOUL_TORCH || id === GLOWVINE || id === AMETHYST_C || id === AMBERLAMP || id === GLOWB || id === GLOWSTONE || id === LAVA || id === PORTAL || id === ENDPORTAL || id === ENDCRYSTAL;
+const emitsLight = id => id === BEACON || id === CREAKING_HEART_ON || id === SCULK_CATALYST || id === SCULK_SENSOR || id === SEA_LANTERN || id === AQ_CONDUIT || id === SEA_PICKLE || id === RS_TORCH || id === LAMP_ON || id===GLOWCRYSTAL || id === ENDERCHEST || id === JACK_O_LANTERN || id === LANTERN || id === CAMPFIRE || id === STORM_PORTAL || id === CONDUIT_LIT || id === VOLTITE_ORE || id === END_ROD || id === END_GATEWAY || id === CRYING_OBSIDIAN || id === ANCHOR_LIT || id === SHROOMLIGHT || id === MAGMA || isFire(id) || id === SOUL_TORCH || id === GLOWVINE || id === AMETHYST_C || id === AMBERLAMP || id === GLOWB || id === GLOWSTONE || id === LAVA || id === PORTAL || id === ENDPORTAL || id === ENDCRYSTAL;
 const occl     = id => isOpaque(id);
 function tileFor(id, face){
   const d = BLOCKS[id];
@@ -2430,6 +2433,9 @@ const RECIPES = [
   { out: [GOLDI, 1],  in: [[GOLDO, 1], [COALI, 1]], st: 'furnace' },
   { out: [DRIED_KELP, 1], in: [[KELP, 1], [COALI, 1]], st: 'furnace' },
   { out: [DARK_PLANK, 4], in: [[DARK_LOG, 1]] },
+  { out: [BEACON, 1], in: [[GLASS, 5], [OBSIDIAN, 3], [NETHER_STAR, 1]], st: 'table' },
+  { out: [EMERALD_BLOCK, 1], in: [[EMERALD, 9]], st: 'table' },
+  { out: [EMERALD, 9], in: [[EMERALD_BLOCK, 1]] },
   { out: [PALE_PLANK, 4], in: [[PALE_LOG, 1]] },
   { out: [PALE_MOSS_CARPET, 3], in: [[PALE_MOSS, 2]] },
   { out: [RESIN_BRICK, 1], in: [[RESIN_CLUMP, 1], [COALI, 1]], st: 'furnace' },
@@ -2631,6 +2637,10 @@ itemAtlas.width = 128; itemAtlas.height = 1024;   // 512 icons
     const d = Math.hypot((x - 7.5) * 1.1, (y - 9) * 0.95);
     if(d > 5.6 && !(y < 5 && Math.abs(x - 7.5) < 1.5 && y > 1)) return null;
     return y < 5 ? [30, 90, 96] : d > 4.6 ? [16, 60, 66] : (x + y) % 4 === 0 ? [160, 255, 240] : [60, 200, 190]; });
+  px(381, (x, y) => {                                                   // Nether Star: a white four-pointed star
+    const dx = Math.abs(x - 7.5), dy = Math.abs(y - 7.5);
+    if(dx * dy > 3.2 || dx + dy > 8.5) return null;
+    return dx + dy < 2.5 ? [255, 255, 255] : dx + dy < 5 ? [240, 245, 200] : [190, 200, 170]; });
   px(380, (x, y) => {                                                   // Totem of Undying: a little golden figure with emerald eyes
     const G = [236, 196, 70], D = [176, 132, 40], E = [50, 200, 100];
     if(y >= 1 && y <= 6 && x >= 5 && x <= 10){ if(y === 3 && (x === 6 || x === 9)) return E; return y === 1 || x === 5 || x === 10 ? D : G; }
@@ -3368,6 +3378,22 @@ itemAtlas.width = 128; itemAtlas.height = 1024;   // 512 icons
     return x % 4 === 0 ? [96 + k, 66 + k, 40 + k] : [124 + k, 88 + k, 52 + k];
   });
   put(302, (x, y, r) => { const k = Math.floor((r() - 0.5) * 16); return x % 4 === 0 ? [70 + k, 72 + k, 78 + k] : [96 + k, 98 + k, 104 + k]; });   // cast iron
+  put(700, (x, y, r) => { const k = Math.floor((r() - 0.5) * 14); return (x + y * 3) % 7 === 0 ? [30 + k, 30 + k, 32 + k] : [52 + k, 52 + k, 54 + k]; });   // wither skeleton skull
+  put(701, (x, y, r) => {                                                                     // and its face
+    const k = Math.floor((r() - 0.5) * 12);
+    if(y >= 5 && y <= 7 && ((x >= 3 && x <= 5) || (x >= 10 && x <= 12))) return [10, 10, 10];  // eye sockets
+    if(y >= 9 && y <= 10 && x >= 7 && x <= 8) return [16, 16, 16];                            // nose
+    if(y >= 12 && y <= 13 && x >= 4 && x <= 11) return x % 2 ? [20, 20, 20] : [80 + k, 80 + k, 80 + k];   // teeth
+    return [52 + k, 52 + k, 54 + k]; });
+  put(702, (x, y, r) => {                                                                     // beacon: glass round a glowing core
+    const k = Math.floor((r() - 0.5) * 10), e = x === 0 || y === 0 || x === 15 || y === 15;
+    if(e) return [150 + k, 225 + k, 235];
+    if(x >= 4 && x <= 11 && y >= 4 && y <= 11){ const c = Math.max(Math.abs(x - 7.5), Math.abs(y - 7.5)); return c < 1.5 ? [245, 255, 255] : c < 3 ? [170, 250, 245] : [110, 210, 220]; }
+    return y >= 12 ? [36 + k, 26 + k, 60 + k] : [120 + k, 200 + k, 215]; });
+  put(703, (x, y, r) => {                                                                     // block of emerald
+    const k = Math.floor((r() - 0.5) * 16), e = x === 0 || y === 0 || x === 15 || y === 15;
+    if(e) return [20, 110 + k, 50];
+    return (x + y) % 6 === 0 ? [140, 255, 180] : (x - y + 16) % 5 === 0 ? [30, 150 + k, 70] : [60 + k, 205 + k, 110 + k]; });
   put(303, (x, y, r) => { const k = Math.floor((r() - 0.5) * 20); return [40 + k, 90 + k, 190 + k]; });                                            // still water
   put(301, (x, y, r) => {                                   // ender chest: black stone with a glowing green eye and seam
     const k = Math.floor((r() - 0.5) * 10), d = Math.hypot(x - 7.5, y - 7.5);
@@ -7233,6 +7259,7 @@ function* buildChunkSteps(c,reuseLight=false){
     if(isPartial(b)){ pushPartial(O, lx, y, lz, b, light, wx0 + lx, wz0 + lz); continue; }
     if(isDoor(b)){ pushDoor(O, lx, y, lz, b, wx0 + lx, wz0 + lz, light); continue; }
     if(b === LADDER){ pushLadder(O, lx, y, lz, gb, light); continue; }
+    if(b === WITHER_SKULL){ pushSkull(O, lx, y, lz, wx0 + lx, wz0 + lz, light); continue; }
     if(b === FLOWERPOT){
       const llF = light ? 0.2 + (sampleLight(light, lx, y, lz) / 15) * 0.8 : 1;
       pushBox(O, 308, lx + 0.34, y, lz + 0.34, lx + 0.66, y + 0.06, lz + 0.66, llF);
@@ -7616,6 +7643,15 @@ function stairQuads(x, y, z, st){
   if(front && front.top === st.top && axis(front.f) !== axis(f) && canTake(front.f))
     return either(f, front.f === STAIR_CCW[f] ? STAIR_CCW[f] : STAIR_CW[f]);              // inner corner
   return STAIR_HALF[f];
+}
+function pushSkull(B, lx, y, lz, wx, wz, light){
+  const ll = light ? 0.2 + (sampleLight(light, lx, y, lz) / 15) * 0.8 : 1, e = 0.004;
+  pushBox(B, 700, lx + 0.25, y, lz + 0.25, lx + 0.75, y + 0.5, lz + 0.75, ll);
+  const f = (partState.get(pkey(wx, y, wz)) || PART_DEFAULT).f;          // the face, on the side it looks out of
+  if(f === 0) pushBox(B, 701, lx + 0.25, y, lz + 0.25 - e, lx + 0.75, y + 0.5, lz + 0.25, ll);
+  else if(f === 1) pushBox(B, 701, lx + 0.25, y, lz + 0.75, lx + 0.75, y + 0.5, lz + 0.75 + e, ll);
+  else if(f === 2) pushBox(B, 701, lx + 0.25 - e, y, lz + 0.25, lx + 0.25, y + 0.5, lz + 0.75, ll);
+  else pushBox(B, 701, lx + 0.75, y, lz + 0.25, lx + 0.75 + e, y + 0.5, lz + 0.75, ll);
 }
 const lastRayO = new THREE.Vector3(), lastRayD = new THREE.Vector3(0, 0, -1);
 function placePartial(x, y, z, held, hit){
@@ -9677,6 +9713,7 @@ const NETHER_TYPES = {
   vex:        { hp: 14, w: 0.2, h: 0.8, build: buildVex },
   ravager:    { hp: 100, w: 0.6, h: 2.2, build: buildRavager },
   wandering_trader: { hp: 20, w: 0.3, h: 1.95, build: buildTrader },
+  wither:     { hp: 300, w: 0.5, h: 3.3, build: buildWitherBoss },
 };
 /* The Warden: blind, three blocks tall, 500 health. It finds you by sound
    (footsteps, mining, placing - sneak to stay quiet) and by smell when you
@@ -9942,6 +9979,226 @@ function updateSplashes(dt){
     }
     scene.remove(q.mesh); splashes.splice(i, 1);
   }
+}
+/* ---- the Wither ---------------------------------------------------------------
+   Built as in Minecraft: stand four soul sand (or soul soil) in a T and set
+   three wither skeleton skulls along the top - the last one brings it to
+   life. It gathers itself for ten seconds, blue and untouchable, then bursts
+   free in a huge explosion. Its three heads spit wither skulls that blow up
+   and wither you (now and then a slow blue one, worse); it heals slowly, and
+   once it's down to half health it grows armour arrows can't get through and
+   comes down low to fight. Hit it and it smashes free of whatever it's in.
+   It drops a Nether Star - the heart of a beacon. */
+const WITHER_MAX = 300;
+let arrowHitNow = false;
+const WSKULL_MATS = faces(NMAT.wSkull, NMAT.wSkull, NMAT.wSkull, NMAT.wFace);
+const witherBone = entMat(0x2e2e2e), witherDark = entMat(0x1a1a1a);
+function buildWitherBoss(g, e){
+  e.boss = true; e.blastProof = true; e.legs = []; e.arms = [];
+  const root = new THREE.Group(); g.add(root); e.root = root;
+  box(1.35, 0.19, 0.19, witherBone, 0, 2.52, 0, root);                // the shoulders
+  box(0.19, 0.7, 0.19, witherBone, 0, 2.12, 0.02, root);              // the spine
+  for(let i = 0; i < 3; i++) box(0.66 - i * 0.06, 0.1, 0.38, witherBone, 0, 2.34 - i * 0.2, 0.06, root);   // ribs
+  const tail = new THREE.Group(); tail.position.set(0, 1.8, 0.03); root.add(tail); e.tail = tail;
+  box(0.19, 0.85, 0.19, witherDark, 0, -0.42, 0, tail);
+  e.heads = [];
+  for(const [x, y, sz] of [[0, 2.62, 0.5], [-0.64, 2.52, 0.375], [0.64, 2.52, 0.375]]){
+    const h = new THREE.Group(); h.position.set(x, y, 0); root.add(h);
+    box(sz, sz, sz, faces(NMAT.wSkull, NMAT.wSkull, NMAT.wSkull, NMAT.wFace), 0, sz / 2, 0, h);
+    e.heads.push(h);
+  }
+  e.armour = new THREE.Mesh(new THREE.BoxGeometry(1.7, 1.7, 1.0), new THREE.MeshBasicMaterial({ color: 0x6a8cff, transparent: true, opacity: 0.18, depthWrite: false }));
+  e.armour.position.set(0, 2.3, 0); e.armour.visible = false; root.add(e.armour);
+}
+const isSoulBlock = b => b === SOULSAND || b === SOULSOIL;
+function placeSkull(x, y, z){
+  camera.getWorldDirection(_cDir);
+  const f = Math.abs(_cDir.z) >= Math.abs(_cDir.x) ? (_cDir.z < 0 ? 1 : 0) : (_cDir.x < 0 ? 3 : 2);   // it looks back at you
+  partState.set(pkey(x, y, z), { f, top: false }); savePartState();
+  setBlock(x, y, z, WITHER_SKULL); blockSfx(STONE, 'place'); triggerViewSwing(); consumePlacedItem();
+  trySummonWither(x, y, z);
+}
+function trySummonWither(x, y, z){
+  for(const [ax, az] of [[1, 0], [0, 1]]) for(let o = -1; o <= 1; o++){
+    const cx = x - ax * o, cz = z - az * o;
+    const heads = [-1, 0, 1].map(k => [cx + ax * k, y, cz + az * k]), arms = [-1, 0, 1].map(k => [cx + ax * k, y - 1, cz + az * k]);
+    if(!heads.every(([a, b, c]) => getBlock(a, b, c) === WITHER_SKULL)) continue;
+    if(!arms.every(([a, b, c]) => isSoulBlock(getBlock(a, b, c))) || !isSoulBlock(getBlock(cx, y - 2, cz))) continue;
+    if(isSolid(getBlock(cx - ax, y - 2, cz - az)) || isSolid(getBlock(cx + ax, y - 2, cz + az))) continue;   // the T must stand clear
+    for(const [a, b, c] of [...heads, ...arms, [cx, y - 2, cz]]){ setBlock(a, b, c, AIR); partState.delete(pkey(a, b, c)); }
+    savePartState();
+    const e = spawnNetherMob('wither', cx + 0.5, y - 2, cz + 0.5);
+    if(!e) return false;
+    e.spawnT = 10; e.hp = 1; e.home = e.pos.clone(); faceTo(e, player.pos.x, player.pos.z);
+    flashName('The Wither awakens...');
+    nTone(e.pos, 50, 140, 4, 'sawtooth', 0.3, 200); nNoise(e.pos, 200, 4, 0.3, 300, 200);
+    return true;
+  }
+  return false;
+}
+const _hW = new THREE.Vector3();
+function witherBlocked(x, y, z){
+  for(let dy = 0.3; dy < 3.4; dy += 0.75) for(const ox of [-0.45, 0.45]) for(const oz of [-0.45, 0.45])
+    if(isSolid(getBlock(Math.floor(x + ox), Math.floor(y + dy), Math.floor(z + oz)))) return true;
+  return false;
+}
+function witherBreak(e){
+  let n = 0;
+  for(let dx = -1; dx <= 1; dx++) for(let dy = 0; dy <= 3; dy++) for(let dz = -1; dz <= 1; dz++){
+    const x = Math.floor(e.pos.x) + dx, y = Math.floor(e.pos.y) + dy, z = Math.floor(e.pos.z) + dz, b = getBlock(x, y, z);
+    if(b === AIR || isLiquid(b) || BLAST_PROOF.has(b) || y <= 1 || (!isSolid(b) && !isLeaf(b))) continue;
+    setBlock(x, y, z, AIR); n++;
+    if(mode === 'survival' && Math.random() < 0.5) spawnDrop(x, y, z, dropOf(b));
+  }
+  if(n){ burstRGB(e.pos.x, e.pos.y + 1.6, e.pos.z, 0.3, 0.3, 0.3, 14, 1.4); boomSfx(e.pos.distanceTo(player.pos) * 2); }
+}
+function witherThink(e, dt){
+  if(e.spawnT > 0){                                                  // gathering strength
+    e.spawnT -= dt;
+    e.hp = Math.max(1, WITHER_MAX * (1 - e.spawnT / 10));
+    e.vel.set(0, 0, 0);
+    if(Math.random() < dt * 25) burstRGB(e.pos.x + (Math.random() - 0.5) * 2, e.pos.y + Math.random() * 3, e.pos.z + (Math.random() - 0.5) * 2, 0.4, 0.5, 1, 1, 0.8);
+    if(e.spawnT <= 0){ e.hp = WITHER_MAX; explode(e.pos.x, e.pos.y + 1.5, e.pos.z, 7, 20); netherVoice(e, 'hurt'); flashName('The Wither is free!'); }
+    witherBar(e);
+    return;
+  }
+  e.hp = Math.min(WITHER_MAX, e.hp + dt);                             // it heals, a point a second
+  e.armoured = e.hp <= WITHER_MAX / 2;
+  // it's after you - or failing that, any living thing that isn't undead
+  let tgt = null;
+  if(mode === 'survival' && !dead && e.pos.distanceTo(player.pos) < 48) tgt = player;
+  else { let bd = 32; for(const list of [animals, villagers, golems]) for(const m of list){ const d = m.pos.distanceTo(e.pos); if(d < bd){ bd = d; tgt = m; } } }
+  e.tgt = tgt;
+  e.orbitA = (e.orbitA ?? Math.random() * 6.283) + dt * 0.45;
+  let gx, gy, gz;
+  if(tgt){ const r = e.armoured ? 3 : 9; gx = tgt.pos.x + Math.cos(e.orbitA) * r; gz = tgt.pos.z + Math.sin(e.orbitA) * r; gy = tgt.pos.y + (e.armoured ? 0.3 : 5); }
+  else { gx = e.home.x + Math.cos(e.orbitA) * 8; gz = e.home.z + Math.sin(e.orbitA) * 8; gy = e.home.y + 6; }
+  const dir = _gTo.set(gx - e.pos.x, gy - e.pos.y, gz - e.pos.z), l = dir.length() || 1;
+  e.vel.lerp(dir.multiplyScalar(Math.min(e.armoured ? 5.5 : 4.5, l) / l), Math.min(1, dt * 2));
+  const nx = e.pos.x + e.vel.x * dt, ny = e.pos.y + e.vel.y * dt, nz = e.pos.z + e.vel.z * dt;
+  if(!witherBlocked(nx, e.pos.y, e.pos.z)) e.pos.x = nx; else e.vel.x = 0;
+  if(!witherBlocked(e.pos.x, e.pos.y, nz)) e.pos.z = nz; else e.vel.z = 0;
+  if(!witherBlocked(e.pos.x, ny, e.pos.z)) e.pos.y = ny; else e.vel.y = 0;
+  if(e.breakT > 0 && (e.breakT -= dt) <= 0) witherBreak(e);
+  if(tgt){
+    faceTo(e, tgt.pos.x, tgt.pos.z);
+    e.headCd = e.headCd || [1, 2, 2.6];
+    for(let k = 0; k < 3; k++){
+      if((e.headCd[k] -= dt) > 0) continue;
+      e.headCd[k] = k === 0 ? 1.1 + Math.random() * 0.6 : 2.2 + Math.random() * 1.6;
+      const from = e.heads[k].getWorldPosition(new THREE.Vector3()); from.y += 0.25;
+      const to = new THREE.Vector3(tgt.pos.x, tgt.pos.y + (tgt === player ? 1.1 : 0.6), tgt.pos.z);
+      if(k && Math.random() < 0.4) to.add(new THREE.Vector3((Math.random() - 0.5) * 6, 0, (Math.random() - 0.5) * 6));   // the side heads spray about
+      const blue = Math.random() < (e.armoured ? 0.08 : 0.03);
+      const f = spawnFireball('wskull', from, to.sub(from).normalize().multiplyScalar(blue ? 6 : 13), e);
+      if(blue){ f.blue = true; f.mesh.material = WSKULL_BLUE; }
+      nTone(from, 320, 150, 0.3, 'sawtooth', 0.14, 80);
+    }
+  }
+  witherBar(e);
+}
+const WSKULL_BLUE = new THREE.MeshBasicMaterial({ color: 0x6f8fe0 });
+function animWitherBoss(e, dt){
+  e.anim += dt;
+  e.group.position.copy(e.pos); e.group.position.y += Math.sin(e.anim * 1.6) * 0.12;
+  const dyaw = ((e.yaw - e.group.rotation.y + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+  e.group.rotation.y += dyaw * Math.min(1, dt * 4);
+  e.root.scale.setScalar(e.spawnT > 0 ? 0.45 + 0.55 * (1 - e.spawnT / 10) : 1);   // it grows as it gathers itself
+  e.tail.rotation.x = 0.35 + Math.sin(e.anim * 2.2) * 0.14;
+  e.heads.forEach((h, k) => {
+    if(e.tgt){
+      h.getWorldPosition(_hW);
+      const dx = e.tgt.pos.x - _hW.x, dz = e.tgt.pos.z - _hW.z, dy = e.tgt.pos.y + 1.1 - _hW.y;
+      h.rotation.y = Math.atan2(-dx, -dz) - e.group.rotation.y; h.rotation.x = Math.atan2(dy, Math.hypot(dx, dz)) * 0.8;
+    } else { h.rotation.y = Math.sin(e.anim * 0.7 + k * 2) * 0.6; h.rotation.x = Math.sin(e.anim * 0.5 + k) * 0.2; }
+  });
+  e.armour.visible = e.armoured || e.spawnT > 0;
+  if(e.armour.visible) e.armour.material.opacity = 0.14 + Math.sin(e.anim * 6) * 0.06;
+}
+// its health, across the top of the screen while it's near
+const witherEl = document.createElement('div');
+witherEl.style.cssText = 'position:fixed;left:50%;top:52px;transform:translateX(-50%);z-index:6;color:#fff;font:bold 14px system-ui;text-shadow:0 1px 2px #000;pointer-events:none;display:none;text-align:center';
+document.body.appendChild(witherEl);
+let witherBarT = 0, witherBarShown = '';
+function witherBar(e){
+  if(e.pos.distanceTo(player.pos) > 64) return;
+  witherBarT = performance.now();
+  const pct = Math.max(0, Math.round(e.hp / WITHER_MAX * 100)), key = pct + (e.armoured ? 'a' : '');
+  if(key === witherBarShown) return;
+  witherBarShown = key; witherEl.style.display = 'block';
+  witherEl.innerHTML = 'Wither<div style="width:300px;height:8px;background:#2a0a3a;margin:4px auto 0;border:1px solid #000"><div style="height:100%;width:' + pct + '%;background:' + (e.armoured ? '#8a6aff' : '#b020d0') + '"></div></div>';
+}
+setInterval(() => { if(witherBarShown && performance.now() - witherBarT > 1500){ witherBarShown = ''; witherEl.style.display = 'none'; } }, 500);
+/* ---- beacons ---------------------------------------------------------------
+   Set a beacon on a pyramid of iron, gold, diamond or emerald blocks (one to
+   four tiers) under open sky and it throws a beam of light up into the
+   heavens and gives everyone nearby a power - use it to choose: Speed, or
+   Strength from three tiers up; a full four-tier pyramid adds Regeneration.
+   The bigger the pyramid, the further it reaches. */
+const BEACON_BASE = new Set([IRONB, GOLDB, DIAMB, EMERALD_BLOCK]);
+const BEACON_POWERS = [['speed', 1], ['strength', 3]];
+const beams = new Map();
+const beamMat = new THREE.MeshBasicMaterial({ color: 0xaaf6ff, transparent: true, opacity: 0.55, depthWrite: false, blending: THREE.AdditiveBlending });
+const beamGlow = new THREE.MeshBasicMaterial({ color: 0x5ad0ff, transparent: true, opacity: 0.18, depthWrite: false, blending: THREE.AdditiveBlending });
+function beaconLevel(x, y, z){
+  let lv = 0;
+  for(let k = 1; k <= 4; k++){
+    for(let i = -k; i <= k; i++) for(let j = -k; j <= k; j++) if(!BEACON_BASE.has(getBlock(x + i, y - k, z + j))) return lv;
+    lv = k;
+  }
+  return lv;
+}
+function beaconSky(x, y, z){
+  for(let yy = y + 1; yy < HEIGHT; yy++){ const b = getBlock(x, yy, z); if(b !== AIR && isOpaque(b)) return false; }
+  return true;
+}
+function beaconPower(x, y, z, lv){
+  const ok = BEACON_POWERS.filter(p => lv >= p[1]);
+  const st = partState.get(pkey(x, y, z));
+  return ok[Math.min(ok.length - 1, st ? st.f : 0)][0];
+}
+function cycleBeacon(x, y, z){
+  const lv = beaconLevel(x, y, z);
+  if(!lv){ flashName('A beacon needs a pyramid of iron, gold, diamond or emerald blocks under it'); return; }
+  const ok = BEACON_POWERS.filter(p => lv >= p[1]), st = partState.get(pkey(x, y, z)), f = ((st ? st.f : 0) + 1) % ok.length;
+  partState.set(pkey(x, y, z), { f, top: false }); savePartState();
+  tone(660, 990, 0.3, 'sine', 0.1); tone(990, 1320, 0.3, 'sine', 0.08, 0.15);
+  flashName('Beacon (' + lv + ' tier' + (lv > 1 ? 's' : '') + '): ' + EFFECT_NAMES[ok[f][0]] + (lv >= 4 ? ' and Regeneration' : '') + (beaconSky(x, y, z) ? '' : ' - but it needs open sky above'));
+  beaconT = 0;
+}
+let beaconT = 0;
+function updateBeacons(dt){
+  for(const m of beams.values()) m.rotation.y += dt * 0.9;
+  if((beaconT -= dt) > 0) return;
+  beaconT = 3;
+  const live = new Set(), px = player.pos.x, pz = player.pos.z;
+  for(const ck in edits){
+    const [cx, cz] = ck.split(',').map(Number);
+    if(Math.abs(cx * 16 + 8 - px) > 144 || Math.abs(cz * 16 + 8 - pz) > 144) continue;
+    const ed = edits[ck];
+    for(const k in ed){
+      if(ed[k] !== BEACON) continue;
+      const [lx, y, lz] = k.split(',').map(Number), x = cx * 16 + lx, z = cz * 16 + lz;
+      if(getBlock(x, y, z) !== BEACON) continue;
+      const lv = beaconLevel(x, y, z);
+      if(!lv || !beaconSky(x, y, z)) continue;
+      const key = x + ',' + y + ',' + z; live.add(key);
+      if(!beams.has(key)){
+        const g = new THREE.Group(); g.position.set(x + 0.5, y + 1 + 160, z + 0.5);
+        g.add(new THREE.Mesh(new THREE.BoxGeometry(0.3, 320, 0.3), beamMat), new THREE.Mesh(new THREE.BoxGeometry(0.6, 320, 0.6), beamGlow));
+        scene.add(g); beams.set(key, g);
+        tone(440, 880, 0.8, 'sine', 0.08);
+      }
+      // its power, to everyone in reach
+      const reach = 10 + lv * 10;
+      if(Math.abs(px - x - 0.5) < reach && Math.abs(pz - z - 0.5) < reach){
+        const p = beaconPower(x, y, z, lv);
+        effects[p] = Math.max(effects[p], 16);                      // topped up before it can wear off
+        if(lv >= 4) effects.regen = Math.max(effects.regen, 16);
+      }
+    }
+  }
+  for(const [key, g] of beams) if(!live.has(key)){ scene.remove(g); g.children.forEach(m => m.geometry.dispose()); beams.delete(key); }
 }
 /* ---- illagers ----------------------------------------------------------------
    Pillagers carry crossbows and walk in patrols behind a captain who wears
@@ -10734,6 +10991,7 @@ function updateNightMobs(dt){
   updateSplashes(dt);
   updateFlyers(dt);
   updateIllagers(dt);
+  updateBeacons(dt);
   // a hoglin brought into the Overworld turns into a zoglin
   for(const e of netherMobs) if(e.type === 'hoglin' && !e.puppet && (e.zomT = (e.zomT || 0) + dt) > 15){
     const z = spawnNetherMob('zoglin', e.pos.x, e.pos.y, e.pos.z); if(z) z.yaw = e.yaw; e.remove = true;
@@ -10972,6 +11230,11 @@ function netherVoice(e, mood = 'idle'){
     case 'wandering_trader':
       if(!e.invis) villagerVoice(e, mood === 'die' ? 'die' : mood === 'hurt' ? 'hurt' : 'idle');
       break;
+    case 'wither':
+      if(mood === 'die'){ nTone(p, 140, 40, 3, 'sawtooth', 0.35, 120); nNoise(p, 300, 3, 0.4, -200, 120); }
+      else if(mood === 'hurt') nTone(p, 260, 140, 0.4, 'sawtooth', 0.25, 90);
+      else { nTone(p, 80, 64, 1.4, 'sawtooth', 0.14, 90, 0, 3); nNoise(p, 160, 1.4, 0.12, -40, 90, 3); }
+      break;
     case 'strider':
       if(mood === 'die') nTone(p, 700, 240, 0.5, 'triangle', 0.25);
       else if(e.cold) { nTone(p, 820, 760, 0.1, 'triangle', 0.14); nTone(p, 800, 740, 0.1, 'triangle', 0.14, 40, 0.13); }
@@ -11054,6 +11317,7 @@ function tryGivePiglin(e){
 /* ---- the brains ---- */
 function updateNetherMob(e, dt){
   if(e.type === 'warden'){ e.atkCd -= dt; wardenThink(e, dt); return; }
+  if(e.type === 'wither'){ witherThink(e, dt); return; }
   if(e.type === 'creaking'){ e.atkCd -= dt; creakingThink(e, dt); return; }
   if(e.type === 'silverfish' || e.type === 'endermite'){ e.atkCd -= dt; bugThink(e, dt); return; }
   if(e.type === 'phantom'){ phantomThink(e, dt, daylightOf(timeOfDay)); return; }
@@ -11263,6 +11527,7 @@ function setStriderCold(e, cold){
 function animNether(e, dt){
   const T = e.type;
   if(T === 'warden'){ animWarden(e, dt); return; }
+  if(T === 'wither'){ animWitherBoss(e, dt); return; }
   if(T === 'creaking'){ animCreaking(e, dt); return; }
   if(T === 'bat' || T === 'parrot' || T === 'allay'){ e.group.position.copy(e.pos); e.group.rotation.y = e.yaw; return; }
   if(e.illager || e.trader){ animIllager(e, dt); return; }
@@ -11335,6 +11600,11 @@ function hurtNether(e, dmg, byPlayer){
     if(e.heart) burstRGB(e.heart[0] + 0.5, e.heart[1] + 0.5, e.heart[2] + 0.5, 1, 0.55, 0.15, 10, 0.5);
     return;
   }
+  if(e.type === 'wither'){
+    if(e.spawnT > 0) return;                                          // untouchable while it gathers itself
+    if(e.armoured && arrowHitNow){ burstRGB(e.pos.x, e.pos.y + 2.3, e.pos.z, 0.5, 0.6, 1, 8, 0.6); playN({ f: 1800, type: 'highpass', dur: 0.1, vol: 0.12 }); return; }   // arrows glance off its armour
+    if(!(e.breakT > 0)) e.breakT = 1;                                 // a moment later it smashes free of anything round it
+  }
   if(e.type === 'ghast' && e.charge > 0) e.charge = 0.01;
   e.lastHitByPlayer = !!byPlayer;
   e.hp -= dmg;
@@ -11352,7 +11622,7 @@ function hurtNether(e, dmg, byPlayer){
 function killNether(e){
   const i = netherMobs.indexOf(e);
   if(i < 0) return;
-  dropXP(e.pos.x, e.pos.y + 0.8, e.pos.z, { ghast: 5, blaze: 10, brute: 20, ravager: 20, evoker: 10, vex: 3, wandering_trader: 1, hoglin: 5, strider: 2, magma: e.size || 1, slime: e.size || 1, stormling: 2, wisp: 4 }[e.type] || 5);
+  dropXP(e.pos.x, e.pos.y + 0.8, e.pos.z, { ghast: 5, blaze: 10, brute: 20, wither: 50, ravager: 20, evoker: 10, vex: 3, wandering_trader: 1, hoglin: 5, strider: 2, magma: e.size || 1, slime: e.size || 1, stormling: 2, wisp: 4 }[e.type] || 5);
   netherVoice(e, 'die');
   const p = e.pos, drop = (id, lo, hi) => { const n = lo + ((Math.random() * (hi - lo + 1)) | 0); if(n > 0) spawnDropAt(p.x, p.y + 0.5, p.z, id, n); };
   if(mode === 'survival') switch(e.type){
@@ -11362,7 +11632,8 @@ function killNether(e){
     case 'blaze': if(Math.random() < 0.6) drop(BLAZEROD, 1, 1); break;
     case 'magma': if(e.size > 1 && Math.random() < 0.5) drop(MAGMACREAM, 1, 1); break;
     case 'slime': if(e.size === 1) drop(SLIMEBALL, 0, 2); break;
-    case 'wskel': if(Math.random() < 0.33) drop(COALI, 1, 1); drop(BONE, 0, 2); break;
+    case 'wskel': if(Math.random() < 0.33) drop(COALI, 1, 1); drop(BONE, 0, 2); if(Math.random() < 0.05) drop(WITHER_SKULL, 1, 1); break;
+    case 'wither': drop(NETHER_STAR, 1, 1); break;
     case 'wisp': if(Math.random() < 0.3) drop(VOLTITE, 1, 1); break;
     case 'strider': drop(STRING, 2, 5); if(e.saddled) drop(SADDLE, 1, 1); break;
     case 'warden': drop(SCULK_CATALYST, 1, 1); break;
@@ -11393,7 +11664,7 @@ function killNether(e){
 function updateNetherMobs(dt){
   for(let i = netherMobs.length - 1; i >= 0; i--){
     const e = netherMobs[i];
-    if(e.pos.distanceToSquared(player.pos) > 100 * 100 || e.pos.y < -10){ removeEnt(netherMobs, i); continue; }
+    if((e.pos.distanceToSquared(player.pos) > 100 * 100 && !e.boss) || e.pos.y < -10){ removeEnt(netherMobs, i); continue; }
     if(e.remove){ removeEnt(netherMobs, i); continue; }      // a warden that dug back down
     if(e.hp <= 0 && e.type === 'creaking') e.hp = 1;      // nothing but its heart can end it
     if(e.hp <= 0){ killNether(e); continue; }
@@ -11411,7 +11682,7 @@ const fireGeo = new THREE.BoxGeometry(1, 1, 1);
 function spawnFireball(type, from, vel, owner){
   const g = new THREE.Group();
   const s = type === 'ghast' ? 1 : 0.32;
-  const m = new THREE.Mesh(fireGeo, type === 'spark' ? SPARK_MAT : NMAT.fire); m.scale.setScalar(s); g.add(m);
+  const m = new THREE.Mesh(fireGeo, type === 'spark' ? SPARK_MAT : type === 'wskull' ? WSKULL_MATS : NMAT.fire); m.scale.setScalar(s); g.add(m);
   g.position.copy(from);
   scene.add(g);
   const f = { kind: 'fireball', type, group: g, mesh: m, pos: from.clone(), vel: vel.clone(), w: s * 0.5, h: s, age: 0, owner, byPlayer: false, yaw: 0 };
@@ -11421,6 +11692,7 @@ function spawnFireball(type, from, vel, owner){
 function fireballBurst(f){
   const p = f.pos;
   if(f.type === 'spark'){ burstRGB(p.x, p.y, p.z, 0.7, 0.9, 1, 8, 0.4); return; }
+  if(f.type === 'wskull'){ explode(p.x, p.y, p.z, f.blue ? 1.8 : 1.1, 3); return; }
   if(f.type === 'ghast'){
     explode(p.x, p.y, p.z, 1.6, 6);                                  // a small blast that breaks blocks
     for(let k = 0; k < 6; k++){                                      // and leaves fires burning
@@ -11443,8 +11715,9 @@ function updateFireballs(dt){
     const step = f.vel.clone().multiplyScalar(dt);
     f.pos.add(step);
     f.group.position.copy(f.pos);
-    f.mesh.rotation.x += dt * 5; f.mesh.rotation.y += dt * 4;
-    if(Math.random() < (f.type === 'ghast' ? 0.9 : 0.5)) burstRGB(f.pos.x, f.pos.y, f.pos.z, 1, 0.5 + Math.random() * 0.3, 0.1, 1, f.type === 'ghast' ? 0.5 : 0.2);
+    if(f.type === 'wskull'){ f.group.rotation.y = Math.atan2(-f.vel.x, -f.vel.z); if(Math.random() < 0.5) burstRGB(f.pos.x, f.pos.y, f.pos.z, 0.15, 0.15, 0.18, 1, 0.2); }
+    else f.mesh.rotation.x += dt * 5, f.mesh.rotation.y += dt * 4;
+    if(f.type !== 'wskull' && Math.random() < (f.type === 'ghast' ? 0.9 : 0.5)) burstRGB(f.pos.x, f.pos.y, f.pos.z, 1, 0.5 + Math.random() * 0.3, 0.1, 1, f.type === 'ghast' ? 0.5 : 0.2);
     let hit = f.age > 12;
     // the player
     if(!hit){
@@ -11454,6 +11727,7 @@ function updateFireballs(dt){
         if(shieldBlocks(from)){ if(f.type === 'ghast') f.age = 99; }            // taken on the shield
         else if(f.type === 'blaze'){ if(mobCtx || !fireproof()) damage(5); setBurn(5); }
         else if(f.type === 'spark') damage(3);
+        else if(f.type === 'wskull'){ damage(f.blue ? 12 : 8); setWither(10); }
         hit = true;
       }
     }
@@ -11935,6 +12209,7 @@ function updateBlastFx(dt){
     if(k >= 1){ scene.remove(f.m); f.geo.dispose(); f.mat.dispose(); blastFx.splice(i, 1); }
   }
 }
+const BLAST_PROOF = new Set([OBSIDIAN, CRYING_OBSIDIAN, BEDROCK, ENDPORTAL, END_GATEWAY, ENCH_TABLE, ANVIL, ENDERCHEST, BEACON]);
 function explode(x, y, z, radius, dmgMax, fromNet){
   const r = Math.ceil(radius);
   const touched = new Set();
@@ -11944,7 +12219,7 @@ function explode(x, y, z, radius, dmgMax, fromNet){
     if(by <= 0 || by >= HEIGHT) continue;
     if(d > radius - 0.3 + hash3(bx, by, bz, 777) * 0.9) continue;   // deterministic ragged crater
     const b = getBlock(bx, by, bz);
-    if(b === AIR || b === WATER) continue;
+    if(b === AIR || b === WATER || BLAST_PROOF.has(b)) continue;
     const ccx = bx >> 4, ccz = bz >> 4;
     const c = chunkAt(ccx, ccz); ensureData(c);
     c.data[(by << 8) | ((bz & 15) << 4) | (bx & 15)] = AIR;
@@ -11987,7 +12262,7 @@ function explode(x, y, z, radius, dmgMax, fromNet){
   for(const list of [zombies, skeletons, creepers, netherMobs]){
     for(const e of list){
       const d = e.pos.distanceTo(at);
-      if(d < radius + 2) e.hp -= dmgMax * Math.max(0, 1 - d / (radius + 2));
+      if(d < radius + 2 && !e.blastProof) e.hp -= dmgMax * Math.max(0, 1 - d / (radius + 2));
     }
   }
   burstRGB(x, y, z, 0.35, 0.33, 0.3, 40, radius * 1.6);
@@ -13218,7 +13493,7 @@ function updateShots(dt){
     const gate = getBlock(Math.floor(s.pos.x), Math.floor(s.pos.y), Math.floor(s.pos.z)) === END_GATEWAY;
     if(s.kind === 'pearl' && gate){ scene.remove(s.mesh); shots.splice(i, 1); gatewayJump(); continue; }
     if(eh && (!bh || eh.t < bh.t)){
-      if(s.kind === 'arrow') hitWith(eh.e, Math.max(2, Math.round(s.vel.length() / 6)) + Math.round((s.power || 0) * 1.5));
+      if(s.kind === 'arrow'){ arrowHitNow = true; hitWith(eh.e, Math.max(2, Math.round(s.vel.length() / 6)) + Math.round((s.power || 0) * 1.5)); arrowHitNow = false; }
       else pearlLand(s.pos.clone().addScaledVector(dir, eh.t));
       scene.remove(s.mesh); shots.splice(i, 1); continue;
     }
@@ -13347,6 +13622,7 @@ function useSpawnEgg(hit){
 }
 function useSpecial(o, d, hit, eh){
   const held = heldId();
+  if(hit && hit.id === BEACON && (!eh || hit.t <= eh.t) && !(held && !ITEMS[held] && player.crouching)){ cycleBeacon(hit.x, hit.y, hit.z); triggerViewSwing(); return true; }
   if(eh && eh.e.kind === 'animal' && (eh.e.type === 'wolf' || eh.e.type === 'cat') && !eh.e.puppet && (!hit || eh.t < hit.t) && useOnWolf(eh.e)){ triggerViewSwing(); return true; }
   if(eh && (!hit || eh.t < hit.t) && eh.e.kind === 'animal' && RIDE[eh.e.type] && !eh.e.puppet && useRideable(eh.e)){ triggerViewSwing(); return true; }
   if(eh && (!hit || eh.t < hit.t) && eh.e.kind === 'nether' && (eh.e.type === 'parrot' || eh.e.type === 'allay') && !eh.e.puppet && useOnFlyer(eh.e)){ triggerViewSwing(); return true; }
@@ -17160,7 +17436,7 @@ function doPlace(){
   if(held===REDSTONE){placeRS(x,y,z,RS_WIRE,hit);return;}
   if((held>=LEVER&&held<=RS_TORCH)||held===REPEATER){placeRS(x,y,z,held,hit);return;}
   if(held===BED){placeBed(x,y,z);return;}
-  if(held===LADDER){placeLadder(x,y,z,hit);return;}
+  if(held===WITHER_SKULL){placeSkull(x,y,z);return;}if(held===LADDER){placeLadder(x,y,z,hit);return;}
   if(held===PAINTING){placeLadder(x,y,z,hit,PAINTING);return;}
   if(held===FRAME){placeLadder(x,y,z,hit,FRAME);return;}
   if(held===TORCH){placeTorch(x,y,z);return;}
@@ -17242,7 +17518,7 @@ const ALL_CREATIVE = (() => {
 // ---- item categories (used to group the creative palette and the crafting list) ----
 const CAT_NAMES = ['Building', 'Nature', 'Ores & Minerals', 'Decoration', 'Utility', 'Tools', 'Combat', 'Food', 'Misc'];
 const _oreBlocks = new Set([RAW_IRON_BLOCK, RAW_GOLD_BLOCK, RAW_COPPER_BLOCK, COALO, IRONO, GOLDO, DIAMO, EMERO, COPPERO, REDSTONE_ORE, LAPIS_ORE, QUARTZ_ORE, DEBRIS, ...Object.keys(DEEP_BASE).map(Number)]);
-const _matItems = new Set([TOTEM, GLOW_INK_SAC, ARMADILLO_SCUTE, PHANTOM_MEMBRANE, ...DYE, COCOA, RESIN_CLUMP, RESIN_BRICK, ECHO_SHARD, HEART_OF_SEA, NAUTILUS, PRISMARINE_SHARD, PRISMARINE_CRYSTALS, INK_SAC, RAW_IRON, RAW_GOLD, RAW_COPPER, REDSTONE, LAPIS, COALI, IRONI, GOLDI, DIAMI, COPPERI, EMERALD, NETHERITE, QUARTZ, AMETHYST_SHARD, GNUGGET, NSCRAP, STICK, STRING, LEATHER, FEATHER, GUNPOWDER, BLAZEROD, BLAZEPOWDER, GHASTTEAR, MAGMACREAM, ENDERPEARL, SLIMEBALL, BONE, BONE_MEAL, HONEYCOMB, PAPER]);
+const _matItems = new Set([NETHER_STAR, TOTEM, GLOW_INK_SAC, ARMADILLO_SCUTE, PHANTOM_MEMBRANE, ...DYE, COCOA, RESIN_CLUMP, RESIN_BRICK, ECHO_SHARD, HEART_OF_SEA, NAUTILUS, PRISMARINE_SHARD, PRISMARINE_CRYSTALS, INK_SAC, RAW_IRON, RAW_GOLD, RAW_COPPER, REDSTONE, LAPIS, COALI, IRONI, GOLDI, DIAMI, COPPERI, EMERALD, NETHERITE, QUARTZ, AMETHYST_SHARD, GNUGGET, NSCRAP, STICK, STRING, LEATHER, FEATHER, GUNPOWDER, BLAZEROD, BLAZEPOWDER, GHASTTEAR, MAGMACREAM, ENDERPEARL, SLIMEBALL, BONE, BONE_MEAL, HONEYCOMB, PAPER]);
 const _decoBlocks = new Set([...CARPET, SEA_LANTERN, TORCH, SOUL_TORCH, PAINTING, FRAME, FLOWERPOT, LANTERN, JACK_O_LANTERN, CARVED_PUMPKIN, GLOWB, CAMPFIRE]);
 const _utilBlocks = new Set([AQ_CONDUIT, REPEATER, LEVER, BUTTON_STONE, BUTTON_WOOD, PLATE_STONE, PLATE_WOOD, RS_TORCH, LAMP, CHEST, CRAFTT, FURN, BREWING, BARREL, ENDERCHEST, COMPOSTER, GRINDSTONE, NOTEBLOCK, JUKEBOX, ANVIL, SMITHING, CAULDRON, LADDER, FENCE, GATE, GATE_OPEN, BED, BEDHEAD, LIGHTNINGROD, TNT, BOOKSHELF, ENCH_TABLE]);
 const _natureBlocks = new Set([PALE_MOSS, PALE_MOSS_CARPET, PALE_HANGING_MOSS, EYEBLOSSOM_C, PALE_GRASS, CREAKING_HEART, SCULK, SCULK_SENSOR, SCULK_SHRIEKER, SCULK_CATALYST, MYCELIUM, MUSH_STEM, RED_MUSH_BLOCK, BROWN_MUSH_BLOCK, ...OCEAN_PLANTS, ...CORAL_BLOCKS, DEAD_CORALB, ICE, SPONGE, WET_SPONGE, GRASS, DIRT, SAND, REDSAND, GRAVEL, SNOW, PODZOL, CACTUS, DEADBUSH, MUSHROOMR, MUSHROOMB, TGRASSB, POPPYB, DANDB]);
@@ -18052,7 +18328,7 @@ function vrTryPlace(){
   if(held===REDSTONE){placeRS(x,y,z,RS_WIRE,hit);return;}
   if((held>=LEVER&&held<=RS_TORCH)||held===REPEATER){placeRS(x,y,z,held,hit);return;}
   if(held===BED){placeBed(x,y,z);return;}
-  if(held===LADDER){placeLadder(x,y,z,hit);return;}
+  if(held===WITHER_SKULL){placeSkull(x,y,z);return;}if(held===LADDER){placeLadder(x,y,z,hit);return;}
   if(held===PAINTING){placeLadder(x,y,z,hit,PAINTING);return;}
   if(held===FRAME){placeLadder(x,y,z,hit,FRAME);return;}
   if(held===TORCH){placeTorch(x,y,z);return;}
@@ -21786,7 +22062,7 @@ window.__bc = {
   PART_BASE, WALLS, FENCES, partState, partBoxes, placePartial, stairQuads,
   COLORS, DYE, CONCRETE, POWDER, SGLASS, TERRA16, GLAZED, CARPET, WOOL16, hardenNear,
   playerSees, updatePale, paleState: () => ({ blossomOpen, paleHere }),
-  splashes, sinceRestSet: v => { sinceRest = v; }, updateNightMobs, spawnFromEgg, useOnFlyer, raidState: () => raid, startRaid, spawnPatrol, spawnTrader, outpostsNear, outpostDef, fangs, useTotem, updateIllagers, rideState: () => rideHorse, useRideable, updateHorseRide,
+  splashes, sinceRestSet: v => { sinceRest = v; }, updateNightMobs, spawnFromEgg, useOnFlyer, trySummonWither, placeSkull, beaconLevel, updateBeacons, beams, cycleBeacon, raidState: () => raid, startRaid, spawnPatrol, spawnTrader, outpostsNear, outpostDef, fangs, useTotem, updateIllagers, rideState: () => rideHorse, useRideable, updateHorseRide,
   mountainBiome, jaggedAt, vnoise, deepDarkAt, cityDef, cityBlock, vibrate, summonWarden, sculkState: () => ({ warnLevel, near: sculkNear.length }), netherMobs, spawnNetherMob,
   monumentDef, monumentBlock, conduitFrame, soakSponge, airState: () => air, effectsNow: () => effects, spawnSea, seaLife, deadElders,
   colInfo, continentAt, waterBiome, wreckDef, ruinDef, treasureDef, wrecksNear, ruinsNear, treasuresNear, nearestTreasure, OCEAN, setOldLand, oldLandKeys: () => oldLandKeys, isWet,
