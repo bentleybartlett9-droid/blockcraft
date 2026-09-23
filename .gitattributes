@@ -1,0 +1,4 @@
+# Keep line endings the same (LF) in the repo whatever each machine's git settings are,
+# so a commit never rewrites every line of the game file.
+*.html text eol=lf
+*.js text eol=lf

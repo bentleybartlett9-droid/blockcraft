@@ -523,7 +523,7 @@ function colInfo(x, z){
   let o = colCache.get(key);
   if(o) return o;
   const land = landHeight0(x, z);
-  o = { h: land, C: 9, river: 0, mtn: 0 };
+  o = { h: land, C: 9, river: 0, mtn: 0, mush: 0 };
   if(GEN_V >= 4){
     const P = oldLandFade(x, z);
     if(P < 1){
@@ -550,12 +550,45 @@ function colInfo(x, z){
         if(h > floorR) h -= vb * (h - floorR);
         o.river = vb;
       }
+      // a mushroom island, far out at sea: low mycelium hills rising out of the water
+      const mi = mushIslandAt(x, z);
+      if(mi){
+        const dn = Math.hypot(x - mi.x, z - mi.z) / mi.r + (vnoise(x * 0.02, z * 0.02, 1401) - 0.5) * 0.35;
+        if(dn < 1){
+          const t = sm01((1 - dn) / 0.35) * (1 - P);
+          const top = SEA0 + 1 + 5 * vnoise(x * 0.035, z * 0.035, 1403) + 7 * sm01((0.65 - dn) / 0.5);
+          if(top > h) h = h * (1 - t) + top * t;
+          o.mush = t;
+        }
+      }
       o.h = Math.max(1, Math.floor(h)); o.C = C;
     }
   }
   if(colCache.size > 120000) colCache.clear();
   colCache.set(key, o);
   return o;
+}
+/* Mushroom Fields, as in Minecraft: rare islands in the open ocean. */
+const mushCache = new Map();
+function mushIslandDef(gx, gz){
+  const k = gx + ',' + gz;
+  if(mushCache.has(k)) return mushCache.get(k);
+  let m = null;
+  if(GEN_V >= 4 && hash(gx, gz, 1411) < 0.45){
+    const x = gx * 1100 + 150 + Math.floor(hash(gx, gz, 1412) * 800), z = gz * 1100 + 150 + Math.floor(hash(gx, gz, 1413) * 800);
+    if(x * x + z * z > 1500 * 1500 && continentAt(x, z) < OCEAN.T - 0.03) m = { x, z, r: 70 + Math.floor(hash(gx, gz, 1414) * 60) };
+  }
+  if(mushCache.size > 2000) mushCache.clear();
+  mushCache.set(k, m);
+  return m;
+}
+function mushIslandAt(x, z){
+  const gx = Math.round(x / 1100) - 1, gz = Math.round(z / 1100) - 1;
+  for(let a = gx; a <= gx + 1; a++) for(let b = gz; b <= gz + 1; b++){
+    const m = mushIslandDef(a, b);
+    if(m && Math.abs(x - m.x) < m.r * 1.4 && Math.abs(z - m.z) < m.r * 1.4) return m;
+  }
+  return null;
 }
 function terrainHeight0(x, z){ return colInfo(x, z).h; }
 function terrainHeight(x, z){ return colInfo(x, z).h + YS; }
@@ -568,6 +601,7 @@ const OCEAN_WATER = new Set(['ocean', 'deep-ocean', 'warm-ocean', 'lukewarm-ocea
 function waterBiome(x, z){
   if(GEN_V < 4) return null;
   const o = colInfo(x, z);
+  if(o.mush > 0.02 && o.h >= SEA0) return 'mushroom-fields';
   if(o.C > OCEAN.T + 0.016 && o.river < 0.5) return null;
   const t = vnoise(x * 0.0011 + 17, z * 0.0011 - 5, 8103), h = o.h;
   if(h < SEA0 && o.C < OCEAN.T + 0.012){
@@ -836,6 +870,8 @@ function biomeAt(x, z){
     const c = biomeCell(gx + a, gz + b), d = (c.x - wx) ** 2 + (c.z - wz) ** 2;
     if(d < bd){ bd = d; best = c; }
   }
+  // the Dark Forest: half the forests become dark oak woods (never next to land built on before they came)
+  if(best.biome === 'forest' && GEN_V >= 4 && hash(Math.floor(best.x), Math.floor(best.z), 8711) < 0.5 && oldLandFade(x, z) === 0) return 'dark-forest';
   return best.biome;
 }
 function biomeAtOld(x, z){
@@ -902,28 +938,32 @@ function clearing(x, z, wooded){
   if(n < edge) return 0;                            // open meadow
   return Math.min(1, (n - edge) / soft);            // soft edge into the trees
 }
-const WOODED = new Set(['forest', 'jungle', 'taiga', 'birch', 'cherry-grove', 'maple-woods', 'willow-marsh', 'duskhollow', 'frostvale']);
-const TREED = new Set(['swamp', 'snowy', 'amberfield', 'savanna', 'outback', 'bushland', 'plains']);   // groves and lone trees, with open ground between
+const WOODED = new Set(['dark-forest', 'forest', 'jungle', 'taiga', 'birch', 'cherry-grove', 'maple-woods', 'willow-marsh', 'duskhollow', 'frostvale']);
+const TREED = new Set(['mushroom-fields', 'swamp', 'snowy', 'amberfield', 'savanna', 'outback', 'bushland', 'plains']);   // groves and lone trees, with open ground between
 function treeAt(x, z){
   const r = hash(x, z, 777);
   if(r >= 0.03) return null;                        // cheap reject before biome lookup
   const h = terrainHeight(x, z);
   if(h <= SEA + 1 || h >= SNOW_H - 4 || surfaceCarved(x,z,h)) return null;
   const b = biomeAt(x, z);
-  const open = clearing(x, z, WOODED.has(b) ? 2 : TREED.has(b) ? 1 : 0);
+  const open = b === 'dark-forest' ? 1 : clearing(x, z, WOODED.has(b) ? 2 : TREED.has(b) ? 1 : 0);   // the dark forest is roofed right over
   if(open <= 0) return null;
   const v3 = GEN_V >= 3;
-  const p = b === 'amberfield' ? (v3 ? 0.018 : 0.012) : b === 'frostvale' ? 0.020 : b === 'duskhollow' ? 0.026 :
+  const p = b === 'dark-forest' ? 0.03 : b === 'mushroom-fields' ? 0.004 : b === 'amberfield' ? (v3 ? 0.018 : 0.012) : b === 'frostvale' ? 0.020 : b === 'duskhollow' ? 0.026 :
             ['cherry-grove','maple-woods','willow-marsh'].includes(b) ? .024 : b === 'jungle' ? 0.028 : b === 'forest' ? 0.022 : b === 'birch' ? 0.016 :
             b === 'taiga' ? 0.026 : b === 'outback' ? (v3 ? 0.009 : 0.006) : b === 'bushland' ? 0.014 :
             b === 'snowy' ? (v3 ? 0.013 : 0.008) : b === 'swamp' ? (v3 ? 0.02 : 0.007) : b === 'plains' ? (v3 ? TREE_P : 0.005) :
             b === 'savanna' ? (v3 ? 0.006 : 0.003) : 0;
   if(r >= p * open) return null;
-  const type = b==='amberfield'?'sunwood':b==='frostvale'?'rimewood':b==='duskhollow'?'duskwood':
+  const hr = hash(x, z, 8712);
+  const type = b === 'mushroom-fields' ? (hr < 0.5 ? 'hugered' : 'hugebrown')
+             : b === 'dark-forest' ? (hr < 0.035 ? 'hugered' : hr < 0.07 ? 'hugebrown' : hr < 0.82 ? 'darkoak' : hr < 0.92 ? 'oak' : 'birch') :
+               b==='amberfield'?'sunwood':b==='frostvale'?'rimewood':b==='duskhollow'?'duskwood':
                b==='cherry-grove'?'cherry':b==='maple-woods'?'maple':b==='willow-marsh'?'willow':b==='outback'?(GEN_V >= 3 && hash(x, z, 8511) < 0.4 ? 'boab' : 'gum'):b==='bushland'?'redgum':
                b === 'snowy' || b === 'taiga' ? 'spruce' : b === 'birch' ? 'birch' :
                b === 'jungle' ? 'jungle' : b === 'savanna' ? 'savanna' : 'oak';
-  const th = type==='sunwood'?5+Math.floor(hash(x,z,778)*2):
+  const th = type === 'darkoak' ? 6 + Math.floor(hash(x, z, 778) * 3) : type === 'hugered' || type === 'hugebrown' ? 5 + Math.floor(hash(x, z, 778) * 3) :
+             type==='sunwood'?5+Math.floor(hash(x,z,778)*2):
              type==='rimewood'?6+Math.floor(hash(x,z,778)*3):
              type==='duskwood'?7+Math.floor(hash(x,z,778)*3):
              type==='boab'?3+Math.floor(hash(x,z,778)*2):type==='redgum'?7+Math.floor(hash(x,z,778)*4):type==='gum'?6+Math.floor(hash(x,z,778)*3):type==='willow'?6:type==='cherry'?4:type==='maple'?7:type === 'jungle' ? 7 + Math.floor(hash(x, z, 778) * 4) :
@@ -1454,10 +1494,10 @@ const EXTRA_WOODS=[{log:CHERRYLOG,plank:CHERRYPLANK,leaves:CHERRYLEAVES,name:'Ch
  {log:SUNLOG,plank:SUNPLANK,leaves:SUNLEAVES,name:'Sunwood',bark:[196,160,74],wood:[236,205,132],leaf:[242,188,68]},
  {log:RIMELOG,plank:RIMEPLANK,leaves:RIMELEAVES,name:'Rimewood',bark:[206,216,226],wood:[224,232,240],leaf:[158,214,232]},
  {log:DUSKLOG,plank:DUSKPLANK,leaves:DUSKLEAVES,name:'Duskwood',bark:[68,52,86],wood:[118,96,140],leaf:[186,96,196]}];
-const isLeaf=id=>id===LEAVES||id===SPRUCELEAVES||id===525||EXTRA_WOODS.some(w=>w.leaves===id);
-const isLog=id=>id===356||id===523||[LOG,BIRCHLOG,SPRUCELOG,JUNGLELOG,...EXTRA_WOODS.map(w=>w.log)].includes(id);   // 356: boab, 523: red gum
+const isLeaf=id=>id===DARK_LEAVES||id===LEAVES||id===SPRUCELEAVES||id===525||EXTRA_WOODS.some(w=>w.leaves===id);
+const isLog=id=>id===DARK_LOG||id===356||id===523||[LOG,BIRCHLOG,SPRUCELOG,JUNGLELOG,...EXTRA_WOODS.map(w=>w.log)].includes(id);   // 356: boab, 523: red gum
 const ANY_COBBLE = [527, 3];   // cobblestone or stone (Minecraft crafts tools, furnaces etc. from cobblestone)
-const ANY_PLANK = [7, 39, 40, 41, CHERRYPLANK, MAPLEPLANK, WILLOWPLANK, GUMPLANK, REDGUM_PLANK, BOAB_PLANK, SUNPLANK, RIMEPLANK, DUSKPLANK, CRIM_PLANK, WARP_PLANK];   // oak, birch, spruce, jungle planks (recipe group)
+const ANY_PLANK = [595, 7, 39, 40, 41, CHERRYPLANK, MAPLEPLANK, WILLOWPLANK, GUMPLANK, REDGUM_PLANK, BOAB_PLANK, SUNPLANK, RIMEPLANK, DUSKPLANK, CRIM_PLANK, WARP_PLANK];   // oak, birch, spruce, jungle planks (recipe group)
 const T = {GRASS_TOP:0,GRASS_SIDE:1,DIRT:2,STONE:3,SAND:4,LOG_SIDE:5,LOG_TOP:6,LEAVES:7,PLANK:8,BRICK:9,SNOW:10,GLASS:11,WATER:12,
            GLOW:13,COAL:14,IRON:15,GOLD:16,DIAMOND:17,TGRASS:18,POPPY:19,DANDELION:20,DIAMB:21,
            TORCH_T:22,CRAFT_TOP:23,CRAFT_SIDE:24,FURN_FRONT:25,FURN_SIDE:26,IRONB_T:27,GOLDB_T:28,SBRICK_T:29,WOOL_T:30,BED_TOP:31,
@@ -1584,7 +1624,7 @@ SAPLING_FOR_LOG[356]=EXTRA_WOODS.find(w=>w.log===GUMLOG).sapling;   // a felled 
 SAPLING_FOR_LOG[REDGUM_LOG]=SAP_OAK; SAPLING_OF[REDGUM_LEAVES]=SAP_OAK;
 EXTRA_WOODS.forEach(w=>{ SAPLING_OF[w.leaves]=w.sapling; SAPLING_FOR_LOG[w.log]=w.sapling;
                          SAPLING_TREE[w.sapling]=w.name.toLowerCase(); });
-const isSapling=id=>id===SAP_OAK||id===SAP_BIRCH||id===SAP_SPRUCE||id===SAP_JUNGLE||EXTRA_SAPS.includes(id);
+const isSapling=id=>id===SAP_DARK||id===SAP_OAK||id===SAP_BIRCH||id===SAP_SPRUCE||id===SAP_JUNGLE||EXTRA_SAPS.includes(id);
 for(const [id,name,tile] of [[MARBLE,'Marble',134],[MARBLEBRICK,'Marble Bricks',135],[BASALT,'Basalt',136],[BASALTBRICK,'Basalt Bricks',137],[MOSAIC,'Mosaic Tiles',138],[AMBERLAMP,'Amber Lantern',139]])BLOCKS[id]={name,all:tile};
 FLORA.forEach((f,i)=>BLOCKS[f.id]={name:f.name,all:145+i});
 BLOCKS[COARSEDIRT]={name:'Coarse Dirt',all:143};
@@ -1729,6 +1769,13 @@ BLOCKS[PRISMARINE]={name:'Prismarine',all:362};BLOCKS[PRISMARINE_BRICKS]={name:'
 BLOCKS[SEA_LANTERN]={name:'Sea Lantern',all:365};BLOCKS[SPONGE]={name:'Sponge',all:366};BLOCKS[WET_SPONGE]={name:'Wet Sponge',all:367};BLOCKS[AQ_CONDUIT]={name:'Conduit',all:368};
 ITEMS[PRISMARINE_SHARD]={name:'Prismarine Shard',icon:259};ITEMS[PRISMARINE_CRYSTALS]={name:'Prismarine Crystals',icon:260};ITEMS[INK_SAC]={name:'Ink Sac',icon:261};
 const PRISMARINE_SET = new Set([PRISMARINE, PRISMARINE_BRICKS, DARK_PRISMARINE, SEA_LANTERN]);   // what a conduit's frame is built from
+// the dark forest's dark oak, and the mushroom fields: mycelium, giant mushroom blocks, bowls and mushroom stew
+const DARK_LOG=594, DARK_PLANK=595, DARK_LEAVES=596, SAP_DARK=597, MYCELIUM=598, MUSH_STEM=599, RED_MUSH_BLOCK=600, BROWN_MUSH_BLOCK=601, MUSH_STEW=602, BOWL=603;
+BLOCKS[DARK_LOG]={name:'Dark Oak Log',side:370,top:371,bottom:371};BLOCKS[DARK_PLANK]={name:'Dark Oak Planks',all:372};BLOCKS[DARK_LEAVES]={name:'Dark Oak Leaves',all:373};
+BLOCKS[SAP_DARK]={name:'Dark Oak Sapling',all:374};BLOCKS[MYCELIUM]={name:'Mycelium',top:375,bottom:T.DIRT,side:376};
+BLOCKS[MUSH_STEM]={name:'Mushroom Stem',all:377};BLOCKS[RED_MUSH_BLOCK]={name:'Red Mushroom Block',all:378};BLOCKS[BROWN_MUSH_BLOCK]={name:'Brown Mushroom Block',all:379};
+ITEMS[MUSH_STEW]={name:'Mushroom Stew',icon:263,food:6};ITEMS[BOWL]={name:'Bowl',icon:264};
+SAPLING_FOR_LOG[DARK_LOG]=SAP_DARK; SAPLING_OF[DARK_LEAVES]=SAP_DARK; SAPLING_TREE[SAP_DARK]='darkoak';
 const OCEAN_PLANTS = new Set([SEAGRASS, KELP, SEA_PICKLE, ...CORALS, ...FANS]);
 const isWet = id => id === WATER || OCEAN_PLANTS.has(id);   // water, or a plant standing in it
 // Deepslate ores: the ores found below Y 0, set in deepslate. Same drops and tools as the plain ore, slower to mine.
@@ -1818,10 +1865,12 @@ function faceVisible(b, n){
   if(b === GLASS) return n === WATER;
   return !isOpaque(n);
 }
-const dropOf = id => id===SEA_LANTERN?PRISMARINE_CRYSTALS:CORALB_SET.has(id)?DEAD_CORALB:id===RS_WIRE?REDSTONE:id===RS_TORCH_OFF?RS_TORCH:id===LAMP_ON?LAMP:DEEP_BASE[id] ? dropOf(DEEP_BASE[id]) : id===IRONO?RAW_IRON:id===GOLDO?RAW_GOLD:id===COPPERO?RAW_COPPER:id===REDSTONE_ORE?REDSTONE:id===LAPIS_ORE?LAPIS:id===STONE?COBBLE:id===BEDHEAD?BED:id===BEEHIVE_FULL?BEEHIVE:id===GATE_OPEN?GATE:id===SKYGRASS?STORMSTONE:id===VOLTITE_ORE?VOLTITE:id===CONDUIT_LIT?CONDUIT:id===CHORUS_PLANT?CHORUS_FRUIT:id===ANCHOR_LIT?ANCHOR:id===CRIM_NYL||id===WARP_NYL?NETHERRACK:id===QUARTZ_ORE?QUARTZ:id===NGOLD_ORE?GNUGGET:id===GILDED?(Math.random()<.1?GNUGGET:GILDED):id===SNOWY_GRASS?DIRT:id===GLOWVINE?BERRIES:id===AMETHYST_C||id===BUDDING?AMETHYST_SHARD:id===DRIP_DOWN?DRIP_UP:id===BERRYBUSH?BERRIES:id===CRYSTALORE||id===GLOWCRYSTAL?CRYSTALSHARD:id === GRASS || id === SAVGRASS || id === FARMLAND ? DIRT : id === COALO ? COALI : id === DIAMO ? DIAMI :
+const dropOf = id => id===MYCELIUM?DIRT:id===SEA_LANTERN?PRISMARINE_CRYSTALS:CORALB_SET.has(id)?DEAD_CORALB:id===RS_WIRE?REDSTONE:id===RS_TORCH_OFF?RS_TORCH:id===LAMP_ON?LAMP:DEEP_BASE[id] ? dropOf(DEEP_BASE[id]) : id===IRONO?RAW_IRON:id===GOLDO?RAW_GOLD:id===COPPERO?RAW_COPPER:id===REDSTONE_ORE?REDSTONE:id===LAPIS_ORE?LAPIS:id===STONE?COBBLE:id===BEDHEAD?BED:id===BEEHIVE_FULL?BEEHIVE:id===GATE_OPEN?GATE:id===SKYGRASS?STORMSTONE:id===VOLTITE_ORE?VOLTITE:id===CONDUIT_LIT?CONDUIT:id===CHORUS_PLANT?CHORUS_FRUIT:id===ANCHOR_LIT?ANCHOR:id===CRIM_NYL||id===WARP_NYL?NETHERRACK:id===QUARTZ_ORE?QUARTZ:id===NGOLD_ORE?GNUGGET:id===GILDED?(Math.random()<.1?GNUGGET:GILDED):id===SNOWY_GRASS?DIRT:id===GLOWVINE?BERRIES:id===AMETHYST_C||id===BUDDING?AMETHYST_SHARD:id===DRIP_DOWN?DRIP_UP:id===BERRYBUSH?BERRIES:id===CRYSTALORE||id===GLOWCRYSTAL?CRYSTALSHARD:id === GRASS || id === SAVGRASS || id === FARMLAND ? DIRT : id === COALO ? COALI : id === DIAMO ? DIAMI :
                      id === EMERO ? EMERALD : id === DEADBUSH ? STICK : id;
 function toolClassOf(id){
   if(DEEP_BASE[id]) return 'pick';
+  if(id === MYCELIUM) return 'shovel';
+  if(id === MUSH_STEM || id === RED_MUSH_BLOCK || id === BROWN_MUSH_BLOCK) return 'axe';
   if(CORALB_SET.has(id) || id === DEAD_CORALB || id === ICE || PRISMARINE_SET.has(id) || id === AQ_CONDUIT) return 'pick';
   if([STORMSTONE,VOLTITE_ORE,STORM_BRICK,CONDUIT,CONDUIT_LIT].includes(id)) return 'pick';
   if(id === SKYGRASS || id === CLOUD) return 'shovel';
@@ -1878,6 +1927,8 @@ function handTime(id){
   if(isLeaf(id)) return 0.35;
   if(id === GLASS || id === CACTUS || id === TNT || id === ICE || id === SEA_LANTERN) return 0.5;
   if(id === SPONGE || id === WET_SPONGE) return 0.9;
+  if(id === MYCELIUM) return 0.8;
+  if(id === MUSH_STEM || id === RED_MUSH_BLOCK || id === BROWN_MUSH_BLOCK) return 0.4;
   if(id === GRASS || id === SAVGRASS || id === DIRT || id === SAND || id === SNOW) return 0.75;
   if(id === WOOL) return 1.0;
   if(id === GLOWB) return 2.0;
@@ -1956,6 +2007,9 @@ const RECIPES = [
   { out: [IRONI, 1],  in: [[IRONO, 1], [COALI, 1]], st: 'furnace' },
   { out: [GOLDI, 1],  in: [[GOLDO, 1], [COALI, 1]], st: 'furnace' },
   { out: [DRIED_KELP, 1], in: [[KELP, 1], [COALI, 1]], st: 'furnace' },
+  { out: [DARK_PLANK, 4], in: [[DARK_LOG, 1]] },
+  { out: [BOWL, 4], in: [[ANY_PLANK, 3]], st: 'table' },
+  { out: [MUSH_STEW, 1], in: [[BOWL, 1], [MUSHROOMR, 1], [MUSHROOMB, 1]] },
   { out: [SPONGE, 1], in: [[WET_SPONGE, 1], [COALI, 1]], st: 'furnace' },
   { out: [PRISMARINE, 1], in: [[PRISMARINE_SHARD, 4]] },
   { out: [PRISMARINE_BRICKS, 1], in: [[PRISMARINE_SHARD, 9]], st: 'table' },
@@ -2105,6 +2159,15 @@ itemAtlas.width = 128; itemAtlas.height = 1024;   // 512 icons
     if((x - y === 0 || x + y === 19) && x >= 8 && x <= 11) return [200, 30, 30];
     if(y === 11 - (x >> 1) && x < 8 && x % 2 === 0) return [110, 80, 50];
     return (x * 3 + y) % 7 === 0 ? [214, 196, 150] : [232, 216, 172]; });
+  px(263, (x, y) => {                                                   // mushroom stew: a bowl of brown broth
+    if(y < 6 || y > 13 || x < 1 || x > 14) return null;
+    if(y === 6) return x > 2 && x < 13 ? ((x + 1) % 4 === 0 ? [190, 40, 34] : [150, 104, 70]) : null;
+    const half = (y - 6) * 0.9; if(x < 1 + half * 0.3 || x > 14 - half * 0.3) return null;
+    return y === 13 ? [70, 46, 26] : [120, 82, 48]; });
+  px(264, (x, y) => {                                                   // bowl
+    if(y < 7 || y > 13 || x < 1 || x > 14) return null;
+    const half = (y - 7) * 0.9; if(x < 1 + half * 0.3 || x > 14 - half * 0.3) return null;
+    return y === 7 ? [60, 40, 22] : y === 13 ? [70, 46, 26] : [128, 88, 52]; });
   px(259, (x, y) => {                                                   // prismarine shard: a teal sliver
     const u = x - y; if(u < -3 || u > 3 || x + y < 7 || x + y > 25) return null;
     return u === -3 || u === 3 ? [50, 96, 90] : (x + y) % 4 === 0 ? [150, 214, 200] : [96, 164, 150]; });
@@ -2490,6 +2553,29 @@ itemAtlas.width = 128; itemAtlas.height = 1024;   // 512 icons
     }
     return [0,0,0,0];
   });
+  { // dark oak and the mushroom fields
+    const k = r => Math.floor((r() - 0.5) * 16);
+    put(370, (x,y,r) => { const d = k(r); return x % 4 === 0 ? [44 + d / 2, 32, 20] : [66 + d, 50 + d, 32 + d]; });                 // dark oak bark
+    put(371, (x,y,r) => { const d = Math.max(Math.abs(x - 7.5), Math.abs(y - 7.5)), q = k(r);                                          // dark oak end: rings
+      return d > 6.5 ? [60, 44, 28] : (Math.floor(d) % 2 ? [98 + q, 72 + q, 44 + q] : [84 + q, 60 + q, 36 + q]); });
+    put(372, (x,y,r) => { const q = k(r); return y % 4 === 0 ? [44, 30, 16] : [72 + q, 50 + q, 26 + q]; });                           // dark oak planks
+    put(373, (x,y,r) => { const n = hash(x >> 1, y >> 1, 1391), q = k(r);                                                                // dark oak leaves: deep green, gappy
+      if(n < 0.2 && hash(x, y, 1392) < 0.7) return [0,0,0,0];
+      return n > 0.75 ? [72 + q, 118 + q, 40 + q, 1] : [46 + q, 88 + q, 30 + q, 1]; });
+    put(374, (x,y,r) => {                                                                                                                 // dark oak sapling
+      if((x === 7 || x === 8) && y >= 10) return [70, 50, 30, 1];
+      const d = Math.hypot(x - 7.5, (y - 6) * 1.2);
+      return d < 4.6 && hash(x, y, 1393) > 0.18 ? (hash(x, y, 1394) < 0.3 ? [74, 118, 42, 1] : [44, 86, 30, 1]) : [0,0,0,0]; });
+    put(375, (x,y,r) => { const q = k(r); return hash(x, y, 1395) < 0.2 ? [150 + q, 140 + q, 150 + q] : [112 + q, 94 + q, 112 + q]; });   // mycelium top: grey-purple
+    put(376, (x,y,r) => { const q = k(r);                                                                                                // mycelium side: a purple fringe over dirt
+      const edge = 3 + (hash(x, 0, 1396) < 0.5 ? 1 : 0);
+      if(y < edge) return [112 + q, 94 + q, 112 + q];
+      return r() < 0.05 ? [88, 62, 42] : [121 + q, 85 + q, 58 + q]; });
+    put(377, (x,y,r) => { const q = k(r); return x % 5 === 0 ? [196 + q, 188 + q, 172 + q] : [220 + q, 214 + q, 200 + q]; });         // mushroom stem
+    put(378, (x,y,r) => { const q = k(r), dot = hash(x >> 1, y >> 1, 1397) < 0.12;                                                       // red mushroom cap
+      return dot ? [236, 230, 220] : [184 + q, 30 + q / 2, 28 + q / 2]; });
+    put(379, (x,y,r) => { const q = k(r); return hash(x, y, 1398) < 0.15 ? [120 + q, 88 + q, 62 + q] : [146 + q, 108 + q, 78 + q]; });  // brown mushroom cap
+  }
   { // prismarine: the sea-green stone of ocean monuments
     put(362, (x,y,r) => {                                               // prismarine: mottled teal and cyan
       const v = vnoise(x * 0.35 + 3, y * 0.35, 1371) * 0.7 + r() * 0.3;
@@ -5335,6 +5421,7 @@ function* genEndChunkSteps(cx, cz){
   return data;
 }
 function biomePlant(biome,r,patch,snowy,beach){
+  if(biome === 'mushroom-fields') return r < .03 ? MUSHROOMR : r < .06 ? MUSHROOMB : 0;   // mycelium grows no grass
   if(beach)return r<.04?REEDS:r<.07?DRYGRASS:0;
   if(snowy)return r<.035?CROCUS:r<.055?DEADBUSH:0;
   const palettes={
@@ -5346,6 +5433,7 @@ function biomePlant(biome,r,patch,snowy,beach){
     amberfield:[AMBERFLOWER,DRYGRASS,DAISY,AMBERFLOWER],
     frostvale:[CROCUS,FERN,BLUEBELL,CROCUS],
     duskhollow:[LAVENDER,ORCHID,MUSHROOMR,LAVENDER],
+    'dark-forest':[FERN,MUSHROOMB,MUSHROOMR,FERN],
     badlands:[DEADBUSH,DRYGRASS,DEADBUSH,DESERTFLOWER],
     outback:[SPINIFEX,DRYGRASS,SPINIFEX,DESERTFLOWER],
     bushland:[DRYGRASS,SPINIFEX,DEADBUSH,DANDB],
@@ -5512,7 +5600,7 @@ function* genChunkSteps(cx, cz){
       else if(floorMat && y > h - 4) b = floorMat === CLAY && y < h ? SAND : floorMat;   // the sea or river bed
       else if(stony && y > h - 5) b = STONE;
       else if((steep || alpine) && y > h - 4) b = y < h ? STONE : snowyTop ? SNOW : steep ? STONE : GRASS;
-      else if(y === h) b = badlands ? terraBand(y - YS) : outback ? REDSAND
+      else if(y === h) b = biome === 'mushroom-fields' ? MYCELIUM : badlands ? terraBand(y - YS) : outback ? REDSAND
                          : biome === 'amberfield' ? AMBERGRASS
                          : biome === 'frostvale' ? FROSTGRASS
                          : biome === 'duskhollow' ? DUSKGRASS
@@ -5587,8 +5675,8 @@ function* genChunkSteps(cx, cz){
     if((tx+5)%8===0)yield;
     const wx=cx*16+tx,wz=cz*16+tz,t=treeAt(wx,wz);if(!t)continue;
     const extra=EXTRA_WOODS.find(w=>w.name.toLowerCase()===t.type);
-    const log=t.type==='boab'?BOAB_LOG:t.type==='redgum'?REDGUM_LOG:extra?extra.log:t.type==='spruce'?SPRUCELOG:t.type==='birch'?BIRCHLOG:t.type==='jungle'?JUNGLELOG:LOG;
-    const leaf=t.type==='boab'?GUMLEAVES:t.type==='redgum'?REDGUM_LEAVES:extra?extra.leaves:t.type==='spruce'?SPRUCELEAVES:LEAVES;
+    const log=t.type==='darkoak'?DARK_LOG:t.type==='hugered'||t.type==='hugebrown'?MUSH_STEM:t.type==='boab'?BOAB_LOG:t.type==='redgum'?REDGUM_LOG:extra?extra.log:t.type==='spruce'?SPRUCELOG:t.type==='birch'?BIRCHLOG:t.type==='jungle'?JUNGLELOG:LOG;
+    const leaf=t.type==='darkoak'?DARK_LEAVES:t.type==='hugered'?RED_MUSH_BLOCK:t.type==='hugebrown'?BROWN_MUSH_BLOCK:t.type==='boab'?GUMLEAVES:t.type==='redgum'?REDGUM_LEAVES:extra?extra.leaves:t.type==='spruce'?SPRUCELEAVES:LEAVES;
     const crown=(ox,oy,oz,rx,ry,rz)=>{
       for(let dx=-Math.ceil(rx);dx<=rx;dx++)for(let dy=-Math.ceil(ry);dy<=ry;dy++)for(let dz=-Math.ceil(rz);dz<=rz;dz++){
         const shape=dx*dx/(rx*rx)+dy*dy/(ry*ry)+dz*dz/(rz*rz);
@@ -5648,6 +5736,22 @@ function* genChunkSteps(cx, cz){
         for(let j=1;j<=n;j++)set(tx+Math.round(ox*j/n),t.h+top+Math.round(oy*j/n),tz+Math.round(oz*j/n),log);
         crown(ox,top+oy+1,oz,1.4,0.8,1.4);
       }
+    }else if(t.type==='darkoak'){
+      // a dark oak: a thick 2x2 trunk under a broad, heavy canopy, with a few stout limbs
+      for(let k=1;k<=t.th;k++){set(tx+1,t.h+k,tz,log);set(tx,t.h+k,tz+1,log);set(tx+1,t.h+k,tz+1,log);}
+      for(const [dx,dz] of [[0,0],[1,0],[0,1],[1,1]])set(tx+dx,t.h,tz+dz,DIRT);
+      for(const [ox,oz] of [[-1,0],[2,1],[1,-1],[0,2]])if(hash(wx+ox,wz+oz,996)<.6){set(tx+ox,t.h+t.th-1,tz+oz,log);set(tx+ox*2-(ox>1?2:0),t.h+t.th,tz+oz*2-(oz>1?2:0),log);}
+      crown(0,t.th,0,3.3,1.2,3.3);crown(1,t.th,1,3.3,1.2,3.3);crown(0,t.th+1,1,2.4,1,2.4);crown(1,t.th+1,0,2.4,1,2.4);
+    }else if(t.type==='hugered'){
+      // a giant red mushroom: a pale stem under a dome of red cap
+      for(let dx=-2;dx<=2;dx++)for(let dz=-2;dz<=2;dz++){
+        const corner=Math.abs(dx)===2&&Math.abs(dz)===2;
+        if(!corner&&(Math.abs(dx)===2||Math.abs(dz)===2))for(let dy=t.th-2;dy<=t.th;dy++)set(tx+dx,t.h+dy,tz+dz,leaf,true);
+        if(Math.abs(dx)<=1&&Math.abs(dz)<=1)set(tx+dx,t.h+t.th+1,tz+dz,leaf,true);
+      }
+    }else if(t.type==='hugebrown'){
+      // a giant brown mushroom: a stem under a wide flat cap
+      for(let dx=-3;dx<=3;dx++)for(let dz=-3;dz<=3;dz++)if(!(Math.abs(dx)===3&&Math.abs(dz)===3))set(tx+dx,t.h+t.th+1,tz+dz,leaf,true);
     }else if(t.type==='redgum'){                       // a tall, sparse river red gum
       branch(turn*2,t.th-1,0);branch(-turn,t.th,turn);branch(turn,t.th-2,-turn);
       crown(turn*2,t.th,0,2,1,2);crown(-turn,t.th+1,turn,1.8,1.1,1.8);crown(0,t.th+2,0,1.7,1.3,1.7);crown(turn,t.th-1,-turn,1.6,1,1.6);
@@ -7495,6 +7599,7 @@ function eatHeld(){
   flashName('Ate ' + ateName);
   if(ateId === CHORUS_FRUIT) chorusTeleport();
   if(ateId === HONEY_BOTTLE) addItem(GLASS_BOTTLE);
+  if(ateId === MUSH_STEW && mode === 'survival') addItem(BOWL);          // the bowl comes back
   if(ateId === GOLDEN_APPLE){ effects.regen = Math.max(effects.regen, 12); hp = Math.min(20, hp + 4); renderHearts(); }
   return true;
 }
@@ -7591,6 +7696,8 @@ function removeEnt(list, i){
 const animals = [];
 const pigMats = { body: entMat(0xe89aa4), belly: entMat(0xd07f8a), head: entMat(0xeba6b0), snout: entMat(0xcf6f7d), nostril: entMat(0x8f4b57), ear: entMat(0xd98d98), leg: entMat(0xc9757f), hoof: entMat(0x6b4046), eye: entMat(0x2a1518) };
 const sheepMats = { wool: entMat(0xefefe8), woolSh: entMat(0xd8d8ce), head: entMat(0x2f2a24), leg: entMat(0x2a2620), eye: entMat(0x120f0c) };
+const mooMats = { body: entMat(0xa3201c), spot: entMat(0xdcd6cc), head: entMat(0xa8261f), snout: entMat(0xd8b0a0), leg: entMat(0x8e1c18), hoof: entMat(0x1f1712),
+                  horn: entMat(0xd8d0be), eye: entMat(0x150d0a), udder: entMat(0xe6a3a8), stem: entMat(0xe8e0d0), cap: entMat(0xc41c18) };
 const cowMats = { body: entMat(0x4b3226), spot: entMat(0xe9e4d6), head: entMat(0x5a4030), snout: entMat(0xc7a58f), leg: entMat(0x3a2820), hoof: entMat(0x1f1712), horn: entMat(0xd8d0be), eye: entMat(0x150d0a), udder: entMat(0xe6a3a8) };
 const chickMats = { body: entMat(0xf4f4ef), wing: entMat(0xdedcd2), head: entMat(0xf7f7f2), beak: entMat(0xe0a021), wattle: entMat(0xcf3b32), comb: entMat(0xcf3b32), leg: entMat(0xe0a021), eye: entMat(0x141414) };
 const horseMats = { body: entMat(0x7a5230), belly: entMat(0x633f22), head: entMat(0x6b4728), mane: entMat(0x2c1c10), snout: entMat(0x4a3320), leg: entMat(0x5a3d24), hoof: entMat(0x241811), eye: entMat(0x120b06), ear: entMat(0x5a3d24) };
@@ -7617,11 +7724,13 @@ function mergeAnimalParts(parent){
   }
 }
 function spawnAnimal(type, x, y, z){
+  const moosh = type === 'mooshroom';               // a mooshroom is a red cow with mushrooms growing on it
+  if(moosh) type = 'cow';
   const g = new THREE.Group();
   const legs = [];
   const palettes={pig:pigMats,sheep:sheepMats,cow:cowMats,horse:horseMats,wolf:wolfMats,rabbit:rabbitMats,chicken:chickMats,
                   kangaroo:rooMats,fox:foxMats,llama:llamaMats,goat:goatMats,axolotl:axoMats};
-  const m=palettes[type];
+  const m=moosh?mooMats:palettes[type];
   const part=(w,h,d,mat,x,y,z,parent=g)=>box(w,h,d,mat,x,y,z,parent);
   const limb=(x,z,height,width,mat,footMat,footDepth=width)=>{
     const pivot=new THREE.Group();pivot.position.set(x,height,z);g.add(pivot);
@@ -7733,6 +7842,7 @@ function spawnAnimal(type, x, y, z){
       }else if(type==='cow'){
         for(const side of [-1,1]){part(.02,.3,.4,m.spot,side*.436,1.05,.22);part(.02,.23,.3,m.spot,side*.437,.88,-.32);ear(side*.29,1.15,-.72,.2,.10,m.head,m.snout,side*.7);const horn=part(.085,.22,.09,m.horn,side*.2,1.4,-.74);horn.rotation.z=-side*.3;}
         part(.37,.23,.17,m.snout,0,1.01,-1.06);part(.045,.43,.045,body,0,.81,.68);part(.09,.14,.08,m.hoof,0,.56,.68);
+        if(moosh)for(const [mx,my,mz] of [[.16,1.3,.1],[-.14,1.3,.34],[.05,1.3,-.2],[0,1.38,-.8]]){part(.07,.12,.07,m.stem,mx,my,mz);part(.22,.09,.22,m.cap,mx,my+.1,mz);part(.05,.02,.05,m.stem,mx+.05,my+.155,mz-.04);}
       }else if(type==='horse'){
         for(const side of [-1,1])ear(side*.13,1.78,-.88,.09,.2,m.ear,null,side*.12);
         part(.28,.23,.26,m.snout,0,1.43,-1.12);for(let i=0;i<4;i++)part(.13,.24,.16,m.mane,0,1.76-i*.13,-.43+i*.06);
@@ -7813,6 +7923,7 @@ function spawnAnimal(type, x, y, z){
   // Batch static pieces by material; the four leg pivots remain animated.
   mergeAnimalParts(g);for(const child of g.children)if(child.isGroup)mergeAnimalParts(child);
   scene.add(g);
+  if(moosh) type = 'mooshroom';
   animals.push({
     kind: 'animal', type, group: g, legs,
     hp: type === 'goat' ? 10 : type === 'axolotl' ? 7 : type === 'chicken' ? 4 : type === 'rabbit' ? 3 : type === 'horse' ? 22 : type === 'wolf' ? 8 :
@@ -7869,12 +7980,13 @@ function updateAnimalSpawns(dt){
   }
   if(h >= SNOW_H) return;
   if(ground !== GRASS && ground !== SAVGRASS && ground !== SAND && ground !== SNOW && ground !== SNOWY_GRASS &&
-     ground !== AMBERGRASS && ground !== FROSTGRASS && ground !== DUSKGRASS &&
+     ground !== AMBERGRASS && ground !== FROSTGRASS && ground !== DUSKGRASS && ground !== MYCELIUM &&
      ground !== REDSAND && ground !== PODZOL && ground !== TERRACOTTA &&
      ground !== TERRA_ORANGE && ground !== TERRA_PALE) return;
   const bio = biomeAt(x, z);
   let pool;
-  if(bio==='cherry-grove')pool=['moonhopper','moonhopper','mossling'];
+  if(bio==='mushroom-fields')pool=['mooshroom'];
+  else if(bio==='cherry-grove')pool=['moonhopper','moonhopper','mossling'];
   else if(bio==='maple-woods')pool=['mossling','crystalback','mossling'];
   else if(bio==='willow-marsh')pool=['crystalback','mossling','crystalback'];
   else if(bio === 'snowy')        pool = ['rabbit', 'wolf', 'sheep', 'rabbit'];
@@ -7891,7 +8003,7 @@ function updateAnimalSpawns(dt){
   else if(bio === 'savanna') pool = ['horse', 'horse', 'cow', 'chicken', 'sheep'];
   else if(bio === 'plains')  pool = ['sheep', 'sheep', 'sheep', 'horse', 'pig', 'cow', 'chicken', 'rabbit'];
   else                       pool = ['sheep', 'sheep', 'pig', 'cow', 'chicken'];
-  if(Math.random()<.15)pool=FANTASY;
+  if(Math.random()<.15&&bio!=='mushroom-fields')pool=FANTASY;
   const pick = pool[Math.floor(Math.random() * pool.length)];
   // farm animals arrive in little herds, and some are babies
   const HERD = { sheep: [1, 4], cow: [1, 4], chicken: [2, 5], pig: [1, 3], rabbit: [1, 3], horse: [1, 2], goat: [1, 2], llama: [1, 3] };
@@ -7968,8 +8080,10 @@ function stepMob(e, dt, grav){
   else e.vel.y -= grav * dt;
   const ox = e.pos.x, oz = e.pos.z;
   stepEntity(e, dt);
-  if(e.speed > 0 && e.onGround && Math.hypot(e.pos.x - ox, e.pos.z - oz) < e.speed * dt * 0.3)
-    e.vel.y = 7.8;
+  if(e.speed > 0 && Math.hypot(e.pos.x - ox, e.pos.z - oz) < e.speed * dt * 0.3){
+    if(e.kind === 'spider') e.vel.y = 3.2;           // a spider climbs straight up the wall
+    else if(e.onGround) e.vel.y = 7.8;
+  }
 }
 function animMob(e, dt){
   e.group.position.copy(e.pos);
@@ -7977,6 +8091,12 @@ function animMob(e, dt){
   e.group.rotation.y += dyaw * Math.min(1, dt * 8);
   const sp = Math.hypot(e.vel.x, e.vel.z);
   e.anim += dt * (2 + sp * 4);
+  if(e.kind === 'spider'){
+    // eight legs step in two alternating sets of four, as a spider walks
+    const drive = Math.min(1, sp / 2);
+    for(const L of e.legs){ const w = Math.sin(e.anim * 5 + L.userData.ph); L.rotation.y = L.userData.yaw + w * 0.3 * drive; L.rotation.z = L.userData.tilt + Math.max(0, w) * 0.35 * drive * L.userData.up; }
+    return;
+  }
   if(e.type === 'kangaroo'){
     // a roo bounds: both feet swing together and the whole body lifts
     const beat = Math.sin(e.anim * 3.4), drive = Math.min(1, sp);
@@ -8020,10 +8140,11 @@ function updateZombieSpawns(dt, daylight){
   zSpawnT -= dt;
   if(zSpawnT > 0) return;
   zSpawnT = 1.2;
-  if(daylight > 0.35 || zombies.length + skeletons.length + creepers.length + spiders.length >= 9) return;
+  if(zombies.length + skeletons.length + creepers.length + spiders.length >= 9) return;
   const a = Math.random() * Math.PI * 2, d = 24 + Math.random() * 32;
   const x = Math.floor(player.pos.x + Math.cos(a) * d), z = Math.floor(player.pos.z + Math.sin(a) * d);
   if(getBlock(x, SEA, z) === WATER || getBlock(x, SEA - 1, z) === WATER){
+    if(daylight > 0.35) return;
     let y = SEA; while(y > SEA - 30 && getBlock(x, y - 1, z) === WATER) y--;
     if(SEA - y >= 3 && zombies.filter(q => q.drowned).length < 5 && Math.random() < 0.5) spawnZombie(x + 0.5, y + 0.05, z + 0.5, 'drowned');
     return;
@@ -8031,6 +8152,14 @@ function updateZombieSpawns(dt, daylight){
   const h = findSurfaceY(x, z);
   if(h < 0 || h <= SEA) return;
   if(blockLightAt(x, h + 1, z) > 0) return;          // a lit spot keeps monsters away
+  const spawnBiome = biomeAt(x, z);
+  if(spawnBiome === 'mushroom-fields') return;       // no monster ever spawns on a mushroom island
+  if(daylight > 0.35){                               // by day only under the dark forest's roof of leaves
+    if(spawnBiome !== 'dark-forest') return;
+    let shade = false;
+    for(let k = 2; k < 24 && !shade; k++) if(isLeaf(getBlock(x, h + k, z))) shade = true;
+    if(!shade) return;
+  }
   const roll = Math.random();
   if(roll < (biomeAt(x, z) === 'swamp' ? 0.4 : 0.04) && netherMobs.filter(m => m.type === 'slime').length < 8){
     spawnNetherMob('slime', x + 0.5, h + 1.05, z + 0.5);
@@ -9771,28 +9900,40 @@ function updateCreepers(dt){
 
 /* ============================= spiders ============================== */
 const spiders = [];
-const spiderMats = { body: entMat(0x3a2f2a), head: entMat(0x4a3b33), eye: entMat(0xd83b3b), leg: entMat(0x2a221e) };
+const spiderMats = { body: entMat(0x352d27), head: entMat(0x2c2520), eye: entMat(0xd83b3b), leg: entMat(0x3d342d), mark: entMat(0x4f4238) };
+const caveSpiderMats = { body: entMat(0x0e3a42), head: entMat(0x0a2c33), eye: entMat(0xd83b3b), leg: entMat(0x164a52), mark: entMat(0x1f5c66) };   // a cave spider is dark blue-green
 const crawlerMats={body:entMat(0x45405d),head:entMat(0x65588c),eye:entMat(0xc2f4ff),leg:entMat(0x777198),crystal:entMat(0xb59bea)};
 function spawnSpider(x, y, z, crystal=false, cave=false){
-  const materials=crystal?crawlerMats:spiderMats;
+  const materials=crystal?crawlerMats:cave?caveSpiderMats:spiderMats;
   const g = new THREE.Group();
   const legs = [];
-  box(0.95, 0.5, 0.7, materials.body, 0, 0.5, 0.15, g);   // abdomen
-  box(0.5, 0.4, 0.5, materials.head, 0, 0.5, -0.5, g);    // head
-  box(0.1, 0.1, 0.1, materials.eye, -0.14, 0.58, -0.72, g);
-  box(0.1, 0.1, 0.1, materials.eye, 0.14, 0.58, -0.72, g);
-  for(const side of [-1, 1])
-    for(const lz of [-0.15, 0.1, 0.35]){
-      const leg = box(0.7, 0.12, 0.12, materials.leg, side * 0.55, 0.42, lz, g);
-      leg.rotation.z = side * 0.5;
-      legs.push(leg);
-    }
+  // Minecraft's spider: a big head with eight glowing red eyes, a small thorax, a large patterned abdomen,
+  // and eight long legs that rise to a knee and bend down to the ground
+  const M = materials, cy = 0.56;
+  box(0.375, 0.375, 0.375, M.body, 0, cy, 0, g);                                   // thorax
+  box(0.5, 0.5, 0.5, M.head, 0, cy + 0.02, -0.43, g);                               // head
+  box(0.625, 0.5, 0.75, M.body, 0, cy + 0.06, 0.55, g);                             // abdomen
+  box(0.4, 0.04, 0.5, M.mark || M.head, 0, cy + 0.32, 0.55, g);                      // the markings on its back
+  box(0.12, 0.04, 0.3, M.mark || M.head, 0, cy + 0.33, 0.55, g);
+  const glow = new THREE.MeshBasicMaterial({ color: crystal ? 0xc2f4ff : 0xe01818 });
+  for(const [ex, ey, sz] of [[-0.1, 0.6, 0.1], [0.1, 0.6, 0.1], [-0.06, 0.72, 0.05], [0.06, 0.72, 0.05], [-0.16, 0.7, 0.05], [0.16, 0.7, 0.05], [-0.2, 0.58, 0.05], [0.2, 0.58, 0.05]])
+    box(sz, sz, 0.02, glow, ex, cy + ey - 0.56, -0.69, g);
+  const YAWS = [0.75, 0.28, -0.28, -0.75];
+  for(const side of [-1, 1]) YAWS.forEach((yw, i) => {
+    const hip = new THREE.Group(); hip.position.set(side * 0.18, cy, -0.12 + i * 0.08); g.add(hip);
+    hip.userData = { yaw: side * yw, tilt: side * 0.55, up: side, ph: (i % 2 ? Math.PI : 0) + (side > 0 ? 0 : Math.PI) };
+    hip.rotation.y = hip.userData.yaw; hip.rotation.z = hip.userData.tilt;
+    box(0.55, 0.11, 0.11, M.leg, side * 0.275, 0, 0, hip);                        // upper leg
+    const knee = new THREE.Group(); knee.position.x = side * 0.55; knee.rotation.z = -side * 1.55; hip.add(knee);
+    box(0.9, 0.1, 0.1, M.leg, side * 0.45, 0, 0, knee);                           // lower leg, down to the ground
+    legs.push(hip);
+  });
   if(crystal)for(const [x,z,h] of [[0,.1,.5],[-.25,.25,.3],[.25,.25,.35]]){const shard=box(.16,h,.16,crawlerMats.crystal,x,.75+h/2,z,g);shard.rotation.z=x;}
   if(cave)g.scale.set(.72,.72,.72);scene.add(g);
   spiders.push({
     kind:'spider',crystal,cave,angry:crystal||cave,group:g,legs,arms:[],
     pos: new THREE.Vector3(x, y, z), vel: new THREE.Vector3(),
-    w:cave?.38:.5,h:cave?.52:.7,hp:cave?12:16,
+    w:cave?.4:.6,h:cave?.6:.9,hp:cave?12:16,
     yaw: Math.random() * Math.PI * 2, speed: 0, t: 0.5,
     onGround: false, anim: Math.random() * 9, atkCd: 0, groanT: 3 + Math.random() * 4,
   });
@@ -10951,7 +11092,7 @@ function launchFirework(){
 }
 // right-click / grip with one of the new items; returns true if it was used
 function spawnFromEgg(type, x, y, z){
-  if(FANTASY.includes(type) || ['pig','cow','sheep','chicken','horse','wolf','rabbit','fox','llama','goat','axolotl','kangaroo'].includes(type)) return spawnAnimal(type, x, y, z);
+  if(FANTASY.includes(type) || ['mooshroom','pig','cow','sheep','chicken','horse','wolf','rabbit','fox','llama','goat','axolotl','kangaroo'].includes(type)) return spawnAnimal(type, x, y, z);
   if(type === 'zombie') return spawnZombie(x, y, z);
   if(type === 'drowned') return spawnZombie(x, y, z, 'drowned');
   if(type === 'skeleton') return spawnSkeleton(x, y, z);
@@ -12363,7 +12504,7 @@ function animalCall(type,pos,mood='idle'){
  const dx=(pos?.x||0)-player.pos.x,dy=(pos?.y??player.pos.y)-player.pos.y,dz=(pos?.z||0)-player.pos.z,d=Math.hypot(dx,dy,dz);
  if(d>40)return false;const idle=mood==='idle';
  if(idle&&(animalVoices>=3||AC.currentTime<animalIdleAt))return false;
- const fantasy={mossling:['cow',.67],moonhopper:['pigHurt',1.65],crystalback:['wolf',.55],goat:['sheep',.8],axolotl:['chicken',1.7]};
+ const fantasy={mooshroom:['cow',1],mossling:['cow',.67],moonhopper:['pigHurt',1.65],crystalback:['wolf',.55],goat:['sheep',.8],axolotl:['chicken',1.7]};
  const spec=fantasy[type];let key=spec?spec[0]:type;
  if(!idle&&type==='pig')key='pigHurt';if(!idle&&type==='wolf')key='wolfHurt';
  if(type==='rabbit'&&!idle)key='wolfHurt';
@@ -14421,7 +14562,7 @@ function leafLoot(x, y, z, id){
     if(harvest && harvest.got < harvest.need) harvest.got++;   // counts against the stump
   }
   if(Math.random() < .02) spawnDropAt(x+.5, y+.4, z+.5, STICK, 1 + (Math.random() < .5 ? 1 : 0));   // 1 in 50: a stick or two
-  if(id === LEAVES && Math.random() < .005) spawnDropAt(x+.5, y+.4, z+.5, APPLE, 1);              // 1 in 200: an apple
+  if((id === LEAVES || id === DARK_LEAVES) && Math.random() < .005) spawnDropAt(x+.5, y+.4, z+.5, APPLE, 1);              // 1 in 200: an apple
 }
 const LEAF_N = [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
 // Minecraft's leaf 'distance': steps from a log through touching leaves (6 = the farthest that lives)
@@ -14494,7 +14635,25 @@ function tickLeafDecay(now){
   if(leafQueue.size > 4000) leafQueue.clear();   // safety valve
   settleHarvest(false);
 }
+function growDarkOak(x, y, z){
+  for(const [ax, az] of [[0, 0], [-1, 0], [0, -1], [-1, -1]]){
+    const x0 = x + ax, z0 = z + az;
+    if(![[0, 0], [1, 0], [0, 1], [1, 1]].every(([dx, dz]) => getBlock(x0 + dx, y, z0 + dz) === SAP_DARK)) continue;
+    for(let dy = 1; dy <= 9; dy++) for(const [dx, dz] of [[0, 0], [1, 0], [0, 1], [1, 1]]) if(isSolid(getBlock(x0 + dx, y + dy, z0 + dz))) return false;
+    const th = 6 + Math.floor(Math.random() * 3);
+    for(let k = 0; k < th; k++) for(const [dx, dz] of [[0, 0], [1, 0], [0, 1], [1, 1]]) setBlock(x0 + dx, y + k, z0 + dz, DARK_LOG);
+    const top = y + th - 1;
+    for(let dx = -3; dx <= 4; dx++) for(let dz = -3; dz <= 4; dz++) for(let dy = -1; dy <= 1; dy++){
+      const ex = dx < 0 ? -dx : dx > 1 ? dx - 1 : 0, ez = dz < 0 ? -dz : dz > 1 ? dz - 1 : 0;
+      if(ex * ex + ez * ez + dy * dy * 3 > (dy === 1 ? 5 : 11) || getBlock(x0 + dx, top + dy, z0 + dz) !== AIR) continue;
+      setBlock(x0 + dx, top + dy, z0 + dz, DARK_LEAVES);
+    }
+    return true;
+  }
+  return false;                                   // a lone dark oak sapling never grows
+}
 function growTree(x, y, z, kind){
+  if(kind === 'darkoak') return growDarkOak(x, y, z);
   for(let dy = 1; dy <= 7; dy++) if(isSolid(getBlock(x, y + dy, z))) return false;
   const wood = EXTRA_WOODS.find(w => w.name.toLowerCase() === kind);
   const log  = wood ? wood.log : kind === 'spruce' ? SPRUCELOG : kind === 'birch' ? BIRCHLOG
@@ -14518,7 +14677,7 @@ function tickSaplings(now){
     const id = getBlock(x, y, z);
     if(!isSapling(id)) continue;
     if(!isSolid(getBlock(x, y - 1, z))) continue;      // needs ground under it
-    growTree(x, y, z, SAPLING_TREE[id] || 'oak');
+    if(!growTree(x, y, z, SAPLING_TREE[id] || 'oak') && id === SAP_DARK) saplingQueue.set(k, now + 30);   // waiting for its three partners
   }
 }
 // a sponge drinks up to 65 blocks of water within 7 steps of it, and turns wet
@@ -14621,6 +14780,8 @@ function breakBlock(x, y, z, id){
   }
   if(mode === 'survival'){
     if(id === TGRASSB){ if(Math.random() < 0.25) spawnDropAt(x + 0.5, y + 0.4, z + 0.5, SEEDS, 1); return; }
+    if(id === RED_MUSH_BLOCK || id === BROWN_MUSH_BLOCK){ if(Math.random() < 0.22) spawnDropAt(x + 0.5, y + 0.4, z + 0.5, id === RED_MUSH_BLOCK ? MUSHROOMR : MUSHROOMB, 1 + (Math.random() < 0.3 ? 1 : 0)); return; }
+    if(id === MUSH_STEM) return;
     if(id === SEAGRASS){ if(heldId() === SHEARS){ spawnDrop(x, y, z, SEAGRASS); damageTool(['shears']); } return; }   // seagrass only to shears
     if(id === ICE || CORALS.includes(id) || FANS.includes(id)) return;                                            // these need Silk Touch in Minecraft
     if(harvestOk(id) && !isLeaf(id)){               // leaves never drop themselves except to shears (above)
@@ -14832,7 +14993,7 @@ const _oreBlocks = new Set([RAW_IRON_BLOCK, RAW_GOLD_BLOCK, RAW_COPPER_BLOCK, CO
 const _matItems = new Set([HEART_OF_SEA, NAUTILUS, PRISMARINE_SHARD, PRISMARINE_CRYSTALS, INK_SAC, RAW_IRON, RAW_GOLD, RAW_COPPER, REDSTONE, LAPIS, COALI, IRONI, GOLDI, DIAMI, COPPERI, EMERALD, NETHERITE, QUARTZ, AMETHYST_SHARD, GNUGGET, NSCRAP, STICK, STRING, LEATHER, FEATHER, GUNPOWDER, BLAZEROD, BLAZEPOWDER, GHASTTEAR, MAGMACREAM, ENDERPEARL, SLIMEBALL, BONE, BONE_MEAL, HONEYCOMB, PAPER]);
 const _decoBlocks = new Set([SEA_LANTERN, TORCH, SOUL_TORCH, PAINTING, FRAME, FLOWERPOT, LANTERN, JACK_O_LANTERN, CARVED_PUMPKIN, GLOWB, CAMPFIRE]);
 const _utilBlocks = new Set([AQ_CONDUIT, REPEATER, LEVER, BUTTON_STONE, BUTTON_WOOD, PLATE_STONE, PLATE_WOOD, RS_TORCH, LAMP, CHEST, CRAFTT, FURN, BREWING, BARREL, ENDERCHEST, COMPOSTER, GRINDSTONE, NOTEBLOCK, JUKEBOX, ANVIL, SMITHING, CAULDRON, LADDER, FENCE, GATE, GATE_OPEN, BED, BEDHEAD, LIGHTNINGROD, TNT, BOOKSHELF, ENCH_TABLE]);
-const _natureBlocks = new Set([...OCEAN_PLANTS, ...CORAL_BLOCKS, DEAD_CORALB, ICE, SPONGE, WET_SPONGE, GRASS, DIRT, SAND, REDSAND, GRAVEL, SNOW, PODZOL, CACTUS, DEADBUSH, MUSHROOMR, MUSHROOMB, TGRASSB, POPPYB, DANDB]);
+const _natureBlocks = new Set([MYCELIUM, MUSH_STEM, RED_MUSH_BLOCK, BROWN_MUSH_BLOCK, ...OCEAN_PLANTS, ...CORAL_BLOCKS, DEAD_CORALB, ICE, SPONGE, WET_SPONGE, GRASS, DIRT, SAND, REDSAND, GRAVEL, SNOW, PODZOL, CACTUS, DEADBUSH, MUSHROOMR, MUSHROOMB, TGRASSB, POPPYB, DANDB]);
 function itemCat(id){
   const it = ITEMS[id];
   if(id === BOW || id === ARROW_I) return 6;
@@ -15260,7 +15421,7 @@ function buildCraftPanel(){
     TP_BIOMES.forEach((bio,i)=>{ const x=35+(i%4)*345, y=250+Math.floor(i/4)*95;
       button(x,y,325,80,biomeLabel(bio),()=>{ if(teleportToBiome(bio)) closeCraftVR(); },mode==='creative'&&dim===0);
     });
-    if(dim!==0) text('Biomes are in the Overworld.',35,850,24,'#8a2424');
+    if(dim!==0) text('Biomes are in the Overworld.',35,960,24,'#8a2424');
   } else if(vrMenuTab==='guide'){
     drawGuideVR(g, text);
   } else if(vrMenuTab==='dead'){
@@ -18152,8 +18313,21 @@ function updateCampfires(dt){
 function useFarm(hit, eh){
   const held = heldId();
   // milk a cow (or goat)
-  if(held === BUCKET && eh && (!hit || eh.t < hit.t) && eh.e.kind === 'animal' && (eh.e.type === 'cow' || eh.e.type === 'goat')){
+  if(held === BUCKET && eh && (!hit || eh.t < hit.t) && eh.e.kind === 'animal' && (eh.e.type === 'cow' || eh.e.type === 'mooshroom' || eh.e.type === 'goat')){
     replaceBucket(MILK); playN({ f: 500, type: 'lowpass', dur: 0.25, vol: 0.2 }); triggerViewSwing();
+    return true;
+  }
+  // a mooshroom: a bowl gets mushroom stew; shears take its mushrooms, and it's a plain cow after
+  if(eh && (!hit || eh.t < hit.t) && eh.e.kind === 'animal' && eh.e.type === 'mooshroom' && (held === BOWL || held === SHEARS)){
+    const e = eh.e;
+    if(held === BOWL){ consumePlacedItem(); addItem(MUSH_STEW); flashName('Mushroom Stew'); playN({ f: 400, type: 'lowpass', dur: 0.25, vol: 0.2 }); }
+    else {
+      const i = animals.indexOf(e);
+      if(i >= 0){ const p = e.pos.clone(), yaw = e.yaw; removeEnt(animals, i); spawnAnimal('cow', p.x, p.y, p.z); animals[animals.length - 1].yaw = yaw;
+        if(mode === 'survival'){ spawnDropAt(p.x, p.y + 1, p.z, MUSHROOMR, 5); damageTool(['shears']); }
+        burstRGB(p.x, p.y + 1, p.z, 0.8, 0.1, 0.1, 14, 0.5); playN({ f: 2500, type: 'highpass', dur: 0.15, vol: 0.15 }); }
+    }
+    triggerViewSwing();
     return true;
   }
   if(hit && isCake(hit.id) && mode === 'survival'){
@@ -18641,7 +18815,7 @@ function updateFishing(dt){
    it, set down on its surface. */
 const TP_BIOMES = ['plains', 'forest', 'birch', 'jungle', 'taiga', 'snowy', 'swamp', 'savanna', 'desert', 'badlands', 'outback',
                    'cherry-grove', 'maple-woods', 'willow-marsh', 'duskhollow', 'frostvale', 'amberfield', 'bushland',
-                   'beach', 'river', 'ocean', 'warm-ocean', 'frozen-ocean', 'deep-ocean'];
+                   'beach', 'river', 'ocean', 'warm-ocean', 'frozen-ocean', 'deep-ocean', 'dark-forest', 'mushroom-fields'];
 const biomeLabel = b => b.split('-').map(w => w[0].toUpperCase() + w.slice(1)).join(' ');
 // what the HUD shows: high ground is snow-capped on screen, so name it that way even in a warm climate
 function hudBiome(x, z){
@@ -19237,7 +19411,7 @@ window.__bc = {
   toggleMusic, musicState: () => ({ on: musicOn, running: !!musicTimer }),
   villagers, villagesNear, villageDef, spawnVillager,
   stepVillagers: dt => updateVillagers(dt),
-  skeletons, arrows, spawnSkeleton,
+  skeletons, arrows, spawnSkeleton, spiders, spawnSpider, growTree,
   stepSkeletons: (dt, dl) => { updateSkeletons(dt, dl); updateArrows(dt); },
   openTrade, doTrade: i => doTrade(i), tradeInfo: () => tradeVillager ? tradeVillager.trades : null,
   creepers, spawnCreeper, igniteTNT, explode,
