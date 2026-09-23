@@ -1013,7 +1013,7 @@ const BONE=455, BONE_MEAL=456, SHIELD=454, ROD=447, COD=448, SALMON=449, COOKED_
 const EGG_RUN = 37, EGG_EXTRA = 479;          // eggs past the first 37 carry on from 479
 const eggId = i => i < EGG_RUN ? EGG_BASE + i : EGG_EXTRA + i - EGG_RUN, eggIcon = i => i < EGG_RUN ? 120 + i : i === EGG_RUN ? 175 : 180 + i - EGG_RUN;
 const eggMob = id => { const i = id >= EGG_BASE && id < EGG_BASE + EGG_RUN ? id - EGG_BASE : id >= EGG_EXTRA ? EGG_RUN + id - EGG_EXTRA : -1; return i >= 0 && i < SPAWN_EGGS.length ? SPAWN_EGGS[i][0] : null; };
-const SLIMEBALL=477, SLIME_BLOCK=478, LANTERN=490, CAMPFIRE=491, BEEHIVE=492, BEEHIVE_FULL=493, HONEY_BOTTLE=494, HONEYCOMB=495, FENCE=496, GATE=497, GATE_OPEN=498, SHEARS=499, TRIDENT=500, JUKEBOX=501, DISC_1=502, MAP=506, ANVIL=507, CARVED_PUMPKIN=508, JACK_O_LANTERN=509, PAINTING=510, COMPOSTER=511, GRINDSTONE=512, NOTEBLOCK=513, BARREL=514, FRAME=515, ENDERCHEST=516, CAULDRON=517, LIGHTNINGROD=518, SMITHING=519, FLOWERPOT=520, BEDHEAD=521, TRAPDOOR=522, REDGUM_LOG=523, REDGUM_PLANK=524, REDGUM_LEAVES=525, BOAB_PLANK=526, COBBLE=527, REDSTONE_ORE=528, REDSTONE=529, LAPIS_ORE=530, LAPIS=531, REDSTONE_BLOCK=532, LAPIS_BLOCK=533;   // 502-505: music discs
+const SLIMEBALL=477, SLIME_BLOCK=478, LANTERN=490, CAMPFIRE=491, BEEHIVE=492, BEEHIVE_FULL=493, HONEY_BOTTLE=494, HONEYCOMB=495, FENCE=496, GATE=497, GATE_OPEN=498, SHEARS=499, TRIDENT=500, JUKEBOX=501, DISC_1=502, MAP=506, ANVIL=507, CARVED_PUMPKIN=508, JACK_O_LANTERN=509, PAINTING=510, COMPOSTER=511, GRINDSTONE=512, NOTEBLOCK=513, BARREL=514, FRAME=515, ENDERCHEST=516, CAULDRON=517, LIGHTNINGROD=518, SMITHING=519, FLOWERPOT=520, BEDHEAD=521, TRAPDOOR=522, REDGUM_LOG=523, REDGUM_PLANK=524, REDGUM_LEAVES=525, BOAB_PLANK=526, COBBLE=527, REDSTONE_ORE=528, REDSTONE=529, LAPIS_ORE=530, LAPIS=531, REDSTONE_BLOCK=532, LAPIS_BLOCK=533, DS_COAL=534, DS_IRON=535, DS_COPPER=536, DS_GOLD=537, DS_REDSTONE=538, DS_LAPIS=539, DS_DIAMOND=540, DS_EMERALD=541;   // 502-505: music discs
 const isFenceish = id => id === FENCE || id === GATE || id === GATE_OPEN;
 const hivesSeen = new Set();           // "x,y,z" of overworld hives the mesher has seen
 const campfires = new Set();            // "dim:x,y,z" of campfires the mesher has seen
@@ -1307,7 +1307,11 @@ SPAWN_EGGS.forEach(([, name], i) => { ITEMS[eggId(i)] = { name: name + ' Spawn E
 ITEMS[SLIMEBALL]={name:'Slimeball',icon:176};BLOCKS[LANTERN]={name:'Lantern',all:273};BLOCKS[FENCE]={name:'Fence',all:279};BLOCKS[GATE]={name:'Fence Gate',all:280};BLOCKS[GATE_OPEN]={name:'Fence Gate',all:280};BLOCKS[BEEHIVE]={name:'Beehive',top:277,bottom:277,side:276};BLOCKS[BEEHIVE_FULL]={name:'Beehive',top:277,bottom:277,side:278};
 ITEMS[HONEY_BOTTLE]={name:'Honey Bottle',icon:177,food:6};ITEMS[SHEARS]={name:'Shears',icon:179,tool:{type:'shears',tier:2}};BLOCKS[JUKEBOX]={name:'Jukebox',top:282,bottom:281,side:281};
 ITEMS[MAP]={name:'Map',icon:188};BLOCKS[ANVIL]={name:'Anvil',all:283};BLOCKS[PAINTING]={name:'Painting',all:285};BLOCKS[COMPOSTER]={name:'Composter',top:294,bottom:294,side:293};BLOCKS[GRINDSTONE]={name:'Grindstone',all:296};BLOCKS[NOTEBLOCK]={name:'Note Block',all:297};BLOCKS[BARREL]={name:'Barrel',top:299,bottom:298,side:298};BLOCKS[FRAME]={name:'Item Frame',all:300};BLOCKS[ENDERCHEST]={name:'Ender Chest',all:301};BLOCKS[CAULDRON]={name:'Cauldron',all:302};BLOCKS[LIGHTNINGROD]={name:'Lightning Rod',all:305};BLOCKS[SMITHING]={name:'Smithing Table',top:306,bottom:281,side:307};BLOCKS[FLOWERPOT]={name:'Flower Pot',all:308};BLOCKS[BEDHEAD]={name:'Bed',top:T.BED_TOP,bottom:T.PLANK,side:T.PLANK};BLOCKS[TRAPDOOR]={name:'Trapdoor',all:310};
-BLOCKS[REDGUM_LOG]={name:'Red Gum Log',top:312,bottom:312,side:311};BLOCKS[REDGUM_PLANK]={name:'Red Gum Planks',all:313};BLOCKS[REDGUM_LEAVES]={name:'Red Gum Leaves',all:314};BLOCKS[BOAB_PLANK]={name:'Boab Planks',all:316};BLOCKS[COBBLE]={name:'Cobblestone',all:317};BLOCKS[REDSTONE_ORE]={name:'Redstone Ore',all:318};BLOCKS[LAPIS_ORE]={name:'Lapis Lazuli Ore',all:319};ITEMS[REDSTONE]={name:'Redstone Dust',icon:320};ITEMS[LAPIS]={name:'Lapis Lazuli',icon:321};BLOCKS[REDSTONE_BLOCK]={name:'Block of Redstone',all:322};BLOCKS[LAPIS_BLOCK]={name:'Block of Lapis Lazuli',all:323};BLOCKS[CARVED_PUMPKIN]={name:'Carved Pumpkin',top:T.PUMPKIN_TOP,bottom:T.PUMPKIN_TOP,side:T.PUMPKIN_FACE};
+BLOCKS[REDGUM_LOG]={name:'Red Gum Log',top:312,bottom:312,side:311};BLOCKS[REDGUM_PLANK]={name:'Red Gum Planks',all:313};BLOCKS[REDGUM_LEAVES]={name:'Red Gum Leaves',all:314};BLOCKS[BOAB_PLANK]={name:'Boab Planks',all:316};BLOCKS[COBBLE]={name:'Cobblestone',all:317};BLOCKS[REDSTONE_ORE]={name:'Redstone Ore',all:318};BLOCKS[LAPIS_ORE]={name:'Lapis Lazuli Ore',all:319};ITEMS[REDSTONE]={name:'Redstone Dust',icon:250};ITEMS[LAPIS]={name:'Lapis Lazuli',icon:251};BLOCKS[REDSTONE_BLOCK]={name:'Block of Redstone',all:322};BLOCKS[LAPIS_BLOCK]={name:'Block of Lapis Lazuli',all:323};
+// Deepslate ores: the ores found below Y 0, set in deepslate. Same drops and tools as the plain ore, slower to mine.
+const DEEP_BASE = { [DS_COAL]: COALO, [DS_IRON]: IRONO, [DS_COPPER]: COPPERO, [DS_GOLD]: GOLDO, [DS_REDSTONE]: REDSTONE_ORE, [DS_LAPIS]: LAPIS_ORE, [DS_DIAMOND]: DIAMO, [DS_EMERALD]: EMERO };
+const DEEP_ORE = {}, DEEP_TILE = [320, 321, 324, 325, 326, 327, 328, 329];
+Object.entries(DEEP_BASE).forEach(([ds, base], i) => { ds = +ds; DEEP_ORE[base] = ds; BLOCKS[ds] = { name: 'Deepslate ' + BLOCKS[base].name, all: DEEP_TILE[i] }; });BLOCKS[CARVED_PUMPKIN]={name:'Carved Pumpkin',top:T.PUMPKIN_TOP,bottom:T.PUMPKIN_TOP,side:T.PUMPKIN_FACE};
 BLOCKS[JACK_O_LANTERN]={name:"Jack o'Lantern",top:T.PUMPKIN_TOP,bottom:T.PUMPKIN_TOP,side:284};
 ['Meadow','Caverns','Lanterns','Stormchase'].forEach((n, i) => { ITEMS[DISC_1 + i] = { name: 'Music Disc - ' + n, icon: 184 + i }; });ITEMS[TRIDENT]={name:'Trident',icon:180,tool:{type:'trident',tier:3}};ITEMS[HONEYCOMB]={name:'Honeycomb',icon:178};BLOCKS[CAMPFIRE]={name:'Campfire',top:275,bottom:275,side:274};BLOCKS[SLIME_BLOCK]={name:'Slime Block',all:272};
 ITEMS[APPLE]={name:'Apple',icon:167,food:4};ITEMS[GOLDEN_APPLE]={name:'Golden Apple',icon:168,food:4};ITEMS[CARROT]={name:'Carrot',icon:169,food:3,plant:CARROT0};
@@ -1388,9 +1392,10 @@ function faceVisible(b, n){
   if(b === GLASS) return n === WATER;
   return !isOpaque(n);
 }
-const dropOf = id => id===REDSTONE_ORE?REDSTONE:id===LAPIS_ORE?LAPIS:id===STONE?COBBLE:id===BEDHEAD?BED:id===BEEHIVE_FULL?BEEHIVE:id===GATE_OPEN?GATE:id===SKYGRASS?STORMSTONE:id===VOLTITE_ORE?VOLTITE:id===CONDUIT_LIT?CONDUIT:id===CHORUS_PLANT?CHORUS_FRUIT:id===ANCHOR_LIT?ANCHOR:id===CRIM_NYL||id===WARP_NYL?NETHERRACK:id===QUARTZ_ORE?QUARTZ:id===NGOLD_ORE?GNUGGET:id===GILDED?(Math.random()<.1?GNUGGET:GILDED):id===SNOWY_GRASS?DIRT:id===GLOWVINE?BERRIES:id===AMETHYST_C||id===BUDDING?AMETHYST_SHARD:id===DRIP_DOWN?DRIP_UP:id===BERRYBUSH?BERRIES:id===CRYSTALORE||id===GLOWCRYSTAL?CRYSTALSHARD:id === GRASS || id === SAVGRASS || id === FARMLAND ? DIRT : id === COALO ? COALI : id === DIAMO ? DIAMI :
+const dropOf = id => DEEP_BASE[id] ? dropOf(DEEP_BASE[id]) : id===REDSTONE_ORE?REDSTONE:id===LAPIS_ORE?LAPIS:id===STONE?COBBLE:id===BEDHEAD?BED:id===BEEHIVE_FULL?BEEHIVE:id===GATE_OPEN?GATE:id===SKYGRASS?STORMSTONE:id===VOLTITE_ORE?VOLTITE:id===CONDUIT_LIT?CONDUIT:id===CHORUS_PLANT?CHORUS_FRUIT:id===ANCHOR_LIT?ANCHOR:id===CRIM_NYL||id===WARP_NYL?NETHERRACK:id===QUARTZ_ORE?QUARTZ:id===NGOLD_ORE?GNUGGET:id===GILDED?(Math.random()<.1?GNUGGET:GILDED):id===SNOWY_GRASS?DIRT:id===GLOWVINE?BERRIES:id===AMETHYST_C||id===BUDDING?AMETHYST_SHARD:id===DRIP_DOWN?DRIP_UP:id===BERRYBUSH?BERRIES:id===CRYSTALORE||id===GLOWCRYSTAL?CRYSTALSHARD:id === GRASS || id === SAVGRASS || id === FARMLAND ? DIRT : id === COALO ? COALI : id === DIAMO ? DIAMI :
                      id === EMERO ? EMERALD : id === DEADBUSH ? STICK : id;
 function toolClassOf(id){
+  if(DEEP_BASE[id]) return 'pick';
   if([STORMSTONE,VOLTITE_ORE,STORM_BRICK,CONDUIT,CONDUIT_LIT].includes(id)) return 'pick';
   if(id === SKYGRASS || id === CLOUD) return 'shovel';
   if(id === ENCH_TABLE) return 'pick';
@@ -1424,6 +1429,7 @@ function toolClassOf(id){
   return null;
 }
 function handTime(id){
+  if(DEEP_BASE[id]) return handTime(DEEP_BASE[id]) * 1.5;   // deepslate ores are harder, as in Minecraft
   if(id === CLOUD) return 0.35;
   if(id === SKYGRASS) return 0.8;
   if(id === VOLTITE_ORE) return 8;
@@ -1607,6 +1613,15 @@ const atlas = document.createElement('canvas');
 atlas.width = ATLAS_W; atlas.height = ATLAS_H;
 const itemAtlas = document.createElement('canvas');
 itemAtlas.width = 128; itemAtlas.height = 512;   // 256 icons
+{ // redstone dust (250) and lapis lazuli (251)
+  const g = itemAtlas.getContext('2d');
+  const px = (tile, fn) => { const ox = tile % 8 * 16, oy = (tile / 8 | 0) * 16;
+    for(let y = 0; y < 16; y++) for(let x = 0; x < 16; x++){ const c = fn(x, y); if(c){ g.fillStyle = 'rgb(' + c.join(',') + ')'; g.fillRect(ox + x, oy + y, 1, 1); } } };
+  px(250, (x, y) => { const d = Math.hypot(x - 7.5, (y - 9.5) * 1.3); if(d > 5.2 || hash(x, y, 7401) < 0.22 + d * 0.06) return null;
+    return y < 8 ? [236, 60, 48] : [170, 16, 12]; });
+  px(251, (x, y) => { const d = Math.abs(x - 7.5) + Math.abs(y - 7.5); if(d > 6.5) return null; if(d > 5.5) return [18, 36, 110];
+    return (x + y) % 5 === 0 ? [120, 160, 245] : x < 8 && y < 8 ? [60, 100, 220] : [34, 66, 170]; });
+}
 {
   const tn = (x, y, s, salt) => vnoise(x * s + 37.7, y * s + 11.3, 5000 + salt);
   const pick = (v, shades) => shades[Math.max(0, Math.min(shades.length - 1, Math.floor(v * shades.length)))];
@@ -1892,18 +1907,6 @@ itemAtlas.width = 128; itemAtlas.height = 512;   // 256 icons
   put(T.EMER_T, (x,y,r) => orePx(x,y,r,925,[52,190,102],[130,240,168]));
   put(318, (x,y,r) => orePx(x,y,r,926,[176,18,16],[255,72,60]));        // redstone ore
   put(319, (x,y,r) => orePx(x,y,r,927,[30,66,168],[82,126,232]));       // lapis ore
-  put(320, (x,y,r) => {                                                // redstone dust: a small red pile
-    const d = Math.hypot(x - 7.5, (y - 9.5) * 1.3);
-    if(d > 5.2 || hash(x, y, 7401) < 0.25 + d * 0.06) return [0,0,0,0];
-    const k = Math.floor((r() - 0.5) * 30);
-    return y < 8 ? [230 + k / 3, 50 + k, 40 + k] : [170 + k, 16, 12];
-  });
-  put(321, (x,y,r) => {                                                // lapis lazuli: a faceted blue gem
-    const d = Math.abs(x - 7.5) + Math.abs(y - 7.5);
-    if(d > 6.5) return [0,0,0,0];
-    if(d > 5.5) return [18, 36, 110];
-    return (x + y) % 5 === 0 ? [120, 160, 245] : x < 8 && y < 8 ? [60, 100, 220] : [34, 66, 170];
-  });
   put(322, (x,y,r) => {                                                // block of redstone
     const k = Math.floor((r() - 0.5) * 18);
     if(x === 0 || y === 0 || x === 15 || y === 15) return [120, 8, 6];
@@ -3430,6 +3433,20 @@ addEventListener('resize', () => {
 const DAYSKY = new THREE.Color(0x87b5e5), NIGHT = new THREE.Color(0x0a0f26), skyCol = new THREE.Color(), _stormCol = new THREE.Color();
 scene.fog = new THREE.Fog(0x87b5e5, RD * 16 * 0.55, RD * 16 * 0.95);
 
+{ // deepslate ores: copy the deepslate tile, then lift the ore lumps off each plain ore tile
+  // (ore pixels are the coloured or dark ones; plain stone is a mid grey)
+  const g = atlas.getContext('2d'), at = t => [(t % ATLAS_COLS) * 16, ((t / ATLAS_COLS) | 0) * 16];
+  Object.entries(DEEP_BASE).forEach(([ds, base]) => {
+    const [dx, dy] = at(BLOCKS[+ds].all), [bx, by] = at(tileFor(base, 0)), [sx, sy] = at(BLOCKS[DEEPSLATE].all);
+    g.drawImage(atlas, sx, sy, 16, 16, dx, dy, 16, 16);
+    const ore = g.getImageData(bx, by, 16, 16), out = g.getImageData(dx, dy, 16, 16);
+    for(let i = 0; i < 1024; i += 4){
+      const r = ore.data[i], gg = ore.data[i + 1], b = ore.data[i + 2];
+      if(Math.max(r, gg, b) - Math.min(r, gg, b) > 12 || Math.max(r, gg, b) < 95){ out.data[i] = r; out.data[i + 1] = gg; out.data[i + 2] = b; }
+    }
+    g.putImageData(out, dx, dy);
+  });
+}
 const tex = new THREE.CanvasTexture(atlas);
 tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter;
 tex.generateMipmaps = false; tex.colorSpace = THREE.SRGBColorSpace;
@@ -4864,13 +4881,17 @@ function* genChunkSteps(cx, cz){
         }
       }
       else if(b === STONE && y > 1){
-        if(y-YS<40&&hash3(wx,y,wz,9810)<.0024){data[(y<<8)|(lz<<4)|lx]=CRYSTALORE;continue;}
+        // crystal ore keeps its classic band
+        if(y>=YS&&y-YS<40&&hash3(wx,y,wz,9810)<.0024){data[(y<<8)|(lz<<4)|lx]=CRYSTALORE;continue;}
         if(y-YS>20&&y<h-4){const rock=vnoise3(wx*.08,(y-YS)*.08,wz*.08,822);if(rock>.72)b=MARBLE;else if(rock<.28)b=BASALT;}
         if(b!==STONE){data[(y<<8)|(lz<<4)|lx]=b;continue;}
         if(GEN_V >= 2){
           if(y < DEEP_Y + 3 && vnoise3(wx * .07, y * .07, wz * .07, 1601) > .73){ data[(y << 8) | (lz << 4) | lx] = TUFF; continue; }
           const ore = oreAt(wx, y, wz, h, badlands, mtnCol);            // Minecraft-style veins and height bands
-          if(ore){ data[(y << 8) | (lz << 4) | lx] = ore; continue; }
+          if(ore){
+            const deep = y < DEEP_Y || (YS && y < DEEP_Y + 8 && hash3(wx, y, wz, 1703) < (DEEP_Y + 8 - y) / 8);
+            data[(y << 8) | (lz << 4) | lx] = deep && DEEP_ORE[ore] ? DEEP_ORE[ore] : ore; continue;
+          }
         } else {
           if(y >= 30 && hash3(wx, y, wz, 4343) < 0.0022){ data[(y << 8) | (lz << 4) | lx] = EMERO; continue; }
           const r = hash3(wx, y, wz, 4242);
@@ -13245,6 +13266,7 @@ function updateCrops(dt){
   }
 }
 function harvestOk(id){
+  if(DEEP_BASE[id]) return harvestOk(DEEP_BASE[id]);
   if(isFire(id) || id === BEDROCK) return false;
   if(id === DEBRIS || id === OBSIDIAN || id === CRYING_OBSIDIAN || id === ANCHOR || id === ANCHOR_LIT) return pickTierHeld() >= 4;
   if(id === END_GATEWAY || id === END_FRAME || id === END_FRAME_EYE || id === STORM_PORTAL) return false;
@@ -13466,12 +13488,13 @@ function breakBlock(x, y, z, id){
     if(harvestOk(id)){
       const drop = dropOf(id);
       spawnDrop(x, y, z, drop);
-      const more = id === REDSTONE_ORE ? 3 + (Math.random() * 2 | 0) : id === LAPIS_ORE ? 3 + (Math.random() * 6 | 0) : 0;   // 4-5 redstone, 4-9 lapis
+      const ob = DEEP_BASE[id] || id;
+      const more = ob === REDSTONE_ORE ? 3 + (Math.random() * 2 | 0) : ob === LAPIS_ORE ? 3 + (Math.random() * 6 | 0) : 0;   // 4-5 redstone, 4-9 lapis
       for(let k = 0; k < more; k++) spawnDrop(x, y, z, drop);
       // Fortune: a chance of extra ore - diamonds, coal, quartz, gold nuggets
       const fortune = heldEnch('fortune');
       if(fortune && drop !== id && ITEMS[drop]){ const extra = Math.max(0, Math.floor(Math.random() * (fortune + 2)) - 1); for(let k = 0; k < extra; k++) spawnDrop(x, y, z, drop); }
-      const xp = ORE_XP[id]; if(xp) dropXP(x + 0.5, y + 0.5, z + 0.5, xp[0] + Math.floor(Math.random() * (xp[1] - xp[0] + 1)));
+      const xp = ORE_XP[DEEP_BASE[id] || id]; if(xp) dropXP(x + 0.5, y + 0.5, z + 0.5, xp[0] + Math.floor(Math.random() * (xp[1] - xp[0] + 1)));
     }
     damageTool();
   }
@@ -13655,7 +13678,7 @@ const ALL_CREATIVE = (() => {
 })();
 // ---- item categories (used to group the creative palette and the crafting list) ----
 const CAT_NAMES = ['Building', 'Nature', 'Ores & Minerals', 'Decoration', 'Utility', 'Tools', 'Combat', 'Food', 'Misc'];
-const _oreBlocks = new Set([COALO, IRONO, GOLDO, DIAMO, EMERO, COPPERO, REDSTONE_ORE, LAPIS_ORE, QUARTZ_ORE, DEBRIS]);
+const _oreBlocks = new Set([COALO, IRONO, GOLDO, DIAMO, EMERO, COPPERO, REDSTONE_ORE, LAPIS_ORE, QUARTZ_ORE, DEBRIS, ...Object.keys(DEEP_BASE).map(Number)]);
 const _matItems = new Set([REDSTONE, LAPIS, COALI, IRONI, GOLDI, DIAMI, COPPERI, EMERALD, NETHERITE, QUARTZ, AMETHYST_SHARD, GNUGGET, NSCRAP, STICK, STRING, LEATHER, FEATHER, GUNPOWDER, BLAZEROD, BLAZEPOWDER, GHASTTEAR, MAGMACREAM, ENDERPEARL, SLIMEBALL, BONE, BONE_MEAL, HONEYCOMB, PAPER]);
 const _decoBlocks = new Set([TORCH, SOUL_TORCH, PAINTING, FRAME, FLOWERPOT, LANTERN, JACK_O_LANTERN, CARVED_PUMPKIN, GLOWB, CAMPFIRE]);
 const _utilBlocks = new Set([CHEST, CRAFTT, FURN, BREWING, BARREL, ENDERCHEST, COMPOSTER, GRINDSTONE, NOTEBLOCK, JUKEBOX, ANVIL, SMITHING, CAULDRON, LADDER, FENCE, GATE, GATE_OPEN, BED, BEDHEAD, LIGHTNINGROD, TNT, BOOKSHELF, ENCH_TABLE]);
@@ -13901,13 +13924,33 @@ const vrMenuCanvas = document.createElement('canvas');
 vrMenuCanvas.width = 1440; vrMenuCanvas.height = 1040;
 const vrMenuTexture = new THREE.CanvasTexture(vrMenuCanvas);
 vrMenuTexture.colorSpace = THREE.SRGBColorSpace;
+// one big canvas re-uploaded on every redraw is what made the Quest stutter: skip the
+// mipmap rebuild on each upload (the panel is always seen up close anyway)
+vrMenuTexture.generateMipmaps = false; vrMenuTexture.minFilter = THREE.LinearFilter;
 const vrMenuMesh = new THREE.Mesh(new THREE.PlaneGeometry(1.44,1.04),
   new THREE.MeshBasicMaterial({map:vrMenuTexture,transparent:true,depthTest:false}));
 vrMenuMesh.renderOrder = 100;
 craftPanel.add(vrMenuMesh);
+// the pointer's hover highlight is its own little overlay, so moving across buttons never redraws the menu
+const vrHoverMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1),
+  new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.28, depthTest: false }));
+vrHoverMesh.renderOrder = 101; vrHoverMesh.visible = false;
+craftPanel.add(vrHoverMesh);
+function placeVrHover(i){
+  const b = vrMenuButtons[i];
+  if(!b || !b.enabled){ vrHoverMesh.visible = false; return; }
+  vrHoverMesh.visible = true;
+  vrHoverMesh.scale.set(b.w * 0.001, b.h * 0.001, 1);                      // 1440 px across 1.44 m
+  vrHoverMesh.position.set((b.x + b.w / 2) / 1000 - 0.72, 0.52 - (b.y + b.h / 2) / 1000, 0.002);
+}
+// what the menu shows depends on the inventory; redraw when that changes, not on a timer
+function vrMenuSig(){ let h = sel * 7919 + (mode === 'creative' ? 1 : 0); for(let i = 0; i < survInv.length; i++){ const q = survInv[i]; h = (h * 31 + q.id * 97 + q.count) | 0; } return h; }
+let vrMenuSigWas = 0;
 const vrMenuButtons = [];
 const vrIconCanvas = document.createElement('canvas');
 vrIconCanvas.width = vrIconCanvas.height = 16;
+const vrIconCache = new Map();
+function vrIconOf(id){ let c = vrIconCache.get(id); if(!c){ c = document.createElement('canvas'); c.width = c.height = 16; drawIcon(c.getContext('2d'), id); vrIconCache.set(id, c); } return c; }
 function vrInventoryChanged(){
   invDirty = true; renderHotbar(); selectSlot(sel,true); updateWristHotbar(); vrBuildTool();
 }
@@ -13956,8 +13999,8 @@ function buildCraftPanel(){
   vrMenuButtons.length=0;
   function button(x,y,w,h,label,action,enabled=true,selected=false){
     const index=vrMenuButtons.length;
-    g.fillStyle=!enabled?'#adadad':selected?'#deded1':index===vrMenuHover?'#eeeeee':'#8b8b8b';
-    g.fillRect(x,y,w,h);g.fillStyle='#eeeeee';g.fillRect(x,y,w,3);g.fillRect(x,y,3,h);g.strokeStyle=selected?'#ffffff':index===vrMenuHover?'#ffffff':'#454545';g.lineWidth=2;g.strokeRect(x,y,w,h);
+    g.fillStyle=!enabled?'#adadad':selected?'#deded1':'#8b8b8b';
+    g.fillRect(x,y,w,h);g.fillStyle='#eeeeee';g.fillRect(x,y,w,3);g.fillRect(x,y,3,h);g.strokeStyle=selected?'#ffffff':'#454545';g.lineWidth=2;g.strokeRect(x,y,w,h);
     if(label)text(label,x+12,y+h/2,24,enabled?'#222':'#666',w-24);
     vrMenuButtons.push({x,y,w,h,action,enabled,label}); return index;
   }
@@ -13974,7 +14017,7 @@ function buildCraftPanel(){
   if(!dead)
     button(1110,115,290,55, chestPos && vrMenuTab!=='chest'?'Back to chest':'Close',()=>{if(chestPos&&vrMenuTab!=='chest')vrMenuTab='chest';else closeCraftVR();});
   function icon(id,x,y,size=50){
-    if(!id)return;drawIcon(vrIconCanvas.getContext('2d'),id);g.imageSmoothingEnabled=false;g.drawImage(vrIconCanvas,x,y,size,size);
+    if(!id)return;g.imageSmoothingEnabled=false;g.drawImage(vrIconOf(id),x,y,size,size);
   }
   function slot(i,x,y,compact=false){
     const item=i < 9 ? slotInfo(i) : survInv[i];
@@ -14048,15 +14091,16 @@ function buildCraftPanel(){
         const i=vrMenuPage*pageSize+j,y=250+j*53;
         button(35,y,630,48,'',()=>{vrRecipe=i;vrMenuStatus='';},true,vrRecipe===i);
         icon(r.out[0],45,y+5,36);text(nameOf(r.out[0])+' ×'+r.out[1],94,y+24,22,'#202020',425);
-        text(canCraft(r)?'Ready':'Locked',555,y+24,19,canCraft(r)?'#28572d':'#7c3030',95);
+        const ok=canCraft(r); text(ok?'Ready':'Locked',555,y+24,19,ok?'#28572d':'#7c3030',95);
       });
       if(vrRecipe>=0){
         const r=RECIPES[vrRecipe];text(nameOf(r.out[0])+' ×'+r.out[1],710,265,28,'#202020',675);
         text(r.st==='table'?'Requires nearby crafting table':r.st==='furnace'?'Requires nearby furnace':r.st==='brew'?'Requires nearby brewing stand':'Craft anywhere',710,308,22,stationOk(r)?'#28572d':'#8a2424',675);
         r.in.forEach(([id,n],i)=>text(inName(id)+': '+invCount(id)+' / '+n,710,352+i*34,22,invCount(id)>=n?'#28572d':'#8a2424',675));
         if(!spaceOK(r))text('Inventory full: make space first.',710,560,22,'#8a2424',660);
-        button(710,602,300,62,'Craft',()=>vrCraftSelected(false),canCraft(r));
-        button(1030,602,355,62,'Craft & equip',()=>vrCraftSelected(true),canCraft(r));
+        const ok=canCraft(r);
+        button(710,602,300,62,'Craft',()=>vrCraftSelected(false),ok);
+        button(1030,602,355,62,'Craft & equip',()=>vrCraftSelected(true),ok);
       } else text('Select a recipe to see what it needs.',710,325,25,'#454545',670);
     }
   } else if(vrMenuTab==='enchant'){
@@ -14173,6 +14217,7 @@ function buildCraftPanel(){
   text(vrMenuStatus || (heldId()?'Holding: '+nameOf(heldId()):'Empty hand'),35,917,25,'#28572d');
   text('Movement and block actions are disabled while this menu is open.',35,978,22,'#454545');
   vrMenuTexture.needsUpdate=true;
+  vrMenuSigWas=vrMenuSig(); placeVrHover(vrMenuHover);
 }
 function openCraftVR(tab='inventory'){
   if(dead) tab='dead';                       // a dead player only ever gets the respawn screen
@@ -14201,8 +14246,11 @@ function updateCraftVR(dt,triggerPressedEdge){
       hover=vrMenuButtons.findIndex(b=>x>=b.x&&x<=b.x+b.w&&y>=b.y&&y<=b.y+b.h);
     }
   }
+  if(hover!==vrMenuHover){ vrMenuHover=hover; placeVrHover(hover); }
+  // redraw only when something on it changed: live status tabs tick slowly, others follow the inventory
   vrMenuRefresh-=dt;
-  if(hover!==vrMenuHover || vrMenuRefresh<=0){vrMenuHover=hover;vrMenuRefresh=0.3;buildCraftPanel();}
+  const sig=vrMenuSig();
+  if(sig!==vrMenuSigWas || (vrMenuRefresh<=0 && (vrMenuTab==='mp' || vrMenuTab==='trade'))){ vrMenuRefresh=1.5; buildCraftPanel(); }
   if(triggerPressedEdge && hover>=0){
     const b=vrMenuButtons[hover];
     if(b.enabled){b.action();if(vrCraftOpen)buildCraftPanel();}
