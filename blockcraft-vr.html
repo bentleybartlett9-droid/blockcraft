@@ -400,7 +400,7 @@ const SPLASHES = ['Punch trees!', 'Now with zombies!', 'Diamonds are deep!', 'On
 document.getElementById('splash').textContent = SPLASHES[Math.floor(Math.random() * SPLASHES.length)];
 {
   const bl = document.getElementById('buildLabel');
-  const label = IS_DESKTOP ? 'Desktop Edition · ' : IS_MOBILE ? 'Mobile Edition · ' : IS_VR ? 'VR · New Snow + Seated Gorilla · ' : '';
+  const label = IS_DESKTOP ? 'Desktop Edition · ' : IS_MOBILE ? 'Mobile Edition · ' : IS_VR ? 'VR · Motion Combat + Seated Gorilla · ' : '';
   if(bl) bl.textContent = label;
 }
 
@@ -11318,6 +11318,16 @@ function damageTool(types){
   }
   renderHotbar();
 }
+function startAnimalPanic(e){
+  if(!e||e.kind!=='animal')return;
+  e.flee=Math.max(e.flee||0,3.5);
+  e.callT=3+Math.random()*3;
+  for(const other of animals){
+    if(other===e||other.type!==e.type||other.pos.distanceToSquared(e.pos)>64)continue;
+    other.flee=Math.max(other.flee||0,1.6+Math.random()*.9);
+    other.t=.5+Math.random();
+  }
+}
 function punchEntity(e){
   if(e && !mobCtx && ['zombie', 'skeleton', 'spider', 'enderman', 'nether'].includes(e.kind)) petTarget = e;
   if(heldId() === STORMBREAKER && !mobCtx && e.pos && !e.puppet && e.kind !== 'fireball') boltAt(e.pos.x, e.pos.y, e.pos.z, true);   // Stormbreaker calls lightning
@@ -11437,6 +11447,7 @@ function punchEntity(e){
     }
   } else {
       e.hp -= dmg;
+      startAnimalPanic(e);
       if(e.hp <= 0){
         burstRGB(e.pos.x, e.pos.y + 0.6, e.pos.z, 0.8, 0.25, 0.2, 10, 0.5);
       animalCall(e.type, e.pos, 'die');
@@ -11472,8 +11483,6 @@ function punchEntity(e){
       if(e.keepId){ herd = herd.filter(r => r.id !== e.keepId); saveHerd(); }
       if(i >= 0) removeEnt(animals, i);
     } else {
-      e.flee = 2.5;
-      e.callT = 3 + Math.random() * 3;              // don't idle-call right after being hit
       animalCall(e.type, e.pos, 'hurt');
     }
   }
@@ -14874,6 +14883,25 @@ function vrSwingWork(speed){
   if(speed<VR_SWING_MIN)return 0;
   return .14+Math.min(1,(speed-VR_SWING_MIN)/3)*.26;
 }
+function vrCombatProfile(tool){
+  if(!tool)return null;
+  if(tool.type==='sword')return {reach:.68,minSpeed:.9,cooldown:.2,powerSpeed:4.2};
+  if(tool.type==='axe')return {reach:.56,minSpeed:1.15,cooldown:.34,powerSpeed:4.8};
+  if(tool.type==='trident')return {reach:.86,minSpeed:1,cooldown:.3,powerSpeed:4.5};
+  return null;
+}
+function vrSwingDamage(speed,tool){
+  const p=vrCombatProfile(tool);if(!p)return 0;
+  const power=Math.max(0,Math.min(1,(speed-p.minSpeed)/(p.powerSpeed-p.minSpeed)));
+  return Math.max(1,Math.round(heldDamage()*(.55+power*.45)*2)/2);
+}
+function applyVRSwingEntity(e,speed,tool){
+  const p=vrCombatProfile(tool);if(!p||!e||speed<p.minSpeed)return false;
+  hitWith(e,vrSwingDamage(speed,tool));
+  vrSwingKey=null;vrSwingProg=0;vrSwingIdle=0;
+  hapticPulse('right',Math.min(1,.42+speed*.1),55);
+  return true;
+}
 function applyVRSwingHit(hit,speed){
   const tool=ITEMS[heldId()]?.tool;if(!tool||!hit||hit.y<=0)return false;
   const key=hit.x+','+hit.y+','+hit.z;
@@ -14891,15 +14919,20 @@ function updateVRSwingMining(dt){
   const tool=ITEMS[heldId()]?.tool;
   if(!xrActive||!inGame||dead||vrCraftOpen||!rightCtrl.userData.inputSource||!tool){resetVRSwing();return;}
   rightCtrl.updateWorldMatrix(true,false);
-  const tip=rightCtrl.localToWorld(new THREE.Vector3(0,0,-VR_SWING_TIP));
+  const combat=vrCombatProfile(tool),tipReach=combat?Math.max(VR_SWING_TIP,combat.reach):VR_SWING_TIP;
+  const tip=rightCtrl.localToWorld(new THREE.Vector3(0,0,-tipReach));
   tip.y-=gorillaReachOffset();
   const local=xrRig.worldToLocal(tip.clone());
   if(!vrSwingPrevWorld||!vrSwingPrevLocal||dt<=0||dt>.06){vrSwingPrevWorld=tip;vrSwingPrevLocal=local;return;}
   const physical=local.clone().sub(vrSwingPrevLocal),distance=physical.length(),speed=distance/dt;
   if(distance>.8){vrSwingPrevWorld=tip;vrSwingPrevLocal=local;return;}
-  if(vrSwingCd<=0&&speed>=VR_SWING_MIN){
+  if(vrSwingCd<=0&&speed>=Math.min(VR_SWING_MIN,combat?.minSpeed??VR_SWING_MIN)){
     const path=tip.clone().sub(vrSwingPrevWorld),length=path.length();
-    if(length>.001){const hit=raycast(vrSwingPrevWorld,path.normalize(),length+.06);if(applyVRSwingHit(hit,speed))vrSwingCd=.12;}
+    if(length>.001){
+      const dir=path.normalize(),reach=length+.08,eh=combat?rayEntity(vrSwingPrevWorld,dir,reach):null,bh=raycast(vrSwingPrevWorld,dir,reach);
+      if(eh&&(!bh||eh.t<bh.t)&&applyVRSwingEntity(eh.e,speed,tool))vrSwingCd=combat.cooldown;
+      else if(applyVRSwingHit(bh,speed))vrSwingCd=.12;
+    }
   }
   vrSwingPrevWorld=tip;vrSwingPrevLocal=local;
 }
