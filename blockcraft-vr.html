@@ -400,7 +400,7 @@ const SPLASHES = ['Punch trees!', 'Now with zombies!', 'Diamonds are deep!', 'On
 document.getElementById('splash').textContent = SPLASHES[Math.floor(Math.random() * SPLASHES.length)];
 {
   const bl = document.getElementById('buildLabel');
-  const label = IS_DESKTOP ? 'Desktop Edition · ' : IS_MOBILE ? 'Mobile Edition · ' : IS_VR ? 'VR · Swing Mining + Headroom Fix · ' : '';
+  const label = IS_DESKTOP ? 'Desktop Edition · ' : IS_MOBILE ? 'Mobile Edition · ' : IS_VR ? 'VR · Auto Height + Swing Mining · ' : '';
   if(bl) bl.textContent = label;
 }
 
@@ -14710,18 +14710,23 @@ let vrMoveMode = localStorage.getItem(MOVE_KEY) === 'gorilla' ? 'gorilla' : 'sti
 function setVrMoveMode(m){
   vrMoveMode = m === 'gorilla' ? 'gorilla' : 'stick';
   try { localStorage.setItem(MOVE_KEY, vrMoveMode); } catch(e){}
+  vrHeightOffset = null;
   gorillaReset();
   const b = document.getElementById('btnMove');
   if(b) b.textContent = 'VR Gorilla Arms: ' + (vrMoveMode === 'gorilla' ? 'On' : 'Off');
 }
 const GORILLA_G = 16;
 const GORILLA_THROW = 1.18, GORILLA_MAX = 9, GORILLA_STEP = .35;
-const GORILLA_FLOOR = .15, GORILLA_BODY_H = 1.78, GORILLA_PALM = .065, GORILLA_MEMORY = .12;
+const GORILLA_FLOOR = .15, GORILLA_BODY_H = 1.5, GORILLA_EYE_H = 1.38, GORILLA_PALM = .065, GORILLA_MEMORY = .12;
 const GORILLA_RELEASE_GAP = .018, GORILLA_PRESS_SPEED = .03, GORILLA_DRAG_LIMIT = .18;
 const gHands = Array.from({length:2},()=>({prev:null,anchor:null,n:null,cell:null,tapT:0,releaseT:0,source:null}));
 const gHist=[];
 let gYaw=0,gWasHolding=false,gBodyPrev=null,gRigPrev=null,gPrevDt=0;
 const _gHead=new THREE.Vector3();
+function vrAutoHeightLift(trackedHeadY,gorilla){
+ const target=gorilla?GORILLA_EYE_H:player.eye;
+ return Number.isFinite(trackedHeadY)&&trackedHeadY>.3?target-trackedHeadY:(gorilla?-GORILLA_FLOOR:0);
+}
 function gorillaReset(){
  for(const h of gHands){h.prev=h.anchor=h.n=h.cell=null;h.releaseT=0;h.source=null;}
  gHist.length=0;gWasHolding=false;gBodyPrev=gRigPrev=null;gPrevDt=0;player.gorillaHold=false;
@@ -14842,11 +14847,13 @@ function updateVR(dt){
   // Match the Gorilla collider to a Minecraft-sized player and leave real
   // headroom. The old half-block floor lift made the unseen collider extend
   // far above the headset, causing ceiling bumps that looked like empty air.
-  player.h = vrMoveMode === 'gorilla' && !player.fly ? GORILLA_BODY_H : 1.9;
-  if(vrHeightOffset === null && camera.position.y > 0.3) vrHeightOffset = player.eye - camera.position.y;
-  // gorilla mode is true to scale, with the ground a hand-span above your real
-  // floor so a bend reaches it; otherwise your eyes sit at the player's eye
-  const rigLift = vrMoveMode === 'gorilla' && !player.fly ? -GORILLA_FLOOR : (vrHeightOffset || 0);
+  const gorillaHeight = vrMoveMode === 'gorilla' && !player.fly;
+  player.h = gorillaHeight ? GORILLA_BODY_H : 1.9;
+  // Recalibrate continuously: sitting and standing produce the same virtual
+  // eye height. Y-button crouching is applied separately below and still works.
+  const wantedLift=vrAutoHeightLift(camera.position.y,gorillaHeight);
+  vrHeightOffset=vrHeightOffset===null?wantedLift:vrHeightOffset+(wantedLift-vrHeightOffset)*Math.min(1,dt*10);
+  const rigLift = vrHeightOffset;
   xrRig.position.set(p.x, p.y + rigLift - (player.crouchDrop || 0), p.z);
   // place the body under the headset, facing the head's yaw (rig-local space)
   const xrCamB = renderer.xr.getCamera();
