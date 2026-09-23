@@ -400,7 +400,7 @@ const SPLASHES = ['Punch trees!', 'Now with zombies!', 'Diamonds are deep!', 'On
 document.getElementById('splash').textContent = SPLASHES[Math.floor(Math.random() * SPLASHES.length)];
 {
   const bl = document.getElementById('buildLabel');
-  const label = IS_DESKTOP ? 'Desktop Edition · ' : IS_MOBILE ? 'Mobile Edition · ' : IS_VR ? 'VR · Motion Combat + Seated Gorilla · ' : '';
+  const label = IS_DESKTOP ? 'Desktop Edition · ' : IS_MOBILE ? 'Mobile Edition · ' : IS_VR ? 'VR · Low Gorilla + Abandoned Mines · ' : '';
   if(bl) bl.textContent = label;
 }
 
@@ -1281,7 +1281,8 @@ function mineDef(gx, gz){
     const cy = 14 + Math.floor(hash(gx, gz, 7204) * 16);
     const horiz = hash(gx, gz, 7205) < 0.5;    // runs along X or Z
     const len = 40 + Math.floor(hash(gx, gz, 7206) * 40);
-    if(cy > 6 && cy < surf - 8) m = { cx, cz, cy: cy + YS, horiz, len, key: 'M' + k };
+    if(cy > 6 && cy < surf - 8) m = {cx,cz,cy:cy+YS,horiz,len,key:'M'+k,
+      branchAt:Math.floor((hash(gx,gz,7207)-.5)*len*.35),branchLen:18+Math.floor(hash(gx,gz,7208)*18),branchSide:hash(gx,gz,7209)<.5?-1:1};
   }
   mineCache.set(k, m);
   return m;
@@ -1295,6 +1296,8 @@ function minesNear(wx, wz){
   }
   return out;
 }
+function mineBranchEnd(m){const bx=m.horiz?m.cx+m.branchAt:m.cx,bz=m.horiz?m.cz:m.cz+m.branchAt;return{x:m.horiz?bx:bx+m.branchSide*m.branchLen,y:m.cy,z:m.horiz?bz+m.branchSide*m.branchLen:bz};}
+function mineshaftSpawnerAt(x,y,z){for(const m of minesNear(x,z)){const p=mineBranchEnd(m);if(p.x===x&&p.y===y&&p.z===z)return true;}return false;}
 // Strongholds: rare, deep, big stone-brick rooms with a treasure vault.
 const strongCache = new Map();
 function strongDef(gx, gz){
@@ -5697,10 +5700,9 @@ function* genChunkSteps(cx, cz){
   }
   for(const m of minesNear(cx * 16 + 8, cz * 16 + 8)){
     const halfL = (m.len >> 1) + 3;
-    const minX = m.horiz ? m.cx - halfL : m.cx - 3;
-    const maxX = m.horiz ? m.cx + halfL : m.cx + 3;
-    const minZ = m.horiz ? m.cz - 3 : m.cz - halfL;
-    const maxZ = m.horiz ? m.cz + 3 : m.cz + halfL;
+    const end=mineBranchEnd(m);
+    const minX=Math.min(m.horiz?m.cx-halfL:m.cx-3,end.x-3),maxX=Math.max(m.horiz?m.cx+halfL:m.cx+3,end.x+3);
+    const minZ=Math.min(m.horiz?m.cz-3:m.cz-halfL,end.z-3),maxZ=Math.max(m.horiz?m.cz+3:m.cz+halfL,end.z+3);
     if(cx * 16 > maxX || (cx + 1) * 16 < minX || cz * 16 > maxZ || (cz + 1) * 16 < minZ) continue;
     stampMine(m, set, data, cx, cz);
   }
@@ -5818,43 +5820,48 @@ function stampDungeon(d, set, data, cx, cz){
 /* ---- mineshaft: rail corridor, wood supports, cobwebs, a chest ---- */
 function stampMine(m, set, data, cx, cz){
   const setW = (wx, y, wz, id, keep) => set(wx - cx * 16, y, wz - cz * 16, id, keep);
-  const half = m.len >> 1;
-  for(let t = -half; t <= half; t++){
-    const wx = m.horiz ? m.cx + t : m.cx;
-    const wz = m.horiz ? m.cz : m.cz + t;
+  const corridor=(horiz,startX,startZ,from,to,salt)=>{for(let t=from;t<=to;t++){
+    const wx=horiz?startX+t:startX,wz=horiz?startZ:startZ+t;
     // carve a 3-wide, 3-high tunnel
     for(let a = -1; a <= 1; a++) for(let dy = 0; dy <= 2; dy++){
-      const ox = m.horiz ? 0 : a, oz = m.horiz ? a : 0;
+      const ox = horiz ? 0 : a, oz = horiz ? a : 0;
       setW(wx + ox, m.cy + dy, wz + oz, AIR, false);
     }
     // floor + rail down the middle
     for(let a = -1; a <= 1; a++){
-      const ox = m.horiz ? 0 : a, oz = m.horiz ? a : 0;
+      const ox = horiz ? 0 : a, oz = horiz ? a : 0;
       setW(wx + ox, m.cy - 1, wz + oz, PLANK, false);
     }
     setW(wx, m.cy, wz, RAIL, false);
     // wooden support frames every 5 blocks
-    if(((t + half) % 5) === 0){
+    if(((t-from) % 5) === 0){
       for(const a of [-1, 1]){
-        const ox = m.horiz ? 0 : a, oz = m.horiz ? a : 0;
+        const ox = horiz ? 0 : a, oz = horiz ? a : 0;
         setW(wx + ox, m.cy, wz + oz, LOG, false);
         setW(wx + ox, m.cy + 1, wz + oz, LOG, false);
       }
       for(let a = -1; a <= 1; a++){
-        const ox = m.horiz ? 0 : a, oz = m.horiz ? a : 0;
+        const ox = horiz ? 0 : a, oz = horiz ? a : 0;
         setW(wx + ox, m.cy + 2, wz + oz, PLANK, false);   // crossbeam
       }
       // an occasional torch on the beam
-      if(hash(wx, wz, 7250) < 0.5) setW(wx, m.cy + 1, wz, TORCH, true);
+      if(hash(wx,wz,7250+salt)<.42)setW(wx,m.cy+1,wz,TORCH,true);
     }
     // scattered cobwebs
-    if(hash(wx, wz, 7260) < 0.06) setW(wx, m.cy + 1, wz, COBWEB, true);
-  }
+    if(hash(wx,wz,7260+salt)<.09)setW(wx,m.cy+1,wz,COBWEB,true);
+  }};
+  const half=m.len>>1;corridor(m.horiz,m.cx,m.cz,-half,half,0);
+  const bx=m.horiz?m.cx+m.branchAt:m.cx,bz=m.horiz?m.cz:m.cz+m.branchAt,branchTo=m.branchSide*m.branchLen;
+  corridor(!m.horiz,bx,bz,Math.min(0,branchTo),Math.max(0,branchTo),31);
   // a loot chest near one end
   const ex = m.horiz ? m.cx + half - 2 : m.cx + 1;
   const ez = m.horiz ? m.cz + 1 : m.cz + half - 2;
   setW(ex, m.cy, ez, CHEST, false);
   stockLootChest(ex, m.cy, ez, m.key, 'mine');
+  const end=mineBranchEnd(m),sideX=m.horiz?1:0,sideZ=m.horiz?0:1;
+  setW(end.x,end.y,end.z,SPAWNER,false);setW(end.x+sideX,end.y,end.z+sideZ,CHEST,false);
+  stockLootChest(end.x+sideX,end.y,end.z+sideZ,m.key+'b','mine');
+  for(const [ox,oz] of [[-1,-1],[1,-1],[-1,1],[1,1]])setW(end.x+ox,end.y+1,end.z+oz,COBWEB,true);
 }
 /* ---- stronghold: brick halls + a vault with strong loot ---- */
 function stampStronghold(s, set, data, cx, cz){
@@ -5971,7 +5978,7 @@ function stockLootChest(x, y, z, key, kind){
             [EMERALD, R() < 0.3 ? 1 : 0]];
   } else if(kind === 'mine'){
     loot = [[COALI, 3 + ((R()*6)|0)], [IRONI, 2 + ((R()*5)|0)], [RAIL, 4 + ((R()*8)|0)],
-            [MINECART, R() < 0.4 ? 1 : 0], [GOLDI, R() < 0.4 ? 1 + ((R()*2)|0) : 0]];
+            [MINECART,R()<.55?1:0],[GOLDI,R()<.4?1+((R()*2)|0):0],[TORCH,3+((R()*6)|0)],[STRING,1+((R()*3)|0)],[DIAMI,R()<.12?1:0]];
   } else {
     loot = [[DIAMI, 2 + ((R()*3)|0)], [EMERALD, 2 + ((R()*4)|0)], [GOLDI, 3 + ((R()*4)|0)],
             [IRONI, 4 + ((R()*6)|0)], [BREAD, 2 + ((R()*3)|0)], [OBSIDIAN, 2 + ((R()*4)|0)]];
@@ -6932,12 +6939,18 @@ const player = {
 })();
 const SPAWN = player.pos.clone();
 
+function collisionBottomCut(ent,axis){
+  // Gorilla locomotion uses the upper 80% of the body for side collisions so
+  // the hips/legs do not snag while the hands are driving movement. Keep the
+  // full collider on the Y axis so floors, ceilings and fall damage still work.
+  return ent===player && xrActive && vrMoveMode==='gorilla' && axis!==1 ? ent.h*.2 : 0;
+}
 function moveAxis(ent, axis, amt){
   if(amt === 0) return;
   const p = ent.pos, w = ent.w, h = ent.h, e = 1e-4;
   if(axis === 0) p.x += amt; else if(axis === 1) p.y += amt; else p.z += amt;
   const x0 = Math.floor(p.x - w + e), x1 = Math.floor(p.x + w - e);
-  const y0 = Math.floor(p.y + e),     y1 = Math.floor(p.y + h - e);
+  const y0 = Math.floor(p.y + collisionBottomCut(ent,axis) + e), y1 = Math.floor(p.y + h - e);
   const z0 = Math.floor(p.z - w + e), z1 = Math.floor(p.z + w - e);
   for(let y = y0; y <= y1; y++) for(let z = z0; z <= z1; z++) for(let x = x0; x <= x1; x++){
     const block=getBlock(x,y,z);
@@ -8074,6 +8087,7 @@ function updateSpawners(dt){
       if(getBlock(ox, y, oz) === AIR && getBlock(ox, y + 1, oz) === AIR && isSolid(getBlock(ox, y - 1, oz))){
         if(blockLightAt(ox, y, oz) > 11) return;       // torch it up and the spawner goes quiet
         if(dim === 1){ spawnNetherMob('blaze', ox + 0.5, y + 0.5, oz + 0.5); return; }   // fortress spawners breed blazes
+        if(mineshaftSpawnerAt(x,y,z)){spawnSpider(ox+.5,y+.05,oz+.5,false,true);return;}
         const roll = Math.random();
         if(roll < 0.45) spawnZombie(ox + 0.5, y + 0.05, oz + 0.5);
         else if(roll < 0.75) spawnSpider(ox + 0.5, y + 0.05, oz + 0.5);
@@ -9759,7 +9773,7 @@ function updateCreepers(dt){
 const spiders = [];
 const spiderMats = { body: entMat(0x3a2f2a), head: entMat(0x4a3b33), eye: entMat(0xd83b3b), leg: entMat(0x2a221e) };
 const crawlerMats={body:entMat(0x45405d),head:entMat(0x65588c),eye:entMat(0xc2f4ff),leg:entMat(0x777198),crystal:entMat(0xb59bea)};
-function spawnSpider(x, y, z, crystal=false){
+function spawnSpider(x, y, z, crystal=false, cave=false){
   const materials=crystal?crawlerMats:spiderMats;
   const g = new THREE.Group();
   const legs = [];
@@ -9774,18 +9788,18 @@ function spawnSpider(x, y, z, crystal=false){
       legs.push(leg);
     }
   if(crystal)for(const [x,z,h] of [[0,.1,.5],[-.25,.25,.3],[.25,.25,.35]]){const shard=box(.16,h,.16,crawlerMats.crystal,x,.75+h/2,z,g);shard.rotation.z=x;}
-  scene.add(g);
+  if(cave)g.scale.set(.72,.72,.72);scene.add(g);
   spiders.push({
-    kind: 'spider', crystal, angry:crystal, group: g, legs, arms: [],
+    kind:'spider',crystal,cave,angry:crystal||cave,group:g,legs,arms:[],
     pos: new THREE.Vector3(x, y, z), vel: new THREE.Vector3(),
-    w: 0.5, h: 0.7, hp: 16,
+    w:cave?.38:.5,h:cave?.52:.7,hp:cave?12:16,
     yaw: Math.random() * Math.PI * 2, speed: 0, t: 0.5,
     onGround: false, anim: Math.random() * 9, atkCd: 0, groanT: 3 + Math.random() * 4,
   });
 }
 function killSpider(i){
   const s = spiders[i];
-  dropXP(s.pos.x, s.pos.y + 0.5, s.pos.z, 5);
+  dropXP(s.pos.x,s.pos.y+.5,s.pos.z,s.cave?3:5);
   if(s.crystal&&mode==='survival')spawnDropAt(s.pos.x,s.pos.y+.5,s.pos.z,CRYSTALSHARD,1);
   burstRGB(s.pos.x, s.pos.y + 0.5, s.pos.z, 0.25, 0.2, 0.18, 12);
   monsterCall(s,'die');
@@ -13240,7 +13254,7 @@ function runMobWorld(dt, daylight){
 }
 function mobExtra(kind, e){
   if(kind === 'animal') return e.type;
-  if(kind === 'spider') return e.crystal ? 1 : 0;
+  if(kind==='spider')return e.crystal?1:e.cave?2:0;
   if(kind === 'villager') return [e.prof && e.prof.id, e.home[0], e.home[1]];
   if(kind === 'golem') return [e.home[0], e.home[1]];
   if(kind === 'creeper') return e.fuse >= 0 ? 1 : 0;
@@ -13299,7 +13313,7 @@ function makePuppet(kind, row){
     else if(kind === 'zombie') spawnZombie(x, y, z);
     else if(kind === 'skeleton') spawnSkeleton(x, y, z);
     else if(kind === 'creeper') spawnCreeper(x, y, z);
-    else if(kind === 'spider') spawnSpider(x, y, z, !!extra);
+    else if(kind==='spider')spawnSpider(x,y,z,extra===1,extra===2);
     else if(kind === 'enderman') spawnEnderman(x, y, z);
     else if(kind === 'villager') spawnVillager(x, y, z, extra[1], extra[2], extra[0]);
     else if(kind === 'golem') spawnGolem(x, y, z, extra[0], extra[1]);
@@ -14035,14 +14049,18 @@ function nearestVehicle(maxD){
   }
   return best;
 }
-function mountVehicle(v){ riding = v; player.fly = false; flashName('Riding — Space to exit'); }
+function mountVehicle(v){riding=v;player.fly=false;flashName(xrActive?'Riding — A to exit':'Riding — Space to exit');}
 function dismountVehicle(){
   if(!riding) return;
   player.pos.set(riding.pos.x + Math.cos(riding.yaw) * 1.2, riding.pos.y + 1, riding.pos.z + Math.sin(riding.yaw) * 1.2);
   player.vel.set(0, 0, 0);
   riding = null;
 }
+const mineVehiclesSpawned=new Set();
+function railUnder(pos){const x=Math.floor(pos.x),z=Math.floor(pos.z),base=Math.floor(pos.y+.15);for(let y=base;y>=base-2;y--)if(getBlock(x,y,z)===RAIL)return{x,y,z,hasX:getBlock(x-1,y,z)===RAIL||getBlock(x+1,y,z)===RAIL,hasZ:getBlock(x,y,z-1)===RAIL||getBlock(x,y,z+1)===RAIL};return null;}
+function ensureMineshaftCarts(){if(dim!==0)return;for(const m of minesNear(player.pos.x,player.pos.z)){if(mineVehiclesSpawned.has(m.key))continue;const bx=m.horiz?m.cx+m.branchAt:m.cx,bz=m.horiz?m.cz:m.cz+m.branchAt;if(Math.hypot(player.pos.x-bx,player.pos.z-bz)>72)continue;mineVehiclesSpawned.add(m.key);const v=spawnVehicle('minecart',bx+(m.horiz?0:m.branchSide*3)+.5,m.cy+.03,bz+(m.horiz?m.branchSide*3:0)+.5);v.railAxis=m.horiz?'z':'x';v.yaw=v.railAxis==='x'?-Math.PI/2:Math.PI;}}
 function updateVehicles(dt){
+  ensureMineshaftCarts();
   for(let i = vehicles.length - 1; i >= 0; i--){
     const v = vehicles[i];
     if(v !== riding && v.pos.distanceToSquared(player.pos) > 140 * 140){
@@ -14053,19 +14071,18 @@ function updateVehicles(dt){
       let f = 0, s = 0;
       if(key('KeyW')) f += 1; if(key('KeyS')) f -= 1;
       if(key('KeyA')) s -= 1; if(key('KeyD')) s += 1;
+      if(xrActive){const a=readAxes('left');if(a){if(Math.abs(a[3]||0)>.15)f-=a[3];if(Math.abs(a[2]||0)>.2)s+=a[2];}}
       const onWater = isWet(getBlock(Math.floor(v.pos.x), Math.floor(v.pos.y), Math.floor(v.pos.z))) ||
                       isWet(getBlock(Math.floor(v.pos.x), Math.floor(v.pos.y - 0.3), Math.floor(v.pos.z)));
       const maxSpd = v.kind === 'boat' ? (onWater ? 6.5 : 1.5) : 7.5;
-      const ax = (-Math.sin(yaw) * f + Math.cos(yaw) * s);
-      const az = (-Math.cos(yaw) * f - Math.sin(yaw) * s);
-      v.vel.x += (ax * maxSpd - v.vel.x) * Math.min(1, dt * 4);
-      v.vel.z += (az * maxSpd - v.vel.z) * Math.min(1, dt * 4);
+      const rail=v.kind==='minecart'?railUnder(v.pos):null;
+      if(rail){if(rail.hasX&&!rail.hasZ)v.railAxis='x';else if(rail.hasZ&&!rail.hasX)v.railAxis='z';else if(!v.railAxis)v.railAxis=Math.abs(v.vel.x)>Math.abs(v.vel.z)?'x':'z';v.railTurnLock=Math.max(0,(v.railTurnLock||0)-dt);if(rail.hasX&&rail.hasZ&&Math.abs(s)>.45&&v.railTurnLock<=0){v.railAxis=v.railAxis==='x'?'z':'x';v.railTurnLock=.45;}const sign=v.railAxis==='x'?(Math.sign(-Math.sin(yaw))||1):(Math.sign(-Math.cos(yaw))||1),target=f*maxSpd*sign,k=Math.min(1,dt*5);if(v.railAxis==='x'){v.vel.x+=(target-v.vel.x)*k;v.vel.z*=Math.max(0,1-dt*12);v.pos.z+=(rail.z+.5-v.pos.z)*Math.min(1,dt*12);}else{v.vel.z+=(target-v.vel.z)*k;v.vel.x*=Math.max(0,1-dt*12);v.pos.x+=(rail.x+.5-v.pos.x)*Math.min(1,dt*12);}v.vel.y=0;v.pos.y=rail.y+.03;}else{const ax=(-Math.sin(yaw)*f+Math.cos(yaw)*s),az=(-Math.cos(yaw)*f-Math.sin(yaw)*s);v.vel.x+=(ax*maxSpd-v.vel.x)*Math.min(1,dt*4);v.vel.z+=(az*maxSpd-v.vel.z)*Math.min(1,dt*4);}
       if(Math.hypot(v.vel.x, v.vel.z) > 0.3) v.yaw = Math.atan2(v.vel.z, v.vel.x);
       if(v.kind === 'boat'){
         const belowW = isWet(getBlock(Math.floor(v.pos.x), Math.floor(v.pos.y - 0.2), Math.floor(v.pos.z)));
         if(belowW) v.vel.y += (0.4 - v.vel.y) * Math.min(1, dt * 5);
         else v.vel.y -= 18 * dt;
-      } else {
+      } else if(!rail) {
         v.vel.y -= 22 * dt;
       }
       stepEntity(v, dt);
@@ -15580,6 +15597,7 @@ function vrTryPlace(){
   const { o, d } = ctrlOriginDir(rightCtrl);
   const hit = raycast(o, d, REACH,heldId()===BUCKET||heldId()===GLASS_BOTTLE);
   const eh = rayEntity(o, d, REACH);
+  const vh=nearestVehicle(3.2);if(vh&&!riding&&vh.pos.clone().sub(o).normalize().dot(d)>.35){mountVehicle(vh);hapticPulse('right',.55,45);return;}
   if(eh&&(!hit||eh.t<hit.t)&&feedFantasy(eh.e))return;
   if(eh&&(!hit||eh.t<hit.t)&&!eh.e.puppet&&tryGivePiglin(eh.e))return;
   if(useSpecial(o, d, hit, eh))return;
@@ -15777,7 +15795,7 @@ function setVrMoveMode(m){
 }
 const GORILLA_G = 16;
 const GORILLA_THROW = 1.18, GORILLA_MAX = 9, GORILLA_STEP = .35;
-const GORILLA_FLOOR = .15, GORILLA_BODY_H = 1.5, GORILLA_EYE_H = 1.38, GORILLA_PALM = .065, GORILLA_MEMORY = .12;
+const GORILLA_FLOOR = .15, GORILLA_BODY_H = 1.35, GORILLA_EYE_H = 1.15, GORILLA_PALM = .065, GORILLA_MEMORY = .12;
 const GORILLA_RELEASE_GAP = .018, GORILLA_PRESS_SPEED = .03, GORILLA_DRAG_LIMIT = .18;
 const gHands = Array.from({length:2},()=>({prev:null,localPrev:null,anchor:null,n:null,cell:null,tapT:0,releaseT:0,source:null}));
 const gHist=[];
