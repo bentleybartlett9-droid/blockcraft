@@ -167,7 +167,7 @@
   <p id="storageNote" class="meta" style="margin:2px 0"></p>
   <button class="mcbtn small" id="fsBtn">Fullscreen</button>
   <p id="vrnote" style="display:none;color:#ffcf6b;font-size:12px;margin:6px 0 0">VR headset not detected — open this build in a WebXR headset browser (e.g. Meta Quest Browser) over https.</p>
-  <p style="max-width:580px;font-size:13px;line-height:1.6">VR controls: Left stick: move / click for sprint or flight boost · Right stick: turn / select<br>Swing an equipped tool into blocks, or hold right trigger to mine · Right grip: place / use<br>A: jump / fly up · B: fly down · Right stick click: creative flight<br>X: inventory / crafting · Point at wrist + trigger: equip · Y: crouch</p>
+  <p style="max-width:580px;font-size:13px;line-height:1.6">VR controls: Left stick: move in Stick mode / click for sprint or flight boost · Gorilla Arms: hand movement only · Right stick: turn / select<br>Swing an equipped tool into blocks, or hold right trigger to mine · Right grip: place / use<br>A: jump / fly up · B: fly down · Right stick click: creative flight<br>X: inventory / crafting · Point at wrist + trigger: equip · Y: crouch</p>
 <details style="font:12px system-ui;color:#ddd;max-width:640px;margin:8px auto"><summary>Audio credits</summary>
 <p>Animal recordings embedded in this game: <a href="https://opengameart.org/content/farm-animals" target="_blank" rel="noopener">Cow — Secretlondon / OpenGameArt</a>, <a href="https://creativecommons.org/licenses/by-sa/3.0/">CC BY-SA 3.0</a>; the cow audio and its playback adaptations remain under that licence. <a href="https://opengameart.org/content/pig-sfx-pack">Pig SFX — Vinrax</a> and <a href="https://opengameart.org/content/chicken-sound-effect">Chicken — IMadeIt</a>, <a href="https://creativecommons.org/licenses/by/3.0/">CC BY 3.0</a>. <a href="https://opengameart.org/content/sheep-baa">Sheep — mikewest / AntumDeluge</a>, <a href="https://opengameart.org/content/dog-sounds">Dog vocals — pauliuw</a>, <a href="https://opengameart.org/content/rabbit-eating">Rabbit — Voltiment555</a>, and <a href="https://bigsoundbank.com/neighing-of-a-horse-s0460.html">Horse — BigSoundBank #0460</a>, <a href="https://creativecommons.org/publicdomain/zero/1.0/">CC0</a>. Clips are volume-normalised; rabbit/dog excerpts are trimmed and resampled; hurt and fantasy calls use pitch/filter adaptations.</p><p>Monster voices: <a href="https://opengameart.org/content/zombie-skeleton-monster-voice-effects" target="_blank" rel="noopener">ArcadeParty</a>; snarls: <a href="https://opengameart.org/content/monster-snarls" target="_blank" rel="noopener">Darsycho</a>; bones: <a href="https://opengameart.org/content/bones-2" target="_blank" rel="noopener">AntumDeluge</a>. All CC0; playback adapted with pitch, filtering and normalization.</p></details>
   <p class="meta">seed <span id="seedLabel"></span> · <span id="buildLabel"></span>world &amp; inventory auto-save in this browser</p>
@@ -15577,10 +15577,10 @@ function buildCraftPanel(){
     const gorilla=vrMoveMode==='gorilla';
     button(50,612,520,70,gorilla?'Gorilla arms: ON':'Gorilla arms: off',()=>{
       setVrMoveMode(gorilla?'stick':'gorilla');
-      vrMenuStatus=vrMoveMode==='gorilla'?'Gorilla arms on: plant, push, and lift away to launch. Left stick also walks.':'Gorilla arms off: the stick walks again.';
+      vrMenuStatus=vrMoveMode==='gorilla'?'Gorilla arms on: plant, push, and lift away to launch. Hand movement only.':'Gorilla arms off: the stick walks again.';
       buildCraftPanel();
     },true,gorilla);
-    text(gorilla?'Plant, push, lift away. Fall damage starts beyond 7 blocks.':'Arm movement with optional thumbstick walking.',600,647,23,'#454545',800);
+    text(gorilla?'Plant, push, lift away. The joystick cannot move you.':'Arm movement off; use the left stick to walk.',600,647,23,'#454545',800);
   }
   text('HOTBAR — select a slot to hold its item',35,726,23,'#454545');
   for(let i=0;i<9;i++)slot(i,35+i*152,755);
@@ -16015,7 +16015,7 @@ function setVrMoveMode(m){
 }
 const GORILLA_G = 16;
 const GORILLA_THROW = 1.18, GORILLA_MAX = 9, GORILLA_STEP = .35;
-const GORILLA_FLOOR = .15, GORILLA_BODY_H = 1.2, GORILLA_EYE_H = .95, GORILLA_HAND_DROP = .2, GORILLA_PALM = .065, GORILLA_MEMORY = .12;
+const GORILLA_FLOOR = .15, GORILLA_BODY_H = 1.2, GORILLA_EYE_H = .95, GORILLA_BASE_DROP = .25, GORILLA_HAND_DROP = .2, GORILLA_PALM = .065, GORILLA_MEMORY = .12;
 const GORILLA_RELEASE_GAP = .018, GORILLA_PRESS_SPEED = .03, GORILLA_DRAG_LIMIT = .18;
 const gHands = Array.from({length:2},()=>({prev:null,localPrev:null,anchor:null,n:null,cell:null,tapT:0,releaseT:0,source:null}));
 const gHist=[];
@@ -16025,6 +16025,12 @@ function vrAutoHeightLift(trackedHeadY,gorilla){
  const target=gorilla?GORILLA_EYE_H:player.eye;
  return Number.isFinite(trackedHeadY)&&trackedHeadY>.3?target-trackedHeadY:(gorilla?-GORILLA_FLOOR:0);
 }
+function vrCrouchDropForMode(crouching){
+ // Claude's latest stance already lowers the calibrated Gorilla eye by .2.
+ // The remaining .25 makes its normal eye height equal the former .45 crouch.
+ return (vrMoveMode==='gorilla' && !player.fly) ? GORILLA_BASE_DROP : (crouching ? .45 : 0);
+}
+function vrStickLocomotionEnabled(){return vrMoveMode!=='gorilla';}
 // Where the Gorilla palms sit. The gorilla is short (its eyes at GORILLA_EYE_H),
 // and its hands come down with its head by half as much, plus a little more,
 // so the ground is an easy reach: standing, arms hanging, it is a slight bend
@@ -16158,7 +16164,7 @@ function updateVR(dt){
   const gorillaHeight = vrMoveMode === 'gorilla' && !player.fly;
   player.h = gorillaHeight ? GORILLA_BODY_H : 1.9;
   // Recalibrate continuously: sitting and standing produce the same virtual
-  // eye height. Y-button crouching is applied separately below and still works.
+  // eye height. The permanent Gorilla crouch is applied to the whole rig below.
   const wantedLift=vrAutoHeightLift(camera.position.y,gorillaHeight);
   vrHeightOffset=vrHeightOffset===null?wantedLift:vrHeightOffset+(wantedLift-vrHeightOffset)*Math.min(1,dt*10);
   const rigLift = vrHeightOffset;
@@ -16195,7 +16201,7 @@ function updateVR(dt){
   }
   xrRig.rotation.y = vrYawOffset;
   xrRig.updateMatrixWorld(true);
-  // movement: left thumbstick, relative to (head yaw + snap offset)
+  // Stick mode moves with the left thumbstick. Gorilla mode uses hand motion only.
   const la = readAxes('left');
   let mvx = 0, mvz = 0;
   if(la){ mvx = la[2] || 0; mvz = la[3] || 0; }
@@ -16217,20 +16223,15 @@ function updateVR(dt){
   const crouchMul = vrCrouch ? 0.5 : 1;
   if(gorillaActive(swimming)){
     gorillaStep(dt);
-    // The stick is optional help between pushes; a planted hand always takes priority.
-    if(!player.gorillaHold&&(dx!==0||dz!==0)){
-      player.vel.x+=(wishX*speed*crouchMul-player.vel.x)*Math.min(1,dt*8);
-      player.vel.z+=(wishZ*speed*crouchMul-player.vel.z)*Math.min(1,dt*8);
-    }
-    updateVignette(dt,!player.gorillaHold&&(dx!==0||dz!==0));
+    updateVignette(dt,false);
   } else {
-    gorillaReset();                  // flying, swimming or riding: back on the stick
-    if(!gliding){
+    gorillaReset();
+    if(vrStickLocomotionEnabled()&&!gliding){
       player.vel.x += (wishX * speed * crouchMul - player.vel.x) * Math.min(1, dt * 10);
       player.vel.z += (wishZ * speed * crouchMul - player.vel.z) * Math.min(1, dt * 10);
     }
     // comfort: tunnel vision while the stick is driving us, ease it off when we stop
-    updateVignette(dt, dx !== 0 || dz !== 0);
+    updateVignette(dt,vrStickLocomotionEnabled()&&(dx!==0||dz!==0));
   }
 
   updateAvatarArms();
@@ -16249,12 +16250,12 @@ function updateVR(dt){
   vrFlyWas = flyDown;
   vrJumpWasDown = jumpDown;
 
-  // ---- crouch (left Y button, index 5) : lowers you & slows ----
+  // ---- crouch (left Y button, index 5) : slows; lowers normal VR ----
   const lb = readButtons('left');
   vrCrouch = !!(lb && lb[5] && lb[5].pressed);
   player.crouching = vrCrouch;
-  // lower the whole rig a bit when crouching (camera pose is XR-controlled, so adjust the rig)
-  const crouchDrop = vrCrouch ? 0.45 : 0;
+  // Gorilla mode starts at its former crouched height; Y cannot lower it twice.
+  const crouchDrop = vrCrouchDropForMode(vrCrouch);
   player.crouchDrop = (player.crouchDrop || 0) + (crouchDrop - (player.crouchDrop || 0)) * Math.min(1, dt * 12);
 
   // ---- breaking: poll the right trigger every frame (more reliable than
