@@ -13287,10 +13287,18 @@ function calcMineTime(id){
   return t;
 }
 /* ---------------- leaf decay, saplings and regrowth ----------------
-   Minecraft's rule: leaves live while a trunk is close by, and die back
-   once it is felled. Checks are queued and spread over time so chopping
-   a tree never stalls a frame. */
+   Minecraft's rule: a leaf lives while a log can be reached from it through
+   touching leaves within 6 steps (its 'distance'); cut off, it decays at a
+   random moment - so a felled tree's canopy thins away over a minute or so,
+   leaf by leaf. Leaves a player placed never decay. Drops follow Minecraft:
+   5% sapling, 2% one or two sticks, 0.5% apple from oak; the leaf block
+   itself only to shears. Checks are queued and spread over time so
+   chopping a tree never stalls a frame. */
 const leafQueue = new Map(), saplingQueue = new Map();
+// leaves a player placed are 'persistent', as in Minecraft: they never decay
+const keptLeaves = (() => { try { return new Set(JSON.parse(localStorage.getItem(SAVE_KEY + '-keptleaves')) || []); } catch(e){ return new Set(); } })();
+const saveKeptLeaves = () => safeSet(SAVE_KEY + '-keptleaves', JSON.stringify([...keptLeaves]));
+function keepLeaf(x, y, z, on){ const k = x + ',' + y + ',' + z; if(on ? !keptLeaves.has(k) : keptLeaves.has(k)){ on ? keptLeaves.add(k) : keptLeaves.delete(k); saveKeptLeaves(); } }
 /* Chopping a tree opens a harvest session. Saplings still fall at random
    from the dying canopy, but the moment the last of the trunk goes the
    tree pays out whatever it owes - so every felled tree yields one or two. */
@@ -13328,22 +13336,48 @@ function settleHarvest(force){
 /* A dying canopy still rains the odd sapling on top of the tree's own due. */
 function leafLoot(x, y, z, id){
   if(mode !== 'survival') return;
-  if(Math.random() < .30) spawnDropAt(x+.5, y+.4, z+.5, BERRIES, 1);
-  if(id === LEAVES && Math.random() < .05) spawnDropAt(x+.5, y+.4, z+.5, APPLE, 1);
   const sap = SAPLING_OF[id];
-  if(sap && Math.random() < .05){
+  if(sap && Math.random() < .05){                                  // 1 in 20: a sapling
     spawnDropAt(x+.5, y+.4, z+.5, sap, 1);
     if(harvest && harvest.got < harvest.need) harvest.got++;   // counts against the stump
-  } else if(Math.random() < .03) spawnDropAt(x+.5, y+.4, z+.5, STICK, 1);
+  }
+  if(Math.random() < .02) spawnDropAt(x+.5, y+.4, z+.5, STICK, 1 + (Math.random() < .5 ? 1 : 0));   // 1 in 50: a stick or two
+  if(id === LEAVES && Math.random() < .005) spawnDropAt(x+.5, y+.4, z+.5, APPLE, 1);              // 1 in 200: an apple
 }
+const LEAF_N = [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
+// Minecraft's leaf 'distance': steps from a log through touching leaves (6 = the farthest that lives)
+function leafConnected(x, y, z){
+  const seen = new Set([x + ',' + y + ',' + z]); let front = [[x, y, z]];
+  for(let d = 1; d <= 6 && front.length; d++){
+    const next = [];
+    for(const [fx, fy, fz] of front) for(const [dx, dy, dz] of LEAF_N){
+      const nx = fx + dx, ny = fy + dy, nz = fz + dz, k = nx + ',' + ny + ',' + nz;
+      if(seen.has(k) || ny < 1 || ny >= HEIGHT) continue;
+      seen.add(k);
+      const b = getBlock(nx, ny, nz);
+      if(isLog(b)) return true;
+      if(isLeaf(b) && d < 6) next.push([nx, ny, nz]);
+    }
+    front = next;
+  }
+  return false;
+}
+// A leaf or log changed here: every leaf now cut off from its trunk is given its own
+// random moment to decay (an average of ~25 s, most gone within the minute), like
+// Minecraft's random ticks - not a wave spreading out from the cut.
 function wakeLeaves(x, y, z){
   const now = performance.now() / 1000;
-  for(let dx = -5; dx <= 5; dx++) for(let dy = -5; dy <= 5; dy++) for(let dz = -5; dz <= 5; dz++){
-    const by = y + dy;
-    if(by < 1 || by >= HEIGHT) continue;
-    if(!isLeaf(getBlock(x + dx, by, z + dz))) continue;
-    const k = (x + dx) + ',' + by + ',' + (z + dz);
-    if(!leafQueue.has(k)) leafQueue.set(k, now + 1.5 + Math.random() * 5);
+  const seen = new Set(), todo = [];
+  for(const [dx, dy, dz] of LEAF_N){ const k = (x + dx) + ',' + (y + dy) + ',' + (z + dz); if(!seen.has(k)){ seen.add(k); todo.push([x + dx, y + dy, z + dz]); } }
+  let n = 0;
+  while(todo.length && n < 600){                                   // the leaves touching this spot, and theirs
+    const [lx, ly, lz] = todo.pop();
+    if(ly < 1 || ly >= HEIGHT || !isLeaf(getBlock(lx, ly, lz))) continue;
+    n++;
+    const k = lx + ',' + ly + ',' + lz;
+    if(!keptLeaves.has(k) && !leafQueue.has(k) && !leafConnected(lx, ly, lz))
+      leafQueue.set(k, now + Math.min(80, 1 + -Math.log(1 - Math.random()) * 25));
+    for(const [dx, dy, dz] of LEAF_N){ const k2 = (lx + dx) + ',' + (ly + dy) + ',' + (lz + dz); if(!seen.has(k2) && Math.abs(lx + dx - x) <= 8 && Math.abs(ly + dy - y) <= 8 && Math.abs(lz + dz - z) <= 8){ seen.add(k2); todo.push([lx + dx, ly + dy, lz + dz]); } }
   }
 }
 /* Is any of this tree's trunk left? Only its own column counts - the
@@ -13365,7 +13399,6 @@ function leafSpoils(x, y, z, id){
   setBlock(x, y, z, AIR);
   burst(x, y, z, tileFor(id, 0));
   leafLoot(x, y, z, id);
-  wakeLeaves(x, y, z);                        // the die-back spreads outward
 }
 function tickLeafDecay(now){
   let budget = 24;                            // a few per frame, never a stall
@@ -13375,8 +13408,8 @@ function tickLeafDecay(now){
     leafQueue.delete(k); budget--;
     const [x, y, z] = k.split(',').map(Number);
     const id = getBlock(x, y, z);
-    if(!isLeaf(id)) continue;
-    if(logWithin(x, y, z, 4)) continue;       // still attached to a trunk
+    if(!isLeaf(id) || keptLeaves.has(k)) continue;
+    if(leafConnected(x, y, z)) continue;       // a log came back within reach (say, one was placed)
     leafSpoils(x, y, z, id);
   }
   if(leafQueue.size > 4000) leafQueue.clear();   // safety valve
@@ -13433,8 +13466,9 @@ function breakBlock(x, y, z, id){
   }
   setBlock(x, y, z, AIR);
   if(isLeaf(id)){
-    if(heldId() === SHEARS) damageTool(['shears']);
-    leafLoot(x, y, z, id);
+    keepLeaf(x, y, z, false);
+    if(heldId() === SHEARS){ damageTool(['shears']); if(mode === 'survival') spawnDropAt(x + 0.5, y + 0.4, z + 0.5, id, 1); }   // shears take the leaves themselves
+    else leafLoot(x, y, z, id);
     wakeLeaves(x, y, z);            // neighbours may now be cut off too
   }
   if(isLog(id)){
@@ -13485,7 +13519,7 @@ function breakBlock(x, y, z, id){
   }
   if(mode === 'survival'){
     if(id === TGRASSB){ if(Math.random() < 0.25) spawnDropAt(x + 0.5, y + 0.4, z + 0.5, SEEDS, 1); return; }
-    if(harvestOk(id)){
+    if(harvestOk(id) && !isLeaf(id)){               // leaves never drop themselves except to shears (above)
       const drop = dropOf(id);
       spawnDrop(x, y, z, drop);
       const ob = DEEP_BASE[id] || id;
@@ -13613,6 +13647,7 @@ function doPlace(){
   if(held===TORCH){placeTorch(x,y,z);return;}
   triggerViewSwing();
   setBlock(x, y, z, held);
+  if(isLeaf(held)) keepLeaf(x, y, z, true);         // placed leaves never decay
   blockSfx(held, 'place');
   if(held === CARVED_PUMPKIN || held === JACK_O_LANTERN) tryBuildGolem(x, y, z);
   if(mode === 'survival'){
@@ -14466,6 +14501,7 @@ function vrTryPlace(){
   if(held===TORCH){placeTorch(x,y,z);return;}
   triggerViewSwing();
   setBlock(x, y, z, held);
+  if(isLeaf(held)) keepLeaf(x, y, z, true);         // placed leaves never decay
   blockSfx(held, 'place');
   if(held === CARVED_PUMPKIN || held === JACK_O_LANTERN) tryBuildGolem(x, y, z);
   if(mode === 'survival'){
@@ -17812,7 +17848,7 @@ window.__bc = {
   addTestConn: send => { const c = { open: true, send, peer: 'test', close(){} }; conns.push(c); return c; },
   dropTestConns: () => { conns = conns.filter(c => c.peer !== 'test'); },
   mobLists: () => Object.fromEntries(MOB_LISTS.map(([k, l]) => [k, l.length])),
-  atlas, BLOCKS, tileFor, ORE_K, YDISP, CAVE, cavernsNear, dungeonsNear, ravinesNear,
+  atlas, BLOCKS, tileFor, ORE_K, YDISP, CAVE, cavernsNear, dungeonsNear, ravinesNear, leafQueue, keepLeaf, keptLeaves,
   stateAt: (kind, k) => ({ comp: composters, cauld: cauldrons, pot: pottedPlants, frame: frameItems }[kind] || new Map()).get(k),
   mpState: () => ({ code: mpRoomCode, status: mpStatusText, conns: conns.length,
                     voiceOn, vrMpMode, vrJoinCode, remotes: remotes.size }),
