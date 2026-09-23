@@ -576,7 +576,12 @@ function mushIslandDef(gx, gz){
   let m = null;
   if(GEN_V >= 4 && hash(gx, gz, 1411) < 0.45){
     const x = gx * 1100 + 150 + Math.floor(hash(gx, gz, 1412) * 800), z = gz * 1100 + 150 + Math.floor(hash(gx, gz, 1413) * 800);
-    if(x * x + z * z > 1500 * 1500 && continentAt(x, z) < OCEAN.T - 0.03) m = { x, z, r: 70 + Math.floor(hash(gx, gz, 1414) * 60) };
+    const r = 70 + Math.floor(hash(gx, gz, 1414) * 60);
+    let open = x * x + z * z > 1500 * 1500 && continentAt(x, z) < OCEAN.T - 0.03;
+    // all round it, well past its shore, there must be nothing but sea
+    for(let i = 0; i < 24 && open; i++){ const a = i / 24 * Math.PI * 2;
+      for(const d of [r * 1.45, r * 1.45 + 80, r * 1.45 + 170]) if(continentAt(x + Math.cos(a) * d, z + Math.sin(a) * d) > OCEAN.T - 0.012) open = false; }
+    if(open) m = { x, z, r };
   }
   if(mushCache.size > 2000) mushCache.clear();
   mushCache.set(k, m);
@@ -601,7 +606,7 @@ const OCEAN_WATER = new Set(['ocean', 'deep-ocean', 'warm-ocean', 'lukewarm-ocea
 function waterBiome(x, z){
   if(GEN_V < 4) return null;
   const o = colInfo(x, z);
-  if(o.mush > 0.02 && o.h >= SEA0) return 'mushroom-fields';
+  if(o.mush > 0 && o.h >= SEA0 - 1) return 'mushroom-fields';   // right down to the water: no beach
   if(o.C > OCEAN.T + 0.016 && o.river < 0.5) return null;
   const t = vnoise(x * 0.0011 + 17, z * 0.0011 - 5, 8103), h = o.h;
   if(h < SEA0 && o.C < OCEAN.T + 0.012){
@@ -15956,7 +15961,7 @@ function setVrMoveMode(m){
 }
 const GORILLA_G = 16;
 const GORILLA_THROW = 1.18, GORILLA_MAX = 9, GORILLA_STEP = .35;
-const GORILLA_FLOOR = .15, GORILLA_BODY_H = 1.35, GORILLA_EYE_H = 1.15, GORILLA_PALM = .065, GORILLA_MEMORY = .12;
+const GORILLA_FLOOR = .15, GORILLA_BODY_H = 1.2, GORILLA_EYE_H = .95, GORILLA_HAND_DROP = .2, GORILLA_PALM = .065, GORILLA_MEMORY = .12;
 const GORILLA_RELEASE_GAP = .018, GORILLA_PRESS_SPEED = .03, GORILLA_DRAG_LIMIT = .18;
 const gHands = Array.from({length:2},()=>({prev:null,localPrev:null,anchor:null,n:null,cell:null,tapT:0,releaseT:0,source:null}));
 const gHist=[];
@@ -15966,11 +15971,14 @@ function vrAutoHeightLift(trackedHeadY,gorilla){
  const target=gorilla?GORILLA_EYE_H:player.eye;
  return Number.isFinite(trackedHeadY)&&trackedHeadY>.3?target-trackedHeadY:(gorilla?-GORILLA_FLOOR:0);
 }
-// Keep Gorilla palms at the player's real-world reach while auto height keeps
-// the head/body consistent. This lets seated and standing players touch the
-// same virtual floor instead of lifting seated hands away from it.
+// Where the Gorilla palms sit. The gorilla is short (its eyes at GORILLA_EYE_H),
+// and its hands come down with its head by half as much, plus a little more,
+// so the ground is an easy reach: standing, arms hanging, it is a slight bend
+// away; seated, a short reach down. A seated player's hands are never lifted.
 function gorillaReachOffset(){
- return vrMoveMode==='gorilla'&&!player.fly?(vrHeightOffset??-GORILLA_FLOOR)+GORILLA_FLOOR:0;
+ if(vrMoveMode!=='gorilla'||player.fly)return 0;
+ const lift=vrHeightOffset??-GORILLA_FLOOR;
+ return lift-.5*Math.min(lift,0)+GORILLA_HAND_DROP;
 }
 function gorillaHandWorld(pose,out){pose.getWorldPosition(out);out.y-=gorillaReachOffset();return out;}
 function gorillaReset(){
