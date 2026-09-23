@@ -167,7 +167,7 @@
   <p id="storageNote" class="meta" style="margin:2px 0"></p>
   <button class="mcbtn small" id="fsBtn">Fullscreen</button>
   <p id="vrnote" style="display:none;color:#ffcf6b;font-size:12px;margin:6px 0 0">VR headset not detected — open this build in a WebXR headset browser (e.g. Meta Quest Browser) over https.</p>
-  <p style="max-width:580px;font-size:13px;line-height:1.6">VR controls: Left stick: move / click for sprint or flight boost · Right stick: turn / select<br>Right trigger: hold to mine / attack · Right grip: place / use<br>A: jump / fly up · B: fly down · Right stick click: creative flight<br>X: inventory / crafting · Point at wrist + trigger: equip · Y: crouch</p>
+  <p style="max-width:580px;font-size:13px;line-height:1.6">VR controls: Left stick: move / click for sprint or flight boost · Right stick: turn / select<br>Swing an equipped tool into blocks, or hold right trigger to mine · Right grip: place / use<br>A: jump / fly up · B: fly down · Right stick click: creative flight<br>X: inventory / crafting · Point at wrist + trigger: equip · Y: crouch</p>
 <details style="font:12px system-ui;color:#ddd;max-width:640px;margin:8px auto"><summary>Audio credits</summary>
 <p>Animal recordings embedded in this game: <a href="https://opengameart.org/content/farm-animals" target="_blank" rel="noopener">Cow — Secretlondon / OpenGameArt</a>, <a href="https://creativecommons.org/licenses/by-sa/3.0/">CC BY-SA 3.0</a>; the cow audio and its playback adaptations remain under that licence. <a href="https://opengameart.org/content/pig-sfx-pack">Pig SFX — Vinrax</a> and <a href="https://opengameart.org/content/chicken-sound-effect">Chicken — IMadeIt</a>, <a href="https://creativecommons.org/licenses/by/3.0/">CC BY 3.0</a>. <a href="https://opengameart.org/content/sheep-baa">Sheep — mikewest / AntumDeluge</a>, <a href="https://opengameart.org/content/dog-sounds">Dog vocals — pauliuw</a>, <a href="https://opengameart.org/content/rabbit-eating">Rabbit — Voltiment555</a>, and <a href="https://bigsoundbank.com/neighing-of-a-horse-s0460.html">Horse — BigSoundBank #0460</a>, <a href="https://creativecommons.org/publicdomain/zero/1.0/">CC0</a>. Clips are volume-normalised; rabbit/dog excerpts are trimmed and resampled; hurt and fantasy calls use pitch/filter adaptations.</p><p>Monster voices: <a href="https://opengameart.org/content/zombie-skeleton-monster-voice-effects" target="_blank" rel="noopener">ArcadeParty</a>; snarls: <a href="https://opengameart.org/content/monster-snarls" target="_blank" rel="noopener">Darsycho</a>; bones: <a href="https://opengameart.org/content/bones-2" target="_blank" rel="noopener">AntumDeluge</a>. All CC0; playback adapted with pitch, filtering and normalization.</p></details>
   <p class="meta">seed <span id="seedLabel"></span> · <span id="buildLabel"></span>world &amp; inventory auto-save in this browser</p>
@@ -400,7 +400,7 @@ const SPLASHES = ['Punch trees!', 'Now with zombies!', 'Diamonds are deep!', 'On
 document.getElementById('splash').textContent = SPLASHES[Math.floor(Math.random() * SPLASHES.length)];
 {
   const bl = document.getElementById('buildLabel');
-  const label = IS_DESKTOP ? 'Desktop Edition · ' : IS_MOBILE ? 'Mobile Edition · ' : IS_VR ? 'VR · Biomes, Villagers & Voice Chat · ' : '';
+  const label = IS_DESKTOP ? 'Desktop Edition · ' : IS_MOBILE ? 'Mobile Edition · ' : IS_VR ? 'VR · Swing Mining + Gorilla Arms · ' : '';
   if(bl) bl.textContent = label;
 }
 
@@ -6158,6 +6158,11 @@ function stepEntity(ent, dt){
   }
 }
 
+function fallDamageForDistance(distance,gorilla=xrActive&&vrMoveMode==='gorilla'){
+ const protection=1-.12*(armour.boots&&armourEnch.boots?.feather||0);
+ if(gorilla)return distance>7.01?Math.floor(Math.max(1,Math.floor(distance-7))*protection):0;
+ return distance>3.5?Math.floor((distance-3)*protection):0;
+}
 let bobT = 0, bobAmt = 0, fov = 72, fallPeak = player.pos.y, stepAcc = 0, cactusT = 0, lavaT = 0;
 function physics(dt){
   const p = player, v = p.vel;
@@ -6231,7 +6236,7 @@ function physics(dt){
       const u = getBlock(Math.floor(p.pos.x), Math.floor(p.pos.y - 0.5), Math.floor(p.pos.z));
       if(u && u !== WATER) blockSfx(u, 'land');
     }
-    if(d > 3.5) damage(Math.floor((d - 3) * (1 - 0.12 * (armour.boots && armourEnch.boots?.feather || 0))));   // Feather Falling softens it
+    const fallHit=fallDamageForDistance(d);if(fallHit>0)damage(fallHit);   // Armour and Feather Falling still apply.
     fallPeak = p.pos.y;
   }
   // cactus contact damage
@@ -13731,6 +13736,8 @@ let vrTool = null, vrToolId = -1;       // held-item model on the right controll
 const controllers = [], controllerGrips = [];
 const _ctrlDir = new THREE.Vector3(), _ctrlPos = new THREE.Vector3(), _ctrlQuat = new THREE.Quaternion();
 let vrBreakHeld = false, vrActCd = 0, vrMineFrom = null, vrAtkCd = 0, vrGripWas = false, vrYawOffset = 0, vrCraftWas = false, vrTrigWas = false, vrSelectHeld = false;
+const VR_SWING_MIN = 1.1, VR_SWING_TIP = .46;
+let vrSwingPrevWorld = null, vrSwingPrevLocal = null, vrSwingCd = 0, vrSwingKey = null, vrSwingProg = 0, vrSwingIdle = 0;
 
 function makeControllerRay(){
   const geo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0), new THREE.Vector3(0,0,-1)]);
@@ -14094,15 +14101,15 @@ function buildCraftPanel(){
       text('Emeralds are the village currency - sell goods to earn them.',35,690,23,'#454545');
     }
   } else {
-    const lines=['X (left controller): open / close inventory','Point RIGHT controller + trigger: select menu buttons','Inventory: select backpack item, then a hotbar slot to equip','Crafting: select recipe, then Craft or Craft & equip','Right grip: place / use / eat food / fill or pour bucket','Right trigger: hold to mine / attack','Wrist: point + trigger on a slot to equip; Inventory opens all items','A: jump / swim up / fly up • B: swim down / fly down / close menu','Left stick click: sprint / flight boost • Right stick click: flight • Y: crouch'];
+    const lines=['X (left controller): open / close inventory','Point RIGHT controller + trigger: select menu buttons','Inventory: select backpack item, then a hotbar slot to equip','Crafting: select recipe, then Craft or Craft & equip','Right grip: place / use / eat food / fill or pour bucket','Swing equipped tools into blocks, or hold right trigger to mine','Wrist: point + trigger on a slot to equip; Inventory opens all items','A: jump / swim up / fly up • B: swim down / fly down / close menu','Left stick click: sprint / flight boost • Right stick click: flight • Y: crouch'];
     lines.forEach((line,i)=>text(line,50,215+i*44,25,'#333333',1330));
     const gorilla=vrMoveMode==='gorilla';
     button(50,612,520,70,gorilla?'Gorilla arms: ON':'Gorilla arms: off',()=>{
       setVrMoveMode(gorilla?'stick':'gorilla');
-      vrMenuStatus=vrMoveMode==='gorilla'?'Gorilla arms on: slap a block and push. The stick only turns.':'Gorilla arms off: the stick walks again.';
+      vrMenuStatus=vrMoveMode==='gorilla'?'Gorilla arms on: plant, push, and lift away to launch. Left stick also walks.':'Gorilla arms off: the stick walks again.';
       buildCraftPanel();
     },true,gorilla);
-    text(gorilla?'Push off blocks with your hands. The stick only turns.':'Gorilla Tag arm movement. The stick will only turn.',600,647,23,'#454545',800);
+    text(gorilla?'Plant, push, lift away. Fall damage starts beyond 7 blocks.':'Arm movement with optional thumbstick walking.',600,647,23,'#454545',800);
   }
   text('HOTBAR — select a slot to hold its item',35,726,23,'#454545');
   for(let i=0;i<9;i++)slot(i,35+i*152,755);
@@ -14119,7 +14126,7 @@ function openCraftVR(tab='inventory'){
   fwd.y=0;if(fwd.lengthSq()<0.001)fwd.set(0,0,-1);fwd.normalize();
   craftPanel.position.copy(cp).addScaledVector(fwd,1.35);craftPanel.position.y-=0.12;
   craftPanel.lookAt(cp.x,craftPanel.position.y,cp.z);craftPanel.updateMatrixWorld(true);
-  craftPanel.visible=true;player.vel.x=player.vel.z=0;resetMine();buildCraftPanel();
+  craftPanel.visible=true;player.vel.x=player.vel.z=0;resetMine();resetVRSwing();buildCraftPanel();
 }
 function closeCraftVR(){
   chestOpen=false;chestPos=null;tradeVillager=null;
@@ -14214,7 +14221,10 @@ function updateAvatarArms(){
     const grip = controllerGrips[i];
     upper.visible = fore.visible = !!grip && grip.visible;
     if(!upper.visible) continue;
-    const wrist = vrBody.worldToLocal(grip.getWorldPosition(new THREE.Vector3()));
+    const contact=vrMoveMode==='gorilla'&&player.gorillaHold?gHands[hand==='left'?0:1]?.anchor:null;
+    const worldWrist=contact?contact.clone():grip.getWorldPosition(new THREE.Vector3());
+    if(trackedHands[i])trackedHands[i].position.copy(contact?grip.worldToLocal(contact.clone()):new THREE.Vector3());
+    const wrist = vrBody.worldToLocal(worldWrist);
     const shoulder = new THREE.Vector3(side*0.27,-0.24,0);
     const elbow = shoulder.clone().lerp(wrist,0.52);
     elbow.x += side*0.08; elbow.y -= 0.12; elbow.z += 0.08;
@@ -14229,6 +14239,7 @@ function updateAvatarArms(){
 function vrBuildTool(){
   const id = heldId();
   if(id === vrToolId) return;
+  resetVRSwing();
   vrToolId = id;
   if(vrTool){ rightCtrl.remove(vrTool); vrTool = null; }
   if(!id) return;
@@ -14264,6 +14275,42 @@ function vrTryBreak(){
   if(eh && (!bh || eh.t < bh.t)){ punchEntity(eh.e); return; }
   if(mode === 'creative' && bh && bh.y > 0){ breakBlock(bh.x, bh.y, bh.z, bh.id); }
   // survival mining handled continuously in updateVR
+}
+function resetVRSwing(clearTarget=true){
+  vrSwingPrevWorld=vrSwingPrevLocal=null;vrSwingCd=0;
+  if(clearTarget){vrSwingKey=null;vrSwingProg=0;vrSwingIdle=0;}
+}
+function vrSwingWork(speed){
+  if(speed<VR_SWING_MIN)return 0;
+  return .14+Math.min(1,(speed-VR_SWING_MIN)/3)*.26;
+}
+function applyVRSwingHit(hit,speed){
+  const tool=ITEMS[heldId()]?.tool;if(!tool||!hit||hit.y<=0)return false;
+  const key=hit.x+','+hit.y+','+hit.z;
+  blockSfx(hit.id,'mine');hapticPulse('right',Math.min(.9,.28+speed*.12),38);
+  if(mode==='creative'){breakBlock(hit.x,hit.y,hit.z,hit.id);vrSwingKey=null;vrSwingProg=0;return true;}
+  if(key!==vrSwingKey){vrSwingKey=key;vrSwingProg=0;}
+  vrSwingIdle=1.25;vrSwingProg+=vrSwingWork(speed);
+  const need=calcMineTime(hit.id);
+  if(vrSwingProg>=need){breakBlock(hit.x,hit.y,hit.z,hit.id);vrSwingKey=null;vrSwingProg=0;vrSwingIdle=0;hapticPulse('right',.9,65);}
+  return true;
+}
+function updateVRSwingMining(dt){
+  vrSwingCd=Math.max(0,vrSwingCd-dt);vrSwingIdle=Math.max(0,vrSwingIdle-dt);
+  if(vrSwingKey&&vrSwingIdle<=0){vrSwingKey=null;vrSwingProg=0;}
+  const tool=ITEMS[heldId()]?.tool;
+  if(!xrActive||!inGame||dead||vrCraftOpen||!rightCtrl.userData.inputSource||!tool){resetVRSwing();return;}
+  rightCtrl.updateWorldMatrix(true,false);
+  const tip=rightCtrl.localToWorld(new THREE.Vector3(0,0,-VR_SWING_TIP));
+  const local=xrRig.worldToLocal(tip.clone());
+  if(!vrSwingPrevWorld||!vrSwingPrevLocal||dt<=0||dt>.06){vrSwingPrevWorld=tip;vrSwingPrevLocal=local;return;}
+  const physical=local.clone().sub(vrSwingPrevLocal),distance=physical.length(),speed=distance/dt;
+  if(distance>.8){vrSwingPrevWorld=tip;vrSwingPrevLocal=local;return;}
+  if(vrSwingCd<=0&&speed>=VR_SWING_MIN){
+    const path=tip.clone().sub(vrSwingPrevWorld),length=path.length();
+    if(length>.001){const hit=raycast(vrSwingPrevWorld,path.normalize(),length+.06);if(applyVRSwingHit(hit,speed))vrSwingCd=.12;}
+  }
+  vrSwingPrevWorld=tip;vrSwingPrevLocal=local;
 }
 function vrTryPlace(){
   if(!inGame || dead || vrCraftOpen || !rightCtrl.userData.inputSource) return;
@@ -14454,100 +14501,121 @@ function setVrMoveMode(m){
   const b = document.getElementById('btnMove');
   if(b) b.textContent = 'VR Gorilla Arms: ' + (vrMoveMode === 'gorilla' ? 'On' : 'Off');
 }
-const GORILLA_G = 16;            // floatier than walking gravity, so a good shove carries
-const GORILLA_THROW = 1.25;      // let go mid-swing and keep a little more than you put in
-const GORILLA_MAX = 9;           // fastest a throw can send you, m/s
-const GORILLA_STEP = 0.35;       // most one frame may move you, so you never tunnel
-const GORILLA_LET_GO = 0.35;     // m/s pulling off a surface that counts as letting go
-const GORILLA_FLOOR = 0.5;       // game ground sits this far above your real floor
-const gHands = [{ prev: null, anchor: null, n: null, tapT: 0 },
-                { prev: null, anchor: null, n: null, tapT: 0 }];
-const gHist = [];                // body velocity over the last few frames of pushing
-let gYaw = 0, gWasHolding = false;
-const _gHead = new THREE.Vector3();
+const GORILLA_G = 16;
+const GORILLA_THROW = 1.18, GORILLA_MAX = 9, GORILLA_STEP = .35;
+const GORILLA_FLOOR = .5, GORILLA_PALM = .065, GORILLA_MEMORY = .12;
+const GORILLA_RELEASE_GAP = .018, GORILLA_PRESS_SPEED = .03, GORILLA_DRAG_LIMIT = .18;
+const gHands = Array.from({length:2},()=>({prev:null,anchor:null,n:null,cell:null,tapT:0,releaseT:0,source:null}));
+const gHist=[];
+let gYaw=0,gWasHolding=false,gBodyPrev=null,gRigPrev=null,gPrevDt=0;
+const _gHead=new THREE.Vector3();
 function gorillaReset(){
-  for(const h of gHands){ h.prev = null; h.anchor = null; h.n = null; }
-  gHist.length = 0; gWasHolding = false; player.gorillaHold = false;
+ for(const h of gHands){h.prev=h.anchor=h.n=h.cell=null;h.releaseT=0;h.source=null;}
+ gHist.length=0;gWasHolding=false;gBodyPrev=gRigPrev=null;gPrevDt=0;player.gorillaHold=false;
+ if(typeof trackedHands!=='undefined')for(const hand of trackedHands)hand.position.set(0,0,0);
 }
-function gorillaActive(swimming){
-  return xrActive && vrMoveMode === 'gorilla' && !player.fly && !riding && !swimming && !dead;
+function gorillaActive(swimming){return xrActive&&vrMoveMode==='gorilla'&&!player.fly&&!riding&&!swimming&&!dead;}
+// Palm collision matches slabs, stair halves and closed doors; plants and fluids never catch.
+function gorillaBoxes(id,x,y,z){
+ if(isDoor(id)){
+  const info=getDoorInfo(x,y,z);if(info.open)return [];
+  const f=info.facing;
+  return [f===0?[x,y,z,x+1,y+1,z+.18]:f===1?[x,y,z+.82,x+1,y+1,z+1]:f===2?[x,y,z,x+.18,y+1,z+1]:[x+.82,y,z,x+1,y+1,z+1]];
+ }
+ if(id===TRAPDOOR)return getTrapInfo(x,y,z).open?[]:[[x,y,z,x+1,y+.18,z+1]];
+ if(!isSolid(id))return [];
+ if(isSlab(id))return [[x,y,z,x+1,y+.5,z+1]];
+ if(isStair(id))return [[x,y,z,x+1,y+.5,z+1],[x,y+.5,z,x+1,y+1,z+.5]];
+ return [[x,y,z,x+1,y+1,z+1]];
 }
-/* The first solid face a hand crosses going from a to b - a voxel walk
-   like raycast(), but only solid blocks catch a hand, not flowers or water. */
-function handSweep(a, b){
-  const dx = b.x - a.x, dy = b.y - a.y, dz = b.z - a.z, len = Math.hypot(dx, dy, dz);
-  let x = Math.floor(a.x), y = Math.floor(a.y), z = Math.floor(a.z);
-  if(len < 1e-5 || isSolid(getBlock(x, y, z))) return null;   // buried: wait for it to come out
-  const ux = dx / len, uy = dy / len, uz = dz / len, reach = len + 0.02;
-  const sx = ux > 0 ? 1 : -1, sy = uy > 0 ? 1 : -1, sz = uz > 0 ? 1 : -1;
-  const ax = Math.max(Math.abs(ux), 1e-9), ay = Math.max(Math.abs(uy), 1e-9), az = Math.max(Math.abs(uz), 1e-9);
-  let tX = (sx > 0 ? x + 1 - a.x : a.x - x) / ax;
-  let tY = (sy > 0 ? y + 1 - a.y : a.y - y) / ay;
-  let tZ = (sz > 0 ? z + 1 - a.z : a.z - z) / az;
-  for(let i = 0; i < 16; i++){
-    let t, n;
-    if(tX < tY && tX < tZ){ x += sx; t = tX; tX += 1 / ax; n = [-sx, 0, 0]; }
-    else if(tY < tZ)       { y += sy; t = tY; tY += 1 / ay; n = [0, -sy, 0]; }
-    else                   { z += sz; t = tZ; tZ += 1 / az; n = [0, 0, -sz]; }
-    if(t > reach) return null;
-    const id = getBlock(x, y, z);
-    if(isSolid(id)){
-      const n3 = new THREE.Vector3(n[0], n[1], n[2]);
-      const point = new THREE.Vector3(a.x + ux * t, a.y + uy * t, a.z + uz * t).addScaledVector(n3, 0.005);
-      return { id, n: n3, point };
-    }
+function handSweep(a,b){
+ const delta=b.clone().sub(a),len=delta.length();if(len<.00001||len>1.5)return null;
+ const radius=GORILLA_PALM;let best=null,bestT=Infinity;
+ for(let x=Math.floor(Math.min(a.x,b.x)-radius);x<=Math.floor(Math.max(a.x,b.x)+radius);x++)
+ for(let y=Math.floor(Math.min(a.y,b.y)-radius);y<=Math.floor(Math.max(a.y,b.y)+radius);y++)
+ for(let z=Math.floor(Math.min(a.z,b.z)-radius);z<=Math.floor(Math.max(a.z,b.z)+radius);z++){
+  const id=getBlock(x,y,z);
+  for(const box of gorillaBoxes(id,x,y,z)){
+   const av=[a.x,a.y,a.z],dv=[delta.x,delta.y,delta.z];let enter=-Infinity,exit=Infinity,axis=-1,sign=0;
+   for(let k=0;k<3;k++){
+    const lo=box[k]-radius,hi=box[k+3]+radius;
+    if(Math.abs(dv[k])<1e-9){if(av[k]<lo||av[k]>hi){exit=-Infinity;break;}continue;}
+    let t0=(lo-av[k])/dv[k],t1=(hi-av[k])/dv[k],n=-1;if(t0>t1){[t0,t1]=[t1,t0];n=1;}
+    if(t0>enter){enter=t0;axis=k;sign=n;}exit=Math.min(exit,t1);
+   }
+   if(enter>exit||exit<0||enter>1||axis<0)continue;
+   // A hand newly touching the margin may start slightly inside the palm shell.
+   if(enter<0){
+    let depth=Infinity;axis=-1;
+    for(let k=0;k<3;k++)for(const n of [-1,1]){const gap=n<0?av[k]-(box[k]-radius):(box[k+3]+radius)-av[k];if(gap>=0&&gap<depth){depth=gap;axis=k;sign=n;}}
+    if(depth>radius*.8||axis<0||dv[axis]*sign>=-.00001)continue;enter=0;
+   }
+   if(enter>=bestT)continue;const normal=new THREE.Vector3();normal.setComponent(axis,sign);
+   const point=a.clone().addScaledVector(delta,enter);point.setComponent(axis,(sign<0?box[axis]-radius:box[axis+3]+radius)+sign*.002);
+   bestT=enter;best={id,n:normal,point,cell:[x,y,z]};
   }
-  return null;
+ }
+ return best;
+}
+function gorillaRemember(v,dt){
+ gHist.push({v:v.clone(),dt});let total=gHist.reduce((n,s)=>n+s.dt,0);
+ while(gHist.length&&total>GORILLA_MEMORY){const excess=total-GORILLA_MEMORY,first=gHist[0];if(first.dt<=excess){total-=first.dt;gHist.shift();}else{first.dt-=excess;break;}}
+}
+function gorillaLaunch(){
+ const velocity=new THREE.Vector3();let time=0;for(const sample of gHist){velocity.addScaledVector(sample.v,sample.dt);time+=sample.dt;}
+ if(time>0)velocity.multiplyScalar(GORILLA_THROW/time);if(velocity.length()<.25)velocity.set(0,0,0);if(velocity.length()>GORILLA_MAX)velocity.setLength(GORILLA_MAX);return velocity;
 }
 function gorillaStep(dt){
-  if(dt <= 0) return;
-  xrRig.updateMatrixWorld(true);
-  camera.getWorldPosition(_gHead);
-  const turned = xrRig.rotation.y !== gYaw;      // a snap turn swings both hands round: start afresh
-  gYaw = xrRig.rotation.y;
-  const push = new THREE.Vector3();
-  let holds = 0;
-  [leftCtrl, rightCtrl].forEach((c, i) => {
-    const h = gHands[i], hand = i ? 'right' : 'left';
-    h.tapT -= dt;
-    if(renderer.xr.isPresenting && !c.userData.inputSource){ h.prev = null; h.anchor = null; return; }
-    const cur = c.getWorldPosition(new THREE.Vector3());
-    if(turned || !h.prev || cur.distanceTo(_gHead) > 1.4){ h.prev = cur; h.anchor = null; return; }
-    if(h.anchor){
-      const m = cur.clone().sub(h.anchor);
-      if(m.dot(h.n) / dt > GORILLA_LET_GO || m.length() > 0.6) h.anchor = null;   // pulled away
-    }
-    if(!h.anchor){
-      // the hand's whole path since last frame, body motion included - so
-      // flying into a wall slaps a hand onto it, just like the real thing
-      const hit = handSweep(h.prev, cur);
-      if(hit){
-        h.anchor = hit.point; h.n = hit.n;
-        hapticPulse(hand, 0.35, 22);
-        if(h.tapT <= 0){ blockSfx(hit.id, 'step'); h.tapT = 0.12; }
-      }
-    }
-    if(h.anchor){ push.add(h.anchor.clone().sub(cur)); holds++; h.prev = h.anchor.clone(); }
-    else h.prev = cur;
-  });
-  player.gorillaHold = holds > 0;
-  if(holds){
-    // the planted hand stays put in the world, so the body goes the other way
-    push.divideScalar(holds);
-    if(push.length() > GORILLA_STEP) push.setLength(GORILLA_STEP);
-    player.vel.set(push.x / dt, push.y / dt, push.z / dt);
-    gHist.push(player.vel.clone());
-    if(gHist.length > 6) gHist.shift();
-  } else if(gWasHolding && gHist.length){
-    // let go: the swing carries on
-    const v = new THREE.Vector3();
-    gHist.forEach(s => v.add(s));
-    v.divideScalar(gHist.length).multiplyScalar(GORILLA_THROW);
-    if(v.length() > GORILLA_MAX) v.setLength(GORILLA_MAX);
-    player.vel.copy(v);
-    gHist.length = 0;
+ if(!Number.isFinite(dt)||dt<=0)return;
+ xrRig.updateMatrixWorld(true);camera.getWorldPosition(_gHead);
+ const bodyDelta=gBodyPrev?player.pos.clone().sub(gBodyPrev):new THREE.Vector3();
+ const rigDelta=gRigPrev?xrRig.position.clone().sub(gRigPrev):new THREE.Vector3();
+ const resetFrame=dt>.06||Math.abs(xrRig.rotation.y-gYaw)>.001||bodyDelta.length()>.8;
+ gYaw=xrRig.rotation.y;
+ if(resetFrame){gorillaReset();player.vel.set(0,0,0);}
+ if(gWasHolding&&gPrevDt>0&&!resetFrame)gorillaRemember(bodyDelta.clone().divideScalar(gPrevDt),gPrevDt);
+ const impactSpeed=player.vel.y;const push=new THREE.Vector3();let holds=0,unsafe=resetFrame;
+ [leftCtrl,rightCtrl].forEach((c,i)=>{
+  const h=gHands[i],hand=i?'right':'left';h.tapT-=dt;h.releaseT=Math.max(0,h.releaseT-dt);
+  const grip=controllerGrips[controllers.indexOf(c)],pose=renderer.xr.isPresenting&&grip?grip:c;
+  if(renderer.xr.isPresenting&&(!c.userData.inputSource||!pose.visible)){
+   if(h.anchor)unsafe=true;h.prev=h.anchor=h.n=h.cell=null;return;
   }
-  gWasHolding = holds > 0;
+  const cur=pose.getWorldPosition(new THREE.Vector3());
+  const physicalDelta=h.prev?cur.clone().sub(h.prev).sub(rigDelta):new THREE.Vector3();
+  if(![cur.x,cur.y,cur.z].every(Number.isFinite)){unsafe=true;h.prev=h.anchor=h.n=h.cell=null;return;}
+  if(resetFrame||!h.prev||cur.distanceTo(_gHead)>1.45||physicalDelta.length()>.65||h.source!==c.userData.inputSource){
+   if(h.anchor)unsafe=true;h.prev=cur;h.anchor=h.n=h.cell=null;h.source=c.userData.inputSource;return;
+  }
+  if(h.anchor){
+   const id=getBlock(...h.cell),support=gorillaBoxes(id,...h.cell).some(box=>[0,1,2].every(k=>h.anchor.getComponent(k)>=box[k]-GORILLA_PALM-.01&&h.anchor.getComponent(k)<=box[k+3]+GORILLA_PALM+.01));
+   const separation=cur.clone().sub(h.anchor),gap=separation.dot(h.n),outSpeed=physicalDelta.dot(h.n)/dt;
+   const sideways=separation.clone().addScaledVector(h.n,-gap).length();
+   if(!support){unsafe=true;h.anchor=null;}
+   // A palm is a collision surface, not a grab: keep contact only while the real hand presses inward.
+   else if(outSpeed>-GORILLA_PRESS_SPEED||gap>GORILLA_RELEASE_GAP||(sideways>GORILLA_DRAG_LIMIT&&gap>-.025)||separation.length()>.55){h.anchor=null;h.releaseT=.05;}
+  }
+  if(!h.anchor&&h.releaseT<=0){
+   const hit=handSweep(h.prev,cur);
+   if(hit){h.anchor=hit.point;h.n=hit.n;h.cell=hit.cell;hapticPulse(hand,.3,20);if(h.tapT<=0){blockSfx(hit.id,'step');h.tapT=.15;}}
+  }
+  if(h.anchor){const correction=h.anchor.clone().sub(cur);if(correction.length()>.0025)push.add(correction);holds++;}
+  h.prev=cur;
+ });
+ // A hard landing on the palms counts too; catching a wall still arrests a fall.
+ if(holds&&!gWasHolding&&impactSpeed<-2&&gHands.some(h=>h.anchor&&h.n.y>.5)){
+  const hit=fallDamageForDistance(fallPeak-player.pos.y,true);if(hit>0)damage(hit);fallPeak=player.pos.y;
+  if(dead){gorillaReset();return;}
+ }
+ player.gorillaHold=holds>0;
+ if(holds){
+  push.divideScalar(holds);const limit=Math.min(GORILLA_STEP,GORILLA_MAX*dt);if(push.length()>limit)push.setLength(limit);player.vel.copy(push).divideScalar(dt);
+ }else if(gWasHolding){
+  if(!unsafe)player.vel.copy(gorillaLaunch());else player.vel.set(0,0,0);
+  gHist.length=0;
+ }
+ if(unsafe)gHist.length=0;
+ gWasHolding=holds>0;gBodyPrev=player.pos.clone();gRigPrev=xrRig.position.clone();gPrevDt=dt;
 }
 
 function updateVR(dt){
@@ -14594,7 +14662,6 @@ function updateVR(dt){
   }
   xrRig.rotation.y = vrYawOffset;
   xrRig.updateMatrixWorld(true);
-  updateAvatarArms();
   // movement: left thumbstick, relative to (head yaw + snap offset)
   const la = readAxes('left');
   let mvx = 0, mvz = 0;
@@ -14616,8 +14683,13 @@ function updateVR(dt){
   const wishX = (fwdX * -dz + rgtX * dx)/magnitude, wishZ = (fwdZ * -dz + rgtZ * dx)/magnitude;
   const crouchMul = vrCrouch ? 0.5 : 1;
   if(gorillaActive(swimming)){
-    gorillaStep(dt);                 // your arms move you; the right stick still turns
-    updateVignette(dt, false);
+    gorillaStep(dt);
+    // The stick is optional help between pushes; a planted hand always takes priority.
+    if(!player.gorillaHold&&(dx!==0||dz!==0)){
+      player.vel.x+=(wishX*speed*crouchMul-player.vel.x)*Math.min(1,dt*8);
+      player.vel.z+=(wishZ*speed*crouchMul-player.vel.z)*Math.min(1,dt*8);
+    }
+    updateVignette(dt,!player.gorillaHold&&(dx!==0||dz!==0));
   } else {
     gorillaReset();                  // flying, swimming or riding: back on the stick
     if(!gliding){
@@ -14628,6 +14700,7 @@ function updateVR(dt){
     updateVignette(dt, dx !== 0 || dz !== 0);
   }
 
+  updateAvatarArms();
   // ---- jump (right A/X button, index 4) & fly-up ----
   const rb = readButtons('right');
   const jumpDown = !!(rb && rb[4] && rb[4].pressed);
@@ -14676,6 +14749,7 @@ function updateVR(dt){
     if(triggerEdge){if(wristHover===9)openCraftVR();else{selectSlot(wristHover);vrBuildTool();}vrActionRelease=true;}
     vrGripWas=!!rbtn?.[1]?.pressed;resetMine();hl.visible=false;updateWristHotbar();return;
   }
+  updateVRSwingMining(dt);
   if(triggerDown){
     const { o, d } = ctrlOriginDir(rightCtrl);
     const eh = rayEntity(o, d, REACH);
