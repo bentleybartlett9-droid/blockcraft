@@ -390,7 +390,7 @@ const SPLASHES = ['Punch trees!', 'Now with zombies!', 'Diamonds are deep!', 'On
 document.getElementById('splash').textContent = SPLASHES[Math.floor(Math.random() * SPLASHES.length)];
 {
   const bl = document.getElementById('buildLabel');
-  const label = IS_DESKTOP ? 'Desktop Edition · ' : IS_MOBILE ? 'Mobile Edition · ' : IS_VR ? 'VR · Smoother Gorilla Arms · ' : '';
+  const label = IS_DESKTOP ? 'Desktop Edition · ' : IS_MOBILE ? 'Mobile Edition · ' : IS_VR ? 'VR · Non-Sticking Gorilla Arms · ' : '';
   if(bl) bl.textContent = label;
 }
 
@@ -14231,6 +14231,7 @@ function setVrMoveMode(m){
 const GORILLA_G = 16;
 const GORILLA_THROW = 1.18, GORILLA_MAX = 9, GORILLA_STEP = .35;
 const GORILLA_FLOOR = .5, GORILLA_PALM = .065, GORILLA_MEMORY = .12;
+const GORILLA_RELEASE_GAP = .018, GORILLA_PRESS_SPEED = .03, GORILLA_DRAG_LIMIT = .18;
 const gHands = Array.from({length:2},()=>({prev:null,anchor:null,n:null,cell:null,tapT:0,releaseT:0,source:null}));
 const gHist=[];
 let gYaw=0,gWasHolding=false,gBodyPrev=null,gRigPrev=null,gPrevDt=0;
@@ -14316,8 +14317,10 @@ function gorillaStep(dt){
   if(h.anchor){
    const id=getBlock(...h.cell),support=gorillaBoxes(id,...h.cell).some(box=>[0,1,2].every(k=>h.anchor.getComponent(k)>=box[k]-GORILLA_PALM-.01&&h.anchor.getComponent(k)<=box[k+3]+GORILLA_PALM+.01));
    const separation=cur.clone().sub(h.anchor),gap=separation.dot(h.n),outSpeed=physicalDelta.dot(h.n)/dt;
+   const sideways=separation.clone().addScaledVector(h.n,-gap).length();
    if(!support){unsafe=true;h.anchor=null;}
-   else if(gap>.065||(gap>.025&&outSpeed>.8)||separation.length()>.55){h.anchor=null;h.releaseT=.08;}
+   // A palm is a collision surface, not a grab: keep contact only while the real hand presses inward.
+   else if(outSpeed>-GORILLA_PRESS_SPEED||gap>GORILLA_RELEASE_GAP||(sideways>GORILLA_DRAG_LIMIT&&gap>-.025)||separation.length()>.55){h.anchor=null;h.releaseT=.05;}
   }
   if(!h.anchor&&h.releaseT<=0){
    const hit=handSweep(h.prev,cur);
