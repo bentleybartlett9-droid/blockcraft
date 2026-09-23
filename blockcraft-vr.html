@@ -1013,7 +1013,7 @@ const BONE=455, BONE_MEAL=456, SHIELD=454, ROD=447, COD=448, SALMON=449, COOKED_
 const EGG_RUN = 37, EGG_EXTRA = 479;          // eggs past the first 37 carry on from 479
 const eggId = i => i < EGG_RUN ? EGG_BASE + i : EGG_EXTRA + i - EGG_RUN, eggIcon = i => i < EGG_RUN ? 120 + i : i === EGG_RUN ? 175 : 180 + i - EGG_RUN;
 const eggMob = id => { const i = id >= EGG_BASE && id < EGG_BASE + EGG_RUN ? id - EGG_BASE : id >= EGG_EXTRA ? EGG_RUN + id - EGG_EXTRA : -1; return i >= 0 && i < SPAWN_EGGS.length ? SPAWN_EGGS[i][0] : null; };
-const SLIMEBALL=477, SLIME_BLOCK=478, LANTERN=490, CAMPFIRE=491, BEEHIVE=492, BEEHIVE_FULL=493, HONEY_BOTTLE=494, HONEYCOMB=495, FENCE=496, GATE=497, GATE_OPEN=498, SHEARS=499, TRIDENT=500, JUKEBOX=501, DISC_1=502, MAP=506, ANVIL=507, CARVED_PUMPKIN=508, JACK_O_LANTERN=509, PAINTING=510, COMPOSTER=511, GRINDSTONE=512, NOTEBLOCK=513, BARREL=514, FRAME=515, ENDERCHEST=516, CAULDRON=517, LIGHTNINGROD=518, SMITHING=519, FLOWERPOT=520, BEDHEAD=521, TRAPDOOR=522, REDGUM_LOG=523, REDGUM_PLANK=524, REDGUM_LEAVES=525, BOAB_PLANK=526, COBBLE=527, REDSTONE_ORE=528, REDSTONE=529, LAPIS_ORE=530, LAPIS=531, REDSTONE_BLOCK=532, LAPIS_BLOCK=533, DS_COAL=534, DS_IRON=535, DS_COPPER=536, DS_GOLD=537, DS_REDSTONE=538, DS_LAPIS=539, DS_DIAMOND=540, DS_EMERALD=541;   // 502-505: music discs
+const SLIMEBALL=477, SLIME_BLOCK=478, LANTERN=490, CAMPFIRE=491, BEEHIVE=492, BEEHIVE_FULL=493, HONEY_BOTTLE=494, HONEYCOMB=495, FENCE=496, GATE=497, GATE_OPEN=498, SHEARS=499, TRIDENT=500, JUKEBOX=501, DISC_1=502, MAP=506, ANVIL=507, CARVED_PUMPKIN=508, JACK_O_LANTERN=509, PAINTING=510, COMPOSTER=511, GRINDSTONE=512, NOTEBLOCK=513, BARREL=514, FRAME=515, ENDERCHEST=516, CAULDRON=517, LIGHTNINGROD=518, SMITHING=519, FLOWERPOT=520, BEDHEAD=521, TRAPDOOR=522, REDGUM_LOG=523, REDGUM_PLANK=524, REDGUM_LEAVES=525, BOAB_PLANK=526, COBBLE=527, REDSTONE_ORE=528, REDSTONE=529, LAPIS_ORE=530, LAPIS=531, REDSTONE_BLOCK=532, LAPIS_BLOCK=533, DS_COAL=534, DS_IRON=535, DS_COPPER=536, DS_GOLD=537, DS_REDSTONE=538, DS_LAPIS=539, DS_DIAMOND=540, DS_EMERALD=541, RAW_IRON=542, RAW_GOLD=543, RAW_COPPER=544, RAW_IRON_BLOCK=545, RAW_GOLD_BLOCK=546, RAW_COPPER_BLOCK=547;   // 502-505: music discs
 const isFenceish = id => id === FENCE || id === GATE || id === GATE_OPEN;
 const hivesSeen = new Set();           // "x,y,z" of overworld hives the mesher has seen
 const campfires = new Set();            // "dim:x,y,z" of campfires the mesher has seen
@@ -1308,6 +1308,9 @@ ITEMS[SLIMEBALL]={name:'Slimeball',icon:176};BLOCKS[LANTERN]={name:'Lantern',all
 ITEMS[HONEY_BOTTLE]={name:'Honey Bottle',icon:177,food:6};ITEMS[SHEARS]={name:'Shears',icon:179,tool:{type:'shears',tier:2}};BLOCKS[JUKEBOX]={name:'Jukebox',top:282,bottom:281,side:281};
 ITEMS[MAP]={name:'Map',icon:188};BLOCKS[ANVIL]={name:'Anvil',all:283};BLOCKS[PAINTING]={name:'Painting',all:285};BLOCKS[COMPOSTER]={name:'Composter',top:294,bottom:294,side:293};BLOCKS[GRINDSTONE]={name:'Grindstone',all:296};BLOCKS[NOTEBLOCK]={name:'Note Block',all:297};BLOCKS[BARREL]={name:'Barrel',top:299,bottom:298,side:298};BLOCKS[FRAME]={name:'Item Frame',all:300};BLOCKS[ENDERCHEST]={name:'Ender Chest',all:301};BLOCKS[CAULDRON]={name:'Cauldron',all:302};BLOCKS[LIGHTNINGROD]={name:'Lightning Rod',all:305};BLOCKS[SMITHING]={name:'Smithing Table',top:306,bottom:281,side:307};BLOCKS[FLOWERPOT]={name:'Flower Pot',all:308};BLOCKS[BEDHEAD]={name:'Bed',top:T.BED_TOP,bottom:T.PLANK,side:T.PLANK};BLOCKS[TRAPDOOR]={name:'Trapdoor',all:310};
 BLOCKS[REDGUM_LOG]={name:'Red Gum Log',top:312,bottom:312,side:311};BLOCKS[REDGUM_PLANK]={name:'Red Gum Planks',all:313};BLOCKS[REDGUM_LEAVES]={name:'Red Gum Leaves',all:314};BLOCKS[BOAB_PLANK]={name:'Boab Planks',all:316};BLOCKS[COBBLE]={name:'Cobblestone',all:317};BLOCKS[REDSTONE_ORE]={name:'Redstone Ore',all:318};BLOCKS[LAPIS_ORE]={name:'Lapis Lazuli Ore',all:319};ITEMS[REDSTONE]={name:'Redstone Dust',icon:250};ITEMS[LAPIS]={name:'Lapis Lazuli',icon:251};BLOCKS[REDSTONE_BLOCK]={name:'Block of Redstone',all:322};BLOCKS[LAPIS_BLOCK]={name:'Block of Lapis Lazuli',all:323};
+// Raw metals, as in Minecraft 1.17+: iron, gold and copper ores drop these, to smelt into ingots
+ITEMS[RAW_IRON]={name:'Raw Iron',icon:252};ITEMS[RAW_GOLD]={name:'Raw Gold',icon:253};ITEMS[RAW_COPPER]={name:'Raw Copper',icon:254};
+BLOCKS[RAW_IRON_BLOCK]={name:'Block of Raw Iron',all:330};BLOCKS[RAW_GOLD_BLOCK]={name:'Block of Raw Gold',all:331};BLOCKS[RAW_COPPER_BLOCK]={name:'Block of Raw Copper',all:332};
 // Deepslate ores: the ores found below Y 0, set in deepslate. Same drops and tools as the plain ore, slower to mine.
 const DEEP_BASE = { [DS_COAL]: COALO, [DS_IRON]: IRONO, [DS_COPPER]: COPPERO, [DS_GOLD]: GOLDO, [DS_REDSTONE]: REDSTONE_ORE, [DS_LAPIS]: LAPIS_ORE, [DS_DIAMOND]: DIAMO, [DS_EMERALD]: EMERO };
 const DEEP_ORE = {}, DEEP_TILE = [320, 321, 324, 325, 326, 327, 328, 329];
@@ -1392,7 +1395,7 @@ function faceVisible(b, n){
   if(b === GLASS) return n === WATER;
   return !isOpaque(n);
 }
-const dropOf = id => DEEP_BASE[id] ? dropOf(DEEP_BASE[id]) : id===REDSTONE_ORE?REDSTONE:id===LAPIS_ORE?LAPIS:id===STONE?COBBLE:id===BEDHEAD?BED:id===BEEHIVE_FULL?BEEHIVE:id===GATE_OPEN?GATE:id===SKYGRASS?STORMSTONE:id===VOLTITE_ORE?VOLTITE:id===CONDUIT_LIT?CONDUIT:id===CHORUS_PLANT?CHORUS_FRUIT:id===ANCHOR_LIT?ANCHOR:id===CRIM_NYL||id===WARP_NYL?NETHERRACK:id===QUARTZ_ORE?QUARTZ:id===NGOLD_ORE?GNUGGET:id===GILDED?(Math.random()<.1?GNUGGET:GILDED):id===SNOWY_GRASS?DIRT:id===GLOWVINE?BERRIES:id===AMETHYST_C||id===BUDDING?AMETHYST_SHARD:id===DRIP_DOWN?DRIP_UP:id===BERRYBUSH?BERRIES:id===CRYSTALORE||id===GLOWCRYSTAL?CRYSTALSHARD:id === GRASS || id === SAVGRASS || id === FARMLAND ? DIRT : id === COALO ? COALI : id === DIAMO ? DIAMI :
+const dropOf = id => DEEP_BASE[id] ? dropOf(DEEP_BASE[id]) : id===IRONO?RAW_IRON:id===GOLDO?RAW_GOLD:id===COPPERO?RAW_COPPER:id===REDSTONE_ORE?REDSTONE:id===LAPIS_ORE?LAPIS:id===STONE?COBBLE:id===BEDHEAD?BED:id===BEEHIVE_FULL?BEEHIVE:id===GATE_OPEN?GATE:id===SKYGRASS?STORMSTONE:id===VOLTITE_ORE?VOLTITE:id===CONDUIT_LIT?CONDUIT:id===CHORUS_PLANT?CHORUS_FRUIT:id===ANCHOR_LIT?ANCHOR:id===CRIM_NYL||id===WARP_NYL?NETHERRACK:id===QUARTZ_ORE?QUARTZ:id===NGOLD_ORE?GNUGGET:id===GILDED?(Math.random()<.1?GNUGGET:GILDED):id===SNOWY_GRASS?DIRT:id===GLOWVINE?BERRIES:id===AMETHYST_C||id===BUDDING?AMETHYST_SHARD:id===DRIP_DOWN?DRIP_UP:id===BERRYBUSH?BERRIES:id===CRYSTALORE||id===GLOWCRYSTAL?CRYSTALSHARD:id === GRASS || id === SAVGRASS || id === FARMLAND ? DIRT : id === COALO ? COALI : id === DIAMO ? DIAMI :
                      id === EMERO ? EMERALD : id === DEADBUSH ? STICK : id;
 function toolClassOf(id){
   if(DEEP_BASE[id]) return 'pick';
@@ -1425,7 +1428,7 @@ function toolClassOf(id){
   if(id === GRASS || id === SAVGRASS || id === DIRT || id === SAND || id === SNOW || id === SNOWY_GRASS || id === SNOW_LAYER) return 'shovel';
   if(id === DEEPSLATE) return 'pick';
   if(id === STONE || id === COBBLE || id === BRICK || id === SBRICK || id === GLOWB || id === FURN || id === IRONB ||
-     id === GOLDB || id === DIAMB || id === COALO || id === IRONO || id === GOLDO || id === DIAMO || id === EMERO || id === REDSTONE_ORE || id === LAPIS_ORE || id === REDSTONE_BLOCK || id === LAPIS_BLOCK) return 'pick';
+     id === GOLDB || id === DIAMB || id === COALO || id === IRONO || id === GOLDO || id === DIAMO || id === EMERO || id === REDSTONE_ORE || id === LAPIS_ORE || id === REDSTONE_BLOCK || id === LAPIS_BLOCK || id === RAW_IRON_BLOCK || id === RAW_GOLD_BLOCK || id === RAW_COPPER_BLOCK) return 'pick';
   return null;
 }
 function handTime(id){
@@ -1525,6 +1528,12 @@ const RECIPES = [
   { out: [TNT, 1],    in: [[GUNPOWDER, 5], [SAND, 4]], st: 'table' },
   { out: [IRONI, 1],  in: [[IRONO, 1], [COALI, 1]], st: 'furnace' },
   { out: [GOLDI, 1],  in: [[GOLDO, 1], [COALI, 1]], st: 'furnace' },
+  { out: [IRONI, 1],  in: [[RAW_IRON, 1], [COALI, 1]], st: 'furnace' },
+  { out: [GOLDI, 1],  in: [[RAW_GOLD, 1], [COALI, 1]], st: 'furnace' },
+  { out: [COPPERI, 1], in: [[RAW_COPPER, 1], [COALI, 1]], st: 'furnace' },
+  { out: [RAW_IRON_BLOCK, 1], in: [[RAW_IRON, 9]], st: 'table' }, { out: [RAW_IRON, 9], in: [[RAW_IRON_BLOCK, 1]] },
+  { out: [RAW_GOLD_BLOCK, 1], in: [[RAW_GOLD, 9]], st: 'table' }, { out: [RAW_GOLD, 9], in: [[RAW_GOLD_BLOCK, 1]] },
+  { out: [RAW_COPPER_BLOCK, 1], in: [[RAW_COPPER, 9]], st: 'table' }, { out: [RAW_COPPER, 9], in: [[RAW_COPPER_BLOCK, 1]] },
   { out: [GLASS, 2],  in: [[SAND, 2], [COALI, 1]], st: 'furnace' },
   { out: [STONE, 1],  in: [[527, 1], [COALI, 1]], st: 'furnace' },
   { out: [528 + 1, 1], in: [[528, 1], [COALI, 1]], st: 'furnace' },
@@ -1621,6 +1630,16 @@ itemAtlas.width = 128; itemAtlas.height = 512;   // 256 icons
     return y < 8 ? [236, 60, 48] : [170, 16, 12]; });
   px(251, (x, y) => { const d = Math.abs(x - 7.5) + Math.abs(y - 7.5); if(d > 6.5) return null; if(d > 5.5) return [18, 36, 110];
     return (x + y) % 5 === 0 ? [120, 160, 245] : x < 8 && y < 8 ? [60, 100, 220] : [34, 66, 170]; });
+  // raw iron / gold / copper (252-254): a knobbly nugget of ore, lit on top, shaded below
+  const rawLump = (tile, base, lite, dark) => px(tile, (x, y) => {
+    const d = Math.hypot((x - 7.5) * 1.05, (y - 8) * 1.2) + (hash(x, y, tile) - 0.5) * 1.6;
+    if(d > 6) return null;
+    if(d > 5.1) return dark;
+    const spot = hash(x >> 1, y >> 1, tile + 9) < 0.28;
+    return y < 7 && d < 4 ? lite : spot ? dark : base; });
+  rawLump(252, [196, 160, 132], [232, 206, 180], [122, 92, 72]);   // raw iron: pinkish tan
+  rawLump(253, [232, 184, 38], [255, 236, 120], [156, 102, 18]);   // raw gold
+  rawLump(254, [200, 108, 64], [240, 158, 104], [120, 58, 34]);    // raw copper
 }
 {
   const tn = (x, y, s, salt) => vnoise(x * s + 37.7, y * s + 11.3, 5000 + salt);
@@ -1907,6 +1926,16 @@ itemAtlas.width = 128; itemAtlas.height = 512;   // 256 icons
   put(T.EMER_T, (x,y,r) => orePx(x,y,r,925,[52,190,102],[130,240,168]));
   put(318, (x,y,r) => orePx(x,y,r,926,[176,18,16],[255,72,60]));        // redstone ore
   put(319, (x,y,r) => orePx(x,y,r,927,[30,66,168],[82,126,232]));       // lapis ore
+  { // blocks of raw iron / gold / copper: packed nuggets
+    const rawBlock = (tile, base, lite, dark) => put(tile, (x, y, r) => {
+      const k = Math.floor((r() - 0.5) * 16), cell = hash(x >> 2, y >> 2, tile) ;
+      if((x & 3) === 3 || (y & 3) === 3) return dark;
+      return (x & 3) === 0 && (y & 3) === 0 ? lite : [base[0] + k + (cell - 0.5) * 20, base[1] + k + (cell - 0.5) * 20, base[2] + k];
+    });
+    rawBlock(330, [184, 150, 124], [226, 200, 176], [110, 84, 66]);
+    rawBlock(331, [220, 170, 40], [255, 232, 120], [140, 94, 20]);
+    rawBlock(332, [190, 102, 60], [236, 154, 100], [112, 54, 32]);
+  }
   put(322, (x,y,r) => {                                                // block of redstone
     const k = Math.floor((r() - 0.5) * 18);
     if(x === 0 || y === 0 || x === 15 || y === 15) return [120, 8, 6];
@@ -6770,11 +6799,47 @@ function trySleep(bx, by, bz){
   }
   for(const z of zombies)
     if(z.pos.distanceToSquared(player.pos) < 144){ flashName('You may not rest now — monsters are nearby!'); return false; }
-  sleepEl.style.opacity = 1;
   tone(420, 220, 0.5, 'sine', 0.1);
+  if(mpActive()){
+    // Playing together: as in Minecraft, you lie down and the night only
+    // passes once everyone is in bed (the host keeps the clock and counts)
+    sleeping = true; sleepPos = player.pos.clone();
+    sleepEl.style.opacity = 0.6;
+    if(isHost){ sleepers.add(MYTAG); sleepCountChanged(); } else mpBroadcast({ t: 'sleep', tag: MYTAG, on: true });
+    flashName('Spawn point set - waiting for everyone to get into bed');
+    return true;
+  }
+  sleepEl.style.opacity = 1;
   setTimeout(() => { timeOfDay = 0.27; sleepEl.style.opacity = 0; }, 750);
   flashName('Spawn point set');
   return true;
+}
+/* ---- sleeping in multiplayer ---- */
+let sleeping = false, sleepPos = null;
+const sleepers = new Set();                      // host: the tags of everyone lying in bed
+function sleepCountChanged(){
+  const total = remotes.size + 1;
+  mpBroadcast({ t: 'sleepers', n: sleepers.size, total });
+  if(sleeping) flashName('Sleeping - ' + sleepers.size + ' of ' + total + ' in bed');
+}
+function wakeUp(tell){
+  if(!sleeping) return;
+  sleeping = false; sleepPos = null; sleepEl.style.opacity = 0;
+  if(tell){ if(isHost){ sleepers.delete(MYTAG); sleepCountChanged(); } else mpBroadcast({ t: 'sleep', tag: MYTAG, on: false }); }
+}
+function updateSleep(){
+  // getting up: walking away from the bed, morning, or the game ending
+  if(sleeping && (!mpActive() || daylightOf(timeOfDay) > 0.35 || player.pos.distanceTo(sleepPos) > 0.8)) wakeUp(true);
+  if(!isHost || !mpActive() || !sleepers.size) return;
+  let changed = false;
+  for(const t of [...sleepers]) if(t !== MYTAG && !remotes.has(t)){ sleepers.delete(t); changed = true; }   // left the game
+  if(changed) sleepCountChanged();
+  if(sleepers.size >= remotes.size + 1 && daylightOf(timeOfDay) <= 0.35){
+    timeOfDay = 0.27;                              // everyone is asleep: morning, for all (the clock syncs to everyone)
+    sleepers.clear();
+    mpBroadcast({ t: 'wake' });
+    if(sleeping){ sleepEl.style.opacity = 1; setTimeout(() => { sleepEl.style.opacity = 0; }, 750); sleeping = false; sleepPos = null; }
+  }
 }
 
 /* ====================== shared entity helpers ======================= */
@@ -12092,6 +12157,12 @@ function onNet(c, m){
     if(isHost) mpBroadcast(m, c);
   } else if(m.t === 'trap'){
     const info = getTrapInfo(m.x | 0, m.y | 0, m.z | 0); info.open = !!m.open; trapState.set((m.x|0)+','+(m.y|0)+','+(m.z|0), info); rebuild(chunkAt((m.x|0) >> 4, (m.z|0) >> 4));
+  } else if(m.t === 'sleep'){
+    if(isHost){ if(m.on) sleepers.add(m.tag); else sleepers.delete(m.tag); sleepCountChanged(); }
+  } else if(m.t === 'sleepers'){
+    if(sleeping) flashName('Sleeping - ' + m.n + ' of ' + m.total + ' in bed');
+  } else if(m.t === 'wake'){
+    if(sleeping){ sleeping = false; sleepPos = null; sleepEl.style.opacity = 1; setTimeout(() => { sleepEl.style.opacity = 0; }, 750); }
   } else if(m.t === 'bstate'){
     netApplying = true; try { applyBState(m.kind, m.k, m.v); } finally { netApplying = false; }
     if(isHost) mpBroadcast(m, c);
@@ -12286,6 +12357,7 @@ function poseRemote(a, dt){
   a.tag.position.set(a.headP.x, a.headP.y + 0.6, a.headP.z);
 }
 function updateNet(dt){
+  updateSleep();
   posT -= dt;
   if(peer && posT <= 0 && mpActive() && inGame){
     posT = 0.05;
@@ -13523,7 +13595,7 @@ function breakBlock(x, y, z, id){
       const drop = dropOf(id);
       spawnDrop(x, y, z, drop);
       const ob = DEEP_BASE[id] || id;
-      const more = ob === REDSTONE_ORE ? 3 + (Math.random() * 2 | 0) : ob === LAPIS_ORE ? 3 + (Math.random() * 6 | 0) : 0;   // 4-5 redstone, 4-9 lapis
+      const more = ob === REDSTONE_ORE ? 3 + (Math.random() * 2 | 0) : ob === LAPIS_ORE ? 3 + (Math.random() * 6 | 0) : ob === COPPERO ? 1 + (Math.random() * 4 | 0) : 0;   // 4-5 redstone, 4-9 lapis, 2-5 raw copper
       for(let k = 0; k < more; k++) spawnDrop(x, y, z, drop);
       // Fortune: a chance of extra ore - diamonds, coal, quartz, gold nuggets
       const fortune = heldEnch('fortune');
@@ -13713,8 +13785,8 @@ const ALL_CREATIVE = (() => {
 })();
 // ---- item categories (used to group the creative palette and the crafting list) ----
 const CAT_NAMES = ['Building', 'Nature', 'Ores & Minerals', 'Decoration', 'Utility', 'Tools', 'Combat', 'Food', 'Misc'];
-const _oreBlocks = new Set([COALO, IRONO, GOLDO, DIAMO, EMERO, COPPERO, REDSTONE_ORE, LAPIS_ORE, QUARTZ_ORE, DEBRIS, ...Object.keys(DEEP_BASE).map(Number)]);
-const _matItems = new Set([REDSTONE, LAPIS, COALI, IRONI, GOLDI, DIAMI, COPPERI, EMERALD, NETHERITE, QUARTZ, AMETHYST_SHARD, GNUGGET, NSCRAP, STICK, STRING, LEATHER, FEATHER, GUNPOWDER, BLAZEROD, BLAZEPOWDER, GHASTTEAR, MAGMACREAM, ENDERPEARL, SLIMEBALL, BONE, BONE_MEAL, HONEYCOMB, PAPER]);
+const _oreBlocks = new Set([RAW_IRON_BLOCK, RAW_GOLD_BLOCK, RAW_COPPER_BLOCK, COALO, IRONO, GOLDO, DIAMO, EMERO, COPPERO, REDSTONE_ORE, LAPIS_ORE, QUARTZ_ORE, DEBRIS, ...Object.keys(DEEP_BASE).map(Number)]);
+const _matItems = new Set([RAW_IRON, RAW_GOLD, RAW_COPPER, REDSTONE, LAPIS, COALI, IRONI, GOLDI, DIAMI, COPPERI, EMERALD, NETHERITE, QUARTZ, AMETHYST_SHARD, GNUGGET, NSCRAP, STICK, STRING, LEATHER, FEATHER, GUNPOWDER, BLAZEROD, BLAZEPOWDER, GHASTTEAR, MAGMACREAM, ENDERPEARL, SLIMEBALL, BONE, BONE_MEAL, HONEYCOMB, PAPER]);
 const _decoBlocks = new Set([TORCH, SOUL_TORCH, PAINTING, FRAME, FLOWERPOT, LANTERN, JACK_O_LANTERN, CARVED_PUMPKIN, GLOWB, CAMPFIRE]);
 const _utilBlocks = new Set([CHEST, CRAFTT, FURN, BREWING, BARREL, ENDERCHEST, COMPOSTER, GRINDSTONE, NOTEBLOCK, JUKEBOX, ANVIL, SMITHING, CAULDRON, LADDER, FENCE, GATE, GATE_OPEN, BED, BEDHEAD, LIGHTNINGROD, TNT, BOOKSHELF, ENCH_TABLE]);
 const _natureBlocks = new Set([GRASS, DIRT, SAND, REDSAND, GRAVEL, SNOW, PODZOL, CACTUS, DEADBUSH, MUSHROOMR, MUSHROOMB, TGRASSB, POPPYB, DANDB]);
