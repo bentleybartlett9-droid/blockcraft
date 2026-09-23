@@ -479,17 +479,57 @@ function caveNoise(x, y, z){
    break out at the surface; and "noodles" - thin crawlways. Two thin noise
    sheets crossing make a tube, which is what gives the tunnels their shape. */
 const CHEESE_T = 0.815, SPAG_T = 0.022, NOODLE_T = 0.013;   // rarer, thinner caves - less swiss-cheese underground
+/* Caves, the way Minecraft 1.18 makes them - cheese caves (huge caverns with
+   stone pillars standing through them) and spaghetti caves (long winding
+   tunnels that break out at the surface) - plus ravines, carved separately in
+   genChunk. They share one network: caverns only swell out of the tunnels, so
+   every cave has a way in and you never need to dig to reach one (Minecraft's
+   thin noodle caves are left out: they were the ones that ended up sealed).
+   They open wider the deeper they lie. */
+const CAVE = { spF: 0.024, spFy: 0.034, spT: 0.038, chF: 0.018, chFy: 0.028, chT: 0.44, zone: 0.24, deep: 0.05, grow: 3.4,   // measured: ~24 cave blocks/column, 99.7%+ reachable
+               pilF: 0.085, pilFy: 0.012, pilT: 0.70 };
 function caveCarve(x, y0, z, h0){
-  const y = y0 - YS, h = h0 - YS;        // classic heights: caves keep their shapes in a deepened world
-  // caverns open wider the deeper you go (in a deep world they carry on down to the bedrock)
-  if(y0 > 3 && y < h - 7 && y < 80 && vnoise3(x * 0.018, y * 0.032, z * 0.018, 1301) > CHEESE_T - (y < 34 ? 0.035 : 0)) return true;
-  const a = vnoise3(x * 0.021, y * 0.03, z * 0.021, 1311) - 0.5;
-  if(Math.abs(a) < SPAG_T && Math.abs(vnoise3(x * 0.021, y * 0.03, z * 0.021, 1317) - 0.5) < SPAG_T) return true;
-  if(y < h - 3){
-    const c = vnoise3(x * 0.05, y * 0.06, z * 0.05, 1323) - 0.5;
-    if(Math.abs(c) < NOODLE_T && Math.abs(vnoise3(x * 0.05, y * 0.06, z * 0.05, 1329) - 0.5) < NOODLE_T) return true;
+  const y = y0 - YS, h = h0 - YS;        // classic heights: caves keep their place in a deepened world
+  const a = Math.abs(vnoise3(x * CAVE.spF, y * CAVE.spFy, z * CAVE.spF, 1311) - 0.5);
+  if(a > CAVE.zone) return false;                                          // nowhere near a tunnel: solid
+  const b = Math.abs(vnoise3(x * CAVE.spF, y * CAVE.spFy, z * CAVE.spF, 1317) - 0.5);
+  if(b > CAVE.zone) return false;
+  const q = Math.max(a, b);                                                 // how far from the tunnel's heart
+  if(q < CAVE.spT) return true;                                            // spaghetti: the tunnel itself
+  if(y0 <= 3 || y >= h - 7) return false;
+  // cheese cavern: it swells out from the tunnel - harder to open the further from it,
+  // so every cavern stays joined to its tunnel - and wider the deeper it lies
+  const need = CAVE.chT - (y < 34 ? CAVE.deep : 0) + CAVE.grow * (q - CAVE.spT);
+  if(need >= 1 || vnoise3(x * CAVE.chF, y * CAVE.chFy, z * CAVE.chF, 1301) <= need) return false;
+  return vnoise3(x * CAVE.pilF, y * CAVE.pilFy, z * CAVE.pilF, 1341) < CAVE.pilT;     // stone pillars left standing, as in Minecraft
+}
+/* Ravines: long narrow canyons, as in Minecraft - up to ~9 wide in the middle,
+   tapering at both ends and toward the floor, 30-55 deep, open to the sky. */
+const ravineCache = new Map();
+function ravineDef(gx, gz){
+  const k = gx + ',' + gz;
+  if(ravineCache.has(k)) return ravineCache.get(k);
+  let r = null;
+  if(hash(gx, gz, 8801) < 0.32){
+    const x = gx * 192 + 40 + Math.floor(hash(gx, gz, 8802) * 112), z = gz * 192 + 40 + Math.floor(hash(gx, gz, 8803) * 112);
+    const ang = hash(gx, gz, 8804) * Math.PI, len = 70 + Math.floor(hash(gx, gz, 8805) * 60);
+    r = { x, z, dx: Math.cos(ang), dz: Math.sin(ang), len, w: 4 + hash(gx, gz, 8806) * 5, depth: 30 + Math.floor(hash(gx, gz, 8807) * 25), bend: (hash(gx, gz, 8808) - 0.5) * 30 };
   }
-  return false;
+  ravineCache.set(k, r);
+  return r;
+}
+function ravinesNear(x, z){ const out = [], gx = Math.floor(x / 192), gz = Math.floor(z / 192); for(let a = -1; a <= 1; a++) for(let b = -1; b <= 1; b++){ const r = ravineDef(gx + a, gz + b); if(r) out.push(r); } return out; }
+// for one column: the ravine carving there, if any -> { d, w, lo }
+function ravineColumn(rs, x, z, h){
+  for(const r of rs){
+    const px = x - r.x, pz = z - r.z, t = px * r.dx + pz * r.dz;              // along the ravine
+    if(t < -r.len / 2 || t > r.len / 2) continue;
+    const u = t / r.len + 0.5, side = -px * r.dz + pz * r.dx - Math.sin(u * Math.PI) * r.bend;   // across it (it bends)
+    const w = r.w * Math.sin(u * Math.PI);                                  // widest mid-way, closing at the ends
+    const d = Math.abs(side + (vnoise(x * 0.2, z * 0.2, 8809) - 0.5) * 1.6); // ragged walls
+    if(d < w) return { d, w, lo: h - r.depth * (0.55 + 0.45 * Math.sin(u * Math.PI)) };
+  }
+  return null;
 }
 /* ---- Minecraft-style ore veins ------------------------------------------
    Ores come in clustered veins, not lone blocks, and each has its own height
@@ -499,6 +539,7 @@ function caveCarve(x, y0, z, h0){
    badlands), diamonds grow commoner the deeper you go, and emeralds are lone
    blocks found only inside mountains. One blob noise shapes every vein; a
    4-block cell decides which ore (if any) that blob becomes. */
+const nearSpawnR = (x, z) => x * x + z * z < 48 * 48;
 const tri = (y, lo, pk, hi) => y <= lo || y >= hi ? 0 : y < pk ? (y - lo) / (pk - lo) : (hi - y) / (hi - pk);
 /* Deep worlds: Minecraft 1.18's own ore placements, at its own Y levels
    (m = the Y the player sees). Each ore's veins-per-chunk are spread over its
@@ -591,7 +632,7 @@ function cavernDef(gx,gz){
  const key=gx+','+gz;if(cavernCache.has(key))return cavernCache.get(key);
  const x=gx*80+20+Math.floor(hash(gx,gz,9801)*40),z=gz*80+20+Math.floor(hash(gx,gz,9802)*40),surface=terrainHeight0(x,z);
  const ry=5+Math.floor(hash(gx,gz,9803)*3),y=Math.max(ry+5,Math.min(surface-ry-7,15+Math.floor(hash(gx,gz,9804)*12)));
- const c=surface>ry*2+13?{x,z,y:y+YS,ry,rx:13+Math.floor(hash(gx,gz,9805)*8),rz:13+Math.floor(hash(gx,gz,9806)*8),ruin:hash(gx,gz,9807)<.6,key:'crystal:'+key}:null;
+ const c=surface>ry*2+13?{x,z,y:y+YS,ramp:hash(gx,gz,9808)<.5,ry,rx:13+Math.floor(hash(gx,gz,9805)*8),rz:13+Math.floor(hash(gx,gz,9806)*8),ruin:hash(gx,gz,9807)<.6,key:'crystal:'+key}:null;
  cavernCache.set(key,c);return c;
 }
 function cavernsNear(x,z){const result=[];const gx=Math.floor(x/80),gz=Math.floor(z/80);for(let dx=-1;dx<=1;dx++)for(let dz=-1;dz<=1;dz++){const c=cavernDef(gx+dx,gz+dz);if(c)result.push(c);}return result;}
@@ -814,8 +855,16 @@ function dungeonDef(gx, gz){
     const cx = gx * 96 + 24 + Math.floor(hash(gx, gz, 7102) * 48);
     const cz = gz * 96 + 24 + Math.floor(hash(gx, gz, 7103) * 48);
     const surf = terrainHeight0(cx, cz);
-    const cy = 12 + Math.floor(hash(gx, gz, 7104) * Math.max(4, surf - 22));
-    if(cy > 6 && cy < surf - 6) d = { cx, cz, cy: cy + YS, key: 'D' + k };
+    // Minecraft only places a dungeon where a cave breaks into its walls - try a few heights for one
+    for(let tries = 0; tries < 8 && !d; tries++){
+      const cy = 12 + Math.floor(hash(gx, gz, 7104 + tries * 7) * Math.max(4, surf - 22));
+      if(!(cy > 6 && cy < surf - 6)) continue;
+      let open = false;
+      for(let k = -2; k <= 2 && !open; k += 2) for(let dy = 1; dy <= 2 && !open; dy++)
+        for(const [px, pz] of [[cx + 4, cz + k], [cx - 4, cz + k], [cx + k, cz + 4], [cx + k, cz - 4]])
+          if(caveCarve(px, cy + YS + dy, pz, terrainHeight(px, pz))){ open = true; break; }
+      if(open) d = { cx, cz, cy: cy + YS, key: 'D' + k };
+    }
   }
   dungeonCache.set(k, d);
   return d;
@@ -4753,7 +4802,7 @@ function* genChunkSteps(cx, cz){
   if(dim === 1) return yield* genNetherChunkSteps(cx, cz);
   if(dim === 2) return yield* genEndChunkSteps(cx, cz);
   if(dim === 3) return yield* genStormChunkSteps(cx, cz);
-  const caverns=cavernsNear(cx*16+8,cz*16+8);
+  const caverns=cavernsNear(cx*16+8,cz*16+8), ravines=GEN_V >= 4 ? ravinesNear(cx*16+8,cz*16+8) : [];
   const data = new Uint16Array(CHUNK * CHUNK * HEIGHT);
   const set = (lx, y, lz, id, keep) => {
     if(lx < 0 || lx > 15 || lz < 0 || lz > 15 || y < 0 || y >= HEIGHT) return;
@@ -4771,8 +4820,11 @@ function* genChunkSteps(cx, cz){
     const sandy = beach || biome === 'desert';
     const snowyTop = biome === 'snowy' || h >= SNOW_H;
     const dry = h > SEA + 1;                       // don't open caves under the sea (avoids flooding)
+    const rv = dry && !nearSpawnR(wx, wz) ? ravineColumn(ravines, wx, wz, h) : null;
+    const ramp = caverns.some(c=>{ const along = c.ramp ? wz - c.z : wx - c.x, across = c.ramp ? wx - c.x : wz - c.z; return along > 0 && Math.abs(across) <= 1 && c.y - c.ry + 2 + along * 0.6 <= h + 1; });
+    const rampLo = ramp ? Math.min(...caverns.map(c=>{ const along = c.ramp ? wz - c.z : wx - c.x, across = c.ramp ? wx - c.x : wz - c.z; return along > 0 && Math.abs(across) <= 1 ? c.y - c.ry + 2 + along * 0.6 : 9999; })) : 0;
     const cuts=caverns.map(c=>{const r=1-(wx-c.x)**2/(c.rx*c.rx)-(wz-c.z)**2/(c.rz*c.rz);return r>0?[c.y-c.ry*Math.sqrt(r),c.y+c.ry*Math.sqrt(r)]:null;}).filter(Boolean);
-    const nearSpawn = (wx * wx + wz * wz) < 24 * 24;  // keep the spawn area solid on top
+    const nearSpawn = (wx * wx + wz * wz) < 5 * 5;    // keep the spawn point itself solid on top (caves around it may still open)
     // Caves & Cliffs: steep ground is bare rock, so cliffs read as cliffs
     // and mountains are rock under their snow, not dirt, so their slopes don't stripe
     const alpine = GEN_V >= 2 && h > SEA + 45 && !badlands;
@@ -4802,6 +4854,8 @@ function* genChunkSteps(cx, cz){
       const topLimit = (dry && !nearSpawn) ? h : h - 1;   // spawn/underwater columns stay capped
       if(y > 1 && y <= topLimit && (GEN_V >= 2 ? caveCarve(wx, y, wz, h) : caveNoise(wx, y, wz) > 0.76)) carved = true;
       if(y>3&&y<h-5&&cuts.some(([lo,hi])=>y>lo&&y<hi))carved=true;
+      if(ramp && y >= rampLo && y <= rampLo + 3 && y <= h) carved = true;          // a sloping way down into the crystal cavern
+      if(rv && y > rv.lo && y <= h && rv.d < rv.w * (0.3 + 0.7 * (y - rv.lo) / Math.max(1, h - rv.lo))) carved = true;   // ravine, narrowing to its floor
       if(carved && b !== BEDROCK){
         b = AIR;
         if(GEN_V >= 2 && y < h - 6){
@@ -5052,6 +5106,9 @@ function stampDungeon(d, set, data, cx, cz){
   for(let dx = -R; dx <= R; dx++) for(let dz = -R; dz <= R; dz++) for(let dy = 0; dy <= H; dy++){
     const wx = d.cx + dx, wz = d.cz + dz, y = d.cy + dy;
     const wall = Math.abs(dx) === R || Math.abs(dz) === R || dy === 0 || dy === H;
+    const lx = wx - cx * 16, lz = wz - cz * 16;
+    // as in Minecraft the walls only replace rock: where a cave runs past, it stays open - the way in
+    if(wall && dy !== 0 && dy !== H && lx >= 0 && lx < 16 && lz >= 0 && lz < 16 && data[(y << 8) | (lz << 4) | lx] === AIR) continue;
     if(wall){
       // mossy/cracked cobble mix for that dungeon look
       const roll = hash(wx, wz + y, 7150);
@@ -17707,7 +17764,7 @@ window.__bc = {
   addTestConn: send => { const c = { open: true, send, peer: 'test', close(){} }; conns.push(c); return c; },
   dropTestConns: () => { conns = conns.filter(c => c.peer !== 'test'); },
   mobLists: () => Object.fromEntries(MOB_LISTS.map(([k, l]) => [k, l.length])),
-  atlas, BLOCKS, tileFor, ORE_K, YDISP,
+  atlas, BLOCKS, tileFor, ORE_K, YDISP, CAVE, cavernsNear, dungeonsNear, ravinesNear,
   stateAt: (kind, k) => ({ comp: composters, cauld: cauldrons, pot: pottedPlants, frame: frameItems }[kind] || new Map()).get(k),
   mpState: () => ({ code: mpRoomCode, status: mpStatusText, conns: conns.length,
                     voiceOn, vrMpMode, vrJoinCode, remotes: remotes.size }),
