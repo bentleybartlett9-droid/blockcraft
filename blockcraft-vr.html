@@ -1628,7 +1628,7 @@ const SEAGRASS=559, KELP=560, CORAL_TUBE=561, FAN_TUBE=566, CORALB_TUBE=571, SEA
 const CORAL_NAMES = ['Tube', 'Brain', 'Bubble', 'Fire', 'Horn'];
 const CORALS = CORAL_NAMES.map((n, i) => CORAL_TUBE + i), FANS = CORAL_NAMES.map((n, i) => FAN_TUBE + i), CORAL_BLOCKS = CORAL_NAMES.map((n, i) => CORALB_TUBE + i);
 const CORALB_SET = new Set(CORAL_BLOCKS);
-BLOCKS[SEAGRASS]={name:'Seagrass',all:342};BLOCKS[KELP]={name:'Kelp',all:343};BLOCKS[SEA_PICKLE]={name:'Sea Pickle',all:359};BLOCKS[ICE]={name:'Ice',all:360};BLOCKS[DEAD_CORALB]={name:'Dead Coral Block',all:361};
+BLOCKS[SEAGRASS]={name:'Seagrass',all:369};BLOCKS[KELP]={name:'Kelp',all:343};BLOCKS[SEA_PICKLE]={name:'Sea Pickle',all:359};BLOCKS[ICE]={name:'Ice',all:360};BLOCKS[DEAD_CORALB]={name:'Dead Coral Block',all:361};
 CORAL_NAMES.forEach((n, i) => { BLOCKS[CORALS[i]] = { name: n + ' Coral', all: 344 + i }; BLOCKS[FANS[i]] = { name: n + ' Coral Fan', all: 349 + i }; BLOCKS[CORAL_BLOCKS[i]] = { name: n + ' Coral Block', all: 354 + i }; });
 ITEMS[DRIED_KELP]={name:'Dried Kelp',icon:255,food:1};
 // treasure of the sea: buried treasure holds the Heart of the Sea; drowned and fishing give nautilus shells
@@ -2327,7 +2327,7 @@ itemAtlas.width = 128; itemAtlas.height = 1024;   // 512 icons
     return (x + y) % 3 === 0 ? [255, 236, 170] : [248+k/3, 196+k, 96+k];
   });
   // ---- the sea ----
-  put(342, (x,y,r) => {                                                 // seagrass: a tuft of long ribbons
+  put(369, (x,y,r) => {                                                 // seagrass: a tuft of long ribbons (342 is the snow's side)
     for(const bx of [2, 5, 9, 12]){
       const top = 1 + (bx * 7) % 5, sw = Math.round(Math.sin((y + bx) * 0.45) * 1.2);
       if(y >= top && (x === bx + sw || x === bx + sw + 1)) return y < top + 3 ? [86, 176, 70, 1] : x === bx + sw ? [44, 128, 46, 1] : [58, 150, 56, 1];
