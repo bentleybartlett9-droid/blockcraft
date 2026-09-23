@@ -439,7 +439,7 @@ function fbm(x, z, oct, salt){
   for(let i = 0; i < oct; i++){ v += amp * vnoise(x * f, z * f, salt + i * 7); f *= 2; amp *= 0.5; }
   return v / (1 - Math.pow(0.5, oct));
 }
-function terrainHeight0(x, z){   // the classic land, in classic (pre-deep) heights
+function landHeight0(x, z){   // the classic land, in classic (pre-deep) heights (before the sea is cut in)
   const cont   = fbm(x * 0.004, z * 0.004, 4, 11);
   const hills  = fbm(x * 0.015, z * 0.015, 4, 29);
   const detail = fbm(x * 0.06,  z * 0.06,  2, 47);
@@ -468,7 +468,170 @@ function terrainHeight0(x, z){   // the classic land, in classic (pre-deep) heig
   if(h > SEA0 + 100) h = SEA0 + 100 + (h - SEA0 - 100) * 0.4;   // keep peaks well below the ceiling, like Minecraft's sky room
   return Math.max(1, Math.min(HEIGHT - 6 - YS, Math.floor(h)));
 }
-function terrainHeight(x, z){ return terrainHeight0(x, z) + YS; }
+/* ---- Oceans and rivers ---------------------------------------------------
+   As in Minecraft, one very broad 'continentalness' field decides where the
+   land is and where the sea is - about a third of the world is ocean. Near
+   the coast the land settles into lowland and beach (a mountain meets the sea
+   as a low rocky cliff); offshore the sea floor drops to ~20 blocks down, and
+   far out it falls away to the deep ocean, ~35 down. Rivers wind for hundreds
+   of blocks across the land to the sea along one thin band of noise, and fade
+   out in the mountains. Land built on before the oceans came (oldLand) is
+   kept exactly as it was, with the new coast easing in around it. */
+const OCEAN = { f: 0.0007, T: 0.43, deep: 0.355, rF: 0.0016, rW: 0.009, bank: 0.022 };
+const clamp01 = v => v < 0 ? 0 : v > 1 ? 1 : v;
+const sm01 = v => smooth(clamp01(v));
+let oldLandKeys = [], oldLandList = [];
+const oldFadeCache = new Map(), colCache = new Map();
+function setOldLand(keys){
+  oldLandKeys = Array.isArray(keys) ? keys.filter(k => typeof k === 'string') : [];
+  oldLandList = oldLandKeys.map(k => k.split(',').map(Number)).filter(q => q.length === 2 && q.every(Number.isFinite));
+  oldFadeCache.clear(); colCache.clear();
+}
+// at the grid corner (gx*16, gz*16): 1 on and near old builds, fading to 0 about 90 blocks away
+function oldFadeCorner(gx, gz){
+  const k = gx + ',' + gz;
+  let v = oldFadeCache.get(k);
+  if(v !== undefined) return v;
+  const x = gx * 16, z = gz * 16;
+  let best = Infinity;
+  for(const [cx, cz] of oldLandList){
+    const dx = Math.max(cx * 16 - x, 0, x - cx * 16 - 16), dz = Math.max(cz * 16 - z, 0, z - cz * 16 - 16);
+    const d = dx * dx + dz * dz;
+    if(d < best) best = d;
+  }
+  v = 1 - sm01((Math.sqrt(best) - 24) / 64);
+  if(oldFadeCache.size > 60000) oldFadeCache.clear();
+  oldFadeCache.set(k, v);
+  return v;
+}
+function oldLandFade(x, z){
+  if(!oldLandList.length) return 0;
+  const gx = Math.floor(x / 16), gz = Math.floor(z / 16), fx = (x - gx * 16) / 16, fz = (z - gz * 16) / 16;
+  const a = oldFadeCorner(gx, gz), b = oldFadeCorner(gx + 1, gz), c = oldFadeCorner(gx, gz + 1), d = oldFadeCorner(gx + 1, gz + 1);
+  return (a * (1 - fx) + b * fx) * (1 - fz) + (c * (1 - fx) + d * fx) * fz;
+}
+function continentAt(x, z){
+  const wx = x + (vnoise(x * 0.003, z * 0.003, 1207) - 0.5) * 120, wz = z + (vnoise(x * 0.003 + 50, z * 0.003 - 20, 1209) - 0.5) * 120;
+  let c = fbm(wx * OCEAN.f, wz * OCEAN.f, 4, 1201);
+  const r = Math.sqrt(x * x + z * z);
+  if(r < 1000) c += 0.14 * (1 - r / 1000);          // you always start on land, as in Minecraft
+  return c;
+}
+// one column of the world: its height (classic numbers), how far inland it is (C), and how much river runs there
+function colInfo(x, z){
+  const key = x * 262144 + z;
+  let o = colCache.get(key);
+  if(o) return o;
+  const land = landHeight0(x, z);
+  o = { h: land, C: 9, river: 0, mtn: 0 };
+  if(GEN_V >= 4){
+    const P = oldLandFade(x, z);
+    if(P < 1){
+      const C = continentAt(x, z) + P * 2;
+      let h = land;
+      // coastal lowland: the ground settles toward the shore
+      const k = sm01((C - OCEAN.T) / 0.07);
+      if(k < 1 && h > SEA0 + 1) h = SEA0 + 1 + (h - SEA0 - 1) * (0.2 + 0.8 * k);
+      // the sea floor: the shelf, then the deep ocean, gently rolling
+      const sea = sm01((OCEAN.T + 0.012 - C) / 0.03);
+      if(sea > 0){
+        const floor = SEA0 - 3 - 15 * sm01((OCEAN.T - C) / 0.05) - 15 * sm01((OCEAN.deep - C) / 0.05) + (vnoise(x * 0.03, z * 0.03, 1213) - 0.5) * 6;
+        h = h * (1 - sea) + floor * sea;
+      }
+      // rivers
+      const rn = fbm(x * OCEAN.rF + (vnoise(x * 0.012, z * 0.012, 1253) - 0.5) * 0.04, z * OCEAN.rF + (vnoise(x * 0.012 + 9, z * 0.012 + 4, 1255) - 0.5) * 0.04, 3, 1251);
+      const d = Math.abs(rn - 0.5);
+      o.mtn = fbm(x * 0.0022, z * 0.0022, 3, 53);
+      const rw = (1 - P) * (1 - sm01((o.mtn - 0.55) / 0.06));
+      const bw = OCEAN.bank * (1 + Math.max(0, h - SEA0 - 6) / 30);
+      if(rw > 0 && d < bw){
+        const vb = sm01((bw - d) / (bw - OCEAN.rW)) * rw;
+        const floorR = SEA0 - 2 - 3 * sm01(1 - d / OCEAN.rW);
+        if(h > floorR) h -= vb * (h - floorR);
+        o.river = vb;
+      }
+      o.h = Math.max(1, Math.floor(h)); o.C = C;
+    }
+  }
+  if(colCache.size > 120000) colCache.clear();
+  colCache.set(key, o);
+  return o;
+}
+function terrainHeight0(x, z){ return colInfo(x, z).h; }
+function terrainHeight(x, z){ return colInfo(x, z).h + YS; }
+/* The water biomes, by the temperature of the land around them, as in
+   Minecraft: frozen, cold, plain, lukewarm and warm oceans (all but warm
+   have a deep form), rivers (frozen in the cold), and the shore: beach,
+   snowy beach, or stony shore where the mountains come down to the sea. */
+const OCEAN_WATER = new Set(['ocean', 'deep-ocean', 'warm-ocean', 'lukewarm-ocean', 'deep-lukewarm-ocean', 'cold-ocean', 'deep-cold-ocean',
+                             'frozen-ocean', 'deep-frozen-ocean', 'river', 'frozen-river']);
+function waterBiome(x, z){
+  if(GEN_V < 4) return null;
+  const o = colInfo(x, z);
+  if(o.C > OCEAN.T + 0.016 && o.river < 0.5) return null;
+  const t = vnoise(x * 0.0011 + 17, z * 0.0011 - 5, 8103), h = o.h;
+  if(h < SEA0 && o.C < OCEAN.T + 0.012){
+    const kind = t < 0.3 ? 'frozen-' : t < 0.38 ? 'cold-' : t > 0.66 ? 'warm-' : t > 0.56 ? 'lukewarm-' : '';
+    if(kind === 'warm-') return 'warm-ocean';
+    return (o.C < OCEAN.deep + 0.015 ? 'deep-' : '') + kind + 'ocean';
+  }
+  if(h < SEA0 && o.river > 0.5) return t < 0.33 ? 'frozen-river' : 'river';
+  if(o.C < OCEAN.T + 0.016 && h >= SEA0 - 1 && h <= SEA0 + 3) return t < 0.3 ? 'snowy-beach' : o.mtn > 0.56 ? 'stony-shore' : 'beach';
+  return null;
+}
+// what the sea floor is made of
+function seaFloor(biome, x, z){
+  if(!OCEAN_WATER.has(biome)) return 0;
+  if(biome === 'warm-ocean' || biome === 'lukewarm-ocean' || biome === 'deep-lukewarm-ocean') return SAND;
+  if(biome === 'river' || biome === 'frozen-river' || biome === 'ocean'){
+    const n = vnoise(x * 0.08, z * 0.08, 1291);
+    return n < 0.2 ? CLAY : biome === 'ocean' && n > 0.55 ? GRAVEL : n > 0.78 ? GRAVEL : SAND;
+  }
+  return GRAVEL;                                     // cold, frozen and deep oceans
+}
+/* Life on the sea floor: coral reefs in warm water, kelp forests in the
+   cooler seas, seagrass meadows almost everywhere, and in the frozen oceans
+   sheets of ice and great icebergs of packed ice. */
+function oceanColumn(data, lx, lz, wx, wz, h, biome){
+  const I = y => (y << 8) | (lz << 4) | lx, depth = SEA - h;
+  if(biome.includes('frozen')){
+    if(biome === 'frozen-river' || vnoise(wx * 0.09, wz * 0.09, 1295) > 0.28) data[I(SEA)] = ICE;
+    if(biome !== 'frozen-river'){
+      const ib = fbm(wx * 0.022, wz * 0.022, 3, 1271);
+      if(ib > 0.75 && depth > 4){
+        // jagged, not domed: each column rises its own way, with snow lying in patches on top
+        const up = Math.floor((ib - 0.75) * 95 * (0.6 + 0.8 * vnoise(wx * 0.35, wz * 0.35, 1273))), down = Math.min(depth - 1, Math.floor((ib - 0.75) * 90) + 2);
+        const snowy = up > 2 && vnoise(wx * 0.2, wz * 0.2, 1275) > 0.5;
+        for(let y = SEA - down; y <= Math.min(SEA + up, HEIGHT - 2); y++) data[I(y)] = snowy && y === SEA + up ? SNOW : PACKEDICE;
+      }
+    }
+    return;
+  }
+  if(depth < 2) return;
+  const r = hash(wx, wz, 1301), r2 = hash(wx, wz, 1302);
+  if(biome === 'warm-ocean' && depth >= 3 && depth <= 22 && vnoise(wx * 0.07, wz * 0.07, 1281) > 0.45){
+    // a coral reef: mounds of coral block crowned with coral, fans and sea pickles
+    const col = Math.min(4, Math.floor(vnoise(wx * 0.18, wz * 0.18, 1283) * 5));
+    const mh = Math.min(depth - 2, Math.floor(r * 3));
+    data[I(h)] = CORAL_BLOCKS[col];
+    for(let k = 1; k <= mh; k++) data[I(h + k)] = CORAL_BLOCKS[(col + (hash3(wx, h + k, wz, 1284) < 0.25 ? 1 : 0)) % 5];
+    const top = h + mh + 1;
+    if(top < SEA){
+      if(r2 < 0.30) data[I(top)] = CORALS[col];
+      else if(r2 < 0.50) data[I(top)] = FANS[(col + (r2 < 0.4 ? 0 : 2)) % 5];
+      else if(r2 < 0.56) data[I(top)] = SEA_PICKLE;
+    }
+    return;
+  }
+  if(biome !== 'warm-ocean' && !biome.includes('river') && depth >= 4 && vnoise(wx * 0.06, wz * 0.06, 1285) > 0.52 && r < 0.24){
+    const len = Math.max(1, Math.min(depth - 1, 2 + Math.floor(r2 * depth * 1.1)));     // kelp grows toward the light
+    for(let k = 1; k <= len; k++) data[I(h + k)] = KELP;
+    return;
+  }
+  const grassP = biome === 'warm-ocean' ? 0.18 : biome.includes('lukewarm') ? 0.5 : biome.includes('river') ? 0.3 : biome.startsWith('deep') ? 0.14 : 0.38;
+  if(r < grassP * (0.4 + vnoise(wx * 0.1, wz * 0.1, 1287))) data[I(h + 1)] = SEAGRASS;
+  else if(biome === 'warm-ocean' && r2 < 0.012) data[I(h + 1)] = SEA_PICKLE;
+}
 function caveNoise(x, y, z){
   return 0.62 * vnoise3(x * 0.085, y * 0.12, z * 0.085, 901) +
          0.38 * vnoise3(x * 0.17,  y * 0.24, z * 0.17,  907);
@@ -663,6 +826,8 @@ function biomeCell(gx, gz){
 }
 function biomeAt(x, z){
   if(GEN_V < 3) return biomeAtOld(x, z);
+  const wb = waterBiome(x, z);
+  if(wb) return wb;
   const wx = x + (vnoise(x * 0.006, z * 0.006, 91) - 0.5) * 110 + (vnoise(x * 0.02, z * 0.02, 95) - 0.5) * 24;
   const wz = z + (vnoise(x * 0.006 + 77, z * 0.006 - 31, 93) - 0.5) * 110 + (vnoise(x * 0.02 + 9, z * 0.02 + 3, 97) - 0.5) * 24;
   const gx = Math.floor(wx / BIOME_CELL), gz = Math.floor(wz / BIOME_CELL);
@@ -1317,6 +1482,17 @@ BLOCKS[LEVER]={name:'Lever',all:333};BLOCKS[BUTTON_STONE]={name:'Stone Button',a
 BLOCKS[PLATE_STONE]={name:'Stone Pressure Plate',all:T.STONE};BLOCKS[PLATE_WOOD]={name:'Oak Pressure Plate',all:T.PLANK};
 BLOCKS[RS_TORCH]={name:'Redstone Torch',all:335};BLOCKS[RS_TORCH_OFF]={name:'Redstone Torch',all:336};BLOCKS[RS_WIRE]={name:'Redstone Dust',all:337};
 BLOCKS[LAMP]={name:'Redstone Lamp',all:339};BLOCKS[LAMP_ON]={name:'Redstone Lamp',all:340};BLOCKS[REPEATER]={name:'Redstone Repeater',all:341};
+// The sea: seagrass, kelp, corals and coral fans, coral blocks, sea pickles and ice.
+// The plants live underwater: water flows round them and you swim through them.
+const SEAGRASS=559, KELP=560, CORAL_TUBE=561, FAN_TUBE=566, CORALB_TUBE=571, SEA_PICKLE=576, ICE=577, DEAD_CORALB=578, DRIED_KELP=579;
+const CORAL_NAMES = ['Tube', 'Brain', 'Bubble', 'Fire', 'Horn'];
+const CORALS = CORAL_NAMES.map((n, i) => CORAL_TUBE + i), FANS = CORAL_NAMES.map((n, i) => FAN_TUBE + i), CORAL_BLOCKS = CORAL_NAMES.map((n, i) => CORALB_TUBE + i);
+const CORALB_SET = new Set(CORAL_BLOCKS);
+BLOCKS[SEAGRASS]={name:'Seagrass',all:342};BLOCKS[KELP]={name:'Kelp',all:343};BLOCKS[SEA_PICKLE]={name:'Sea Pickle',all:359};BLOCKS[ICE]={name:'Ice',all:360};BLOCKS[DEAD_CORALB]={name:'Dead Coral Block',all:361};
+CORAL_NAMES.forEach((n, i) => { BLOCKS[CORALS[i]] = { name: n + ' Coral', all: 344 + i }; BLOCKS[FANS[i]] = { name: n + ' Coral Fan', all: 349 + i }; BLOCKS[CORAL_BLOCKS[i]] = { name: n + ' Coral Block', all: 354 + i }; });
+ITEMS[DRIED_KELP]={name:'Dried Kelp',icon:255,food:1};
+const OCEAN_PLANTS = new Set([SEAGRASS, KELP, SEA_PICKLE, ...CORALS, ...FANS]);
+const isWet = id => id === WATER || OCEAN_PLANTS.has(id);   // water, or a plant standing in it
 // Deepslate ores: the ores found below Y 0, set in deepslate. Same drops and tools as the plain ore, slower to mine.
 const DEEP_BASE = { [DS_COAL]: COALO, [DS_IRON]: IRONO, [DS_COPPER]: COPPERO, [DS_GOLD]: GOLDO, [DS_REDSTONE]: REDSTONE_ORE, [DS_LAPIS]: LAPIS_ORE, [DS_DIAMOND]: DIAMO, [DS_EMERALD]: EMERO };
 const DEEP_ORE = {}, DEEP_TILE = [320, 321, 324, 325, 326, 327, 328, 329];
@@ -1368,7 +1544,7 @@ const nameOf = id => BLOCKS[id]?.name || ITEMS[id]?.name || 'Empty';
 const isPlant  = id => isSapling(id) || FLORA_IDS.has(id) || id === TGRASSB || id === POPPYB || id === DANDB || id === DEADBUSH ||
                        id === MUSHROOMR || id === MUSHROOMB ||
                        id === WHEAT0 || id === WHEAT1 || id === WHEAT2 || id === WHEAT3 || (id >= CARROT0 && id <= POTATO3) || CAVE_PLANTS.has(id) || NETHER_PLANTS.has(id);
-const isCross  = id => id === RS_TORCH || id === RS_TORCH_OFF || id===GLOWCRYSTAL || isPlant(id) || id === TORCH || id === COBWEB || id === IRONBARS || CAVE_CROSS.has(id) || NETHER_CROSS.has(id);
+const isCross  = id => OCEAN_PLANTS.has(id) || id === RS_TORCH || id === RS_TORCH_OFF || id===GLOWCRYSTAL || isPlant(id) || id === TORCH || id === COBWEB || id === IRONBARS || CAVE_CROSS.has(id) || NETHER_CROSS.has(id);
 const isFlat   = id => (id >= LEVER && id <= PLATE_WOOD) || id === RS_WIRE || id === REPEATER || id === BED || id === BEDHEAD || id === RAIL || id === SNOW_LAYER || id === LADDER || id === PAINTING || id === FRAME || id === FLOWERPOT || isCake(id) || id === LANTERN || id === CAMPFIRE;   // thin plate on the ground (or, for a ladder, on a wall)
 const isSlab   = id => id === SLAB_STONE || id === SLAB_WOOD || id === SLAB_BRICK || id === SLAB_SAND || id === SLAB_NBRICK;
 const isStair  = id => id === STAIR_STONE || id === STAIR_WOOD || id === STAIR_BRICK || id === STAIR_SAND || id === STAIR_NBRICK;
@@ -1383,10 +1559,10 @@ const partialTile = id => {
   return T.STONE;
 };
 const isDoor    = id => id === DOOR || id === DOORTOP;
-const isOpaque = id => !isFenceish(id) && id !== TRAPDOOR && id !== ANVIL && id !== COMPOSTER && id !== GRINDSTONE && id !== CAULDRON && id !== LIGHTNINGROD && id !== AIR && id !== WATER && id !== GLASS && id !== LAVA && id !== PORTAL && id !== ENDPORTAL && id !== END_GATEWAY && id !== STORM_PORTAL && !isCross(id) && !isPartial(id) && !isDoor(id) && !isFlat(id);
+const isOpaque = id => id !== ICE && !isFenceish(id) && id !== TRAPDOOR && id !== ANVIL && id !== COMPOSTER && id !== GRINDSTONE && id !== CAULDRON && id !== LIGHTNINGROD && id !== AIR && id !== WATER && id !== GLASS && id !== LAVA && id !== PORTAL && id !== ENDPORTAL && id !== END_GATEWAY && id !== STORM_PORTAL && !isCross(id) && !isPartial(id) && !isDoor(id) && !isFlat(id);
 const isSolid  = id => id !== TRAPDOOR && id !== GATE_OPEN && id !== AIR && id !== WATER && id !== LAVA && id !== PORTAL && id !== ENDPORTAL && id !== END_GATEWAY && id !== STORM_PORTAL && !isCross(id) && !isDoor(id) && !isFlat(id);
 const isLiquid = id => id === WATER || id === LAVA;
-const emitsLight = id => id === RS_TORCH || id === LAMP_ON || id===GLOWCRYSTAL || id === ENDERCHEST || id === JACK_O_LANTERN || id === LANTERN || id === CAMPFIRE || id === STORM_PORTAL || id === CONDUIT_LIT || id === VOLTITE_ORE || id === END_ROD || id === END_GATEWAY || id === CRYING_OBSIDIAN || id === ANCHOR_LIT || id === SHROOMLIGHT || id === MAGMA || isFire(id) || id === SOUL_TORCH || id === GLOWVINE || id === AMETHYST_C || id === AMBERLAMP || id === GLOWB || id === GLOWSTONE || id === LAVA || id === PORTAL || id === ENDPORTAL || id === ENDCRYSTAL;
+const emitsLight = id => id === SEA_PICKLE || id === RS_TORCH || id === LAMP_ON || id===GLOWCRYSTAL || id === ENDERCHEST || id === JACK_O_LANTERN || id === LANTERN || id === CAMPFIRE || id === STORM_PORTAL || id === CONDUIT_LIT || id === VOLTITE_ORE || id === END_ROD || id === END_GATEWAY || id === CRYING_OBSIDIAN || id === ANCHOR_LIT || id === SHROOMLIGHT || id === MAGMA || isFire(id) || id === SOUL_TORCH || id === GLOWVINE || id === AMETHYST_C || id === AMBERLAMP || id === GLOWB || id === GLOWSTONE || id === LAVA || id === PORTAL || id === ENDPORTAL || id === ENDCRYSTAL;
 const occl     = id => isOpaque(id);
 function tileFor(id, face){
   const d = BLOCKS[id];
@@ -1394,17 +1570,20 @@ function tileFor(id, face){
   return face === 3 ? d.top : face === 2 ? d.bottom : d.side;
 }
 function faceVisible(b, n){
+  if(b === WATER && OCEAN_PLANTS.has(n)) return false;   // the plant stands in the water
   if(n === AIR || isCross(n)) return true;
   if(b === WATER) return n === GLASS;
+  if(b === ICE) return n !== ICE && !isOpaque(n);
   if(b === LAVA) return n !== LAVA && !isOpaque(n);
   if(b === PORTAL || b === STORM_PORTAL) return n !== b;
   if(b === GLASS) return n === WATER;
   return !isOpaque(n);
 }
-const dropOf = id => id===RS_WIRE?REDSTONE:id===RS_TORCH_OFF?RS_TORCH:id===LAMP_ON?LAMP:DEEP_BASE[id] ? dropOf(DEEP_BASE[id]) : id===IRONO?RAW_IRON:id===GOLDO?RAW_GOLD:id===COPPERO?RAW_COPPER:id===REDSTONE_ORE?REDSTONE:id===LAPIS_ORE?LAPIS:id===STONE?COBBLE:id===BEDHEAD?BED:id===BEEHIVE_FULL?BEEHIVE:id===GATE_OPEN?GATE:id===SKYGRASS?STORMSTONE:id===VOLTITE_ORE?VOLTITE:id===CONDUIT_LIT?CONDUIT:id===CHORUS_PLANT?CHORUS_FRUIT:id===ANCHOR_LIT?ANCHOR:id===CRIM_NYL||id===WARP_NYL?NETHERRACK:id===QUARTZ_ORE?QUARTZ:id===NGOLD_ORE?GNUGGET:id===GILDED?(Math.random()<.1?GNUGGET:GILDED):id===SNOWY_GRASS?DIRT:id===GLOWVINE?BERRIES:id===AMETHYST_C||id===BUDDING?AMETHYST_SHARD:id===DRIP_DOWN?DRIP_UP:id===BERRYBUSH?BERRIES:id===CRYSTALORE||id===GLOWCRYSTAL?CRYSTALSHARD:id === GRASS || id === SAVGRASS || id === FARMLAND ? DIRT : id === COALO ? COALI : id === DIAMO ? DIAMI :
+const dropOf = id => CORALB_SET.has(id)?DEAD_CORALB:id===RS_WIRE?REDSTONE:id===RS_TORCH_OFF?RS_TORCH:id===LAMP_ON?LAMP:DEEP_BASE[id] ? dropOf(DEEP_BASE[id]) : id===IRONO?RAW_IRON:id===GOLDO?RAW_GOLD:id===COPPERO?RAW_COPPER:id===REDSTONE_ORE?REDSTONE:id===LAPIS_ORE?LAPIS:id===STONE?COBBLE:id===BEDHEAD?BED:id===BEEHIVE_FULL?BEEHIVE:id===GATE_OPEN?GATE:id===SKYGRASS?STORMSTONE:id===VOLTITE_ORE?VOLTITE:id===CONDUIT_LIT?CONDUIT:id===CHORUS_PLANT?CHORUS_FRUIT:id===ANCHOR_LIT?ANCHOR:id===CRIM_NYL||id===WARP_NYL?NETHERRACK:id===QUARTZ_ORE?QUARTZ:id===NGOLD_ORE?GNUGGET:id===GILDED?(Math.random()<.1?GNUGGET:GILDED):id===SNOWY_GRASS?DIRT:id===GLOWVINE?BERRIES:id===AMETHYST_C||id===BUDDING?AMETHYST_SHARD:id===DRIP_DOWN?DRIP_UP:id===BERRYBUSH?BERRIES:id===CRYSTALORE||id===GLOWCRYSTAL?CRYSTALSHARD:id === GRASS || id === SAVGRASS || id === FARMLAND ? DIRT : id === COALO ? COALI : id === DIAMO ? DIAMI :
                      id === EMERO ? EMERALD : id === DEADBUSH ? STICK : id;
 function toolClassOf(id){
   if(DEEP_BASE[id]) return 'pick';
+  if(CORALB_SET.has(id) || id === DEAD_CORALB || id === ICE) return 'pick';
   if([STORMSTONE,VOLTITE_ORE,STORM_BRICK,CONDUIT,CONDUIT_LIT].includes(id)) return 'pick';
   if(id === SKYGRASS || id === CLOUD) return 'shovel';
   if(id === ENCH_TABLE) return 'pick';
@@ -1458,7 +1637,7 @@ function handTime(id){
   if(id === OBSIDIAN) return 60;
   if(isCross(id)) return 0.05;
   if(isLeaf(id)) return 0.35;
-  if(id === GLASS || id === CACTUS || id === TNT) return 0.5;
+  if(id === GLASS || id === CACTUS || id === TNT || id === ICE) return 0.5;
   if(id === GRASS || id === SAVGRASS || id === DIRT || id === SAND || id === SNOW) return 0.75;
   if(id === WOOL) return 1.0;
   if(id === GLOWB) return 2.0;
@@ -1536,6 +1715,8 @@ const RECIPES = [
   { out: [TNT, 1],    in: [[GUNPOWDER, 5], [SAND, 4]], st: 'table' },
   { out: [IRONI, 1],  in: [[IRONO, 1], [COALI, 1]], st: 'furnace' },
   { out: [GOLDI, 1],  in: [[GOLDO, 1], [COALI, 1]], st: 'furnace' },
+  { out: [DRIED_KELP, 1], in: [[KELP, 1], [COALI, 1]], st: 'furnace' },
+  { out: [PACKEDICE, 1], in: [[ICE, 9]], st: 'table' },
   { out: [IRONI, 1],  in: [[RAW_IRON, 1], [COALI, 1]], st: 'furnace' },
   { out: [GOLDI, 1],  in: [[RAW_GOLD, 1], [COALI, 1]], st: 'furnace' },
   { out: [COPPERI, 1], in: [[RAW_COPPER, 1], [COALI, 1]], st: 'furnace' },
@@ -1654,6 +1835,10 @@ itemAtlas.width = 128; itemAtlas.height = 512;   // 256 icons
   rawLump(252, [196, 160, 132], [232, 206, 180], [122, 92, 72]);   // raw iron: pinkish tan
   rawLump(253, [232, 184, 38], [255, 236, 120], [156, 102, 18]);   // raw gold
   rawLump(254, [200, 108, 64], [240, 158, 104], [120, 58, 34]);    // raw copper
+  px(255, (x, y) => {                                                 // dried kelp: a crumpled dark sheet
+    const d = Math.abs(x - 7.5) * 0.9 + Math.abs(y - 7.5) * 1.1 + (hash(x, y, 7405) - 0.5) * 1.5;
+    if(d > 7) return null;
+    return d > 6 ? [26, 36, 20] : (x * 2 + y) % 5 === 0 ? [74, 92, 44] : [44, 60, 30]; });
 }
 {
   const tn = (x, y, s, salt) => vnoise(x * s + 37.7, y * s + 11.3, 5000 + salt);
@@ -1978,6 +2163,60 @@ itemAtlas.width = 128; itemAtlas.height = 512;   // 256 icons
     const k = Math.floor((r()-0.5)*16);
     if(x===0||y===0||x===15||y===15||x===7||y===7) return [150+k, 96+k, 44+k];
     return (x + y) % 3 === 0 ? [255, 236, 170] : [248+k/3, 196+k, 96+k];
+  });
+  // ---- the sea ----
+  put(342, (x,y,r) => {                                                 // seagrass: a tuft of long ribbons
+    for(const bx of [2, 5, 9, 12]){
+      const top = 1 + (bx * 7) % 5, sw = Math.round(Math.sin((y + bx) * 0.45) * 1.2);
+      if(y >= top && (x === bx + sw || x === bx + sw + 1)) return y < top + 3 ? [86, 176, 70, 1] : x === bx + sw ? [44, 128, 46, 1] : [58, 150, 56, 1];
+    }
+    return [0,0,0,0];
+  });
+  put(343, (x,y,r) => {                                                 // kelp: a wavy stalk with leaves off either side
+    const cx = 7 + Math.round(Math.sin(y * 0.6));
+    if(x === cx || x === cx + 1) return [70, 100, 28, 1];
+    const ly = y % 5, side = ((y / 5) | 0) % 2 ? 1 : -1, dx = (x - cx - 0.5) * side;
+    if(ly < 3 && dx > 0.5 && dx < 5.5 - ly) return ly === 0 ? [120, 160, 50, 1] : [92, 134, 36, 1];
+    return [0,0,0,0];
+  });
+  const CORAL_COL = [[50, 88, 226], [214, 98, 172], [162, 48, 196], [210, 46, 52], [228, 206, 70]];
+  CORAL_COL.forEach((c, i) => {
+    const lite = c.map(v => Math.min(255, v + 50)), dark = c.map(v => v * 0.7 | 0);
+    put(344 + i, (x,y,r) => {                                           // coral: a little branching bush
+      const on = ((x === 7 || x === 8) && y >= 3) || ((x === 3 || x === 4) && y >= 5 && y <= 11) || (y >= 10 && y <= 11 && x >= 3 && x <= 8) ||
+                 ((x === 11 || x === 12) && y >= 4 && y <= 9) || (y >= 8 && y <= 9 && x >= 8 && x <= 12) || ((x === 1 || x === 14) && y >= 7 && y <= 9);
+      if(!on) return [0,0,0,0];
+      return y <= 5 || (y <= 7 && (x < 5 || x > 10)) ? [...lite, 1] : x === 8 || x === 4 || x === 12 ? [...dark, 1] : [...c, 1];
+    });
+    put(349 + i, (x,y,r) => {                                           // coral fan: ribs spreading from its foot
+      const dx = x - 7.5, dy = 15.5 - y, d = Math.hypot(dx, dy), a = Math.atan2(dx, dy);
+      if(d > 9.5 || Math.abs(a) > 1.2) return [0,0,0,0];
+      const rib = Math.abs((((a + 1.2) * 3.5) % 1) - 0.5) > 0.3;
+      if(d < 3 && !rib) return [0,0,0,0];
+      return rib ? [...dark, 1] : d > 8.3 ? [...lite, 1] : [...c, 1];
+    });
+    put(354 + i, (x,y,r) => {                                           // coral block: pitted and knobbly
+      const k = Math.floor((r() - 0.5) * 24), pit = hash(x, y, 1360 + i) < 0.16, bump = hash(x >> 1, y >> 1, 1370 + i) < 0.3;
+      return pit ? dark : bump ? [lite[0] + k / 2, lite[1] + k / 2, lite[2] + k / 2] : [c[0] + k, c[1] + k, c[2] + k];
+    });
+  });
+  put(361, (x,y,r) => {                                                 // dead coral block
+    const k = Math.floor((r() - 0.5) * 20), pit = hash(x, y, 1365) < 0.16;
+    return pit ? [96, 90, 86] : [134 + k, 126 + k, 120 + k];
+  });
+  put(359, (x,y,r) => {                                                 // sea pickles: three little glowing gherkins
+    for(const [x0, x1, y0] of [[2, 4, 9], [6, 9, 5], [11, 13, 10]]){
+      if(x >= x0 && x <= x1 && y >= y0){
+        if(y <= y0 + 1) return [214, 240, 130, 1];
+        return (x + y) % 3 === 0 ? [80, 104, 40, 1] : [104, 132, 50, 1];
+      }
+    }
+    return [0,0,0,0];
+  });
+  put(360, (x,y,r) => {                                                 // ice: clear pale blue, a few streaks
+    const streak = ((x + y * 2) % 11 === 0) || ((x * 3 - y + 40) % 13 === 0);
+    const k = Math.floor((r() - 0.5) * 10);
+    return streak ? [216, 234, 255, 0.82] : [150 + k, 188 + k, 246, 0.7];
   });
   { // blocks of raw iron / gold / copper: packed nuggets
     const rawBlock = (tile, base, lite, dark) => put(tile, (x, y, r) => {
@@ -3875,6 +4114,24 @@ while(survInv.length < 36) survInv.push({ id: 0, count: 0, dur: 0 });   // 9 hot
     giveUp();
   }
 })();
+/* Oceans came after many worlds were already built in. The chunks you had
+   built in or dug into by then (and your bed's) are remembered once, and the
+   land around them never changes; the new coast fades in beyond them. New
+   worlds get the full oceans. */
+(function keepOldLand(){
+  if(GEN_V < 4) return;
+  const MARK = SAVE_KEY + '-oceans', LIST = SAVE_KEY + '-oldland';
+  try {
+    if(!localStorage.getItem(MARK)){
+      const keys = Object.keys(overworldEdits).filter(k => overworldEdits[k] && Object.keys(overworldEdits[k]).length);
+      try { const bs = JSON.parse(localStorage.getItem(SAVE_KEY + '-bed') || 'null');
+            if(bs && typeof bs.x === 'number'){ const k = (bs.x >> 4) + ',' + (bs.z >> 4); if(!keys.includes(k)) keys.push(k); } } catch(e){}
+      localStorage.setItem(LIST, JSON.stringify(keys));
+      localStorage.setItem(MARK, '1');
+    }
+    setOldLand(JSON.parse(localStorage.getItem(LIST) || '[]'));
+  } catch(e){ setOldLand([]); }
+})();
 document.getElementById('backupBtn').addEventListener('click', () => { saveNow(); exportWorld(); });
 document.getElementById('restoreBtn').addEventListener('click', () => document.getElementById('restoreFile').click());
 document.getElementById('restoreFile').addEventListener('change', e => { if(e.target.files[0]) importWorld(e.target.files[0]); });
@@ -3885,7 +4142,7 @@ document.getElementById('resetBtn').addEventListener('click', () => {
   localStorage.removeItem(CHEST_KEY);
   localStorage.removeItem(SAVE_KEY + '-doors');
   localStorage.removeItem(SAVE_KEY+'-armour');localStorage.removeItem(SAVE_KEY+'-vitals');localStorage.removeItem(SAVE_KEY+'-waterflow');
-  localStorage.removeItem(SAVE_KEY + '-bed');
+  localStorage.removeItem(SAVE_KEY + '-bed'); localStorage.removeItem(SAVE_KEY + '-oldland');
   localStorage.removeItem(SAVE_KEY + '-dragon');
   localStorage.removeItem(SAVE_KEY + '-endstate'); localStorage.removeItem(SAVE_KEY + '-anchors'); localStorage.removeItem(SAVE_KEY + '-anchor');
   localStorage.removeItem(NETHER_KEY);
@@ -4794,11 +5051,12 @@ function genChunk(cx,cz){return finishSteps(genChunkSteps(cx,cz));}
 function snowBlanketOn(data, cx, cz){
   for(let lz = 0; lz < 16; lz++) for(let lx = 0; lx < 16; lx++){
     const wx = cx * 16 + lx, wz = cz * 16 + lz;
-    if(biomeAt(wx, wz) !== 'snowy') continue;
+    const bm = biomeAt(wx, wz);
+    if(bm !== 'snowy' && bm !== 'snowy-beach' && bm !== 'frozen-ocean' && bm !== 'deep-frozen-ocean') continue;
     for(let y = HEIGHT - 2; y > SEA; y--){
       const b = data[(y << 8) | (lz << 4) | lx];
       if(b === AIR) continue;
-      if((b === SNOWY_GRASS || isLeaf(b)) && data[((y + 1) << 8) | (lz << 4) | lx] === AIR)
+      if((b === SNOWY_GRASS || isLeaf(b) || b === SAND || b === PACKEDICE) && data[((y + 1) << 8) | (lz << 4) | lx] === AIR)
         data[((y + 1) << 8) | (lz << 4) | lx] = SNOW_LAYER;
       break;
     }
@@ -4916,7 +5174,8 @@ function* genChunkSteps(cx, cz){
     const beach = h <= SEA + 1;
     const biome = biomeAt(wx, wz);
     const badlands = biome === 'badlands', outback = biome === 'outback';
-    const sandy = beach || biome === 'desert';
+    const floorMat = seaFloor(biome, wx, wz), stony = biome === 'stony-shore';
+    const sandy = beach || biome === 'desert' || biome === 'beach' || biome === 'snowy-beach';
     const snowyTop = biome === 'snowy' || h >= SNOW_H;
     const dry = h > SEA + 1;                       // don't open caves under the sea (avoids flooding)
     const rv = dry && !nearSpawnR(wx, wz) ? ravineColumn(ravines, wx, wz, h) : null;
@@ -4936,6 +5195,8 @@ function* genChunkSteps(cx, cz){
       let b;
       if(y === 0) b = YS ? BEDROCK : STONE;
       else if(YS && y < 5 && hash3(wx, y, wz, 951) < (5 - y) / 5) b = BEDROCK;   // Minecraft's ragged bedrock floor, Y -64..-60
+      else if(floorMat && y > h - 4) b = floorMat === CLAY && y < h ? SAND : floorMat;   // the sea or river bed
+      else if(stony && y > h - 5) b = STONE;
       else if((steep || alpine) && y > h - 4) b = y < h ? STONE : snowyTop ? SNOW : steep ? STONE : GRASS;
       else if(y === h) b = badlands ? terraBand(y - YS) : outback ? REDSAND
                          : biome === 'amberfield' ? AMBERGRASS
@@ -4988,7 +5249,9 @@ function* genChunkSteps(cx, cz){
       data[(y << 8) | (lz << 4) | lx] = b;
     }
     for(let y = h + 1; y <= SEA; y++) data[(y << 8) | (lz << 4) | lx] = WATER;
+    if(floorMat && h < SEA) oceanColumn(data, lx, lz, wx, wz, h, biome);
     if(getLocal(data,lx,h,lz) === AIR) continue; // No plants above cave mouths.
+    if(biome === 'beach' || biome === 'snowy-beach' || stony) continue;              // bare sand and rock
     if(h+2<HEIGHT && h>=SEA && getLocal(data,lx,h+1,lz)===AIR){
       const pr=hash(wx,wz,606),patch=vnoise(wx*.075,wz*.075,994);
       let plant=biomePlant(biome,pr,patch,snowyTop,beach);
@@ -5552,7 +5815,7 @@ function waterCurrent(x,y,z){
   return [Math.sign(sample(1,0)-sample(-1,0)),Math.sign(sample(0,1)-sample(0,-1))];
 }
 function flowingHeight(x,y,z){
-  if(getBlock(x,y+1,z)===WATER)return 1;
+  if(isWet(getBlock(x,y+1,z)))return 1;
   const level=fluidLevels.get(fluidKey(x,y,z));return level?Math.max(.18,1-level*.11):.94;
 }
 function writeFlow(x,y,z,level){
@@ -5673,6 +5936,7 @@ const LIGHT_EMIT = { };   // filled after ids exist
 function emitLevel(id){
   if(id === RS_TORCH) return 7;
   if(id === LAMP_ON) return 15;
+  if(id === SEA_PICKLE) return 6;
   if(id===GLOWCRYSTAL)return 11;
   if(id === SHROOMLIGHT || id === FIRE || id === END_GATEWAY || id === ANCHOR_LIT) return 15;
   if(id === END_ROD) return 14;
@@ -5840,7 +6104,7 @@ function* buildChunkSteps(c,reuseLight=false){
     const b = data[(y << 8) | (lz << 4) | lx];
     if(!b) continue;
     if(CROP_GROWING.has(b) && dim === 0 && !crops.has((wx0 + lx) + ',' + y + ',' + (wz0 + lz)) && getBlock(wx0 + lx, y - 1, wz0 + lz) === FARMLAND) addCrop(wx0 + lx, y, wz0 + lz);   // planted before a reload: keep it growing
-    if(isCross(b)){ pushCross(b === TORCH || emitsLight(b) ? GC : C, lx, y, lz, tileFor(b, 0), light, isPlant(b)?1:0); continue; }
+    if(isCross(b)){ pushCross(b === TORCH || emitsLight(b) ? GC : C, lx, y, lz, tileFor(b, 0), light, isPlant(b) || b === SEAGRASS || b === KELP ? 1 : 0); continue; }
     if(isPartial(b)){ pushPartial(O, lx, y, lz, b, light); continue; }
     if(isDoor(b)){ pushDoor(O, lx, y, lz, b, wx0 + lx, wz0 + lz, light); continue; }
     if(b === LADDER){ pushLadder(O, lx, y, lz, gb, light); continue; }
@@ -6377,7 +6641,7 @@ function physics(dt){
   const p = player, v = p.vel;
   if(updateStriderRide(dt)) return;   // on a strider it carries you
   if(riding) return;                 // vehicle controls the player's position
-  const inWater = getBlock(Math.floor(p.pos.x), Math.floor(p.pos.y + 0.2), Math.floor(p.pos.z)) === WATER;
+  const inWater = isWet(getBlock(Math.floor(p.pos.x), Math.floor(p.pos.y + 0.2), Math.floor(p.pos.z)));
   const sprint = key('ShiftLeft') && !p.fly && key('KeyW') && !inWater;
   const speed = (p.fly ? (key('ShiftRight') ? 26 : 16) : inWater ? 2.6 : sprint ? 7.2 : 4.3) * (effects.speed > 0 && !p.fly ? 1.4 : 1);
   if(!xrActive && !gliding){
@@ -7348,7 +7612,7 @@ function updateAnimals(dt){
   }
 }
 function stepMob(e, dt, grav){
-  const inW = getBlock(Math.floor(e.pos.x), Math.floor(e.pos.y + 0.2), Math.floor(e.pos.z)) === WATER;
+  const inW = isWet(getBlock(Math.floor(e.pos.x), Math.floor(e.pos.y + 0.2), Math.floor(e.pos.z)));
   const tx = -Math.sin(e.yaw) * e.speed, tz = -Math.cos(e.yaw) * e.speed;
   const k = Math.min(1, dt * 8);
   e.vel.x += (tx - e.vel.x) * k;
@@ -7563,7 +7827,7 @@ function updateEndermen(dt){
     e.atkCd -= dt;
     e.tpCd -= dt;
     // endermen hate water and rain: it hurts, and they blink away from it
-    const wet = getBlock(Math.floor(e.pos.x), Math.floor(e.pos.y + 0.6), Math.floor(e.pos.z)) === WATER;
+    const wet = isWet(getBlock(Math.floor(e.pos.x), Math.floor(e.pos.y + 0.6), Math.floor(e.pos.z)));
     const rained = rainAmt > 0.4 && dim === 0 && skyExposed(Math.floor(e.pos.x), Math.ceil(e.pos.y + e.h), Math.floor(e.pos.z));
     if(wet || rained){ e.waterT += dt; if(e.waterT >= 0.5){ e.waterT = 0; e.hp -= 1; burstRGB(e.pos.x, e.pos.y + 1.2, e.pos.z, 0.7, 0.75, 0.9, 6, 0.4); if(e.hp > 0) enderTeleport(e, e.pos.x, e.pos.z); } }
     else e.waterT = 0;
@@ -8650,7 +8914,7 @@ function setBurn(s){ if(mobCtx) damage(Math.ceil(s / 2)); else if(!fireproof()) 
 function setWither(s){ if(mobCtx) damage(Math.ceil(s / 2)); else witherT = Math.max(witherT, s); }
 function updatePlayerEffects(dt){
   tickFires();
-  const p = player.pos, inWater = getBlock(Math.floor(p.x), Math.floor(p.y + 0.2), Math.floor(p.z)) === WATER;
+  const p = player.pos, inWater = isWet(getBlock(Math.floor(p.x), Math.floor(p.y + 0.2), Math.floor(p.z)));
   if(inWater || mode !== 'survival' || dead){ burnT = 0; if(mode !== 'survival' || dead) witherT = 0; }
   // stepping into fire
   fireTouchT -= dt;
@@ -8718,7 +8982,7 @@ function updateZombies(dt, daylight){
   for(let i = zombies.length - 1; i >= 0; i--){
     const z = zombies[i];
     if(z.pos.distanceToSquared(player.pos) > 110 * 110){ removeEnt(zombies, i); continue; }
-    const zWet = z.drowned && getBlock(Math.floor(z.pos.x), Math.floor(z.pos.y + 0.9), Math.floor(z.pos.z)) === WATER;
+    const zWet = z.drowned && isWet(getBlock(Math.floor(z.pos.x), Math.floor(z.pos.y + 0.9), Math.floor(z.pos.z)));
     if(daylight > 0.5){
       z.skyT -= dt;
       if(z.skyT <= 0){ z.skyT = 0.5; z.exposed = !zWet && skyExposed(Math.floor(z.pos.x), Math.ceil(z.pos.y + z.h), Math.floor(z.pos.z)); }
@@ -12231,7 +12495,7 @@ function setupConn(c){
                        : 'Connected! Close this menu and play together.');
     hapticPulse(null, 0.6, 80);
     if(voiceOn) placeVoiceCall(c.peer);
-    if(isHost) c.send(JSON.stringify({ t: 'world', seed: SEED, gen: GEN_V, edits, fluid:[...fluidLevels], doors:[...doorState], comp:[...composters], cauld:[...cauldrons], pots:[...pottedPlants], frames:[...frameItems].filter(([,e]) => e && e.item), jukes:[...jukes].map(([k, j]) => [k, j.disc]), tod: timeOfDay }));
+    if(isHost) c.send(JSON.stringify({ t: 'world', seed: SEED, gen: GEN_V, oldland: oldLandKeys, edits, fluid:[...fluidLevels], doors:[...doorState], comp:[...composters], cauld:[...cauldrons], pots:[...pottedPlants], frames:[...frameItems].filter(([,e]) => e && e.item), jukes:[...jukes].map(([k, j]) => [k, j.disc]), tod: timeOfDay }));
   });
   c.on('data', d => { try { onNet(c, typeof d === 'string' ? JSON.parse(d) : d); } catch(e){} });
   c.on('close', () => {
@@ -12248,7 +12512,14 @@ function onNet(c, m){
       // a saved classic copy of this world deepens itself on the reload below (keep its 3 so it migrates)
       if(!(m.gen === 4 && +localStorage.getItem(gk) === 3)) localStorage.setItem(gk, String(m.gen));
     } catch(e){} }
-    if(m.seed !== SEED || (typeof m.gen === 'number' && m.gen !== GEN_V)){
+    // and the same coast: the land the host had built on before the oceans came
+    let landDiffers = false;
+    if(Array.isArray(m.oldland)){ try {
+      const lk = 'blockcraft-save-' + m.seed + '-oldland', theirs = JSON.stringify(m.oldland);
+      localStorage.setItem('blockcraft-save-' + m.seed + '-oceans', '1');
+      if(localStorage.getItem(lk) !== theirs){ localStorage.setItem(lk, theirs); landDiffers = m.seed === SEED; }
+    } catch(e){} }
+    if(m.seed !== SEED || (typeof m.gen === 'number' && m.gen !== GEN_V) || landDiffers){
       // joiner hops into the host's world and reconnects automatically
       localStorage.setItem('blockcraft-last-seed', String(m.seed));
       localStorage.setItem('blockcraft-autojoin', (c.peer || '').replace(/^bcraft-/, ''));
@@ -13447,8 +13718,8 @@ function updateVehicles(dt){
       let f = 0, s = 0;
       if(key('KeyW')) f += 1; if(key('KeyS')) f -= 1;
       if(key('KeyA')) s -= 1; if(key('KeyD')) s += 1;
-      const onWater = getBlock(Math.floor(v.pos.x), Math.floor(v.pos.y), Math.floor(v.pos.z)) === WATER ||
-                      getBlock(Math.floor(v.pos.x), Math.floor(v.pos.y - 0.3), Math.floor(v.pos.z)) === WATER;
+      const onWater = isWet(getBlock(Math.floor(v.pos.x), Math.floor(v.pos.y), Math.floor(v.pos.z))) ||
+                      isWet(getBlock(Math.floor(v.pos.x), Math.floor(v.pos.y - 0.3), Math.floor(v.pos.z)));
       const maxSpd = v.kind === 'boat' ? (onWater ? 6.5 : 1.5) : 7.5;
       const ax = (-Math.sin(yaw) * f + Math.cos(yaw) * s);
       const az = (-Math.cos(yaw) * f - Math.sin(yaw) * s);
@@ -13456,7 +13727,7 @@ function updateVehicles(dt){
       v.vel.z += (az * maxSpd - v.vel.z) * Math.min(1, dt * 4);
       if(Math.hypot(v.vel.x, v.vel.z) > 0.3) v.yaw = Math.atan2(v.vel.z, v.vel.x);
       if(v.kind === 'boat'){
-        const belowW = getBlock(Math.floor(v.pos.x), Math.floor(v.pos.y - 0.2), Math.floor(v.pos.z)) === WATER;
+        const belowW = isWet(getBlock(Math.floor(v.pos.x), Math.floor(v.pos.y - 0.2), Math.floor(v.pos.z)));
         if(belowW) v.vel.y += (0.4 - v.vel.y) * Math.min(1, dt * 5);
         else v.vel.y -= 18 * dt;
       } else {
@@ -13918,7 +14189,10 @@ function breakBlock(x, y, z, id){
     rebuild(chunkAt(x >> 4, z >> 4));
     return;
   }
-  setBlock(x, y, z, AIR);
+  // a sea plant leaves its water behind; ice melts back to water over anything but a drop
+  const belowB = getBlock(x, y - 1, z);
+  setBlock(x, y, z, OCEAN_PLANTS.has(id) || (id === ICE && dim !== 1 && (isSolid(belowB) || isWet(belowB))) ? WATER : AIR);
+  if(id === KELP) for(let k = y + 1; getBlock(x, k, z) === KELP; k++){ setBlock(x, k, z, WATER); if(mode === 'survival') spawnDropAt(x + 0.5, k + 0.4, z + 0.5, KELP, 1); }
   if(isLeaf(id)){
     keepLeaf(x, y, z, false);
     if(heldId() === SHEARS){ damageTool(['shears']); if(mode === 'survival') spawnDropAt(x + 0.5, y + 0.4, z + 0.5, id, 1); }   // shears take the leaves themselves
@@ -13973,6 +14247,8 @@ function breakBlock(x, y, z, id){
   }
   if(mode === 'survival'){
     if(id === TGRASSB){ if(Math.random() < 0.25) spawnDropAt(x + 0.5, y + 0.4, z + 0.5, SEEDS, 1); return; }
+    if(id === SEAGRASS){ if(heldId() === SHEARS){ spawnDrop(x, y, z, SEAGRASS); damageTool(['shears']); } return; }   // seagrass only to shears
+    if(id === ICE || CORALS.includes(id) || FANS.includes(id)) return;                                            // these need Silk Touch in Minecraft
     if(harvestOk(id) && !isLeaf(id)){               // leaves never drop themselves except to shears (above)
       const drop = dropOf(id);
       spawnDrop(x, y, z, drop);
@@ -14103,6 +14379,11 @@ function doPlace(){
   if(held===PAINTING){placeLadder(x,y,z,hit,PAINTING);return;}
   if(held===FRAME){placeLadder(x,y,z,hit,FRAME);return;}
   if(held===TORCH){placeTorch(x,y,z);return;}
+  if(OCEAN_PLANTS.has(held)){                       // sea plants go underwater, on the bottom (kelp on kelp)
+    const below = getBlock(x, y - 1, z);
+    if(held !== SEA_PICKLE && cur !== WATER){ flashName(nameOf(held) + ' only grows underwater'); return; }
+    if(!isSolid(below) && !(held === KELP && below === KELP)){ flashName('It needs something to stand on'); return; }
+  }
   triggerViewSwing();
   setBlock(x, y, z, held);
   if(isLeaf(held)) keepLeaf(x, y, z, true);         // placed leaves never decay
@@ -14176,7 +14457,7 @@ const _oreBlocks = new Set([RAW_IRON_BLOCK, RAW_GOLD_BLOCK, RAW_COPPER_BLOCK, CO
 const _matItems = new Set([RAW_IRON, RAW_GOLD, RAW_COPPER, REDSTONE, LAPIS, COALI, IRONI, GOLDI, DIAMI, COPPERI, EMERALD, NETHERITE, QUARTZ, AMETHYST_SHARD, GNUGGET, NSCRAP, STICK, STRING, LEATHER, FEATHER, GUNPOWDER, BLAZEROD, BLAZEPOWDER, GHASTTEAR, MAGMACREAM, ENDERPEARL, SLIMEBALL, BONE, BONE_MEAL, HONEYCOMB, PAPER]);
 const _decoBlocks = new Set([TORCH, SOUL_TORCH, PAINTING, FRAME, FLOWERPOT, LANTERN, JACK_O_LANTERN, CARVED_PUMPKIN, GLOWB, CAMPFIRE]);
 const _utilBlocks = new Set([REPEATER, LEVER, BUTTON_STONE, BUTTON_WOOD, PLATE_STONE, PLATE_WOOD, RS_TORCH, LAMP, CHEST, CRAFTT, FURN, BREWING, BARREL, ENDERCHEST, COMPOSTER, GRINDSTONE, NOTEBLOCK, JUKEBOX, ANVIL, SMITHING, CAULDRON, LADDER, FENCE, GATE, GATE_OPEN, BED, BEDHEAD, LIGHTNINGROD, TNT, BOOKSHELF, ENCH_TABLE]);
-const _natureBlocks = new Set([GRASS, DIRT, SAND, REDSAND, GRAVEL, SNOW, PODZOL, CACTUS, DEADBUSH, MUSHROOMR, MUSHROOMB, TGRASSB, POPPYB, DANDB]);
+const _natureBlocks = new Set([...OCEAN_PLANTS, ...CORAL_BLOCKS, DEAD_CORALB, ICE, GRASS, DIRT, SAND, REDSAND, GRAVEL, SNOW, PODZOL, CACTUS, DEADBUSH, MUSHROOMR, MUSHROOMB, TGRASSB, POPPYB, DANDB]);
 function itemCat(id){
   const it = ITEMS[id];
   if(id === BOW || id === ARROW_I) return 6;
@@ -14604,7 +14885,7 @@ function buildCraftPanel(){
     TP_BIOMES.forEach((bio,i)=>{ const x=35+(i%4)*345, y=250+Math.floor(i/4)*95;
       button(x,y,325,80,biomeLabel(bio),()=>{ if(teleportToBiome(bio)) closeCraftVR(); },mode==='creative'&&dim===0);
     });
-    if(dim!==0) text('Biomes are in the Overworld.',35,760,24,'#8a2424');
+    if(dim!==0) text('Biomes are in the Overworld.',35,850,24,'#8a2424');
   } else if(vrMenuTab==='guide'){
     drawGuideVR(g, text);
   } else if(vrMenuTab==='dead'){
@@ -14986,6 +15267,11 @@ function vrTryPlace(){
   if(held===PAINTING){placeLadder(x,y,z,hit,PAINTING);return;}
   if(held===FRAME){placeLadder(x,y,z,hit,FRAME);return;}
   if(held===TORCH){placeTorch(x,y,z);return;}
+  if(OCEAN_PLANTS.has(held)){                       // sea plants go underwater, on the bottom (kelp on kelp)
+    const below = getBlock(x, y - 1, z);
+    if(held !== SEA_PICKLE && cur !== WATER){ flashName(nameOf(held) + ' only grows underwater'); return; }
+    if(!isSolid(below) && !(held === KELP && below === KELP)){ flashName('It needs something to stand on'); return; }
+  }
   triggerViewSwing();
   setBlock(x, y, z, held);
   if(isLeaf(held)) keepLeaf(x, y, z, true);         // placed leaves never decay
@@ -15320,7 +15606,7 @@ function updateVR(dt){
   const e = new THREE.Euler().setFromQuaternion(camera.quaternion, 'YXZ');
   const yaw = e.y + vrYawOffset;
   player.yaw = yaw;                              // keep player.yaw synced for other systems
-  const swimming=getBlock(Math.floor(player.pos.x),Math.floor(player.pos.y+.2),Math.floor(player.pos.z))===WATER;
+  const swimming=isWet(getBlock(Math.floor(player.pos.x),Math.floor(player.pos.y+.2),Math.floor(player.pos.z)));
   const sprintPressed=!!readButtons('left')?.[3]?.pressed;
   if(sprintPressed&&!vrSprintWas)vrSprint=!vrSprint;
   vrSprintWas=sprintPressed;
@@ -15536,7 +15822,7 @@ function precipAt(x, y, z){
   if(dim === 3) return 'rain';
   const bm = biomeAt(x, z);
   if(DRY_BIOMES.has(bm)) return null;
-  if(bm === 'snowy' || bm === 'frostvale' || y >= SNOW_H - 6) return 'snow';
+  if(bm === 'snowy' || bm === 'frostvale' || bm === 'snowy-beach' || bm.includes('frozen') || y >= SNOW_H - 6) return 'snow';
   return 'rain';
 }
 // the highest thing in a column that rain lands on; plants let it through
@@ -16408,7 +16694,7 @@ function updateSnowGolems(dt){
     // hot places melt them
     const b = biomeAt(Math.floor(e.pos.x), Math.floor(e.pos.z));
     if(dim === 1 || b === 'desert' || b === 'badlands' || b === 'savanna' || b === 'outback'){ e.hp -= dt * 0.5; if(Math.random() < dt * 4) burstRGB(e.pos.x, e.pos.y + 0.5, e.pos.z, 0.7, 0.85, 1, 1, 0.3); }
-    if(getBlock(Math.floor(e.pos.x), Math.floor(e.pos.y + 0.3), Math.floor(e.pos.z)) === WATER) e.hp -= dt;
+    if(isWet(getBlock(Math.floor(e.pos.x), Math.floor(e.pos.y + 0.3), Math.floor(e.pos.z)))) e.hp -= dt;
     if(e.hp <= 0){ golemGone(e); burstRGB(e.pos.x, e.pos.y + 0.8, e.pos.z, 0.95, 0.97, 1, 20, 0.7); scene.remove(e.group); snowGolems.splice(i, 1); continue; }
     // find something to throw at
     let foe = null, fd = 12;
@@ -17052,7 +17338,7 @@ function updateTrident(s, dt){
     return false;
   }
   if(s.stuck){ if(s.age > 0.6){ s.returning = true; s.age = 0; playN({ f: 500, type: 'bandpass', dur: 0.4, vol: 0.12, slide: 600 }); } return false; }
-  const wet = getBlock(Math.floor(s.pos.x), Math.floor(s.pos.y), Math.floor(s.pos.z)) === WATER;
+  const wet = isWet(getBlock(Math.floor(s.pos.x), Math.floor(s.pos.y), Math.floor(s.pos.z)));
   s.vel.y -= (wet ? 2 : 10) * dt;
   if(wet) s.vel.multiplyScalar(1 - dt * 0.4);
   const step = s.vel.length() * dt, dir = s.vel.clone().normalize();
@@ -17132,7 +17418,7 @@ function spawnSea(type, x, y, z){
   seaLife.push(e);
   return e;
 }
-const waterAt = (x, y, z) => getBlock(Math.floor(x), Math.floor(y), Math.floor(z)) === WATER;
+const waterAt = (x, y, z) => isWet(getBlock(Math.floor(x), Math.floor(y), Math.floor(z)));
 function removeSea(i){ scene.remove(seaLife[i].group); seaLife.splice(i, 1); }
 function hurtSea(e, dmg){
   e.hp -= dmg;
@@ -17156,15 +17442,18 @@ function trySpawnSea(){
   const a = Math.random() * Math.PI * 2, d = 12 + Math.random() * 28;
   const x = Math.floor(player.pos.x + Math.cos(a) * d), z = Math.floor(player.pos.z + Math.sin(a) * d);
   let top = -1;
-  for(let y = SEA + 2; y > SEA - 8; y--) if(getBlock(x, y, z) === WATER){ top = y; break; }
+  for(let y = SEA + 2; y > SEA - 8; y--) if(isWet(getBlock(x, y, z))){ top = y; break; }
   if(top < 0) return;
   let depth = 0;
-  while(depth < 24 && getBlock(x, top - depth - 1, z) === WATER) depth++;
+  while(depth < 24 && isWet(getBlock(x, top - depth - 1, z))) depth++;
   if(depth < 2) return;
-  const b = biomeAt(x, z), warm = BIOME_GROUPS.hot.some(q => q[0] === b), cold = BIOME_GROUPS.cold.some(q => q[0] === b);
+  const b = biomeAt(x, z), river = b.includes('river'), frozen = b.includes('frozen');
+  const warm = b === 'warm-ocean' || b.includes('lukewarm') || BIOME_GROUPS.hot.some(q => q[0] === b);
+  const cold = frozen || b.includes('cold') || BIOME_GROUPS.cold.some(q => q[0] === b);
   const r = Math.random(), count = t => seaLife.filter(q => q.type === t).length;
-  let type = warm ? (r < 0.45 ? 'tropical' : r < 0.6 ? 'dolphin' : r < 0.75 ? 'squid' : 'cod')
-           : cold ? (r < 0.4 ? 'salmon' : r < 0.75 ? 'cod' : 'squid')
+  let type = river ? (r < 0.7 ? 'salmon' : 'squid')
+           : warm ? (r < 0.45 ? 'tropical' : r < 0.6 ? 'dolphin' : r < 0.75 ? 'squid' : 'cod')
+           : cold ? (r < 0.45 ? 'salmon' : r < 0.7 ? 'cod' : frozen || r < 0.9 ? 'squid' : 'dolphin')
            : (r < 0.45 ? 'cod' : r < 0.6 ? 'salmon' : r < 0.8 ? 'squid' : r < 0.9 ? 'dolphin' : 'tropical');
   if((type === 'squid' || type === 'dolphin') && depth < 5) type = warm ? 'tropical' : 'cod';
   if(type === 'dolphin' && count('dolphin') >= 3) return;
@@ -17784,7 +18073,8 @@ function updateFishing(dt){
    Creative only: pick a biome and you are taken to the nearest stretch of
    it, set down on its surface. */
 const TP_BIOMES = ['plains', 'forest', 'birch', 'jungle', 'taiga', 'snowy', 'swamp', 'savanna', 'desert', 'badlands', 'outback',
-                   'cherry-grove', 'maple-woods', 'willow-marsh', 'duskhollow', 'frostvale', 'amberfield', 'bushland'];
+                   'cherry-grove', 'maple-woods', 'willow-marsh', 'duskhollow', 'frostvale', 'amberfield', 'bushland',
+                   'beach', 'river', 'ocean', 'warm-ocean', 'frozen-ocean', 'deep-ocean'];
 const biomeLabel = b => b.split('-').map(w => w[0].toUpperCase() + w.slice(1)).join(' ');
 // what the HUD shows: high ground is snow-capped on screen, so name it that way even in a warm climate
 function hudBiome(x, z){
@@ -18151,7 +18441,7 @@ function animate(){
 
   // underwater tint
   tintEl.style.display =
-    getBlock(Math.floor(camera.position.x), Math.floor(camera.position.y), Math.floor(camera.position.z)) === WATER
+    isWet(getBlock(Math.floor(camera.position.x), Math.floor(camera.position.y), Math.floor(camera.position.z)))
       ? 'block' : 'none';
 
   // hud + fps
@@ -18352,6 +18642,7 @@ window.__bc = {
   addTestConn: send => { const c = { open: true, send, peer: 'test', close(){} }; conns.push(c); return c; },
   dropTestConns: () => { conns = conns.filter(c => c.peer !== 'test'); },
   mobLists: () => Object.fromEntries(MOB_LISTS.map(([k, l]) => [k, l.length])),
+  colInfo, continentAt, waterBiome, OCEAN, setOldLand, oldLandKeys: () => oldLandKeys, isWet,
   atlas, BLOCKS, tileFor, ORE_K, YDISP, CAVE, cavernsNear, dungeonsNear, ravinesNear, leafQueue, keepLeaf, keptLeaves, rs: { place: placeRS, use: useRS, parts: rsParts, power: rsPower, step: dt => updateRedstone(dt), notify: rsNotify },
   stateAt: (kind, k) => ({ comp: composters, cauld: cauldrons, pot: pottedPlants, frame: frameItems }[kind] || new Map()).get(k),
   mpState: () => ({ code: mpRoomCode, status: mpStatusText, conns: conns.length,
