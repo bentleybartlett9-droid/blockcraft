@@ -1577,7 +1577,7 @@ const EGG_RUN = 37, EGG_EXTRA = 479;          // eggs past the first 37 carry on
 const eggId = i => i < EGG_RUN ? EGG_BASE + i : EGG_EXTRA + i - EGG_RUN, eggIcon = i => i < EGG_RUN ? 120 + i : i === EGG_RUN ? 175 : 180 + i - EGG_RUN;
 const eggMob = id => { const i = id >= EGG_BASE && id < EGG_BASE + EGG_RUN ? id - EGG_BASE : id >= EGG_EXTRA ? EGG_RUN + id - EGG_EXTRA : -1; return i >= 0 && i < SPAWN_EGGS.length ? SPAWN_EGGS[i][0] : null; };
 const SLIMEBALL=477, SLIME_BLOCK=478, LANTERN=490, CAMPFIRE=491, BEEHIVE=492, BEEHIVE_FULL=493, HONEY_BOTTLE=494, HONEYCOMB=495, FENCE=496, GATE=497, GATE_OPEN=498, SHEARS=499, TRIDENT=500, JUKEBOX=501, DISC_1=502, MAP=506, ANVIL=507, CARVED_PUMPKIN=508, JACK_O_LANTERN=509, PAINTING=510, COMPOSTER=511, GRINDSTONE=512, NOTEBLOCK=513, BARREL=514, FRAME=515, ENDERCHEST=516, CAULDRON=517, LIGHTNINGROD=518, SMITHING=519, FLOWERPOT=520, BEDHEAD=521, TRAPDOOR=522, REDGUM_LOG=523, REDGUM_PLANK=524, REDGUM_LEAVES=525, BOAB_PLANK=526, COBBLE=527, REDSTONE_ORE=528, REDSTONE=529, LAPIS_ORE=530, LAPIS=531, REDSTONE_BLOCK=532, LAPIS_BLOCK=533, DS_COAL=534, DS_IRON=535, DS_COPPER=536, DS_GOLD=537, DS_REDSTONE=538, DS_LAPIS=539, DS_DIAMOND=540, DS_EMERALD=541, RAW_IRON=542, RAW_GOLD=543, RAW_COPPER=544, RAW_IRON_BLOCK=545, RAW_GOLD_BLOCK=546, RAW_COPPER_BLOCK=547, LEVER=548, BUTTON_STONE=549, BUTTON_WOOD=550, PLATE_STONE=551, PLATE_WOOD=552, RS_TORCH=553, RS_TORCH_OFF=554, RS_WIRE=555, LAMP=556, LAMP_ON=557, REPEATER=558;   // 502-505: music discs
-const isFenceish = id => id === FENCE || id === GATE || id === GATE_OPEN;
+const isFenceish = id => id === FENCE || id === GATE || id === GATE_OPEN || FENCES.has(id);
 const hivesSeen = new Set();           // "x,y,z" of overworld hives the mesher has seen
 const campfires = new Set();            // "dim:x,y,z" of campfires the mesher has seen
 const NETH_ARMOUR=376,   // 376-379: netherite armour
@@ -2011,11 +2011,12 @@ const isPlant  = id => isSapling(id) || FLORA_IDS.has(id) || id === TGRASSB || i
                        id === WHEAT0 || id === WHEAT1 || id === WHEAT2 || id === WHEAT3 || (id >= CARROT0 && id <= POTATO3) || CAVE_PLANTS.has(id) || NETHER_PLANTS.has(id);
 const isCross  = id => id === PALE_HANGING_MOSS || OCEAN_PLANTS.has(id) || id === AQ_CONDUIT || id === RS_TORCH || id === RS_TORCH_OFF || id===GLOWCRYSTAL || isPlant(id) || id === TORCH || id === COBWEB || id === IRONBARS || CAVE_CROSS.has(id) || NETHER_CROSS.has(id);
 const isFlat   = id => CARPETS.has(id) || id === PALE_MOSS_CARPET || (id >= LEVER && id <= PLATE_WOOD) || id === RS_WIRE || id === REPEATER || id === BED || id === BEDHEAD || id === RAIL || id === SNOW_LAYER || id === LADDER || id === PAINTING || id === FRAME || id === FLOWERPOT || isCake(id) || id === LANTERN || id === CAMPFIRE;   // thin plate on the ground (or, for a ladder, on a wall)
-const isSlab   = id => id === SLAB_STONE || id === SLAB_WOOD || id === SLAB_BRICK || id === SLAB_SAND || id === SLAB_NBRICK;
-const isStair  = id => id === STAIR_STONE || id === STAIR_WOOD || id === STAIR_BRICK || id === STAIR_SAND || id === STAIR_NBRICK;
+const isSlab   = id => SLABS.has(id) || id === SLAB_STONE || id === SLAB_WOOD || id === SLAB_BRICK || id === SLAB_SAND || id === SLAB_NBRICK;
+const isStair  = id => STAIRS.has(id) || id === STAIR_STONE || id === STAIR_WOOD || id === STAIR_BRICK || id === STAIR_SAND || id === STAIR_NBRICK;
 const isPartial = id => isSlab(id) || isStair(id);   // custom-geometry, non-full blocks
 // which full-block tile a slab/stair borrows its texture from
 const partialTile = id => {
+  if(PART_BASE[id] !== undefined) return tileFor(PART_BASE[id], 0);
   if(id === SLAB_STONE || id === STAIR_STONE) return T.STONE;
   if(id === SLAB_WOOD || id === STAIR_WOOD) return T.PLANK;
   if(id === SLAB_BRICK || id === STAIR_BRICK) return T.BRICK;
@@ -2024,7 +2025,7 @@ const partialTile = id => {
   return T.STONE;
 };
 const isDoor    = id => id === DOOR || id === DOORTOP;
-const isOpaque = id => id !== ICE && !STAINED.has(id) && !isFenceish(id) && id !== TRAPDOOR && id !== ANVIL && id !== COMPOSTER && id !== GRINDSTONE && id !== CAULDRON && id !== LIGHTNINGROD && id !== AIR && id !== WATER && id !== GLASS && id !== LAVA && id !== PORTAL && id !== ENDPORTAL && id !== END_GATEWAY && id !== STORM_PORTAL && !isCross(id) && !isPartial(id) && !isDoor(id) && !isFlat(id);
+const isOpaque = id => id !== ICE && !STAINED.has(id) && !WALLS.has(id) && !isFenceish(id) && id !== TRAPDOOR && id !== ANVIL && id !== COMPOSTER && id !== GRINDSTONE && id !== CAULDRON && id !== LIGHTNINGROD && id !== AIR && id !== WATER && id !== GLASS && id !== LAVA && id !== PORTAL && id !== ENDPORTAL && id !== END_GATEWAY && id !== STORM_PORTAL && !isCross(id) && !isPartial(id) && !isDoor(id) && !isFlat(id);
 const isSolid  = id => id !== TRAPDOOR && id !== GATE_OPEN && id !== AIR && id !== WATER && id !== LAVA && id !== PORTAL && id !== ENDPORTAL && id !== END_GATEWAY && id !== STORM_PORTAL && !isCross(id) && !isDoor(id) && !isFlat(id);
 const isLiquid = id => id === WATER || id === LAVA;
 const emitsLight = id => id === CREAKING_HEART_ON || id === SCULK_CATALYST || id === SCULK_SENSOR || id === SEA_LANTERN || id === AQ_CONDUIT || id === SEA_PICKLE || id === RS_TORCH || id === LAMP_ON || id===GLOWCRYSTAL || id === ENDERCHEST || id === JACK_O_LANTERN || id === LANTERN || id === CAMPFIRE || id === STORM_PORTAL || id === CONDUIT_LIT || id === VOLTITE_ORE || id === END_ROD || id === END_GATEWAY || id === CRYING_OBSIDIAN || id === ANCHOR_LIT || id === SHROOMLIGHT || id === MAGMA || isFire(id) || id === SOUL_TORCH || id === GLOWVINE || id === AMETHYST_C || id === AMBERLAMP || id === GLOWB || id === GLOWSTONE || id === LAVA || id === PORTAL || id === ENDPORTAL || id === ENDCRYSTAL;
@@ -2048,6 +2049,8 @@ function faceVisible(b, n){
 const dropOf = id => id===CREAKING_HEART_ON?CREAKING_HEART:id===PALE_GRASS?DIRT:id===EYEBLOSSOM_O?EYEBLOSSOM_C:id===MYCELIUM?DIRT:id===SEA_LANTERN?PRISMARINE_CRYSTALS:CORALB_SET.has(id)?DEAD_CORALB:id===RS_WIRE?REDSTONE:id===RS_TORCH_OFF?RS_TORCH:id===LAMP_ON?LAMP:DEEP_BASE[id] ? dropOf(DEEP_BASE[id]) : id===IRONO?RAW_IRON:id===GOLDO?RAW_GOLD:id===COPPERO?RAW_COPPER:id===REDSTONE_ORE?REDSTONE:id===LAPIS_ORE?LAPIS:id===STONE?COBBLE:id===BEDHEAD?BED:id===BEEHIVE_FULL?BEEHIVE:id===GATE_OPEN?GATE:id===SKYGRASS?STORMSTONE:id===VOLTITE_ORE?VOLTITE:id===CONDUIT_LIT?CONDUIT:id===CHORUS_PLANT?CHORUS_FRUIT:id===ANCHOR_LIT?ANCHOR:id===CRIM_NYL||id===WARP_NYL?NETHERRACK:id===QUARTZ_ORE?QUARTZ:id===NGOLD_ORE?GNUGGET:id===GILDED?(Math.random()<.1?GNUGGET:GILDED):id===SNOWY_GRASS?DIRT:id===GLOWVINE?BERRIES:id===AMETHYST_C||id===BUDDING?AMETHYST_SHARD:id===DRIP_DOWN?DRIP_UP:id===BERRYBUSH?BERRIES:id===CRYSTALORE||id===GLOWCRYSTAL?CRYSTALSHARD:id === GRASS || id === SAVGRASS || id === FARMLAND ? DIRT : id === COALO ? COALI : id === DIAMO ? DIAMI :
                      id === EMERO ? EMERALD : id === DEADBUSH ? STICK : id;
 function toolClassOf(id){
+  if(PART_BASE[id] !== undefined) return toolClassOf(PART_BASE[id]);
+  if(WALL_BASE[id] !== undefined) return toolClassOf(WALL_BASE[id]);
   if(DEEP_BASE[id]) return 'pick';
   if(id === MYCELIUM || id === PALE_GRASS || POWDERS.has(id)) return 'shovel';
   if(COLOR_STONE.has(id)) return 'pick';
@@ -2090,6 +2093,9 @@ function toolClassOf(id){
   return null;
 }
 function handTime(id){
+  if(PART_BASE[id] !== undefined) return handTime(PART_BASE[id]);
+  if(WALL_BASE[id] !== undefined) return handTime(WALL_BASE[id]);
+  if(FENCES.has(id)) return 2.0;
   if((id >= LEVER && id <= RS_WIRE) || id === REPEATER) return 0.05;       // redstone bits snap off
   if(id === LAMP || id === LAMP_ON) return 0.45;
   if(DEEP_BASE[id]) return handTime(DEEP_BASE[id]) * 1.5;   // deepslate ores are harder, as in Minecraft
@@ -2137,6 +2143,28 @@ function handTime(id){
   return 4.0;
 }
 /* crafting recipes — st: undefined (anywhere) | 'table' | 'furnace' | 'brew' (a brewing stand) */
+/* Slabs and stairs of every stone and wood, walls of the stones Minecraft
+   builds walls from, and a fence of every wood. */
+const SHAPE_STONES = [COBBLE, MOSSY, SBRICK, MOSSYBRICK, GRANITE, P_GRANITE, DIORITE, P_DIORITE, ANDESITE, P_ANDESITE, DEEPSLATE_BRICKS, DEEPSLATE_TILES,
+                      PRISMARINE, PRISMARINE_BRICKS, DARK_PRISMARINE, QUARTZ_BLOCK, RED_NBRICK, BLACKSTONE, BSTONE_BRICK, PURPUR, ENDSTONE_BRICK, RESIN_BRICKS,
+                      MARBLEBRICK, BASALTBRICK, TUFF];
+const SHAPE_WOODS = [SPLANK, BPLANK, JPLANK, DARK_PLANK, PALE_PLANK, CHERRYPLANK, MAPLEPLANK, WILLOWPLANK, GUMPLANK, REDGUM_PLANK, BOAB_PLANK, SUNPLANK, RIMEPLANK, DUSKPLANK, CRIM_PLANK, WARP_PLANK];
+const PART_BASE = {}, SLABS = new Set(), STAIRS = new Set();
+const shapeName = base => BLOCKS[base].name.replace(/^Block of /, '').replace(/ Planks$/, '').replace(/ Blocks?$/, '').replace(/ Bricks$/, ' Brick').replace(/ Tiles$/, ' Tile');   // 'Stone Brick Stairs', as Minecraft names them
+[...SHAPE_STONES, ...SHAPE_WOODS].forEach((base, k) => {
+  if(!BLOCKS[base]) return;
+  const slab = 760 + 2 * k, stair = 761 + 2 * k, nm = shapeName(base);
+  PART_BASE[slab] = base; PART_BASE[stair] = base; SLABS.add(slab); STAIRS.add(stair);
+  BLOCKS[slab] = { name: nm + ' Slab', all: tileFor(base, 0) };
+  BLOCKS[stair] = { name: nm + ' Stairs', all: tileFor(base, 0) };
+});
+const WALL_STONES = [COBBLE, MOSSY, SBRICK, MOSSYBRICK, GRANITE, DIORITE, ANDESITE, BRICK, SANDSTONE, NBRICK, RED_NBRICK, BLACKSTONE, BSTONE_BRICK, ENDSTONE_BRICK, PRISMARINE, DEEPSLATE_BRICKS, DEEPSLATE_TILES, RESIN_BRICKS];
+const WALL_BASE = {}, WALLS = new Set();
+WALL_STONES.forEach((base, k) => { if(!BLOCKS[base]) return; const id = 840 + k; WALL_BASE[id] = base; WALLS.add(id); BLOCKS[id] = { name: shapeName(base) + ' Wall', all: tileFor(base, 0) }; });
+const FENCE_TILE = {}, FENCES = new Set();
+SHAPE_WOODS.forEach((plank, k) => { if(!BLOCKS[plank]) return; const id = 860 + k; FENCE_TILE[id] = tileFor(plank, 0); FENCES.add(id); BLOCKS[id] = { name: BLOCKS[plank].name.replace(/ Planks$/, '') + ' Fence', all: tileFor(plank, 0) }; });
+const OLD_SLAB_BASE = { [SLAB_STONE]: STONE, [SLAB_WOOD]: PLANK, [SLAB_BRICK]: BRICK, [SLAB_SAND]: SANDSTONE, [SLAB_NBRICK]: NBRICK };
+const slabFull = id => PART_BASE[id] ?? OLD_SLAB_BASE[id] ?? STONE;
 const RECIPES = [
   { out: [PLANK, 4],  in: [[LOG, 1]] },
   { out: [BPLANK, 4], in: [[BIRCHLOG, 1]] },
@@ -2317,6 +2345,9 @@ RECIPES.push({out:[BREWING,1],in:[[BLAZEROD,1],[ANY_COBBLE,3]],st:'table'},{out:
                { out: [ANDESITE, 2], in: [[DIORITE, 1], [ANY_COBBLE, 1]] },
                { out: [P_GRANITE, 4], in: [[GRANITE, 4]] }, { out: [P_DIORITE, 4], in: [[DIORITE, 4]] }, { out: [P_ANDESITE, 4], in: [[ANDESITE, 4]] });
 }
+for(const [id, base] of Object.entries(PART_BASE)) RECIPES.push(SLABS.has(+id) ? { out: [+id, 6], in: [[base, 3]], st: 'table' } : { out: [+id, 4], in: [[base, 6]], st: 'table' });
+for(const [id, base] of Object.entries(WALL_BASE)) RECIPES.push({ out: [+id, 6], in: [[base, 6]], st: 'table' });
+SHAPE_WOODS.forEach((plank, k) => BLOCKS[860 + k] && RECIPES.push({ out: [860 + k, 3], in: [[plank, 4], [STICK, 2]], st: 'table' }));
 RECIPES.push({out:[BOW,1],in:[[STICK,3],[STRING,3]],st:'table'},{out:[ARROW_I,4],in:[[STICK,1],[FEATHER,1],[GRAVEL,1]]},
   {out:[EYE_ENDER,1],in:[[ENDERPEARL,1],[BLAZEPOWDER,1]]},{out:[PAPER,3],in:[[REEDS,3]]},{out:[FIREWORK,3],in:[[PAPER,1],[GUNPOWDER,1]]},
   {out:[POPPED_CHORUS,1],in:[[CHORUS_FRUIT,1],[COALI,1]],st:'furnace'},{out:[PURPUR,4],in:[[POPPED_CHORUS,4]]},
@@ -6948,7 +6979,7 @@ function* buildChunkSteps(c,reuseLight=false){
     if(!b) continue;
     if(CROP_GROWING.has(b) && dim === 0 && !crops.has((wx0 + lx) + ',' + y + ',' + (wz0 + lz)) && getBlock(wx0 + lx, y - 1, wz0 + lz) === FARMLAND) addCrop(wx0 + lx, y, wz0 + lz);   // planted before a reload: keep it growing
     if(isCross(b)){ pushCross(b === TORCH || emitsLight(b) ? GC : C, lx, y, lz, tileFor(b, 0), light, isPlant(b) || b === SEAGRASS || b === KELP ? 1 : 0); continue; }
-    if(isPartial(b)){ pushPartial(O, lx, y, lz, b, light); continue; }
+    if(isPartial(b)){ pushPartial(O, lx, y, lz, b, light, wx0 + lx, wz0 + lz); continue; }
     if(isDoor(b)){ pushDoor(O, lx, y, lz, b, wx0 + lx, wz0 + lz, light); continue; }
     if(b === LADDER){ pushLadder(O, lx, y, lz, gb, light); continue; }
     if(b === FLOWERPOT){
@@ -7019,16 +7050,29 @@ function* buildChunkSteps(c,reuseLight=false){
       pushBox(O, 283, lx + 0.1875, y + 0.625, lz, lx + 0.8125, y + 1, lz + 1, llA * 1.08);
       continue;
     }
-    if(b === FENCE){
-      const llW = light ? 0.2 + (sampleLight(light, lx, y, lz) / 15) * 0.8 : 1;
-      pushBox(O, T.PLANK, lx + 0.375, y, lz + 0.375, lx + 0.625, y + 1, lz + 0.625, llW);
+    if(WALLS.has(b)){
+      // a wall: a thick post, and lower, narrower arms out to the walls and blocks beside it
+      const llW = light ? 0.2 + (sampleLight(light, lx, y, lz) / 15) * 0.8 : 1, tl = tileFor(b, 0);
+      pushBox(O, tl, lx + 0.25, y, lz + 0.25, lx + 0.75, y + 1, lz + 0.75, llW);
+      for(const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]){
+        const n = gb(lx + dx, y, lz + dz);
+        if(!WALLS.has(n) && !isOpaque(n) && n !== GATE && n !== GATE_OPEN) continue;
+        const x0 = dx > 0 ? 0.75 : dx < 0 ? 0 : 0.3125, x1 = dx > 0 ? 1 : dx < 0 ? 0.25 : 0.6875;
+        const z0 = dz > 0 ? 0.75 : dz < 0 ? 0 : 0.3125, z1 = dz > 0 ? 1 : dz < 0 ? 0.25 : 0.6875;
+        pushBox(O, tl, lx + x0, y, lz + z0, lx + x1, y + 0.8125, lz + z1, llW);
+      }
+      continue;
+    }
+    if(b === FENCE || FENCES.has(b)){
+      const llW = light ? 0.2 + (sampleLight(light, lx, y, lz) / 15) * 0.8 : 1, FT = b === FENCE ? T.PLANK : FENCE_TILE[b];
+      pushBox(O, FT, lx + 0.375, y, lz + 0.375, lx + 0.625, y + 1, lz + 0.625, llW);
       for(const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]){
         const n = gb(lx + dx, y, lz + dz);
         if(!isFenceish(n) && !isOpaque(n)) continue;
         const x0 = dx > 0 ? 0.625 : dx < 0 ? 0 : 0.4375, x1 = dx > 0 ? 1 : dx < 0 ? 0.375 : 0.5625;
         const z0 = dz > 0 ? 0.625 : dz < 0 ? 0 : 0.4375, z1 = dz > 0 ? 1 : dz < 0 ? 0.375 : 0.5625;
-        pushBox(O, T.PLANK, lx + x0, y + 0.375, lz + z0, lx + x1, y + 0.5625, lz + z1, llW);
-        pushBox(O, T.PLANK, lx + x0, y + 0.75, lz + z0, lx + x1, y + 0.9375, lz + z1, llW);
+        pushBox(O, FT, lx + x0, y + 0.375, lz + z0, lx + x1, y + 0.5625, lz + z1, llW);
+        pushBox(O, FT, lx + x0, y + 0.75, lz + z0, lx + x1, y + 0.9375, lz + z1, llW);
       }
       continue;
     }
@@ -7286,17 +7330,45 @@ function pushBox(B, tile, x0, y0, z0, x1, y1, z1, ll){
     B.idx.push(base, base + 1, base + 2, base + 2, base + 1, base + 3);
   }
 }
-function pushPartial(B, lx, y, lz, b, light){
+/* Stairs rise away from you as you place them; a slab or stair placed on
+   the upper half of a block (or under one) goes upside down; a slab placed
+   onto the open half of the same slab makes a full block. */
+const partState = (() => { try { return new Map(JSON.parse(localStorage.getItem(SAVE_KEY + '-parts')) || []); } catch(e){ return new Map(); } })();
+const PART_DEFAULT = { f: 0, top: false };
+const pkey = (x, y, z) => dim + ':' + x + ',' + y + ',' + z;
+const savePartState = () => safeSet(SAVE_KEY + '-parts', JSON.stringify([...partState]));
+function partBoxes(id, x, y, z){
+  const st = partState.get(pkey(x, y, z)) || PART_DEFAULT;
+  if(isSlab(id)) return st.top ? [[x, y + 0.5, z, x + 1, y + 1, z + 1]] : [[x, y, z, x + 1, y + 0.5, z + 1]];
+  const by = st.top ? y + 0.5 : y, sy = st.top ? y : y + 0.5;
+  const step = st.f === 0 ? [x, sy, z, x + 1, sy + 0.5, z + 0.5] : st.f === 1 ? [x, sy, z + 0.5, x + 1, sy + 0.5, z + 1]
+             : st.f === 2 ? [x, sy, z, x + 0.5, sy + 0.5, z + 1] : [x + 0.5, sy, z, x + 1, sy + 0.5, z + 1];
+  return [[x, by, z, x + 1, by + 0.5, z + 1], step];
+}
+const lastRayO = new THREE.Vector3(), lastRayD = new THREE.Vector3(0, 0, -1);
+function placePartial(x, y, z, held, hit){
+  if(isSlab(held) && hit && hit.id === held){
+    const hs = partState.get(pkey(hit.x, hit.y, hit.z)) || PART_DEFAULT;
+    if((hit.face[1] === 1 && !hs.top) || (hit.face[1] === -1 && hs.top)){
+      partState.delete(pkey(hit.x, hit.y, hit.z)); savePartState();
+      setBlock(hit.x, hit.y, hit.z, slabFull(held)); blockSfx(slabFull(held), 'place'); triggerViewSwing(); consumePlacedItem();
+      return;
+    }
+  }
+  const py = hit && hit.t !== undefined ? lastRayO.y + lastRayD.y * hit.t : y;
+  const top = !!hit && (hit.face[1] === -1 || (hit.face[1] === 0 && py - Math.floor(py) > 0.5));
+  camera.getWorldDirection(_cDir);
+  const f = Math.abs(_cDir.z) >= Math.abs(_cDir.x) ? (_cDir.z < 0 ? 0 : 1) : (_cDir.x < 0 ? 2 : 3);
+  const st = { f, top };
+  partState.set(pkey(x, y, z), st); savePartState();
+  if(!netApplying && conns.length) mpBroadcast({ t: 'part', k: pkey(x, y, z), f, top });
+  triggerViewSwing(); setBlock(x, y, z, held); blockSfx(held, 'place'); consumePlacedItem();
+}
+function pushPartial(B, lx, y, lz, b, light, wx, wz){
   const tile = partialTile(b);
   const nl = light ? sampleLight(light, lx, y + 1, lz) : 15;   // sample light above
   const ll = 0.12 + (nl / 15) * 0.88;
-  if(isSlab(b)){
-    pushBox(B, tile, lx, y, lz, lx + 1, y + 0.5, lz + 1, ll);
-  } else {
-    // stairs: full bottom slab + a back-top step (back = -z side)
-    pushBox(B, tile, lx, y, lz, lx + 1, y + 0.5, lz + 1, ll);
-    pushBox(B, tile, lx, y + 0.5, lz, lx + 1, y + 1, lz + 0.5, ll);
-  }
+  for(const q of partBoxes(b, wx, y, wz)) pushBox(B, tile, lx + q[0] - wx, q[1], lz + q[2] - wz, lx + q[3] - wx, q[4], lz + q[5] - wz, ll);
 }
 // which wall a ladder hangs on: 0 = -Z, 1 = +Z, 2 = -X, 3 = +X
 function ladderWall(get, x, y, z){
@@ -7456,8 +7528,20 @@ function moveAxis(ent, axis, amt){
   const z0 = Math.floor(p.z - w + e), z1 = Math.floor(p.z + w - e);
   for(let y = y0; y <= y1; y++) for(let z = z0; z <= z1; z++) for(let x = x0; x <= x1; x++){
     const block=getBlock(x,y,z);
+    if(isPartial(block)){
+      // slabs and stairs collide as their real halves; a low one you walk into, you step up onto
+      let q = null;
+      for(const b of partBoxes(block, x, y, z)) if(p.x - w < b[3] && p.x + w > b[0] && p.y < b[4] && p.y + h > b[1] && p.z - w < b[5] && p.z + w > b[2]){ q = b; break; }
+      if(!q) continue;
+      if(axis === 1){ if(amt > 0) p.y = q[1] - h - 2*e; else { p.y = q[4] + 2*e; ent.onGround = true; } ent.vel.y = 0; return; }
+      const rise = q[4] - p.y;
+      if(rise > 0 && rise <= 0.55 && ent.wasGround && !isSolid(getBlock(x, Math.floor(q[4] + h), z))){ p.y = q[4] + 2*e; continue; }
+      if(axis === 0){ p.x = amt > 0 ? q[0] - w - 2*e : q[3] + w + 2*e; ent.vel.x = 0; }
+      else { p.z = amt > 0 ? q[2] - w - 2*e : q[5] + w + 2*e; ent.vel.z = 0; }
+      return;
+    }
     if(!isSolid(block) && !(isDoor(block) && !getDoorInfo(x,y,z).open) && !(block === TRAPDOOR && !getTrapInfo(x,y,z).open) &&
-       !(axis !== 1 && y === y0 && p.y < y + 0.5 && (getBlock(x, y - 1, z) === FENCE || getBlock(x, y - 1, z) === GATE))) continue;
+       !(axis !== 1 && y === y0 && p.y < y + 0.5 && (isFenceish(getBlock(x, y - 1, z)) && getBlock(x, y - 1, z) !== GATE_OPEN || WALLS.has(getBlock(x, y - 1, z))))) continue;
     if(axis === 0){ p.x = amt > 0 ? x - w - 2*e : x + 1 + w + 2*e; ent.vel.x = 0; }
     else if(axis === 1){
       if(amt > 0) p.y = y - h - 2*e;
@@ -7472,6 +7556,7 @@ function stepEntity(ent, dt){
   const v = ent.vel;
   const maxV = Math.max(Math.abs(v.x), Math.abs(v.y), Math.abs(v.z));
   const n = Math.max(1, Math.ceil(maxV * dt / 0.4));
+  ent.wasGround = ent.onGround;          // for stepping up onto slabs and stairs
   ent.onGround = false;
   for(let i = 0; i < n; i++){
     moveAxis(ent, 0, v.x * dt / n);
@@ -13060,6 +13145,7 @@ function updateParticles(dt){
 /* =========================== raycasting ============================= */
 const _dir = new THREE.Vector3();
 function raycast(o, d, max, includeWater=false){
+  lastRayO.copy(o); lastRayD.copy(d);
   let x = Math.floor(o.x), y = Math.floor(o.y), z = Math.floor(o.z);
   const sx = d.x > 0 ? 1 : -1, sy = d.y > 0 ? 1 : -1, sz = d.z > 0 ? 1 : -1;
   const ax = Math.max(Math.abs(d.x), 1e-9), ay = Math.max(Math.abs(d.y), 1e-9), az = Math.max(Math.abs(d.z), 1e-9);
@@ -13629,7 +13715,7 @@ function setupConn(c){
                        : 'Connected! Close this menu and play together.');
     hapticPulse(null, 0.6, 80);
     if(voiceOn) placeVoiceCall(c.peer);
-    if(isHost) c.send(JSON.stringify({ t: 'world', seed: SEED, gen: GEN_V, oldland: oldLandKeys, edits, fluid:[...fluidLevels], doors:[...doorState], comp:[...composters], cauld:[...cauldrons], pots:[...pottedPlants], frames:[...frameItems].filter(([,e]) => e && e.item), jukes:[...jukes].map(([k, j]) => [k, j.disc]), tod: timeOfDay }));
+    if(isHost) c.send(JSON.stringify({ t: 'world', seed: SEED, gen: GEN_V, oldland: oldLandKeys, parts: [...partState], edits, fluid:[...fluidLevels], doors:[...doorState], comp:[...composters], cauld:[...cauldrons], pots:[...pottedPlants], frames:[...frameItems].filter(([,e]) => e && e.item), jukes:[...jukes].map(([k, j]) => [k, j.disc]), tod: timeOfDay }));
   });
   c.on('data', d => { try { onNet(c, typeof d === 'string' ? JSON.parse(d) : d); } catch(e){} });
   c.on('close', () => {
@@ -13662,6 +13748,7 @@ function onNet(c, m){
       return;
     }
     if(Array.isArray(m.fluid))for(const [k,v] of m.fluid)if(v>=1&&v<=7)fluidLevels.set(k,v);
+    if(Array.isArray(m.parts))for(const [k,v] of m.parts)if(v&&typeof v==='object')partState.set(k,v);
     if(Array.isArray(m.doors))for(const [k,v] of m.doors)if(v&&typeof v==='object')doorState.set(k,v);
     if(Array.isArray(m.comp))for(const [k,v] of m.comp)composters.set(k,v);
     if(Array.isArray(m.cauld))for(const [k,v] of m.cauld)cauldrons.set(k,v);
@@ -13690,6 +13777,8 @@ function onNet(c, m){
   } else if(m.t === 'pos'){
     if(m.tag !== MYTAG) updateAvatar(m);
     if(isHost) mpBroadcast(m, c);
+  } else if(m.t === 'part'){
+    if(typeof m.k === 'string'){ partState.set(m.k, { f: m.f | 0, top: !!m.top }); const q = m.k.split(':')[1].split(',').map(Number); if(q.length === 3) rebuild(chunkAt(q[0] >> 4, q[2] >> 4)); }
   } else if(m.t === 'trap'){
     const info = getTrapInfo(m.x | 0, m.y | 0, m.z | 0); info.open = !!m.open; trapState.set((m.x|0)+','+(m.y|0)+','+(m.z|0), info); rebuild(chunkAt((m.x|0) >> 4, (m.z|0) >> 4));
   } else if(m.t === 'sleep'){
@@ -15347,6 +15436,7 @@ function soakSponge(x, y, z){
 }
 function breakBlock(x, y, z, id){
   triggerViewSwing();
+  if(partState.delete(pkey(x, y, z))) savePartState();
   vibrate(x + 0.5, y + 0.5, z + 0.5, true);
   if(id === TRAPDOOR) trapState.delete(x + ',' + y + ',' + z);
   rsBroke(x, y, z, id);                               // redstone: forget its state, drop whatever was fixed to it
@@ -15567,6 +15657,7 @@ function doPlace(){
     if(held !== SEA_PICKLE && cur !== WATER){ flashName(nameOf(held) + ' only grows underwater'); return; }
     if(!isSolid(below) && !(held === KELP && below === KELP)){ flashName('It needs something to stand on'); return; }
   }
+  if(isPartial(held)){ placePartial(x, y, z, held, hit); vibrate(x + 0.5, y + 0.5, z + 0.5, true); return; }
   triggerViewSwing();
   setBlock(x, y, z, held);
   vibrate(x + 0.5, y + 0.5, z + 0.5, true);
@@ -16458,6 +16549,7 @@ function vrTryPlace(){
     if(held !== SEA_PICKLE && cur !== WATER){ flashName(nameOf(held) + ' only grows underwater'); return; }
     if(!isSolid(below) && !(held === KELP && below === KELP)){ flashName('It needs something to stand on'); return; }
   }
+  if(isPartial(held)){ placePartial(x, y, z, held, hit); vibrate(x + 0.5, y + 0.5, z + 0.5, true); return; }
   triggerViewSwing();
   setBlock(x, y, z, held);
   vibrate(x + 0.5, y + 0.5, z + 0.5, true);
@@ -16647,8 +16739,7 @@ function gorillaBoxes(id,x,y,z){
  }
  if(id===TRAPDOOR)return getTrapInfo(x,y,z).open?[]:[[x,y,z,x+1,y+.18,z+1]];
  if(!isSolid(id))return [];
- if(isSlab(id))return [[x,y,z,x+1,y+.5,z+1]];
- if(isStair(id))return [[x,y,z,x+1,y+.5,z+1],[x,y+.5,z,x+1,y+1,z+.5]];
+ if(isPartial(id))return partBoxes(id,x,y,z);
  return [[x,y,z,x+1,y+1,z+1]];
 }
 function handSweep(a,b){
@@ -20141,6 +20232,7 @@ window.__bc = {
   addTestConn: send => { const c = { open: true, send, peer: 'test', close(){} }; conns.push(c); return c; },
   dropTestConns: () => { conns = conns.filter(c => c.peer !== 'test'); },
   mobLists: () => Object.fromEntries(MOB_LISTS.map(([k, l]) => [k, l.length])),
+  PART_BASE, WALLS, FENCES, partState, partBoxes, placePartial,
   COLORS, DYE, CONCRETE, POWDER, SGLASS, TERRA16, GLAZED, CARPET, WOOL16, hardenNear,
   playerSees, updatePale, paleState: () => ({ blossomOpen, paleHere }),
   mountainBiome, jaggedAt, vnoise, deepDarkAt, cityDef, cityBlock, vibrate, summonWarden, sculkState: () => ({ warnLevel, near: sculkNear.length }), netherMobs, spawnNetherMob,
