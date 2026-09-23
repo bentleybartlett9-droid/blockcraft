@@ -1013,7 +1013,7 @@ const BONE=455, BONE_MEAL=456, SHIELD=454, ROD=447, COD=448, SALMON=449, COOKED_
 const EGG_RUN = 37, EGG_EXTRA = 479;          // eggs past the first 37 carry on from 479
 const eggId = i => i < EGG_RUN ? EGG_BASE + i : EGG_EXTRA + i - EGG_RUN, eggIcon = i => i < EGG_RUN ? 120 + i : i === EGG_RUN ? 175 : 180 + i - EGG_RUN;
 const eggMob = id => { const i = id >= EGG_BASE && id < EGG_BASE + EGG_RUN ? id - EGG_BASE : id >= EGG_EXTRA ? EGG_RUN + id - EGG_EXTRA : -1; return i >= 0 && i < SPAWN_EGGS.length ? SPAWN_EGGS[i][0] : null; };
-const SLIMEBALL=477, SLIME_BLOCK=478, LANTERN=490, CAMPFIRE=491, BEEHIVE=492, BEEHIVE_FULL=493, HONEY_BOTTLE=494, HONEYCOMB=495, FENCE=496, GATE=497, GATE_OPEN=498, SHEARS=499, TRIDENT=500, JUKEBOX=501, DISC_1=502, MAP=506, ANVIL=507, CARVED_PUMPKIN=508, JACK_O_LANTERN=509, PAINTING=510, COMPOSTER=511, GRINDSTONE=512, NOTEBLOCK=513, BARREL=514, FRAME=515, ENDERCHEST=516, CAULDRON=517, LIGHTNINGROD=518, SMITHING=519, FLOWERPOT=520, BEDHEAD=521, TRAPDOOR=522, REDGUM_LOG=523, REDGUM_PLANK=524, REDGUM_LEAVES=525, BOAB_PLANK=526, COBBLE=527, REDSTONE_ORE=528, REDSTONE=529, LAPIS_ORE=530, LAPIS=531, REDSTONE_BLOCK=532, LAPIS_BLOCK=533, DS_COAL=534, DS_IRON=535, DS_COPPER=536, DS_GOLD=537, DS_REDSTONE=538, DS_LAPIS=539, DS_DIAMOND=540, DS_EMERALD=541, RAW_IRON=542, RAW_GOLD=543, RAW_COPPER=544, RAW_IRON_BLOCK=545, RAW_GOLD_BLOCK=546, RAW_COPPER_BLOCK=547, LEVER=548, BUTTON_STONE=549, BUTTON_WOOD=550, PLATE_STONE=551, PLATE_WOOD=552, RS_TORCH=553, RS_TORCH_OFF=554, RS_WIRE=555, LAMP=556, LAMP_ON=557;   // 502-505: music discs
+const SLIMEBALL=477, SLIME_BLOCK=478, LANTERN=490, CAMPFIRE=491, BEEHIVE=492, BEEHIVE_FULL=493, HONEY_BOTTLE=494, HONEYCOMB=495, FENCE=496, GATE=497, GATE_OPEN=498, SHEARS=499, TRIDENT=500, JUKEBOX=501, DISC_1=502, MAP=506, ANVIL=507, CARVED_PUMPKIN=508, JACK_O_LANTERN=509, PAINTING=510, COMPOSTER=511, GRINDSTONE=512, NOTEBLOCK=513, BARREL=514, FRAME=515, ENDERCHEST=516, CAULDRON=517, LIGHTNINGROD=518, SMITHING=519, FLOWERPOT=520, BEDHEAD=521, TRAPDOOR=522, REDGUM_LOG=523, REDGUM_PLANK=524, REDGUM_LEAVES=525, BOAB_PLANK=526, COBBLE=527, REDSTONE_ORE=528, REDSTONE=529, LAPIS_ORE=530, LAPIS=531, REDSTONE_BLOCK=532, LAPIS_BLOCK=533, DS_COAL=534, DS_IRON=535, DS_COPPER=536, DS_GOLD=537, DS_REDSTONE=538, DS_LAPIS=539, DS_DIAMOND=540, DS_EMERALD=541, RAW_IRON=542, RAW_GOLD=543, RAW_COPPER=544, RAW_IRON_BLOCK=545, RAW_GOLD_BLOCK=546, RAW_COPPER_BLOCK=547, LEVER=548, BUTTON_STONE=549, BUTTON_WOOD=550, PLATE_STONE=551, PLATE_WOOD=552, RS_TORCH=553, RS_TORCH_OFF=554, RS_WIRE=555, LAMP=556, LAMP_ON=557, REPEATER=558;   // 502-505: music discs
 const isFenceish = id => id === FENCE || id === GATE || id === GATE_OPEN;
 const hivesSeen = new Set();           // "x,y,z" of overworld hives the mesher has seen
 const campfires = new Set();            // "dim:x,y,z" of campfires the mesher has seen
@@ -1315,7 +1315,7 @@ BLOCKS[RAW_IRON_BLOCK]={name:'Block of Raw Iron',all:330};BLOCKS[RAW_GOLD_BLOCK]
 BLOCKS[LEVER]={name:'Lever',all:333};BLOCKS[BUTTON_STONE]={name:'Stone Button',all:T.STONE};BLOCKS[BUTTON_WOOD]={name:'Oak Button',all:T.PLANK};
 BLOCKS[PLATE_STONE]={name:'Stone Pressure Plate',all:T.STONE};BLOCKS[PLATE_WOOD]={name:'Oak Pressure Plate',all:T.PLANK};
 BLOCKS[RS_TORCH]={name:'Redstone Torch',all:335};BLOCKS[RS_TORCH_OFF]={name:'Redstone Torch',all:336};BLOCKS[RS_WIRE]={name:'Redstone Dust',all:337};
-BLOCKS[LAMP]={name:'Redstone Lamp',all:339};BLOCKS[LAMP_ON]={name:'Redstone Lamp',all:340};
+BLOCKS[LAMP]={name:'Redstone Lamp',all:339};BLOCKS[LAMP_ON]={name:'Redstone Lamp',all:340};BLOCKS[REPEATER]={name:'Redstone Repeater',all:341};
 // Deepslate ores: the ores found below Y 0, set in deepslate. Same drops and tools as the plain ore, slower to mine.
 const DEEP_BASE = { [DS_COAL]: COALO, [DS_IRON]: IRONO, [DS_COPPER]: COPPERO, [DS_GOLD]: GOLDO, [DS_REDSTONE]: REDSTONE_ORE, [DS_LAPIS]: LAPIS_ORE, [DS_DIAMOND]: DIAMO, [DS_EMERALD]: EMERO };
 const DEEP_ORE = {}, DEEP_TILE = [320, 321, 324, 325, 326, 327, 328, 329];
@@ -1368,7 +1368,7 @@ const isPlant  = id => isSapling(id) || FLORA_IDS.has(id) || id === TGRASSB || i
                        id === MUSHROOMR || id === MUSHROOMB ||
                        id === WHEAT0 || id === WHEAT1 || id === WHEAT2 || id === WHEAT3 || (id >= CARROT0 && id <= POTATO3) || CAVE_PLANTS.has(id) || NETHER_PLANTS.has(id);
 const isCross  = id => id === RS_TORCH || id === RS_TORCH_OFF || id===GLOWCRYSTAL || isPlant(id) || id === TORCH || id === COBWEB || id === IRONBARS || CAVE_CROSS.has(id) || NETHER_CROSS.has(id);
-const isFlat   = id => (id >= LEVER && id <= PLATE_WOOD) || id === RS_WIRE || id === BED || id === BEDHEAD || id === RAIL || id === SNOW_LAYER || id === LADDER || id === PAINTING || id === FRAME || id === FLOWERPOT || isCake(id) || id === LANTERN || id === CAMPFIRE;   // thin plate on the ground (or, for a ladder, on a wall)
+const isFlat   = id => (id >= LEVER && id <= PLATE_WOOD) || id === RS_WIRE || id === REPEATER || id === BED || id === BEDHEAD || id === RAIL || id === SNOW_LAYER || id === LADDER || id === PAINTING || id === FRAME || id === FLOWERPOT || isCake(id) || id === LANTERN || id === CAMPFIRE;   // thin plate on the ground (or, for a ladder, on a wall)
 const isSlab   = id => id === SLAB_STONE || id === SLAB_WOOD || id === SLAB_BRICK || id === SLAB_SAND || id === SLAB_NBRICK;
 const isStair  = id => id === STAIR_STONE || id === STAIR_WOOD || id === STAIR_BRICK || id === STAIR_SAND || id === STAIR_NBRICK;
 const isPartial = id => isSlab(id) || isStair(id);   // custom-geometry, non-full blocks
@@ -1437,7 +1437,7 @@ function toolClassOf(id){
   return null;
 }
 function handTime(id){
-  if((id >= LEVER && id <= RS_WIRE)) return 0.05;                          // redstone bits snap off
+  if((id >= LEVER && id <= RS_WIRE) || id === REPEATER) return 0.05;       // redstone bits snap off
   if(id === LAMP || id === LAMP_ON) return 0.45;
   if(DEEP_BASE[id]) return handTime(DEEP_BASE[id]) * 1.5;   // deepslate ores are harder, as in Minecraft
   if(id === CLOUD) return 0.35;
@@ -1548,6 +1548,7 @@ const RECIPES = [
   { out: [PLATE_STONE, 1], in: [[STONE, 2]] }, { out: [PLATE_WOOD, 1], in: [[ANY_PLANK, 2]] },
   { out: [RS_TORCH, 1], in: [[REDSTONE, 1], [STICK, 1]] },
   { out: [LAMP, 1], in: [[REDSTONE, 4], [GLOWSTONE, 1]], st: 'table' },
+  { out: [REPEATER, 1], in: [[RS_TORCH, 2], [REDSTONE, 1], [STONE, 3]], st: 'table' },
   { out: [528 + 1, 1], in: [[528, 1], [COALI, 1]], st: 'furnace' },
   { out: [530 + 1, 1], in: [[530, 1], [COALI, 1]], st: 'furnace' },
   { out: [532, 1], in: [[529, 9]], st: 'table' }, { out: [529, 9], in: [[532, 1]] },
@@ -1956,6 +1957,12 @@ itemAtlas.width = 128; itemAtlas.height = 512;   // 256 icons
     return [0,0,0,0];
   });
   put(337, (x,y,r) => { const k = Math.floor((r()-0.5)*40); return [200+k/2, 22+k/4, 14]; });  // redstone dust
+  put(341, (x,y,r) => {                                                 // repeater (icon): a stone slab with two torches and an arrow
+    const k = Math.floor((r()-0.5)*14);
+    if((x === 7 || x === 8) && (y === 3 || y === 4 || y === 10 || y === 11)) return [230, 30, 20];
+    if((x === 7 || x === 8) && y >= 5 && y <= 9) return [120, 110, 100];
+    return [150+k, 150+k, 150+k];
+  });
   put(339, (x,y,r) => {                                                 // redstone lamp, off
     const k = Math.floor((r()-0.5)*16);
     if(x===0||y===0||x===15||y===15||x===7||y===7) return [70+k, 44+k, 26+k];
@@ -5954,12 +5961,29 @@ function* buildChunkSteps(c,reuseLight=false){
       pushBox(O, 262, lx + 0.0625 + bite, y + 0.4, lz + 0.0625, lx + 0.9375, y + 0.5, lz + 0.9375, llC);
       continue;
     }
+    if(b === REPEATER){                                     // a stone slab with two torches; the front one sits where the delay puts it
+      const part = rsParts.get(dim + ':' + (wx0 + lx) + ',' + y + ',' + (wz0 + lz)) || { face: 2, delay: 1 }, f = RS_DIRS[part.face | 0];
+      const llP = light ? 0.2 + (sampleLight(light, lx, y, lz) / 15) * 0.8 : 1, lit = part.on ? Math.max(llP, 0.85) : llP * 0.35;
+      pushBox(O, T.STONE, lx, y, lz, lx + 1, y + 0.125, lz + 1, llP);
+      const post = (u) => { const cx = 0.5 + f[0] * u, cz = 0.5 + f[2] * u;   // u: -1 back .. +1 front
+        pushBox(O, 334, lx + cx - 0.06, y + 0.125, lz + cz - 0.06, lx + cx + 0.06, y + 0.32, lz + cz + 0.06, llP);
+        pushBox(O, 337, lx + cx - 0.07, y + 0.32, lz + cz - 0.07, lx + cx + 0.07, y + 0.42, lz + cz + 0.07, lit); };
+      post(-0.3); post(0.3 - ((part.delay || 1) - 1) * 0.12);           // more delay slides the front torch back, as in Minecraft
+      continue;
+    }
     if(b === RS_WIRE || (b >= LEVER && b <= PLATE_WOOD)){
       const wx = wx0 + lx, wz = wz0 + lz, llR = light ? 0.2 + (sampleLight(light, lx, y, lz) / 15) * 0.8 : 1, t = 0.0625;
       if(b === RS_WIRE){                                   // dust: a dot with arms to whatever it joins; bright when live
         const pv = rsPower.get(dim + ':' + wx + ',' + y + ',' + wz) || 0, glow = (pv ? Math.max(llR, 0.8) : llR) * (0.32 + 0.68 * pv / 15);
-        const joins = RS_H.map(([dx, dz]) => { const n = getBlock(wx + dx, y, wz + dz); return n === RS_WIRE || isRSSource(n) || n === RS_TORCH_OFF || isRSConsumer(n) || getBlock(wx + dx, y - 1, wz + dz) === RS_WIRE || (getBlock(wx + dx, y + 1, wz + dz) === RS_WIRE && !isSolid(getBlock(wx, y + 1, wz))); });
-        const any = joins.some(Boolean);
+        const joins = rsPoints(wx, y, wz), any = true;
+        // dust climbing onto the next block runs up that block's side
+        RS_H.forEach(([dx, dz]) => { if(!isSolid(getBlock(wx, y + 1, wz)) && getBlock(wx + dx, y + 1, wz + dz) === RS_WIRE){
+          const e = 0.02;
+          if(dx === 1) pushBox(O, 337, lx + 1 - e, y, lz + 0.42, lx + 1, y + 1, lz + 0.58, glow);
+          else if(dx === -1) pushBox(O, 337, lx, y, lz + 0.42, lx + e, y + 1, lz + 0.58, glow);
+          else if(dz === 1) pushBox(O, 337, lx + 0.42, y, lz + 1 - e, lx + 0.58, y + 1, lz + 1, glow);
+          else pushBox(O, 337, lx + 0.42, y, lz, lx + 0.58, y + 1, lz + e, glow);
+        } });
         pushBox(O, 337, lx + 0.34, y, lz + 0.34, lx + 0.66, y + t, lz + 0.66, glow);
         if(joins[0] || !any) pushBox(O, 337, lx + 0.66, y, lz + 0.42, lx + 1, y + t, lz + 0.58, glow);
         if(joins[1] || !any) pushBox(O, 337, lx, y, lz + 0.42, lx + 0.34, y + t, lz + 0.58, glow);
@@ -12221,7 +12245,7 @@ function onNet(c, m){
     }
     editsDirty = true;
   } else if(m.t === 'rs'){
-    if(m.p && typeof m.p === 'object'){ rsParts.set(rsKey(m.x, m.y, m.z), { face: m.p.face | 0, on: !!m.p.on, until: m.p.until }); rsDirty = true; rebuild(chunkAt(m.x >> 4, m.z >> 4)); rsNotify(m.x, m.y, m.z); }
+    if(m.p && typeof m.p === 'object'){ rsParts.set(rsKey(m.x, m.y, m.z), { face: m.p.face | 0, on: !!m.p.on, until: m.p.until, delay: m.p.delay | 0 || undefined }); rsDirty = true; rebuild(chunkAt(m.x >> 4, m.z >> 4)); rsNotify(m.x, m.y, m.z); }
     if(isHost) mpBroadcast(m, c);
   } else if(m.t === 'set'){
     netApplying = true;
@@ -13090,36 +13114,59 @@ function toggleDoor(x, y, z){
   blockSfx(PLANK, info.open ? 'break' : 'place');
 }
 /* ============================== REDSTONE ==============================
-   Power sources - lever, stone and wooden buttons, stone and wooden
-   pressure plates, the redstone torch and the block of redstone - and
-   redstone dust to carry the signal: 15 at a source, one weaker per block,
-   stepping up and down a block, as in Minecraft. Powered doors, trapdoors
-   and fence gates open, redstone lamps light, TNT primes, note blocks play.
-   A solid block that a lever or button is fixed to, a pressure plate sits
-   on, or a lit torch stands under is 'strongly' powered and powers dust
-   around it; dust lying on a block or running into it powers it 'weakly'
-   (enough for doors and lamps, not for more dust). A redstone torch goes out
-   while the block it stands on is powered - Minecraft's NOT gate - and burns
-   out if it is flicked too fast. Each change is worked out for the small
+   Minecraft's redstone, run in its own 0.1 s redstone ticks. Sources:
+   lever, stone and oak buttons (10 / 15 ticks), stone and oak pressure
+   plates (held 1 s after you step off), the redstone torch (on the
+   floor or a wall) and the block of redstone. Dust carries the signal 15
+   blocks, one weaker per block, climbing and dropping a block; it joins only
+   to other redstone parts, and powers the block under it and the blocks it
+   POINTS into - a line running past a lamp does not light it, one ending in
+   it does. A lever or button strongly powers the block it is fixed to, a
+   plate the block it is on, a torch the block above it, a repeater the block
+   in front; strongly powered blocks power dust, weakly powered ones only
+   doors, lamps and the like. A torch goes out one tick after its block is
+   powered (the NOT gate; clocks tick) and burns out if flicked too fast.
+   The repeater passes a signal one way, restored to 15, after 1-4 ticks
+   (use it to change the delay). Each change is worked out for the small
    network around it, never the whole world. */
 const rsParts = (() => { try { return new Map(JSON.parse(localStorage.getItem(SAVE_KEY + '-redstone')) || []); } catch(e){ return new Map(); } })();
 const rsPower = (() => { try { return new Map(JSON.parse(localStorage.getItem(SAVE_KEY + '-rspower')) || []); } catch(e){ return new Map(); } })();
-const rsLast = new Map(), rsQueue = new Map(), rsFlips = new Map(), rsBurnt = new Map();
+const rsLast = new Map(), rsQueue = new Map(), rsFlips = new Map(), rsBurnt = new Map(), rsTicks = new Map();
 let rsDirty = false, rsSaveT = 0, rsPlateT = 0;
+const RS_TICK = 100;                                                     // one redstone tick, ms
 const rsKey = (x, y, z) => dim + ':' + x + ',' + y + ',' + z;
-const RS_DIRS = [[0,-1,0],[0,1,0],[-1,0,0],[1,0,0],[0,0,-1],[0,0,1]];   // what a part is fixed to: 0 floor, 1 ceiling, 2-5 walls
-const RS_H = [[1,0],[-1,0],[0,1],[0,-1]];
-const isRSSource = id => (id >= LEVER && id <= RS_TORCH) || id === REDSTONE_BLOCK;
+const RS_DIRS = [[0,-1,0],[0,1,0],[-1,0,0],[1,0,0],[0,0,-1],[0,0,1]];   // what a part is fixed to (or a repeater faces): 0 floor, 1 ceiling, 2-5 sides
+const RS_H = [[1,0],[-1,0],[0,1],[0,-1]];                               // pairs 0/1 and 2/3 are opposites
+const isRSSourceGen = id => (id >= LEVER && id <= RS_TORCH) || id === REDSTONE_BLOCK;   // power everything around them
+const isRSSource = id => isRSSourceGen(id) || id === REPEATER;
 const isRSConsumer = id => isDoor(id) || id === TRAPDOOR || id === GATE || id === GATE_OPEN || id === LAMP || id === LAMP_ON || id === TNT || id === NOTEBLOCK;
 const isRSAny = id => isRSSource(id) || id === RS_TORCH_OFF || id === RS_WIRE || isRSConsumer(id);
 const rsPart = (x, y, z) => rsParts.get(rsKey(x, y, z));
 const rsOn = (x, y, z, id) => id === REDSTONE_BLOCK || id === RS_TORCH || !!(rsPart(x, y, z) || {}).on;
+const rsFace = (x, y, z) => (rsPart(x, y, z) || {}).face | 0;
 function rsSetPart(x, y, z, part){
   rsParts.set(rsKey(x, y, z), part); rsDirty = true;
   if(!netApplying && conns.length) mpBroadcast({ t: 'rs', x, y, z, p: part });
   rebuild(chunkAt(x >> 4, z >> 4)); rsNotify(x, y, z);
 }
 function rsNotify(x, y, z){ rsQueue.set(x + ',' + y + ',' + z, [x, y, z]); }
+function rsSchedule(key, ms, fn){ if(!rsTicks.has(key)) rsTicks.set(key, { at: Date.now() + ms, fn }); }
+// Does dust here join the neighbour that way? (only other redstone parts; a repeater only along its line)
+function rsJoins(x, y, z, dx, dz){
+  const n = getBlock(x + dx, y, z + dz);
+  if(n === RS_WIRE || (n >= LEVER && n <= RS_TORCH_OFF) || n === REDSTONE_BLOCK) return true;
+  if(n === REPEATER){ const d = RS_DIRS[rsFace(x + dx, y, z + dz)]; return (d[0] === dx && d[2] === dz) || (d[0] === -dx && d[2] === -dz); }
+  if(!isSolid(getBlock(x, y + 1, z)) && getBlock(x + dx, y + 1, z + dz) === RS_WIRE) return true;   // up a step
+  if(!isSolid(n) && getBlock(x + dx, y - 1, z + dz) === RS_WIRE) return true;                      // down a step
+  return false;
+}
+// the sides this dust powers: all four as a lone dot, straight through as a line end, else where it joins
+function rsPoints(x, y, z){
+  const j = RS_H.map(([dx, dz]) => rsJoins(x, y, z, dx, dz)), c = j.filter(Boolean).length;
+  if(c === 0) return [true, true, true, true];
+  if(c === 1){ const i = j.indexOf(true), out = [false, false, false, false]; out[i] = out[i ^ 1] = true; return out; }
+  return j;
+}
 function rsSolve(ox, oy, oz){
   const K = (x, y, z) => x + ',' + y + ',' + z, nodes = new Map(), seen = new Set();
   // 1) the network: redstone parts reachable from here, and the solid blocks between them
@@ -13132,73 +13179,83 @@ function rsSolve(ox, oy, oz){
     if(!rs && !isSolid(id)) continue;
     nodes.set(k, [x, y, z, id]);
     for(const [dx, dy, dz] of RS_DIRS){ const nx = x + dx, ny = y + dy, nz = z + dz; if(rs || isRSAny(getBlock(nx, ny, nz))) q.push([nx, ny, nz]); }
-    if(id === RS_WIRE) for(const [dx, dz] of RS_H) for(const dy of [-1, 1]) q.push([x + dx, y + dy, z + dz]);   // dust climbs and drops a block
+    if(id === RS_WIRE) for(const [dx, dz] of RS_H) for(const dy of [-1, 1]) q.push([x + dx, y + dy, z + dz]);
   }
   const idAt = (x, y, z) => { const n = nodes.get(K(x, y, z)); return n ? n[3] : getBlock(x, y, z); };
-  let strong, weak, pw;
-  for(let iter = 0; iter < 12; iter++){
-    // 2) strongly powered blocks
-    strong = new Set();
-    for(const [, [x, y, z, id]] of nodes){
-      if((id === LEVER || id === BUTTON_STONE || id === BUTTON_WOOD) && rsOn(x, y, z, id)){ const f = RS_DIRS[(rsPart(x, y, z) || {}).face | 0]; strong.add(K(x + f[0], y + f[1], z + f[2])); }
-      else if((id === PLATE_STONE || id === PLATE_WOOD) && rsOn(x, y, z, id)) strong.add(K(x, y - 1, z));
-      else if(id === RS_TORCH) strong.add(K(x, y + 1, z));
-    }
-    // 3) dust: 15 beside an active source or a strongly powered block, one less each step along
-    pw = new Map(); const wq = [];
-    for(const [k, [x, y, z, id]] of nodes){
-      if(id !== RS_WIRE) continue;
-      let src = false;
-      for(const [dx, dy, dz] of RS_DIRS){
-        const nx = x + dx, ny = y + dy, nz = z + dz, nid = idAt(nx, ny, nz);
-        if((isRSSource(nid) && rsOn(nx, ny, nz, nid)) || strong.has(K(nx, ny, nz))){ src = true; break; }
-      }
-      if(src){ pw.set(k, 15); wq.push([x, y, z, 15]); }
-    }
-    for(let h = 0; h < wq.length; h++){
-      const [x, y, z, pv] = wq[h]; if(pv <= 1) continue;
-      for(const [dx, dz] of RS_H) for(const dy of [0, 1, -1]){
-        const nx = x + dx, ny = y + dy, nz = z + dz, nk = K(nx, ny, nz);
-        if(idAt(nx, ny, nz) !== RS_WIRE) continue;
-        if(dy === 1 && isSolid(idAt(x, y + 1, z))) continue;          // a block over the dust cuts the step up
-        if(dy === -1 && isSolid(idAt(nx, y, nz))) continue;           // a block beside it cuts the step down
-        if((pw.get(nk) || 0) >= pv - 1) continue;
-        pw.set(nk, pv - 1); wq.push([nx, ny, nz, pv - 1]);
-      }
-    }
-    // 4) weakly powered: under powered dust, or where it runs into a side
-    weak = new Set();
-    for(const [k, pv] of pw){ const [x, y, z] = k.split(',').map(Number); weak.add(K(x, y - 1, z)); for(const [dx, dz] of RS_H) weak.add(K(x + dx, y, z + dz)); }
-    // 5) torches go out while the block under them is powered
-    let flipped = false;
-    for(const [k, n] of nodes){
-      const [x, y, z, id] = n;
-      if(id !== RS_TORCH && id !== RS_TORCH_OFF) continue;
-      const under = K(x, y - 1, z), want = (strong.has(under) || weak.has(under) || rsIsBurnt(x, y, z)) ? RS_TORCH_OFF : RS_TORCH;
-      if(want !== id){ n[3] = want; flipped = true; }
-    }
-    if(!flipped) break;
+  // 2) strongly powered blocks, and the cells repeaters push power into
+  const strong = new Set(), repOut = new Set();
+  for(const [, [x, y, z, id]] of nodes){
+    if((id === LEVER || id === BUTTON_STONE || id === BUTTON_WOOD) && rsOn(x, y, z, id)){ const f = RS_DIRS[rsFace(x, y, z)]; strong.add(K(x + f[0], y + f[1], z + f[2])); }
+    else if((id === PLATE_STONE || id === PLATE_WOOD) && rsOn(x, y, z, id)) strong.add(K(x, y - 1, z));
+    else if(id === RS_TORCH) strong.add(K(x, y + 1, z));
+    else if(id === REPEATER && rsOn(x, y, z, id)){ const f = RS_DIRS[rsFace(x, y, z)], fk = K(x + f[0], y, z + f[2]); repOut.add(fk); if(isSolid(idAt(x + f[0], y, z + f[2]))) strong.add(fk); }
   }
-  // 6) apply: torches, dust, and everything powered
+  // a torch never powers the block it hangs on
+  const torchOn = (x, y, z, tx, ty, tz) => { const f = RS_DIRS[rsFace(tx, ty, tz)]; return !(tx + f[0] === x && ty + f[1] === y && tz + f[2] === z); };
+  // 3) dust: 15 beside an active source, a strongly powered block or a repeater's output; one less each step
+  const pw = new Map(), wq = [];
+  for(const [k, [x, y, z, id]] of nodes){
+    if(id !== RS_WIRE) continue;
+    let src = repOut.has(k);
+    for(const [dx, dy, dz] of RS_DIRS){
+      if(src) break;
+      const nx = x + dx, ny = y + dy, nz = z + dz, nid = idAt(nx, ny, nz);
+      if(isRSSourceGen(nid) && rsOn(nx, ny, nz, nid)) src = true;
+      else if(strong.has(K(nx, ny, nz))) src = true;
+    }
+    if(src){ pw.set(k, 15); wq.push([x, y, z, 15]); }
+  }
+  for(let h = 0; h < wq.length; h++){
+    const [x, y, z, pv] = wq[h]; if(pv <= 1) continue;
+    for(const [dx, dz] of RS_H) for(const dy of [0, 1, -1]){
+      const nx = x + dx, ny = y + dy, nz = z + dz, nk = K(nx, ny, nz);
+      if(idAt(nx, ny, nz) !== RS_WIRE) continue;
+      if(dy === 1 && isSolid(idAt(x, y + 1, z))) continue;
+      if(dy === -1 && isSolid(idAt(nx, y, nz))) continue;
+      if((pw.get(nk) || 0) >= pv - 1) continue;
+      pw.set(nk, pv - 1); wq.push([nx, ny, nz, pv - 1]);
+    }
+  }
+  // 4) weakly powered: the block under live dust, and whatever the dust points into
+  const weak = new Set();
+  for(const [k, pv] of pw){
+    const [x, y, z] = k.split(',').map(Number), pts = rsPoints(x, y, z);
+    weak.add(K(x, y - 1, z));
+    RS_H.forEach(([dx, dz], i) => { if(pts[i]) weak.add(K(x + dx, y, z + dz)); });
+  }
+  for(const k of repOut) weak.add(k);
   const poweredAt = (x, y, z) => {
-    if(strong.has(K(x, y, z)) || weak.has(K(x, y, z))) return true;
+    const k = K(x, y, z);
+    if(strong.has(k) || weak.has(k)) return true;
     for(const [dx, dy, dz] of RS_DIRS){
       const nx = x + dx, ny = y + dy, nz = z + dz, nk = K(nx, ny, nz), nid = idAt(nx, ny, nz);
-      if(isRSSource(nid) && rsOn(nx, ny, nz, nid)) return true;
-      if(nid === RS_WIRE ? (pw.get(nk) || 0) > 0 : (strong.has(nk) || weak.has(nk)) && isSolid(nid)) return true;
+      if(isRSSourceGen(nid) && rsOn(nx, ny, nz, nid) && (nid !== RS_TORCH || torchOn(x, y, z, nx, ny, nz))) return true;
+      if(isSolid(nid) && !isRSConsumer(nid) && (strong.has(nk) || weak.has(nk))) return true;   // a powered block beside it
     }
     return false;
   };
+  // 5) torches and repeaters change a tick (or a few) later, as in Minecraft
+  for(const [k, [x, y, z, id]] of nodes){
+    if(id === RS_TORCH || id === RS_TORCH_OFF){
+      const f = RS_DIRS[rsFace(x, y, z)], ak = K(x + f[0], y + f[1], z + f[2]);
+      const want = (strong.has(ak) || weak.has(ak) || rsIsBurnt(x, y, z)) ? RS_TORCH_OFF : RS_TORCH;
+      if(want !== id) rsSchedule('t' + k, RS_TICK, () => { const cur = getBlock(x, y, z); if((cur === RS_TORCH || cur === RS_TORCH_OFF) && cur !== want){ setBlock(x, y, z, want); rsTorchFlip(x, y, z); rsNotify(x, y, z); } });
+    } else if(id === REPEATER){
+      const part = rsPart(x, y, z) || { face: 2, delay: 1 }, f = RS_DIRS[part.face | 0], bx = x - f[0], bz = z - f[2], bk = K(bx, y, bz), bid = idAt(bx, y, bz);
+      const input = strong.has(bk) || (isSolid(bid) && weak.has(bk)) || (bid === RS_WIRE && (pw.get(bk) || 0) > 0)
+                 || (isRSSourceGen(bid) && rsOn(bx, y, bz, bid)) || (bid === REPEATER && rsOn(bx, y, bz, bid) && rsFace(bx, y, bz) === (part.face | 0));
+      if(input !== !!part.on) rsSchedule('r' + k, RS_TICK * (part.delay || 1), () => { const pp = rsPart(x, y, z); if(pp && getBlock(x, y, z) === REPEATER && !!pp.on !== input){ pp.on = input; rsSetPart(x, y, z, pp); } });
+    }
+  }
+  // 6) dust levels and everything powered
   const remesh = new Set();
   for(const [k, [x, y, z, id]] of nodes){
-    const now = getBlock(x, y, z);
-    if((now === RS_TORCH || now === RS_TORCH_OFF) && now !== id){ setBlock(x, y, z, id); rsTorchFlip(x, y, z); continue; }
     if(id === RS_WIRE){ const dk = rsKey(x, y, z), v = pw.get(k) || 0; if((rsPower.get(dk) || 0) !== v){ if(v) rsPower.set(dk, v); else rsPower.delete(dk); rsDirty = true; remesh.add((x >> 4) + ',' + (z >> 4)); } continue; }
     if(!isRSConsumer(id) || id === DOORTOP) continue;
     const dk = rsKey(x, y, z), on = id === DOOR ? poweredAt(x, y, z) || poweredAt(x, y + 1, z) : poweredAt(x, y, z), was = !!rsLast.get(dk);
     rsLast.set(dk, on);
     if(id === LAMP || id === LAMP_ON){ const want = on ? LAMP_ON : LAMP; if(want !== id) setBlock(x, y, z, want); continue; }
-    if(on === was) continue;                                          // act on changes: a player can still work a door by hand
+    if(on === was) continue;                                            // act on changes: a powered door can still be worked by hand
     if(isDoor(id)){ if(getDoorInfo(x, y, z).open !== on) toggleDoor(x, y, z); }
     else if(id === TRAPDOOR){ if(getTrapInfo(x, y, z).open !== on) toggleTrap(x, y, z); }
     else if(id === GATE || id === GATE_OPEN){ const want = on ? GATE_OPEN : GATE; if(want !== id){ setBlock(x, y, z, want); blockSfx(PLANK, on ? 'break' : 'place'); } }
@@ -13207,28 +13264,35 @@ function rsSolve(ox, oy, oz){
   }
   for(const ck of remesh){ const [cx, cz] = ck.split(',').map(Number); rebuild(chunkAt(cx, cz)); }
 }
-// a torch flicked more than 8 times in 1.5 s burns out for a few seconds (stops runaway clocks)
+// a torch flicked more than 8 times in 3 s burns out for a while (Minecraft's torch burnout)
 function rsTorchFlip(x, y, z){
-  const k = rsKey(x, y, z), now = performance.now() / 1000, a = (rsFlips.get(k) || []).filter(t => now - t < 1.5);
+  const k = rsKey(x, y, z), now = performance.now() / 1000, a = (rsFlips.get(k) || []).filter(t => now - t < 3);
   a.push(now); rsFlips.set(k, a);
-  if(a.length > 8){ rsBurnt.set(k, now + 3); rsFlips.delete(k); burstRGB(x + 0.5, y + 0.8, z + 0.5, 0.4, 0.4, 0.4, 6, 0.2); playN({ f: 1500, type: 'highpass', dur: 0.2, vol: 0.06 }); }
+  if(a.length > 8){ rsBurnt.set(k, now + 3); rsFlips.delete(k); burstRGB(x + 0.5, y + 0.8, z + 0.5, 0.4, 0.4, 0.4, 6, 0.2); playN({ f: 1500, type: 'highpass', dur: 0.2, vol: 0.06 }); rsSchedule('b' + k, 3100, () => rsNotify(x, y, z)); }
 }
 function rsIsBurnt(x, y, z){ const u = rsBurnt.get(rsKey(x, y, z)); if(!u) return false; if(performance.now() / 1000 > u){ rsBurnt.delete(rsKey(x, y, z)); return false; } return true; }
-// placing: dust, plates and torches stand on a block; levers and buttons fix to the face you clicked
+// placing: dust, plates and repeaters go on a floor; torches on a floor or a wall; levers and buttons on the face you click
 function placeRS(x, y, z, id, hit){
   const cur = getBlock(x, y, z);
   if(!(cur === AIR || isCross(cur)) || cur === RS_TORCH || cur === RS_TORCH_OFF) return true;
-  const floorOnly = id === RS_WIRE || id === PLATE_STONE || id === PLATE_WOOD || id === RS_TORCH;
-  const face = floorOnly ? 0 : RS_DIRS.findIndex(([dx, dy, dz]) => dx === -hit.face[0] && dy === -hit.face[1] && dz === -hit.face[2]);
+  const clicked = RS_DIRS.findIndex(([dx, dy, dz]) => dx === -hit.face[0] && dy === -hit.face[1] && dz === -hit.face[2]);
+  const floorOnly = id === RS_WIRE || id === PLATE_STONE || id === PLATE_WOOD || id === REPEATER;
+  let face = floorOnly ? 0 : clicked;
+  if(id === RS_TORCH && face === 1) face = 0;                          // no torches hanging from ceilings
   if(face < 0) return true;
   const [ax, ay, az] = RS_DIRS[face];
   if(!isSolid(getBlock(x + ax, y + ay, z + az))){ flashName(floorOnly ? 'Place it on top of a solid block' : 'It needs a solid block to fix to'); return true; }
   setBlock(x, y, z, id);
-  if(id !== RS_WIRE && id !== RS_TORCH) rsSetPart(x, y, z, { face, on: false }); else rsNotify(x, y, z);
+  if(id === REPEATER){
+    // it faces away from you: the signal runs from your side to the far side
+    const fx = -Math.sin(player.yaw), fz = -Math.cos(player.yaw);
+    rsSetPart(x, y, z, { face: Math.abs(fx) > Math.abs(fz) ? (fx > 0 ? 3 : 2) : (fz > 0 ? 5 : 4), delay: 1, on: false });
+  } else if(id !== RS_WIRE) rsSetPart(x, y, z, { face, on: false });
+  else rsNotify(x, y, z);
   blockSfx(STONE, 'place'); triggerViewSwing(); consumePlacedItem();
   return true;
 }
-// using: flick a lever, press a button
+// using: flick a lever, press a button, set a repeater's delay
 function useRS(hit){
   if(!hit) return false;
   if(hit.id === LEVER){
@@ -13238,8 +13302,13 @@ function useRS(hit){
   }
   if(hit.id === BUTTON_STONE || hit.id === BUTTON_WOOD){
     const part = Object.assign({ face: 0 }, rsPart(hit.x, hit.y, hit.z));
-    if(!part.on){ part.on = true; part.until = Date.now() + (hit.id === BUTTON_STONE ? 1000 : 1500); rsSetPart(hit.x, hit.y, hit.z, part); playN({ f: 1100, type: 'bandpass', dur: 0.04, vol: 0.14 }); }
+    if(!part.on){ part.on = true; part.until = Date.now() + (hit.id === BUTTON_STONE ? 10 : 15) * RS_TICK; rsSetPart(hit.x, hit.y, hit.z, part); playN({ f: 1100, type: 'bandpass', dur: 0.04, vol: 0.14 }); }
     triggerViewSwing();
+    return true;
+  }
+  if(hit.id === REPEATER){
+    const part = Object.assign({ face: 2, delay: 1 }, rsPart(hit.x, hit.y, hit.z)); part.delay = (part.delay % 4) + 1;
+    rsSetPart(hit.x, hit.y, hit.z, part); flashName('Delay: ' + part.delay + ' tick' + (part.delay > 1 ? 's' : '')); playN({ f: 1000, type: 'bandpass', dur: 0.03, vol: 0.12 }); triggerViewSwing();
     return true;
   }
   return false;
@@ -13249,9 +13318,9 @@ function rsBroke(x, y, z, id){
   const k = rsKey(x, y, z);
   if(rsParts.delete(k) | rsPower.delete(k)) rsDirty = true;
   for(let f = 0; f < 6; f++){
-    const [dx, dy, dz] = RS_DIRS[f], nx = x - dx, ny = y - dy, nz = z - dz, n = getBlock(nx, ny, nz);   // the part that would be fixed here by face f
-    if(!(n >= LEVER && n <= RS_WIRE)) continue;
-    const pf = n === RS_WIRE || n === PLATE_STONE || n === PLATE_WOOD || n === RS_TORCH || n === RS_TORCH_OFF ? 0 : (rsPart(nx, ny, nz) || {}).face | 0;
+    const [dx, dy, dz] = RS_DIRS[f], nx = x - dx, ny = y - dy, nz = z - dz, n = getBlock(nx, ny, nz);
+    if(!((n >= LEVER && n <= RS_WIRE) || n === REPEATER)) continue;
+    const pf = n === RS_WIRE || n === PLATE_STONE || n === PLATE_WOOD || n === REPEATER ? 0 : rsFace(nx, ny, nz);
     if(pf !== f) continue;
     setBlock(nx, ny, nz, AIR); rsParts.delete(rsKey(nx, ny, nz)); rsPower.delete(rsKey(nx, ny, nz)); rsDirty = true;
     if(mode === 'survival') spawnDropAt(nx + 0.5, ny + 0.3, nz + 0.5, dropOf(n), 1);
@@ -13259,9 +13328,10 @@ function rsBroke(x, y, z, id){
   }
   rsNotify(x, y, z);
 }
-// buttons spring back, plates feel what stands on them, changes get worked out, state is saved
+// every frame: due redstone ticks, buttons springing back, plates, queued changes, saving
 function updateRedstone(dt){
   const nowMs = Date.now(), pre = dim + ':';
+  for(const [k, t] of rsTicks) if(t.at <= nowMs){ rsTicks.delete(k); t.fn(); }
   for(const [k, part] of rsParts){
     if(!part.until || part.until > nowMs || !k.startsWith(pre)) continue;
     part.on = false; delete part.until; const [x, y, z] = k.slice(pre.length).split(',').map(Number);
@@ -13275,18 +13345,22 @@ function updateRedstone(dt){
     for(const [k, part] of rsParts){
       if(!k.startsWith(pre)) continue;
       const [x, y, z] = k.slice(pre.length).split(',').map(Number), id = getBlock(x, y, z);
-      if(id !== PLATE_STONE && id !== PLATE_WOOD){ continue; }
+      if(id !== PLATE_STONE && id !== PLATE_WOOD) continue;
       if(Math.abs(x + 0.5 - player.pos.x) > 64 || Math.abs(z + 0.5 - player.pos.z) > 64) continue;
       const on = bodies.some(b => b.x > x && b.x < x + 1 && b.z > z && b.z < z + 1 && b.y >= y - 0.05 && b.y < y + 0.5)
               || (id === PLATE_WOOD && drops.some(d => d.pos && d.pos.x > x && d.pos.x < x + 1 && d.pos.z > z && d.pos.z < z + 1 && d.pos.y >= y - 0.1 && d.pos.y < y + 0.6));
-      if(on !== !!part.on){ part.on = on; rsSetPart(x, y, z, part); playN({ f: on ? 600 : 500, type: 'lowpass', dur: 0.06, vol: 0.12 }); }
+      if(on){ part.offAt = 0; if(!part.on){ part.on = true; rsSetPart(x, y, z, part); playN({ f: 600, type: 'lowpass', dur: 0.06, vol: 0.12 }); } }
+      else if(part.on){                                                // held 1 s (20 game ticks) after the last step, as in Minecraft
+        if(!part.offAt) part.offAt = nowMs + 10 * RS_TICK;
+        else if(nowMs >= part.offAt){ part.on = false; part.offAt = 0; rsSetPart(x, y, z, part); playN({ f: 500, type: 'lowpass', dur: 0.06, vol: 0.12 }); }
+      }
     }
   }
   let n = 0;
-  for(const [k, [x, y, z]] of rsQueue){ rsQueue.delete(k); rsSolve(x, y, z); if(++n >= 6) break; }
+  for(const [k, [x, y, z]] of rsQueue){ rsQueue.delete(k); rsSolve(x, y, z); if(++n >= 8) break; }
   if(rsDirty && (rsSaveT -= dt) <= 0){
     rsSaveT = 2; rsDirty = false;
-    safeSet(SAVE_KEY + '-redstone', JSON.stringify([...rsParts].map(([k, v]) => [k, { face: v.face, on: !!v.on && !v.until }])));
+    safeSet(SAVE_KEY + '-redstone', JSON.stringify([...rsParts].map(([k, v]) => [k, { face: v.face, on: !!v.on && !v.until, delay: v.delay }])));
     safeSet(SAVE_KEY + '-rspower', JSON.stringify([...rsPower]));
   }
 }
@@ -13993,7 +14067,7 @@ function doPlace(){
   if(held===DOOR){placeDoor(x,y,z);return;}
   if(held===TRAPDOOR){placeTrap(x,y,z);return;}
   if(held===REDSTONE){placeRS(x,y,z,RS_WIRE,hit);return;}
-  if((held>=LEVER&&held<=RS_TORCH)){placeRS(x,y,z,held,hit);return;}
+  if((held>=LEVER&&held<=RS_TORCH)||held===REPEATER){placeRS(x,y,z,held,hit);return;}
   if(held===BED){placeBed(x,y,z);return;}
   if(held===LADDER){placeLadder(x,y,z,hit);return;}
   if(held===PAINTING){placeLadder(x,y,z,hit,PAINTING);return;}
@@ -14071,7 +14145,7 @@ const CAT_NAMES = ['Building', 'Nature', 'Ores & Minerals', 'Decoration', 'Utili
 const _oreBlocks = new Set([RAW_IRON_BLOCK, RAW_GOLD_BLOCK, RAW_COPPER_BLOCK, COALO, IRONO, GOLDO, DIAMO, EMERO, COPPERO, REDSTONE_ORE, LAPIS_ORE, QUARTZ_ORE, DEBRIS, ...Object.keys(DEEP_BASE).map(Number)]);
 const _matItems = new Set([RAW_IRON, RAW_GOLD, RAW_COPPER, REDSTONE, LAPIS, COALI, IRONI, GOLDI, DIAMI, COPPERI, EMERALD, NETHERITE, QUARTZ, AMETHYST_SHARD, GNUGGET, NSCRAP, STICK, STRING, LEATHER, FEATHER, GUNPOWDER, BLAZEROD, BLAZEPOWDER, GHASTTEAR, MAGMACREAM, ENDERPEARL, SLIMEBALL, BONE, BONE_MEAL, HONEYCOMB, PAPER]);
 const _decoBlocks = new Set([TORCH, SOUL_TORCH, PAINTING, FRAME, FLOWERPOT, LANTERN, JACK_O_LANTERN, CARVED_PUMPKIN, GLOWB, CAMPFIRE]);
-const _utilBlocks = new Set([LEVER, BUTTON_STONE, BUTTON_WOOD, PLATE_STONE, PLATE_WOOD, RS_TORCH, LAMP, CHEST, CRAFTT, FURN, BREWING, BARREL, ENDERCHEST, COMPOSTER, GRINDSTONE, NOTEBLOCK, JUKEBOX, ANVIL, SMITHING, CAULDRON, LADDER, FENCE, GATE, GATE_OPEN, BED, BEDHEAD, LIGHTNINGROD, TNT, BOOKSHELF, ENCH_TABLE]);
+const _utilBlocks = new Set([REPEATER, LEVER, BUTTON_STONE, BUTTON_WOOD, PLATE_STONE, PLATE_WOOD, RS_TORCH, LAMP, CHEST, CRAFTT, FURN, BREWING, BARREL, ENDERCHEST, COMPOSTER, GRINDSTONE, NOTEBLOCK, JUKEBOX, ANVIL, SMITHING, CAULDRON, LADDER, FENCE, GATE, GATE_OPEN, BED, BEDHEAD, LIGHTNINGROD, TNT, BOOKSHELF, ENCH_TABLE]);
 const _natureBlocks = new Set([GRASS, DIRT, SAND, REDSAND, GRAVEL, SNOW, PODZOL, CACTUS, DEADBUSH, MUSHROOMR, MUSHROOMB, TGRASSB, POPPYB, DANDB]);
 function itemCat(id){
   const it = ITEMS[id];
@@ -14851,7 +14925,7 @@ function vrTryPlace(){
   if(held===DOOR){placeDoor(x,y,z);return;}
   if(held===TRAPDOOR){placeTrap(x,y,z);return;}
   if(held===REDSTONE){placeRS(x,y,z,RS_WIRE,hit);return;}
-  if((held>=LEVER&&held<=RS_TORCH)){placeRS(x,y,z,held,hit);return;}
+  if((held>=LEVER&&held<=RS_TORCH)||held===REPEATER){placeRS(x,y,z,held,hit);return;}
   if(held===BED){placeBed(x,y,z);return;}
   if(held===LADDER){placeLadder(x,y,z,hit);return;}
   if(held===PAINTING){placeLadder(x,y,z,hit,PAINTING);return;}
