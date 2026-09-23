@@ -344,8 +344,7 @@ const IS_VR      = BUILD === 'vr';
 
 
 /* ============================== config ============================== */
-const CHUNK = 16, SEA = 66;
-const DEEP_Y = 34;              // below this the stone turns to deepslate
+const CHUNK = 16, SEA0 = 66;     // sea level of the classic (pre-deep) world
 const WORLD_LIFT = 40;          // how far this build raised terrain vs the old 96-tall world
 const QUEST_DEVICE=/Quest|Oculus/i.test(navigator.userAgent);
 let RD = Math.min(7, Math.max(2, parseInt(localStorage.getItem(QUEST_DEVICE?'blockcraft-vr-rd':'blockcraft-rd')) || (QUEST_DEVICE?3:5)));
@@ -370,20 +369,31 @@ localStorage.setItem('blockcraft-last-seed', String(SEED));
    3 lays biomes out as regions you can walk between and fills in the woods;
    a world made before it keeps its biomes and trees, so nothing grows into
    anyone's house. */
+/* Generator 4 is the deep world: Minecraft's own heights. The land of
+   generator 3 is lifted 60 blocks and a new 60-block deep layer is laid
+   underneath, and every Y is shown as (internal - 64), so the bottom is
+   Y -64, the sea sits at 62, the build limit is 319 and ores spawn at
+   Minecraft's exact heights. A generator-3 world is deepened in place
+   (its blocks and saved state move up with the land) - see deepenWorld. */
+let DEEPEN_FROM = 0;
 const GEN_V = (() => {
   const k = 'blockcraft-save-' + SEED + '-gen';
   try {
     const v = +localStorage.getItem(k);
+    if(v === 3 && !localStorage.getItem('blockcraft-save-' + SEED + '-nodeep')){ DEEPEN_FROM = 3; return 4; }
     if(v) return v;
     const old = localStorage.getItem('blockcraft-save-' + SEED) || localStorage.getItem('blockcraft-save-' + SEED + '-inv');
-    const g = old ? 1 : 3;
+    const g = old ? 1 : 4;
     localStorage.setItem(k, String(g));
     return g;
-  } catch(e){ return 3; }
+  } catch(e){ return 4; }
 })();
-// Caves & Cliffs worlds are 224 tall so mountains can climb past the clouds;
-// older worlds stay 144 tall with the snow line where it always was
-const HEIGHT = GEN_V >= 2 ? 224 : 144, SNOW_H = GEN_V >= 2 ? 128 : 92;
+const YS = GEN_V >= 4 ? 60 : 0;          // how far the deep world lifts the classic land
+const YDISP = GEN_V >= 4 ? 64 : 0;       // internal y minus this = the Y the player sees (Minecraft's numbers)
+const SEA = SEA0 + YS;                   // shows as Y 62 in a deep world, as in Minecraft
+const DEEP_Y = GEN_V >= 4 ? 64 : 34;     // below this the stone turns to deepslate (Y 0 in a deep world)
+// deep worlds run Y -64..320 (384 tall); Caves & Cliffs worlds 224; older worlds 144
+const HEIGHT = GEN_V >= 4 ? 384 : GEN_V >= 2 ? 224 : 144, SNOW_H = GEN_V >= 2 ? 128 + YS : 92;
 document.getElementById('seedLabel').textContent = SEED;
 const SPLASHES = ['Punch trees!', 'Now with zombies!', 'Diamonds are deep!', 'One file!', 'Also try Minecraft!',
                   'Craft a bed!', 'Now with biomes!', 'Ouch, cactus!', 'Beware the night!', 'Free concert included!'];
@@ -429,7 +439,7 @@ function fbm(x, z, oct, salt){
   for(let i = 0; i < oct; i++){ v += amp * vnoise(x * f, z * f, salt + i * 7); f *= 2; amp *= 0.5; }
   return v / (1 - Math.pow(0.5, oct));
 }
-function terrainHeight(x, z){
+function terrainHeight0(x, z){   // the classic land, in classic (pre-deep) heights
   const cont   = fbm(x * 0.004, z * 0.004, 4, 11);
   const hills  = fbm(x * 0.015, z * 0.015, 4, 29);
   const detail = fbm(x * 0.06,  z * 0.06,  2, 47);
@@ -455,9 +465,10 @@ function terrainHeight(x, z){
     const ridge = 1 - Math.abs(fbm(x * 0.02, z * 0.02, 4, 61) * 2 - 1); // sharp ridgelines
     h += t * t * (34 + ridge * 34);
   }
-  if(h > SEA + 100) h = SEA + 100 + (h - SEA - 100) * 0.4;   // keep peaks well below the ceiling, like Minecraft's sky room
-  return Math.max(1, Math.min(HEIGHT - 6, Math.floor(h)));
+  if(h > SEA0 + 100) h = SEA0 + 100 + (h - SEA0 - 100) * 0.4;   // keep peaks well below the ceiling, like Minecraft's sky room
+  return Math.max(1, Math.min(HEIGHT - 6 - YS, Math.floor(h)));
 }
+function terrainHeight(x, z){ return terrainHeight0(x, z) + YS; }
 function caveNoise(x, y, z){
   return 0.62 * vnoise3(x * 0.085, y * 0.12, z * 0.085, 901) +
          0.38 * vnoise3(x * 0.17,  y * 0.24, z * 0.17,  907);
@@ -468,9 +479,10 @@ function caveNoise(x, y, z){
    break out at the surface; and "noodles" - thin crawlways. Two thin noise
    sheets crossing make a tube, which is what gives the tunnels their shape. */
 const CHEESE_T = 0.815, SPAG_T = 0.022, NOODLE_T = 0.013;   // rarer, thinner caves - less swiss-cheese underground
-function caveCarve(x, y, z, h){
-  // caverns open wider the deeper you go
-  if(y > 3 && y < h - 7 && y < 80 && vnoise3(x * 0.018, y * 0.032, z * 0.018, 1301) > CHEESE_T - (y < 34 ? 0.035 : 0)) return true;
+function caveCarve(x, y0, z, h0){
+  const y = y0 - YS, h = h0 - YS;        // classic heights: caves keep their shapes in a deepened world
+  // caverns open wider the deeper you go (in a deep world they carry on down to the bedrock)
+  if(y0 > 3 && y < h - 7 && y < 80 && vnoise3(x * 0.018, y * 0.032, z * 0.018, 1301) > CHEESE_T - (y < 34 ? 0.035 : 0)) return true;
   const a = vnoise3(x * 0.021, y * 0.03, z * 0.021, 1311) - 0.5;
   if(Math.abs(a) < SPAG_T && Math.abs(vnoise3(x * 0.021, y * 0.03, z * 0.021, 1317) - 0.5) < SPAG_T) return true;
   if(y < h - 3){
@@ -488,7 +500,44 @@ function caveCarve(x, y, z, h){
    blocks found only inside mountains. One blob noise shapes every vein; a
    4-block cell decides which ore (if any) that blob becomes. */
 const tri = (y, lo, pk, hi) => y <= lo || y >= hi ? 0 : y < pk ? (y - lo) / (pk - lo) : (hi - y) / (hi - pk);
-function oreAt(x, y, z, h, badlands){
+/* Deep worlds: Minecraft 1.18's own ore placements, at its own Y levels
+   (m = the Y the player sees). Each ore's veins-per-chunk are spread over its
+   height band - triangle bands peak in the middle, uniform bands are flat -
+   and turned into a chance per 4x4x4 cell. The K factors calibrate the result
+   to Minecraft's average ore per chunk (vein box and blob threshold set the
+   vein size, as below). */
+const tri3 = (m, lo, pk, hi) => m <= lo || m >= hi ? 0 : m < pk ? (m - lo) / (pk - lo) : (hi - m) / (hi - pk);
+function oreAtMC(x, y, z, h, badlands, mtn){
+  const m = y - YDISP, hm = h - YDISP;
+  if(mtn && m > -16 && y < h - 2 && hash3(x, y, z, 4343) < 0.00025) return EMERO;   // mountain ranges only, as in Minecraft
+  const u = hash3(x >> 2, y >> 2, z >> 2, 7778);
+  const T = (n, lo, pk, hi) => n * tri3(m, lo, pk, hi) / (2 * (hi - lo));   // n veins/chunk over a triangle band
+  const U = (n, lo, hi) => m >= lo && m <= hi ? n / (4 * (hi - lo)) : 0;   // n veins/chunk over a flat band
+  const w = [
+    [COALO,        ORE_K.coal * (U(30, 136, 320) + T(20, 0, 96, 192)), 0.56, 3],
+    [IRONO,        ORE_K.iron * (T(90, 80, 232, 384) + T(10, -24, 16, 56) + U(10, -64, 72)), 0.65, 3],
+    [COPPERO,      ORE_K.cu   * T(16, -16, 48, 112), 0.62, 3],
+    [GOLDO,        ORE_K.gold * (T(4, -64, -16, 32) + U(0.5, -64, -48) + (badlands ? U(50, 32, 256) : 0)), 0.66, 3],
+    [REDSTONE_ORE, ORE_K.red  * (U(4, -64, 15) + T(8, -96, -64, -32)), 0.64, 3],
+    [LAPIS_ORE,    ORE_K.lap  * (T(2, -32, 0, 32) + U(4, -64, 64)), 0.68, 3],
+    [DIAMO,        ORE_K.dia  * (T(7, -144, -64, 16) + U(4, -64, 16)), 0.55, 2],
+  ];
+  let acc = 0;
+  for(const [id, c, t, k] of w){
+    acc += c;
+    if(u < acc){
+      const cx = x >> 2, cy = y >> 2, cz = z >> 2, span = 3 - k + 1;
+      const ox = Math.floor(hash3(cx, cy, cz, 7781) * span), oy = Math.floor(hash3(cx, cy, cz, 7782) * span), oz = Math.floor(hash3(cx, cy, cz, 7783) * span);
+      const lx = (x & 3) - ox, ly = (y & 3) - oy, lz = (z & 3) - oz;
+      if(lx < 0 || ly < 0 || lz < 0 || lx >= k || ly >= k || lz >= k) return 0;
+      return vnoise3(x * 0.34, y * 0.34, z * 0.34, 7777) > t ? id : 0;
+    }
+  }
+  return 0;
+}
+const ORE_K = { coal: 0.987, iron: 0.531, cu: 0.56, gold: 0.385, red: 0.687, lap: 0.354, dia: 0.215 };   // measured: ~90 coal, 55 iron, 45 copper, 25 redstone, 8 gold, 7 lapis, 4 diamond per chunk
+function oreAt(x, y, z, h, badlands, mtn){
+  if(YS) return oreAtMC(x, y, z, h, badlands, mtn);
   if(h > SEA + 40 && y > SEA - 10 && y < h - 2 && hash3(x, y, z, 4343) < 0.00035) return EMERO;   // mountain emeralds
   const u = hash3(x >> 2, y >> 2, z >> 2, 7778);                                                   // this cell's ore roll
   // [ore, cell chance at this height, blob threshold, vein box size]: the box keeps each
@@ -521,7 +570,7 @@ const dripAt = (x, z) => !lushAt(x, z) && vnoise(x * 0.008 - 40, z * 0.008 + 90,
 // about a third of cave basins are flooded to their own water level
 function aquiferLevel(x, z){
   const gx = Math.floor(x / 40), gz = Math.floor(z / 40);
-  return hash(gx, gz, 1401) < 0.35 ? 18 + Math.floor(hash(gx, gz, 1402) * 30) : -1;
+  return hash(gx, gz, 1401) < 0.35 ? 18 + YS + Math.floor(hash(gx, gz, 1402) * 30) : -1;
 }
 const geodeCache = new Map();
 function geodeDef(gx, gz){
@@ -531,8 +580,8 @@ function geodeDef(gx, gz){
   if(hash(gx, gz, 1801) < 0.3){
     const x = gx * 56 + 10 + Math.floor(hash(gx, gz, 1802) * 36), z = gz * 56 + 10 + Math.floor(hash(gx, gz, 1803) * 36);
     const r = 4.2 + hash(gx, gz, 1805) * 2;
-    const y = Math.min(12 + Math.floor(hash(gx, gz, 1804) * 34), terrainHeight(x, z) - Math.ceil(r) - 5);
-    if(y > r + 3) g = { x, y, z, r };
+    const y = Math.min(12 + Math.floor(hash(gx, gz, 1804) * 34), terrainHeight0(x, z) - Math.ceil(r) - 5);
+    if(y > r + 3) g = { x, y: y + YS, z, r };
   }
   geodeCache.set(k, g);
   return g;
@@ -540,9 +589,9 @@ function geodeDef(gx, gz){
 const cavernCache=new Map();
 function cavernDef(gx,gz){
  const key=gx+','+gz;if(cavernCache.has(key))return cavernCache.get(key);
- const x=gx*80+20+Math.floor(hash(gx,gz,9801)*40),z=gz*80+20+Math.floor(hash(gx,gz,9802)*40),surface=terrainHeight(x,z);
+ const x=gx*80+20+Math.floor(hash(gx,gz,9801)*40),z=gz*80+20+Math.floor(hash(gx,gz,9802)*40),surface=terrainHeight0(x,z);
  const ry=5+Math.floor(hash(gx,gz,9803)*3),y=Math.max(ry+5,Math.min(surface-ry-7,15+Math.floor(hash(gx,gz,9804)*12)));
- const c=surface>ry*2+13?{x,z,y,ry,rx:13+Math.floor(hash(gx,gz,9805)*8),rz:13+Math.floor(hash(gx,gz,9806)*8),ruin:hash(gx,gz,9807)<.6,key:'crystal:'+key}:null;
+ const c=surface>ry*2+13?{x,z,y:y+YS,ry,rx:13+Math.floor(hash(gx,gz,9805)*8),rz:13+Math.floor(hash(gx,gz,9806)*8),ruin:hash(gx,gz,9807)<.6,key:'crystal:'+key}:null;
  cavernCache.set(key,c);return c;
 }
 function cavernsNear(x,z){const result=[];const gx=Math.floor(x/80),gz=Math.floor(z/80);for(let dx=-1;dx<=1;dx++)for(let dz=-1;dz<=1;dz++){const c=cavernDef(gx+dx,gz+dz);if(c)result.push(c);}return result;}
@@ -764,9 +813,9 @@ function dungeonDef(gx, gz){
   if(hash(gx, gz, 7101) < 0.55){
     const cx = gx * 96 + 24 + Math.floor(hash(gx, gz, 7102) * 48);
     const cz = gz * 96 + 24 + Math.floor(hash(gx, gz, 7103) * 48);
-    const surf = terrainHeight(cx, cz);
+    const surf = terrainHeight0(cx, cz);
     const cy = 12 + Math.floor(hash(gx, gz, 7104) * Math.max(4, surf - 22));
-    if(cy > 6 && cy < surf - 6) d = { cx, cz, cy, key: 'D' + k };
+    if(cy > 6 && cy < surf - 6) d = { cx, cz, cy: cy + YS, key: 'D' + k };
   }
   dungeonCache.set(k, d);
   return d;
@@ -789,11 +838,11 @@ function mineDef(gx, gz){
   if(hash(gx, gz, 7201) < 0.5){
     const cx = gx * 160 + 40 + Math.floor(hash(gx, gz, 7202) * 80);
     const cz = gz * 160 + 40 + Math.floor(hash(gx, gz, 7203) * 80);
-    const surf = terrainHeight(cx, cz);
+    const surf = terrainHeight0(cx, cz);
     const cy = 14 + Math.floor(hash(gx, gz, 7204) * 16);
     const horiz = hash(gx, gz, 7205) < 0.5;    // runs along X or Z
     const len = 40 + Math.floor(hash(gx, gz, 7206) * 40);
-    if(cy > 6 && cy < surf - 8) m = { cx, cz, cy, horiz, len, key: 'M' + k };
+    if(cy > 6 && cy < surf - 8) m = { cx, cz, cy: cy + YS, horiz, len, key: 'M' + k };
   }
   mineCache.set(k, m);
   return m;
@@ -816,9 +865,9 @@ function strongDef(gx, gz){
   if(hash(gx, gz, 7301) < 0.35){
     const cx = gx * 768 + 200 + Math.floor(hash(gx, gz, 7302) * 368);
     const cz = gz * 768 + 200 + Math.floor(hash(gx, gz, 7303) * 368);
-    const surf = terrainHeight(cx, cz);
+    const surf = terrainHeight0(cx, cz);
     const cy = 10 + Math.floor(hash(gx, gz, 7304) * 8);
-    if(cy > 5 && cy < surf - 14) s = { cx, cz, cy, key: 'S' + k };
+    if(cy > 5 && cy < surf - 14) s = { cx, cz, cy: cy + YS, key: 'S' + k };
   }
   strongCache.set(k, s);
   return s;
@@ -915,7 +964,7 @@ const BONE=455, BONE_MEAL=456, SHIELD=454, ROD=447, COD=448, SALMON=449, COOKED_
 const EGG_RUN = 37, EGG_EXTRA = 479;          // eggs past the first 37 carry on from 479
 const eggId = i => i < EGG_RUN ? EGG_BASE + i : EGG_EXTRA + i - EGG_RUN, eggIcon = i => i < EGG_RUN ? 120 + i : i === EGG_RUN ? 175 : 180 + i - EGG_RUN;
 const eggMob = id => { const i = id >= EGG_BASE && id < EGG_BASE + EGG_RUN ? id - EGG_BASE : id >= EGG_EXTRA ? EGG_RUN + id - EGG_EXTRA : -1; return i >= 0 && i < SPAWN_EGGS.length ? SPAWN_EGGS[i][0] : null; };
-const SLIMEBALL=477, SLIME_BLOCK=478, LANTERN=490, CAMPFIRE=491, BEEHIVE=492, BEEHIVE_FULL=493, HONEY_BOTTLE=494, HONEYCOMB=495, FENCE=496, GATE=497, GATE_OPEN=498, SHEARS=499, TRIDENT=500, JUKEBOX=501, DISC_1=502, MAP=506, ANVIL=507, CARVED_PUMPKIN=508, JACK_O_LANTERN=509, PAINTING=510, COMPOSTER=511, GRINDSTONE=512, NOTEBLOCK=513, BARREL=514, FRAME=515, ENDERCHEST=516, CAULDRON=517, LIGHTNINGROD=518, SMITHING=519, FLOWERPOT=520, BEDHEAD=521, TRAPDOOR=522, REDGUM_LOG=523, REDGUM_PLANK=524, REDGUM_LEAVES=525, BOAB_PLANK=526, COBBLE=527;   // 502-505: music discs
+const SLIMEBALL=477, SLIME_BLOCK=478, LANTERN=490, CAMPFIRE=491, BEEHIVE=492, BEEHIVE_FULL=493, HONEY_BOTTLE=494, HONEYCOMB=495, FENCE=496, GATE=497, GATE_OPEN=498, SHEARS=499, TRIDENT=500, JUKEBOX=501, DISC_1=502, MAP=506, ANVIL=507, CARVED_PUMPKIN=508, JACK_O_LANTERN=509, PAINTING=510, COMPOSTER=511, GRINDSTONE=512, NOTEBLOCK=513, BARREL=514, FRAME=515, ENDERCHEST=516, CAULDRON=517, LIGHTNINGROD=518, SMITHING=519, FLOWERPOT=520, BEDHEAD=521, TRAPDOOR=522, REDGUM_LOG=523, REDGUM_PLANK=524, REDGUM_LEAVES=525, BOAB_PLANK=526, COBBLE=527, REDSTONE_ORE=528, REDSTONE=529, LAPIS_ORE=530, LAPIS=531, REDSTONE_BLOCK=532, LAPIS_BLOCK=533;   // 502-505: music discs
 const isFenceish = id => id === FENCE || id === GATE || id === GATE_OPEN;
 const hivesSeen = new Set();           // "x,y,z" of overworld hives the mesher has seen
 const campfires = new Set();            // "dim:x,y,z" of campfires the mesher has seen
@@ -982,7 +1031,7 @@ const T = {GRASS_TOP:0,GRASS_SIDE:1,DIRT:2,STONE:3,SAND:4,LOG_SIDE:5,LOG_TOP:6,L
            DOOR_T:82,DOORTOP_T:83,
            ENDSTONE_T:84,ENDPORTAL_T:85,DRAGONEGG_T:86,ENDCRYSTAL_T:87,
            SPAWNER_T:88,RAIL_T:89,COBWEB_T:90,CRACKED_T:91,MOSSYBRICK_T:92,IRONBARS_T:93};
-const ATLAS_COLS = 8, ATLAS_W = 128, ATLAS_H = 640;
+const ATLAS_COLS = 8, ATLAS_W = 128, ATLAS_H = 768;   // 384 tiles
 const BLOCKS = {
   [GRASS]:{name:'Grass',  top:T.GRASS_TOP, bottom:T.DIRT, side:T.GRASS_SIDE},
   [DIRT] :{name:'Dirt',   all:T.DIRT},
@@ -1209,7 +1258,7 @@ SPAWN_EGGS.forEach(([, name], i) => { ITEMS[eggId(i)] = { name: name + ' Spawn E
 ITEMS[SLIMEBALL]={name:'Slimeball',icon:176};BLOCKS[LANTERN]={name:'Lantern',all:273};BLOCKS[FENCE]={name:'Fence',all:279};BLOCKS[GATE]={name:'Fence Gate',all:280};BLOCKS[GATE_OPEN]={name:'Fence Gate',all:280};BLOCKS[BEEHIVE]={name:'Beehive',top:277,bottom:277,side:276};BLOCKS[BEEHIVE_FULL]={name:'Beehive',top:277,bottom:277,side:278};
 ITEMS[HONEY_BOTTLE]={name:'Honey Bottle',icon:177,food:6};ITEMS[SHEARS]={name:'Shears',icon:179,tool:{type:'shears',tier:2}};BLOCKS[JUKEBOX]={name:'Jukebox',top:282,bottom:281,side:281};
 ITEMS[MAP]={name:'Map',icon:188};BLOCKS[ANVIL]={name:'Anvil',all:283};BLOCKS[PAINTING]={name:'Painting',all:285};BLOCKS[COMPOSTER]={name:'Composter',top:294,bottom:294,side:293};BLOCKS[GRINDSTONE]={name:'Grindstone',all:296};BLOCKS[NOTEBLOCK]={name:'Note Block',all:297};BLOCKS[BARREL]={name:'Barrel',top:299,bottom:298,side:298};BLOCKS[FRAME]={name:'Item Frame',all:300};BLOCKS[ENDERCHEST]={name:'Ender Chest',all:301};BLOCKS[CAULDRON]={name:'Cauldron',all:302};BLOCKS[LIGHTNINGROD]={name:'Lightning Rod',all:305};BLOCKS[SMITHING]={name:'Smithing Table',top:306,bottom:281,side:307};BLOCKS[FLOWERPOT]={name:'Flower Pot',all:308};BLOCKS[BEDHEAD]={name:'Bed',top:T.BED_TOP,bottom:T.PLANK,side:T.PLANK};BLOCKS[TRAPDOOR]={name:'Trapdoor',all:310};
-BLOCKS[REDGUM_LOG]={name:'Red Gum Log',top:312,bottom:312,side:311};BLOCKS[REDGUM_PLANK]={name:'Red Gum Planks',all:313};BLOCKS[REDGUM_LEAVES]={name:'Red Gum Leaves',all:314};BLOCKS[BOAB_PLANK]={name:'Boab Planks',all:316};BLOCKS[COBBLE]={name:'Cobblestone',all:317};BLOCKS[CARVED_PUMPKIN]={name:'Carved Pumpkin',top:T.PUMPKIN_TOP,bottom:T.PUMPKIN_TOP,side:T.PUMPKIN_FACE};
+BLOCKS[REDGUM_LOG]={name:'Red Gum Log',top:312,bottom:312,side:311};BLOCKS[REDGUM_PLANK]={name:'Red Gum Planks',all:313};BLOCKS[REDGUM_LEAVES]={name:'Red Gum Leaves',all:314};BLOCKS[BOAB_PLANK]={name:'Boab Planks',all:316};BLOCKS[COBBLE]={name:'Cobblestone',all:317};BLOCKS[REDSTONE_ORE]={name:'Redstone Ore',all:318};BLOCKS[LAPIS_ORE]={name:'Lapis Lazuli Ore',all:319};ITEMS[REDSTONE]={name:'Redstone Dust',icon:320};ITEMS[LAPIS]={name:'Lapis Lazuli',icon:321};BLOCKS[REDSTONE_BLOCK]={name:'Block of Redstone',all:322};BLOCKS[LAPIS_BLOCK]={name:'Block of Lapis Lazuli',all:323};BLOCKS[CARVED_PUMPKIN]={name:'Carved Pumpkin',top:T.PUMPKIN_TOP,bottom:T.PUMPKIN_TOP,side:T.PUMPKIN_FACE};
 BLOCKS[JACK_O_LANTERN]={name:"Jack o'Lantern",top:T.PUMPKIN_TOP,bottom:T.PUMPKIN_TOP,side:284};
 ['Meadow','Caverns','Lanterns','Stormchase'].forEach((n, i) => { ITEMS[DISC_1 + i] = { name: 'Music Disc - ' + n, icon: 184 + i }; });ITEMS[TRIDENT]={name:'Trident',icon:180,tool:{type:'trident',tier:3}};ITEMS[HONEYCOMB]={name:'Honeycomb',icon:178};BLOCKS[CAMPFIRE]={name:'Campfire',top:275,bottom:275,side:274};BLOCKS[SLIME_BLOCK]={name:'Slime Block',all:272};
 ITEMS[APPLE]={name:'Apple',icon:167,food:4};ITEMS[GOLDEN_APPLE]={name:'Golden Apple',icon:168,food:4};ITEMS[CARROT]={name:'Carrot',icon:169,food:3,plant:CARROT0};
@@ -1290,7 +1339,7 @@ function faceVisible(b, n){
   if(b === GLASS) return n === WATER;
   return !isOpaque(n);
 }
-const dropOf = id => id===STONE?COBBLE:id===BEDHEAD?BED:id===BEEHIVE_FULL?BEEHIVE:id===GATE_OPEN?GATE:id===SKYGRASS?STORMSTONE:id===VOLTITE_ORE?VOLTITE:id===CONDUIT_LIT?CONDUIT:id===CHORUS_PLANT?CHORUS_FRUIT:id===ANCHOR_LIT?ANCHOR:id===CRIM_NYL||id===WARP_NYL?NETHERRACK:id===QUARTZ_ORE?QUARTZ:id===NGOLD_ORE?GNUGGET:id===GILDED?(Math.random()<.1?GNUGGET:GILDED):id===SNOWY_GRASS?DIRT:id===GLOWVINE?BERRIES:id===AMETHYST_C||id===BUDDING?AMETHYST_SHARD:id===DRIP_DOWN?DRIP_UP:id===BERRYBUSH?BERRIES:id===CRYSTALORE||id===GLOWCRYSTAL?CRYSTALSHARD:id === GRASS || id === SAVGRASS || id === FARMLAND ? DIRT : id === COALO ? COALI : id === DIAMO ? DIAMI :
+const dropOf = id => id===REDSTONE_ORE?REDSTONE:id===LAPIS_ORE?LAPIS:id===STONE?COBBLE:id===BEDHEAD?BED:id===BEEHIVE_FULL?BEEHIVE:id===GATE_OPEN?GATE:id===SKYGRASS?STORMSTONE:id===VOLTITE_ORE?VOLTITE:id===CONDUIT_LIT?CONDUIT:id===CHORUS_PLANT?CHORUS_FRUIT:id===ANCHOR_LIT?ANCHOR:id===CRIM_NYL||id===WARP_NYL?NETHERRACK:id===QUARTZ_ORE?QUARTZ:id===NGOLD_ORE?GNUGGET:id===GILDED?(Math.random()<.1?GNUGGET:GILDED):id===SNOWY_GRASS?DIRT:id===GLOWVINE?BERRIES:id===AMETHYST_C||id===BUDDING?AMETHYST_SHARD:id===DRIP_DOWN?DRIP_UP:id===BERRYBUSH?BERRIES:id===CRYSTALORE||id===GLOWCRYSTAL?CRYSTALSHARD:id === GRASS || id === SAVGRASS || id === FARMLAND ? DIRT : id === COALO ? COALI : id === DIAMO ? DIAMI :
                      id === EMERO ? EMERALD : id === DEADBUSH ? STICK : id;
 function toolClassOf(id){
   if([STORMSTONE,VOLTITE_ORE,STORM_BRICK,CONDUIT,CONDUIT_LIT].includes(id)) return 'pick';
@@ -1322,7 +1371,7 @@ function toolClassOf(id){
   if(id === GRASS || id === SAVGRASS || id === DIRT || id === SAND || id === SNOW || id === SNOWY_GRASS || id === SNOW_LAYER) return 'shovel';
   if(id === DEEPSLATE) return 'pick';
   if(id === STONE || id === COBBLE || id === BRICK || id === SBRICK || id === GLOWB || id === FURN || id === IRONB ||
-     id === GOLDB || id === DIAMB || id === COALO || id === IRONO || id === GOLDO || id === DIAMO || id === EMERO) return 'pick';
+     id === GOLDB || id === DIAMB || id === COALO || id === IRONO || id === GOLDO || id === DIAMO || id === EMERO || id === REDSTONE_ORE || id === LAPIS_ORE || id === REDSTONE_BLOCK || id === LAPIS_BLOCK) return 'pick';
   return null;
 }
 function handTime(id){
@@ -1423,6 +1472,10 @@ const RECIPES = [
   { out: [GOLDI, 1],  in: [[GOLDO, 1], [COALI, 1]], st: 'furnace' },
   { out: [GLASS, 2],  in: [[SAND, 2], [COALI, 1]], st: 'furnace' },
   { out: [STONE, 1],  in: [[527, 1], [COALI, 1]], st: 'furnace' },
+  { out: [528 + 1, 1], in: [[528, 1], [COALI, 1]], st: 'furnace' },
+  { out: [530 + 1, 1], in: [[530, 1], [COALI, 1]], st: 'furnace' },
+  { out: [532, 1], in: [[529, 9]], st: 'table' }, { out: [529, 9], in: [[532, 1]] },
+  { out: [533, 1], in: [[531, 9]], st: 'table' }, { out: [531, 9], in: [[533, 1]] },
   { out: [PORKC, 1],  in: [[PORK, 1], [COALI, 1]], st: 'furnace' },
   { out: [MUTTONC, 1],in: [[MUTTON, 1], [COALI, 1]], st: 'furnace' },
   { out: [BEEFC, 1],  in: [[BEEF, 1], [COALI, 1]], st: 'furnace' },
@@ -1788,6 +1841,30 @@ itemAtlas.width = 128; itemAtlas.height = 512;   // 256 icons
   turf(124, 125, [[176,205,220],[196,220,232],[214,234,242],[232,246,250]], 42); // frost
   turf(126, 127, [[78,52,104],[96,66,126],[116,84,148],[138,104,170]], 44);      // dusk
   put(T.EMER_T, (x,y,r) => orePx(x,y,r,925,[52,190,102],[130,240,168]));
+  put(318, (x,y,r) => orePx(x,y,r,926,[176,18,16],[255,72,60]));        // redstone ore
+  put(319, (x,y,r) => orePx(x,y,r,927,[30,66,168],[82,126,232]));       // lapis ore
+  put(320, (x,y,r) => {                                                // redstone dust: a small red pile
+    const d = Math.hypot(x - 7.5, (y - 9.5) * 1.3);
+    if(d > 5.2 || hash(x, y, 7401) < 0.25 + d * 0.06) return [0,0,0,0];
+    const k = Math.floor((r() - 0.5) * 30);
+    return y < 8 ? [230 + k / 3, 50 + k, 40 + k] : [170 + k, 16, 12];
+  });
+  put(321, (x,y,r) => {                                                // lapis lazuli: a faceted blue gem
+    const d = Math.abs(x - 7.5) + Math.abs(y - 7.5);
+    if(d > 6.5) return [0,0,0,0];
+    if(d > 5.5) return [18, 36, 110];
+    return (x + y) % 5 === 0 ? [120, 160, 245] : x < 8 && y < 8 ? [60, 100, 220] : [34, 66, 170];
+  });
+  put(322, (x,y,r) => {                                                // block of redstone
+    const k = Math.floor((r() - 0.5) * 18);
+    if(x === 0 || y === 0 || x === 15 || y === 15) return [120, 8, 6];
+    return (x % 4 === 1 && y % 4 === 1) ? [255, 70, 56] : [180 + k, 20, 14];
+  });
+  put(323, (x,y,r) => {                                                // block of lapis lazuli
+    const k = Math.floor((r() - 0.5) * 16);
+    if(x === 0 || y === 0 || x === 15 || y === 15) return [20, 40, 120];
+    return hash(x, y, 7402) < 0.12 ? [110, 150, 240] : [34 + k, 62 + k, 170 + k];
+  });
   const plankVar = (shades, seam, seam2, salt) => (x,y,r) => {
     const board = y >> 2;
     if(y % 4 === 3) return seam;
@@ -3347,7 +3424,7 @@ for(let i = 0; i < 24; i++){
   const c = new THREE.Mesh(new THREE.BoxGeometry(14 + Math.random() * 24, 1.6, 10 + Math.random() * 16), cloudMat);
   // well clear of the raised world: terrain tops out near y119, and the
   // height cap is 138, so sit the cloud deck above both
-  c.position.set(Math.random() * 480 - 240, 156 + Math.random() * 14, Math.random() * 480 - 240);
+  c.position.set(Math.random() * 480 - 240, (YS ? 256 : 156) + Math.random() * (YS ? 8 : 14), Math.random() * 480 - 240);   // Y 192 in a deep world, as in Minecraft
   cloudGroup.add(c);
 }
 scene.add(cloudGroup);
@@ -3583,6 +3660,73 @@ while(survInv.length < 36) survInv.push({ id: 0, count: 0, dur: 0 });   // 9 hot
     localStorage.setItem(MARK, '1');
   } catch(e){ /* a failed migration must never block the game starting */ }
 })();
+/* Deepening a generator-3 world to the deep world (generator 4): the land
+   is lifted 60 blocks with a new deep layer beneath, so every overworld block
+   you placed or broke, and everything stored at a position (chests, doors,
+   pots, frames, beds, pets...) moves up 60 with it. Other dimensions are left
+   alone. A full copy of the world is kept first ('blockcraft-predeep-SEED');
+   if anything goes wrong the copy is put back and the world stays as it was. */
+(function deepenWorld(){
+  if(!DEEPEN_FROM) return;
+  const MARK = SAVE_KEY + '-deep', BK = 'blockcraft-predeep-' + SEED, D = YS;
+  const giveUp = () => {                                     // leave this world un-deepened and reload it that way
+    try { localStorage.setItem(SAVE_KEY + '-nodeep', '1'); location.reload(); } catch(e){}
+  };
+  let backup = null;
+  try {
+    if(localStorage.getItem(MARK)){ localStorage.setItem(SAVE_KEY + '-gen', '4'); return; }
+    backup = {};
+    for(let i = 0; i < localStorage.length; i++){ const k = localStorage.key(i); if(k === SAVE_KEY || k.startsWith(SAVE_KEY + '-')) backup[k] = localStorage.getItem(k); }
+    localStorage.setItem(BK, JSON.stringify(backup));
+  } catch(e){ giveUp(); return; }                            // no room for the safety copy
+  try {
+    const elsewhere = [netherEdits, endEdits, stormEdits];
+    const otherDim = (x, y, z) => { const ck = (x >> 4) + ',' + (z >> 4), lk = (x & 15) + ',' + y + ',' + (z & 15); return elsewhere.some(o => o[ck] && o[ck][lk] !== undefined); };
+    const pos = k => { const q = String(k).split(',').map(Number); return q.length === 3 && q.every(Number.isFinite) ? q : null; };
+    // the blocks you placed and broke
+    for(const ck in overworldEdits){
+      const out = {};
+      for(const k in overworldEdits[ck]){ const [lx, y, lz] = k.split(',').map(Number); if(y + D < HEIGHT) out[lx + ',' + (y + D) + ',' + lz] = overworldEdits[ck][k]; }
+      overworldEdits[ck] = out;
+    }
+    // chests and barrels at overworld positions
+    const nc = {};
+    for(const k in chests){ const q = pos(k); if(!q || otherDim(q[0], q[1], q[2])) nc[k] = chests[k]; else nc[q[0] + ',' + (q[1] + D) + ',' + q[2]] = chests[k]; }
+    chests = nc;
+    // position-keyed block state stored as [key, value] pairs
+    const pairs = (name, isOver) => {
+      const raw = localStorage.getItem(SAVE_KEY + name); if(!raw) return;
+      const arr = JSON.parse(raw); if(!Array.isArray(arr)) return;
+      localStorage.setItem(SAVE_KEY + name, JSON.stringify(arr.map(([k, v]) => { const q = pos(k); return q && isOver(q, v) ? [q[0] + ',' + (q[1] + D) + ',' + q[2], v] : [k, v]; })));
+    };
+    const byEdits = q => !otherDim(q[0], q[1], q[2]);
+    for(const n of ['-doors', '-composters', '-cauldrons', '-pots', '-notes', '-hives']) pairs(n, byEdits);
+    pairs('-frames', (q, v) => ((v && v.dim) || 0) === 0);
+    // flowing water is keyed 'dim:x,y,z'
+    { const raw = localStorage.getItem(SAVE_KEY + '-waterflow');
+      if(raw){ const arr = JSON.parse(raw); if(Array.isArray(arr)) localStorage.setItem(SAVE_KEY + '-waterflow', JSON.stringify(arr.map(([k, v]) => {
+        const m = /^0:(-?\d+),(-?\d+),(-?\d+)$/.exec(k); return m ? ['0:' + m[1] + ',' + (+m[2] + D) + ',' + m[3], v] : [k, v]; }))); } }
+    // things with a position and a dimension: jukeboxes, the herd, pets, golems
+    const lift = name => {
+      const raw = localStorage.getItem(SAVE_KEY + name); if(!raw) return;
+      const arr = JSON.parse(raw); if(!Array.isArray(arr)) return;
+      for(const r of arr) if(r && typeof r.y === 'number' && (r.dim || 0) === 0) r.y += D;
+      localStorage.setItem(SAVE_KEY + name, JSON.stringify(arr));
+    };
+    for(const n of ['-jukes', '-herd', '-pets', '-golems']) lift(n);
+    // the bed you respawn at is always in the overworld
+    { const bs = JSON.parse(localStorage.getItem(SAVE_KEY + '-bed') || 'null'); if(bs && typeof bs.y === 'number'){ bs.y += D; localStorage.setItem(SAVE_KEY + '-bed', JSON.stringify(bs)); } }
+    localStorage.setItem(SAVE_KEY, packEdits(overworldEdits));
+    localStorage.setItem(CHEST_KEY, packChests(chests));
+    localStorage.setItem(MARK, '1');
+    localStorage.setItem(SAVE_KEY + '-gen', '4');
+    console.log('[blockcraft] deepened world ' + SEED + ' to Minecraft heights');
+  } catch(e){
+    // put everything back exactly as it was, and keep this world un-deepened
+    try { for(const k in backup) localStorage.setItem(k, backup[k]); } catch(e2){}
+    giveUp();
+  }
+})();
 document.getElementById('backupBtn').addEventListener('click', () => { saveNow(); exportWorld(); });
 document.getElementById('restoreBtn').addEventListener('click', () => document.getElementById('restoreFile').click());
 document.getElementById('restoreFile').addEventListener('change', e => { if(e.target.files[0]) importWorld(e.target.files[0]); });
@@ -3623,6 +3767,16 @@ function chunkAt(cx, cz){
   return c;
 }
 function ensureData(c){ if(!c.data) c.data = genChunk(c.cx, c.cz); return c.data; }
+// The highest non-air block in a chunk. A deep world is 384 tall and mostly sky,
+// so lighting and meshing start just above this instead of at the very top.
+function chunkTop(c){
+  const d = ensureData(c);
+  if(c.topFor === d) return c.top;
+  let top = 0;
+  for(let i = 0; i < 256; i++) for(let y = HEIGHT - 1; y > top; y--) if(d[(y << 8) | i]){ top = y; break; }
+  c.top = top; c.topFor = d;
+  return top;
+}
 function getBlock(x, y, z){
   if(y < 0) return STONE;
   if(y >= HEIGHT) return AIR;
@@ -4626,18 +4780,20 @@ function* genChunkSteps(cx, cz){
       Math.max(Math.abs(h - terrainHeight(wx + 1, wz)), Math.abs(h - terrainHeight(wx - 1, wz)),
                Math.abs(h - terrainHeight(wx, wz + 1)), Math.abs(h - terrainHeight(wx, wz - 1))) >= (alpine ? 2 : 3);
     const aqLevel = GEN_V >= 2 ? aquiferLevel(wx, wz) : -1;
+    const mtnCol = YS > 0 && fbm(wx * 0.0022, wz * 0.0022, 3, 53) > 0.60;   // inside a mountain range (same mask the terrain uses)
     for(let y = 0; y <= h; y++){
       let b;
-      if(y === 0) b = STONE;
+      if(y === 0) b = YS ? BEDROCK : STONE;
+      else if(YS && y < 5 && hash3(wx, y, wz, 951) < (5 - y) / 5) b = BEDROCK;   // Minecraft's ragged bedrock floor, Y -64..-60
       else if((steep || alpine) && y > h - 4) b = y < h ? STONE : snowyTop ? SNOW : steep ? STONE : GRASS;
-      else if(y === h) b = badlands ? terraBand(y) : outback ? REDSAND
+      else if(y === h) b = badlands ? terraBand(y - YS) : outback ? REDSAND
                          : biome === 'amberfield' ? AMBERGRASS
                          : biome === 'frostvale' ? FROSTGRASS
                          : biome === 'duskhollow' ? DUSKGRASS
                          : sandy ? SAND : (biome === 'snowy' && h < SNOW_H ? SNOWY_GRASS : snowyTop ? SNOW
                          : (biome === 'savanna' || biome === 'bushland' ? SAVGRASS
                          : (biome === 'taiga' ? taigaFloor(wx, wz) : GRASS)));
-      else if(badlands && y > h - 26) b = terraBand(y);   // deep banded clay walls
+      else if(badlands && y > h - 26) b = terraBand(y - YS);   // deep banded clay walls
       else if(y > h - 4) b = outback ? REDSAND : sandy ? SAND : DIRT;
       else b = STONE;
       // caves: a little bigger than vanilla. Allowed to reach the surface on dry
@@ -4646,20 +4802,20 @@ function* genChunkSteps(cx, cz){
       const topLimit = (dry && !nearSpawn) ? h : h - 1;   // spawn/underwater columns stay capped
       if(y > 1 && y <= topLimit && (GEN_V >= 2 ? caveCarve(wx, y, wz, h) : caveNoise(wx, y, wz) > 0.76)) carved = true;
       if(y>3&&y<h-5&&cuts.some(([lo,hi])=>y>lo&&y<hi))carved=true;
-      if(carved){
+      if(carved && b !== BEDROCK){
         b = AIR;
         if(GEN_V >= 2 && y < h - 6){
-          if(y <= 8) b = LAVA;                        // lava lakes pool at the very bottom
+          if(y <= (YS ? 10 : 8)) b = LAVA;            // lava lakes pool at the very bottom (Y -54 and below in a deep world)
           else if(y <= aqLevel) b = WATER;            // flooded caves
         }
       }
       else if(b === STONE && y > 1){
-        if(y<40&&hash3(wx,y,wz,9810)<.0024){data[(y<<8)|(lz<<4)|lx]=CRYSTALORE;continue;}
-        if(y>20&&y<h-4){const rock=vnoise3(wx*.08,y*.08,wz*.08,822);if(rock>.72)b=MARBLE;else if(rock<.28)b=BASALT;}
+        if(y-YS<40&&hash3(wx,y,wz,9810)<.0024){data[(y<<8)|(lz<<4)|lx]=CRYSTALORE;continue;}
+        if(y-YS>20&&y<h-4){const rock=vnoise3(wx*.08,(y-YS)*.08,wz*.08,822);if(rock>.72)b=MARBLE;else if(rock<.28)b=BASALT;}
         if(b!==STONE){data[(y<<8)|(lz<<4)|lx]=b;continue;}
         if(GEN_V >= 2){
           if(y < DEEP_Y + 3 && vnoise3(wx * .07, y * .07, wz * .07, 1601) > .73){ data[(y << 8) | (lz << 4) | lx] = TUFF; continue; }
-          const ore = oreAt(wx, y, wz, h, badlands);            // Minecraft-style veins and height bands
+          const ore = oreAt(wx, y, wz, h, badlands, mtnCol);            // Minecraft-style veins and height bands
           if(ore){ data[(y << 8) | (lz << 4) | lx] = ore; continue; }
         } else {
           if(y >= 30 && hash3(wx, y, wz, 4343) < 0.0022){ data[(y << 8) | (lz << 4) | lx] = EMERO; continue; }
@@ -4670,7 +4826,8 @@ function* genChunkSteps(cx, cz){
           else if(y < 82 && r < 0.024) b = COALO;
         }
       }
-      if(b === STONE && y > 0 && y < DEEP_Y) b = DEEPSLATE;
+      // deepslate below Y 0, blending into stone up to Y 8, as in Minecraft
+      if(b === STONE && y > 0 && (y < DEEP_Y || (YS && y < DEEP_Y + 8 && hash3(wx, y, wz, 1703) < (DEEP_Y + 8 - y) / 8))) b = DEEPSLATE;
       data[(y << 8) | (lz << 4) | lx] = b;
     }
     for(let y = h + 1; y <= SEA; y++) data[(y << 8) | (lz << 4) | lx] = WATER;
@@ -5301,6 +5458,7 @@ function setBlock(x, y, z, id){
   const cx = x >> 4, cz = z >> 4, lx = x & 15, lz = z & 15;
   const c = chunkAt(cx, cz); ensureData(c);
   c.data[(y << 8) | (lz << 4) | lx] = id;
+  if(c.topFor === c.data && id && y > c.top) c.top = y;   // keep the chunk's top current
   c.emitters = null;
   fluidLevels.delete(fluidKey(x,y,z));wakeWater(x,y,z);
   const ck = cx + ',' + cz;
@@ -5438,10 +5596,14 @@ function* computeLightSteps(c, gb){
   let top = 0;                                       // highest block anywhere in the neighbourhood
   // 1) skylight: full 15 from the sky; solid blocks stop it, leaves just dim it
   const nether = dim === 1;
+  let top0 = 0;
+  for(let dz = -1; dz <= 1; dz++) for(let dx = -1; dx <= 1; dx++) top0 = Math.max(top0, chunkTop(chunkAt(c.cx + dx, c.cz + dz)));
+  const yStart = Math.min(HEIGHT - 1, top0 + 1);      // everything above is open sky
+  if(yStart < HEIGHT - 1) light.fill(nether ? NETHER_AMBIENT : 15, (yStart + 1) * LSTRIDE);
   for(let lz = -1; lz <= 16; lz++) for(let lx = -1; lx <= 16; lx++){
     yield;
     let sky = 15;
-    for(let y = HEIGHT - 1; y >= 0; y--){
+    for(let y = yStart; y >= 0; y--){
       const b = gb(lx, y, lz);
       if(b !== AIR && y > top) top = y;
       if(blocksLight(b)) sky = 0;                    // real solid block: shadow below
@@ -5510,7 +5672,8 @@ function* buildChunkSteps(c,reuseLight=false){
   const O = {pos:[],uv:[],col:[],idx:[]}, W = {pos:[],uv:[],col:[],idx:[]},
         C = {pos:[],uv:[],col:[],idx:[]}, G = {pos:[],uv:[],col:[],idx:[]},
         GC = {pos:[],uv:[],col:[],idx:[]}, L={pos:[],uv:[],col:[],idx:[],wind:[],foliage:true};
-  for(let y = 0; y < HEIGHT; y++) for(let lz = 0; lz < 16; lz++) for(let lx = 0; lx < 16; lx++){
+  const yMesh = Math.min(HEIGHT, chunkTop(c) + 1);
+  for(let y = 0; y < yMesh; y++) for(let lz = 0; lz < 16; lz++) for(let lx = 0; lx < 16; lx++){
     if(lx===0 && (lz&3)===0)yield;
     const b = data[(y << 8) | (lz << 4) | lx];
     if(!b) continue;
@@ -6839,7 +7002,7 @@ function updateAnimalSpawns(dt){
   const h = findSurfaceY(x, z);
   if(h < 0 || h <= SEA + 1) return;
   const ground = getBlock(x, h, z);
-  if(h >= 96){                                   // high mountains belong to the goats
+  if(h >= SEA + 30){                             // high mountains belong to the goats
     if(ground === STONE || ground === SNOW || ground === GRASS) spawnAnimal('goat', x + 0.5, h + 1.05, z + 0.5);
     return;
   }
@@ -11806,7 +11969,11 @@ function setupConn(c){
 function onNet(c, m){
   if(m.t === 'world'){
     // the host's world was made with its own generator: build the same land
-    if(typeof m.gen === 'number'){ try { localStorage.setItem('blockcraft-save-' + m.seed + '-gen', String(m.gen)); } catch(e){} }
+    if(typeof m.gen === 'number'){ try {
+      const gk = 'blockcraft-save-' + m.seed + '-gen';
+      // a saved classic copy of this world deepens itself on the reload below (keep its 3 so it migrates)
+      if(!(m.gen === 4 && +localStorage.getItem(gk) === 3)) localStorage.setItem(gk, String(m.gen));
+    } catch(e){} }
     if(m.seed !== SEED || (typeof m.gen === 'number' && m.gen !== GEN_V)){
       // joiner hops into the host's world and reconnects automatically
       localStorage.setItem('blockcraft-last-seed', String(m.seed));
@@ -12959,7 +13126,7 @@ function buildArrivalPortal(x, z, toDim){
       if(py > 0){ x = px; z = pz; y = py; break outer; }
     }
     if(y < 0) y = 70;
-  } else y = findSafeY(x, z, 50) | 0;
+  } else y = findSafeY(x, z, terrainHeight(x, z) + 1) | 0;
   // Clear a safe landing beside the return portal, away from lava and terrain.
   for(let dx=-1;dx<=2;dx++)for(let dz=-2;dz<=2;dz++){
     setBlock(x+dx,y-1,z+dz,OBSIDIAN);
@@ -13021,7 +13188,8 @@ function harvestOk(id){
   if(id === END_GATEWAY || id === END_FRAME || id === END_FRAME_EYE || id === STORM_PORTAL) return false;
   if(id === VOLTITE_ORE) return pickTierHeld() >= 5;
   if(id === SNOW_LAYER) return false;            // a dusting of snow leaves nothing behind
-  if(id === DIAMO || id === GOLDO || id === EMERO) return pickTierHeld() >= 3;
+  if(id === DIAMO || id === GOLDO || id === EMERO || id === REDSTONE_ORE) return pickTierHeld() >= 3;
+  if(id === LAPIS_ORE) return pickTierHeld() >= 2;
   if(id === IRONO) return pickTierHeld() >= 2;
   if(toolClassOf(id) === 'pick') return pickTierHeld() >= 1;
   return true;
@@ -13236,6 +13404,8 @@ function breakBlock(x, y, z, id){
     if(harvestOk(id)){
       const drop = dropOf(id);
       spawnDrop(x, y, z, drop);
+      const more = id === REDSTONE_ORE ? 3 + (Math.random() * 2 | 0) : id === LAPIS_ORE ? 3 + (Math.random() * 6 | 0) : 0;   // 4-5 redstone, 4-9 lapis
+      for(let k = 0; k < more; k++) spawnDrop(x, y, z, drop);
       // Fortune: a chance of extra ore - diamonds, coal, quartz, gold nuggets
       const fortune = heldEnch('fortune');
       if(fortune && drop !== id && ITEMS[drop]){ const extra = Math.max(0, Math.floor(Math.random() * (fortune + 2)) - 1); for(let k = 0; k < extra; k++) spawnDrop(x, y, z, drop); }
@@ -13343,7 +13513,7 @@ function doPlace(){
   }
   if(!hit) return;
   const x = hit.x + hit.face[0], y = hit.y + hit.face[1], z = hit.z + hit.face[2];
-  if(y >= HEIGHT){ flashName('Build limit - height ' + (HEIGHT - 1)); return; }
+  if(y >= HEIGHT){ flashName('Build limit - height ' + (HEIGHT - 1 - (dim === 0 ? YDISP : 0))); return; }
   if(y < 0) return;
   const cur = getBlock(x, y, z);
   if(cur !== AIR && cur !== WATER && !isCross(cur)) return;
@@ -13423,8 +13593,8 @@ const ALL_CREATIVE = (() => {
 })();
 // ---- item categories (used to group the creative palette and the crafting list) ----
 const CAT_NAMES = ['Building', 'Nature', 'Ores & Minerals', 'Decoration', 'Utility', 'Tools', 'Combat', 'Food', 'Misc'];
-const _oreBlocks = new Set([COALO, IRONO, GOLDO, DIAMO, EMERO, COPPERO, QUARTZ_ORE, DEBRIS]);
-const _matItems = new Set([COALI, IRONI, GOLDI, DIAMI, COPPERI, EMERALD, NETHERITE, QUARTZ, AMETHYST_SHARD, GNUGGET, NSCRAP, STICK, STRING, LEATHER, FEATHER, GUNPOWDER, BLAZEROD, BLAZEPOWDER, GHASTTEAR, MAGMACREAM, ENDERPEARL, SLIMEBALL, BONE, BONE_MEAL, HONEYCOMB, PAPER]);
+const _oreBlocks = new Set([COALO, IRONO, GOLDO, DIAMO, EMERO, COPPERO, REDSTONE_ORE, LAPIS_ORE, QUARTZ_ORE, DEBRIS]);
+const _matItems = new Set([REDSTONE, LAPIS, COALI, IRONI, GOLDI, DIAMI, COPPERI, EMERALD, NETHERITE, QUARTZ, AMETHYST_SHARD, GNUGGET, NSCRAP, STICK, STRING, LEATHER, FEATHER, GUNPOWDER, BLAZEROD, BLAZEPOWDER, GHASTTEAR, MAGMACREAM, ENDERPEARL, SLIMEBALL, BONE, BONE_MEAL, HONEYCOMB, PAPER]);
 const _decoBlocks = new Set([TORCH, SOUL_TORCH, PAINTING, FRAME, FLOWERPOT, LANTERN, JACK_O_LANTERN, CARVED_PUMPKIN, GLOWB, CAMPFIRE]);
 const _utilBlocks = new Set([CHEST, CRAFTT, FURN, BREWING, BARREL, ENDERCHEST, COMPOSTER, GRINDSTONE, NOTEBLOCK, JUKEBOX, ANVIL, SMITHING, CAULDRON, LADDER, FENCE, GATE, GATE_OPEN, BED, BEDHEAD, LIGHTNINGROD, TNT, BOOKSHELF, ENCH_TABLE]);
 const _natureBlocks = new Set([GRASS, DIRT, SAND, REDSAND, GRAVEL, SNOW, PODZOL, CACTUS, DEADBUSH, MUSHROOMR, MUSHROOMB, TGRASSB, POPPYB, DANDB]);
@@ -14130,7 +14300,7 @@ function vrTryPlace(){
   if(mode === 'survival' && foodOf(held)){ eatHeld(); return; }
   if(!hit || !held || !BLOCKS[held]) return;
   const x = hit.x + hit.face[0], y = hit.y + hit.face[1], z = hit.z + hit.face[2];
-  if(y >= HEIGHT){ flashName('Build limit - height ' + (HEIGHT - 1)); return; }
+  if(y >= HEIGHT){ flashName('Build limit - height ' + (HEIGHT - 1 - (dim === 0 ? YDISP : 0))); return; }
   if(y < 0) return;
   const cur = getBlock(x, y, z);
   if(cur !== AIR && cur !== WATER && !isCross(cur)) return;
@@ -15063,7 +15233,7 @@ const saveXP = () => safeSet(SAVE_KEY + '-xp', JSON.stringify({ p: xpPoints, s: 
 const xpToNext = L => L < 16 ? 2 * L + 7 : L < 31 ? 5 * L - 38 : 9 * L - 158;
 function xpLevelOf(points){ let L = 0; while(points >= xpToNext(L)){ points -= xpToNext(L); L++; } return [L, points / xpToNext(L)]; }
 let xpLevel = xpLevelOf(xpPoints)[0];
-const ORE_XP = { [COALO]: [0, 2], [DIAMO]: [3, 7], [EMERO]: [3, 7], [QUARTZ_ORE]: [2, 5], [NGOLD_ORE]: [0, 1], [VOLTITE_ORE]: [4, 8] };
+const ORE_XP = { [REDSTONE_ORE]: [1, 5], [LAPIS_ORE]: [2, 5], [COALO]: [0, 2], [DIAMO]: [3, 7], [EMERO]: [3, 7], [QUARTZ_ORE]: [2, 5], [NGOLD_ORE]: [0, 1], [VOLTITE_ORE]: [4, 8] };
 function addXP(n){
   const before = xpLevel;
   xpPoints += n;
@@ -17267,7 +17437,7 @@ function animate(){
     hudT = now;
     const hrs = String(Math.floor(((timeOfDay + 0.25) % 1) * 24)).padStart(2, '0');
     hudEl.textContent = inGame
-      ? `${fps} fps · XYZ ${Math.floor(p.x)} ${Math.floor(p.y)} ${Math.floor(p.z)} · ${hrs}:00 · ` +
+      ? `${fps} fps · XYZ ${Math.floor(p.x)} ${Math.floor(p.y) - (dim === 0 ? YDISP : 0)} ${Math.floor(p.z)} · ${hrs}:00 · ` +
         `${dim === 3 ? 'The Stormlands' : dim === 2 ? 'The End' : dim === 1 ? NETHER_BIOME_NAMES[netherBiome(Math.floor(p.x), Math.floor(p.z))] : biomeLabel(hudBiome(Math.floor(p.x), Math.floor(p.z)))} · ${mode}` +
         (player.fly ? ' · FLY' : '') + (zombies.length ? ` · ${zombies.length} 🧟` : '') +
         (skeletons.length ? ` · ${skeletons.length} 💀` : '') +
@@ -17458,7 +17628,7 @@ window.__bc = {
   addTestConn: send => { const c = { open: true, send, peer: 'test', close(){} }; conns.push(c); return c; },
   dropTestConns: () => { conns = conns.filter(c => c.peer !== 'test'); },
   mobLists: () => Object.fromEntries(MOB_LISTS.map(([k, l]) => [k, l.length])),
-  atlas, BLOCKS, tileFor,
+  atlas, BLOCKS, tileFor, ORE_K, YDISP,
   stateAt: (kind, k) => ({ comp: composters, cauld: cauldrons, pot: pottedPlants, frame: frameItems }[kind] || new Map()).get(k),
   mpState: () => ({ code: mpRoomCode, status: mpStatusText, conns: conns.length,
                     voiceOn, vrMpMode, vrJoinCode, remotes: remotes.size }),
