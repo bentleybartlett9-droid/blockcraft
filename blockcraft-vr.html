@@ -848,8 +848,14 @@ function oreAt(x, y, z, h, badlands, mtn){
   return 0;
 }
 // cave biomes cover whole regions underground
-const lushAt = (x, z) => vnoise(x * 0.008 + 71, z * 0.008 - 19, 1501) > 0.64;
-const dripAt = (x, z) => !lushAt(x, z) && vnoise(x * 0.008 - 40, z * 0.008 + 90, 1502) > 0.64;
+// Lush caves and dripstone caves are each a few percent of the underground, as in
+// Minecraft (they were nearly half of it). Land built on before keeps its old caves.
+const CAVE_BIOME = { lush: 0.82, drip: 0.82, dark: 0.78 };   // measured: ~7% lush, ~6% dripstone, ~10% deep dark
+const newCaves = (x, z) => GEN_V >= 4 && oldLandFade(x, z) === 0;
+const lushAt = (x, z) => vnoise(x * 0.008 + 71, z * 0.008 - 19, 1501) > (newCaves(x, z) ? CAVE_BIOME.lush : 0.64);
+const dripAt = (x, z) => !lushAt(x, z) && vnoise(x * 0.008 - 40, z * 0.008 + 90, 1502) > (newCaves(x, z) ? CAVE_BIOME.drip : 0.64);
+// the Deep Dark: sculk-grown caverns deep in the deepslate (below Y 0)
+const deepDarkAt = (x, z) => newCaves(x, z) && vnoise(x * 0.006 - 150, z * 0.006 + 80, 1511) > CAVE_BIOME.dark && !lushAt(x, z) && !dripAt(x, z);
 // about a third of cave basins are flooded to their own water level
 function aquiferLevel(x, z){
   const gx = Math.floor(x / 40), gz = Math.floor(z / 40);
@@ -1289,6 +1295,78 @@ function stampMonument(m, set, data, cx, cz){
     for(let y = m.y0 - 1; y > 0 && !isSolid(data[(y << 8) | (lz << 4) | lx]); y--) set(lx, y, lz, PRISMARINE);   // it stands on the sea floor
   }
 }
+/* Ancient Cities, as in Minecraft: a great hollow in the Deep Dark (Y -51)
+   holding a ruined city of deepslate bricks and tiles - streets, lamp posts
+   of soul fire, tumbledown houses with chests - around a vast portal frame of
+   unbreakable reinforced deepslate. Sculk grows over it all, and shriekers
+   keep watch. */
+const cityCache = new Map();
+function cityDef(gx, gz){ return cellDef(cityCache, gx, gz, () => {
+  if(GEN_V < 4 || hash(gx, gz, 6501) > 0.85) return null;
+  let x = 0, z = 0, ok = false;
+  for(let k = 0; k < 8 && !ok; k++){                  // look for a spot in this cell that lies in the Deep Dark
+    x = gx * 704 + 160 + Math.floor(hash(gx, gz, 6502 + k * 7) * 384); z = gz * 704 + 160 + Math.floor(hash(gx, gz, 6503 + k * 7) * 384);
+    ok = deepDarkAt(x, z) && deepDarkAt(x + 30, z) && deepDarkAt(x - 30, z);
+  }
+  if(!ok) return null;
+  const houses = [[20, 20], [-20, 20], [20, -20], [-20, -20], [31, 0], [-31, 0], [0, 31], [0, -31]].map(([hx, hz], i) =>
+    [hx, hz, 3 + Math.floor(hash(gx, gz, 6510 + i) * 4), hash(gx, gz, 6520 + i) < 0.4]);
+  return { x, z, y0: 13, houses, key: 'city:' + gx + ',' + gz };
+}); }
+const citiesNear = (wx, wz) => cellsNear(cityDef, 704, wx, wz);
+function cityBlock(c, dx, dy, dz){
+  const d = Math.hypot(dx, dz);
+  if(d > 42) return -1;
+  const H = Math.floor(26 * Math.sqrt(Math.max(0, 1 - (d / 43) ** 2)));
+  if(dy > H) return -1;
+  const wx = c.x + dx, wz = c.z + dz, ax = Math.abs(dx), az = Math.abs(dz);
+  const street = ax <= 2 || az <= 2 || d < 13;
+  if(dy === -1) return street ? DEEPSLATE_TILES : hash(wx, wz, 1601) < 0.45 ? SCULK : DEEPSLATE_BRICKS;
+  // the great portal frame at the city's heart
+  if(az <= 4 && ax <= 12 && dy === 0) return DEEPSLATE_BRICKS;
+  if(az <= 3 && ax <= 10 && dy === 1) return DEEPSLATE_BRICKS;
+  if(ax === 11 && dz === 2 && dy === 1) return CHEST;
+  if(az <= 1){
+    if((ax === 8 || ax === 9) && dy >= 2 && dy <= 14) return REINFORCED;
+    if(dy >= 14 && dy <= 15 && ax <= 9) return REINFORCED;
+    if((ax === 10 || ax === 11) && dy >= 11 && dy <= 17) return REINFORCED;
+    if(dy >= 16 && dy <= 17 && ax <= 3) return REINFORCED;
+    if(ax <= 7 && dy >= 2 && dy <= 13) return AIR;
+  }
+  // lamp posts of soul fire along the streets
+  if(d < 38 && ((ax === 4 && dz % 10 === 0 && az >= 16) || (az === 4 && dx % 10 === 0 && ax >= 16))){
+    if(dy <= 2) return DEEPSLATE_BRICKS;
+    if(dy === 3) return SOUL_TORCH;
+  }
+  // ruined houses, each with a chest
+  for(const [hx, hz, hh, roof] of c.houses){
+    const bx = dx - hx, bz = dz - hz;
+    if(Math.abs(bx) > 3 || Math.abs(bz) > 3) continue;
+    const wall = Math.abs(bx) === 3 || Math.abs(bz) === 3;
+    const alongX = Math.abs(hx) >= Math.abs(hz);
+    const door = dy <= 1 && (alongX ? (bz === 0 && Math.sign(bx) === -Math.sign(hx)) : (bx === 0 && Math.sign(bz) === -Math.sign(hz)));
+    const top = hh - (hash(wx, wz, 1603) < 0.3 ? 1 + ((hash(wx, wz, 1604) * 2) | 0) : 0);
+    if(wall && dy <= top && !door) return hash3(wx, dy, wz, 1605) < 0.15 ? DEEPSLATE_TILES : DEEPSLATE_BRICKS;
+    if(roof && !wall && dy === hh) return DEEPSLATE_TILES;
+    if(!wall && dy === 0 && bx === 1 && bz === 1) return CHEST;
+    return AIR;
+  }
+  if(dy === 0 && !street){ const r = hash(wx, wz, 1607); if(r < 0.025) return SCULK_SENSOR; if(r < 0.036) return SCULK_SHRIEKER; }
+  return AIR;
+}
+function stampCity(c, set, cx, cz){
+  const x0 = cx * 16, z0 = cz * 16;
+  if(c.x + 43 < x0 || c.x - 43 > x0 + 15 || c.z + 43 < z0 || c.z - 43 > z0 + 15) return;
+  for(let lx = 0; lx < 16; lx++) for(let lz = 0; lz < 16; lz++){
+    const dx = x0 + lx - c.x, dz = z0 + lz - c.z;
+    for(let dy = -1; dy <= 26; dy++){
+      const id = cityBlock(c, dx, dy, dz);
+      if(id < 0) continue;
+      set(lx, c.y0 + dy, lz, id);
+      if(id === CHEST) stockLootChest(x0 + lx, c.y0 + dy, z0 + lz, c.key + ':' + dx + ',' + dz, 'city');
+    }
+  }
+}
 function stampTreasure(t, set, cx, cz){
   if(t.x >> 4 !== cx || t.z >> 4 !== cz) return;
   set(t.x & 15, t.y, t.z & 15, CHEST);
@@ -1562,7 +1640,7 @@ const T = {GRASS_TOP:0,GRASS_SIDE:1,DIRT:2,STONE:3,SAND:4,LOG_SIDE:5,LOG_TOP:6,L
            ENDSTONE_T:84,ENDPORTAL_T:85,DRAGONEGG_T:86,ENDCRYSTAL_T:87,
             SPAWNER_T:88,RAIL_T:89,COBWEB_T:90,CRACKED_T:91,MOSSYBRICK_T:92,IRONBARS_T:93};
 const SNOW_SIDE_TILE = 342;
-const ATLAS_COLS = 8, ATLAS_W = 128, ATLAS_H = 768;   // 384 tiles
+const ATLAS_COLS = 8, ATLAS_W = 128, ATLAS_H = 1024;   // 512 tiles
 const BLOCKS = {
   [GRASS]:{name:'Grass',  top:T.GRASS_TOP, bottom:T.DIRT, side:T.GRASS_SIDE},
   [DIRT] :{name:'Dirt',   all:T.DIRT},
@@ -1824,6 +1902,12 @@ BLOCKS[SAP_DARK]={name:'Dark Oak Sapling',all:374};BLOCKS[MYCELIUM]={name:'Mycel
 BLOCKS[MUSH_STEM]={name:'Mushroom Stem',all:377};BLOCKS[RED_MUSH_BLOCK]={name:'Red Mushroom Block',all:378};BLOCKS[BROWN_MUSH_BLOCK]={name:'Brown Mushroom Block',all:379};
 ITEMS[MUSH_STEW]={name:'Mushroom Stew',icon:263,food:6};ITEMS[BOWL]={name:'Bowl',icon:264};
 SAPLING_FOR_LOG[DARK_LOG]=SAP_DARK; SAPLING_OF[DARK_LEAVES]=SAP_DARK; SAPLING_TREE[SAP_DARK]='darkoak';
+// the Deep Dark: sculk and its sensors, shriekers and catalysts; the ancient cities' deepslate; echo shards
+const SCULK=604, SCULK_SENSOR=605, SCULK_SHRIEKER=606, SCULK_CATALYST=607, DEEPSLATE_BRICKS=608, DEEPSLATE_TILES=609, REINFORCED=610, ECHO_SHARD=611;
+BLOCKS[SCULK]={name:'Sculk',all:380};BLOCKS[SCULK_SENSOR]={name:'Sculk Sensor',top:381,bottom:387,side:382};
+BLOCKS[SCULK_SHRIEKER]={name:'Sculk Shrieker',top:383,bottom:380,side:384};BLOCKS[SCULK_CATALYST]={name:'Sculk Catalyst',top:385,bottom:387,side:386};
+BLOCKS[DEEPSLATE_BRICKS]={name:'Deepslate Bricks',all:387};BLOCKS[DEEPSLATE_TILES]={name:'Deepslate Tiles',all:388};BLOCKS[REINFORCED]={name:'Reinforced Deepslate',top:390,bottom:390,side:389};
+ITEMS[ECHO_SHARD]={name:'Echo Shard',icon:265};
 const OCEAN_PLANTS = new Set([SEAGRASS, KELP, SEA_PICKLE, ...CORALS, ...FANS]);
 const isWet = id => id === WATER || OCEAN_PLANTS.has(id);   // water, or a plant standing in it
 // Deepslate ores: the ores found below Y 0, set in deepslate. Same drops and tools as the plain ore, slower to mine.
@@ -1896,7 +1980,7 @@ const isDoor    = id => id === DOOR || id === DOORTOP;
 const isOpaque = id => id !== ICE && !isFenceish(id) && id !== TRAPDOOR && id !== ANVIL && id !== COMPOSTER && id !== GRINDSTONE && id !== CAULDRON && id !== LIGHTNINGROD && id !== AIR && id !== WATER && id !== GLASS && id !== LAVA && id !== PORTAL && id !== ENDPORTAL && id !== END_GATEWAY && id !== STORM_PORTAL && !isCross(id) && !isPartial(id) && !isDoor(id) && !isFlat(id);
 const isSolid  = id => id !== TRAPDOOR && id !== GATE_OPEN && id !== AIR && id !== WATER && id !== LAVA && id !== PORTAL && id !== ENDPORTAL && id !== END_GATEWAY && id !== STORM_PORTAL && !isCross(id) && !isDoor(id) && !isFlat(id);
 const isLiquid = id => id === WATER || id === LAVA;
-const emitsLight = id => id === SEA_LANTERN || id === AQ_CONDUIT || id === SEA_PICKLE || id === RS_TORCH || id === LAMP_ON || id===GLOWCRYSTAL || id === ENDERCHEST || id === JACK_O_LANTERN || id === LANTERN || id === CAMPFIRE || id === STORM_PORTAL || id === CONDUIT_LIT || id === VOLTITE_ORE || id === END_ROD || id === END_GATEWAY || id === CRYING_OBSIDIAN || id === ANCHOR_LIT || id === SHROOMLIGHT || id === MAGMA || isFire(id) || id === SOUL_TORCH || id === GLOWVINE || id === AMETHYST_C || id === AMBERLAMP || id === GLOWB || id === GLOWSTONE || id === LAVA || id === PORTAL || id === ENDPORTAL || id === ENDCRYSTAL;
+const emitsLight = id => id === SCULK_CATALYST || id === SCULK_SENSOR || id === SEA_LANTERN || id === AQ_CONDUIT || id === SEA_PICKLE || id === RS_TORCH || id === LAMP_ON || id===GLOWCRYSTAL || id === ENDERCHEST || id === JACK_O_LANTERN || id === LANTERN || id === CAMPFIRE || id === STORM_PORTAL || id === CONDUIT_LIT || id === VOLTITE_ORE || id === END_ROD || id === END_GATEWAY || id === CRYING_OBSIDIAN || id === ANCHOR_LIT || id === SHROOMLIGHT || id === MAGMA || isFire(id) || id === SOUL_TORCH || id === GLOWVINE || id === AMETHYST_C || id === AMBERLAMP || id === GLOWB || id === GLOWSTONE || id === LAVA || id === PORTAL || id === ENDPORTAL || id === ENDCRYSTAL;
 const occl     = id => isOpaque(id);
 function tileFor(id, face){
   const d = BLOCKS[id];
@@ -1918,6 +2002,8 @@ const dropOf = id => id===MYCELIUM?DIRT:id===SEA_LANTERN?PRISMARINE_CRYSTALS:COR
 function toolClassOf(id){
   if(DEEP_BASE[id]) return 'pick';
   if(id === MYCELIUM) return 'shovel';
+  if(id === SCULK || id === SCULK_SENSOR || id === SCULK_SHRIEKER || id === SCULK_CATALYST) return 'hoe';
+  if(id === DEEPSLATE_BRICKS || id === DEEPSLATE_TILES) return 'pick';
   if(id === MUSH_STEM || id === RED_MUSH_BLOCK || id === BROWN_MUSH_BLOCK) return 'axe';
   if(CORALB_SET.has(id) || id === DEAD_CORALB || id === ICE || PRISMARINE_SET.has(id) || id === AQ_CONDUIT) return 'pick';
   if([STORMSTONE,VOLTITE_ORE,STORM_BRICK,CONDUIT,CONDUIT_LIT].includes(id)) return 'pick';
@@ -1959,7 +2045,7 @@ function handTime(id){
   if(id === CLOUD) return 0.35;
   if(id === SKYGRASS) return 0.8;
   if(id === VOLTITE_ORE) return 8;
-  if(id === BEDROCK || id === STORM_PORTAL || id === END_GATEWAY || id === END_FRAME || id === END_FRAME_EYE || id === ENDPORTAL) return mode === 'creative' ? 0.05 : Infinity;
+  if(id === BEDROCK || id === REINFORCED || id === STORM_PORTAL || id === END_GATEWAY || id === END_FRAME || id === END_FRAME_EYE || id === ENDPORTAL) return mode === 'creative' ? 0.05 : Infinity;
   if(id === CHORUS_PLANT || id === CHORUS_FLOWER) return 1.2;
   if(id === CRYING_OBSIDIAN || id === ANCHOR || id === ANCHOR_LIT) return 60;
   if(id === NETHERRACK || id === CRIM_NYL || id === WARP_NYL) return 1.2;
@@ -1976,6 +2062,9 @@ function handTime(id){
   if(id === GLASS || id === CACTUS || id === TNT || id === ICE || id === SEA_LANTERN) return 0.5;
   if(id === SPONGE || id === WET_SPONGE) return 0.9;
   if(id === MYCELIUM) return 0.8;
+  if(id === SCULK) return 0.35;
+  if(id === SCULK_SENSOR || id === SCULK_SHRIEKER || id === SCULK_CATALYST) return 1.5;
+  if(id === DEEPSLATE_BRICKS || id === DEEPSLATE_TILES) return 5.5;
   if(id === MUSH_STEM || id === RED_MUSH_BLOCK || id === BROWN_MUSH_BLOCK) return 0.4;
   if(id === GRASS || id === SAVGRASS || id === DIRT || id === SAND || id === SNOW) return 0.75;
   if(id === WOOL) return 1.0;
@@ -2056,6 +2145,8 @@ const RECIPES = [
   { out: [GOLDI, 1],  in: [[GOLDO, 1], [COALI, 1]], st: 'furnace' },
   { out: [DRIED_KELP, 1], in: [[KELP, 1], [COALI, 1]], st: 'furnace' },
   { out: [DARK_PLANK, 4], in: [[DARK_LOG, 1]] },
+  { out: [DEEPSLATE_BRICKS, 4], in: [[DEEPSLATE, 4]] },
+  { out: [DEEPSLATE_TILES, 4], in: [[DEEPSLATE_BRICKS, 4]] },
   { out: [BOWL, 4], in: [[ANY_PLANK, 3]], st: 'table' },
   { out: [MUSH_STEW, 1], in: [[BOWL, 1], [MUSHROOMR, 1], [MUSHROOMB, 1]] },
   { out: [SPONGE, 1], in: [[WET_SPONGE, 1], [COALI, 1]], st: 'furnace' },
@@ -2207,6 +2298,9 @@ itemAtlas.width = 128; itemAtlas.height = 1024;   // 512 icons
     if((x - y === 0 || x + y === 19) && x >= 8 && x <= 11) return [200, 30, 30];
     if(y === 11 - (x >> 1) && x < 8 && x % 2 === 0) return [110, 80, 50];
     return (x * 3 + y) % 7 === 0 ? [214, 196, 150] : [232, 216, 172]; });
+  px(265, (x, y) => {                                                   // echo shard: a dark teal crystal with a bright heart
+    const u = x - y; if(u < -3 || u > 3 || x + y < 6 || x + y > 24) return null;
+    return Math.abs(u) === 3 ? [8, 40, 46] : Math.abs(x + y - 15) < 3 && Math.abs(u) < 2 ? [120, 240, 240] : [22, 92, 104]; });
   px(263, (x, y) => {                                                   // mushroom stew: a bowl of brown broth
     if(y < 6 || y > 13 || x < 1 || x > 14) return null;
     if(y === 6) return x > 2 && x < 13 ? ((x + 1) % 4 === 0 ? [190, 40, 34] : [150, 104, 70]) : null;
@@ -2601,6 +2695,29 @@ itemAtlas.width = 128; itemAtlas.height = 1024;   // 512 icons
     }
     return [0,0,0,0];
   });
+  { // the deep dark
+    const q = r => Math.floor((r() - 0.5) * 14);
+    put(380, (x,y,r) => { const k = q(r), f = hash(x, y, 1621);                                                           // sculk: dark teal, bright flecks
+      return f < 0.07 ? [44, 176, 196] : f < 0.5 ? [12 + k / 2, 34 + k, 42 + k] : [8, 22 + k / 2, 28 + k / 2]; });
+    put(381, (x,y,r) => { const d = Math.max(Math.abs(x - 7.5), Math.abs(y - 7.5));                                      // sensor top: two glowing tendrils
+      if(d > 6.5) return [10, 30, 36];
+      if((x === 4 || x === 11) && y > 2 && y < 13) return [70, 226, 236];
+      return (x + y) % 3 === 0 ? [20, 70, 80] : [14, 48, 56]; });
+    put(382, (x,y,r) => { const k = q(r); return y < 5 ? [14 + k / 2, 44 + k, 52 + k] : y === 5 ? [40, 170, 180] : [30 + k, 30 + k, 36 + k]; });   // sensor side
+    put(383, (x,y,r) => { const d = Math.hypot(x - 7.5, y - 7.5), k = q(r);                                                // shrieker top: a bone-ringed mouth
+      return d < 3.2 ? [6, 12, 14] : d < 4.4 ? [214, 208, 184] : [20 + k, 52 + k, 58 + k]; });
+    put(384, (x,y,r) => { const k = q(r); return y < 6 ? (x % 4 === 0 ? [176, 170, 146] : [214 + k, 208 + k, 184 + k]) : [18 + k / 2, 46 + k, 54 + k]; });   // shrieker side: bone jaws
+    put(385, (x,y,r) => { const k = q(r), d = Math.hypot(x - 7.5, y - 7.5);                                              // catalyst top: a soul in bone
+      return d < 2.4 ? [130, 250, 250] : (x % 5 === 0 || y % 5 === 0) ? [214, 208, 184] : [20 + k, 54 + k, 60 + k]; });
+    put(386, (x,y,r) => { const k = q(r); return y % 4 === 0 || x % 8 === 0 ? [200, 196, 172] : [16 + k / 2, 42 + k, 50 + k]; });   // catalyst side
+    put(387, (x,y,r) => { const k = q(r), row = y >> 2, bx = (x + (row % 2) * 4) % 8;                                     // deepslate bricks
+      return (y % 4 === 3 || bx === 7) ? [30, 30, 34] : [66 + k, 66 + k, 72 + k]; });
+    put(388, (x,y,r) => { const k = q(r); return (y % 4 === 3 || x % 4 === 3) ? [28, 28, 32] : [58 + k, 58 + k, 64 + k]; });    // deepslate tiles
+    put(389, (x,y,r) => { const k = q(r); if(x === 0 || y === 0 || x === 15 || y === 15) return [40, 44, 48];                // reinforced deepslate
+      return (x + y) % 6 < 2 ? [92 + k, 100 + k, 104 + k] : [54 + k, 60 + k, 64 + k]; });
+    put(390, (x,y,r) => { const k = q(r), d = Math.max(Math.abs(x - 7.5), Math.abs(y - 7.5));
+      return d > 6.5 ? [40, 44, 48] : d < 2.5 ? [24, 28, 30] : [72 + k, 80 + k, 84 + k]; });
+  }
   { // dark oak and the mushroom fields
     const k = r => Math.floor((r() - 0.5) * 16);
     put(370, (x,y,r) => { const d = k(r); return x % 4 === 0 ? [44 + d / 2, 32, 20] : [66 + d, 50 + d, 32 + d]; });                 // dark oak bark
@@ -5524,10 +5641,10 @@ function* decorateCavesSteps(data, cx, cz){
   const rocky = id => id === STONE || id === DEEPSLATE || id === TUFF || id === DIRT || id === MARBLE || id === BASALT;
   for(let lz = 0; lz < 16; lz++) for(let lx = 0; lx < 16; lx++){
     const wx = cx * 16 + lx, wz = cz * 16 + lz;
-    const lush = lushAt(wx, wz), drip = !lush && dripAt(wx, wz);
-    if(!lush && !drip) continue;
+    const lush = lushAt(wx, wz), drip = !lush && dripAt(wx, wz), dark = !lush && !drip && deepDarkAt(wx, wz);
+    if(!lush && !drip && !dark) continue;
     yield;
-    const top = terrainHeight(wx, wz) - 5;
+    const top = dark ? Math.min(terrainHeight(wx, wz) - 5, DEEP_Y - 2) : terrainHeight(wx, wz) - 5;
     const pool = lush && vnoise(wx * 0.25, wz * 0.25, 1904) > 0.72;
     for(let y = 4; y < top; y++){
       if(at(lx, y, lz) !== AIR) continue;
@@ -5548,12 +5665,21 @@ function* decorateCavesSteps(data, cx, cz){
           else if(r < .08) put(lx, y, lz, AZALEA_F);
           else if(r < .13) put(lx, y, lz, DRIPLEAF);
           else if(r < .32) put(lx, y, lz, TGRASSB);
+        } else if(dark){
+          // the deep dark: sculk spreads over the floor, with sensors, shriekers and the odd catalyst
+          if(vnoise3(wx * .12, y * .12, wz * .12, 1611) > .36 || r < .1){
+            put(lx, y - 1, lz, SCULK);
+            if(r < .012) put(lx, y, lz, SCULK_SENSOR);
+            else if(r < .017) put(lx, y, lz, SCULK_SHRIEKER);
+            else if(r < .0185) put(lx, y, lz, SCULK_CATALYST);
+          }
         } else {
           if(r < .6) put(lx, y - 1, lz, DRIPSTONE);
           if(r < .14) put(lx, y, lz, DRIP_UP);
         }
       } else if(rocky(above)){                                  // a cave ceiling
-        if(lush){
+        if(dark){ if(vnoise3(wx * .12, y * .12, wz * .12, 1613) > .45) put(lx, y + 1, lz, SCULK); }
+        else if(lush){
           put(lx, y + 1, lz, MOSS);
           if(r < .14){                                          // vines hang 1-4 blocks
             const len = 1 + Math.floor(hash3(wx, y, wz, 1902) * 4);
@@ -5847,6 +5973,7 @@ function* genChunkSteps(cx, cz){
     for(const r of ruinsNear(mx, mz)) if(Math.abs(r.x - mx) < 40 && Math.abs(r.z - mz) < 40) stampRuin(r, set, cx, cz);
     for(const t of treasuresNear(mx, mz)) stampTreasure(t, set, cx, cz);
     for(const m of monumentsNear(mx, mz)) stampMonument(m, set, data, cx, cz);
+    for(const c of citiesNear(mx, mz)) stampCity(c, set, cx, cz);
   }
   // underground structures: dungeons, mineshafts, strongholds
   for(const d of dungeonsNear(cx * 16 + 8, cz * 16 + 8)){
@@ -6104,6 +6231,10 @@ function stockLootChest(x, y, z, key, kind){
             [NSCRAP, R() < 0.3 ? 1 : 0], [DEBRIS, R() < 0.3 ? 1 : 0], [DIAMI, R() < 0.25 ? 1 + ((R()*2)|0) : 0],
             [QUARTZ, 4 + ((R()*9)|0)], [GOLD_ARMOUR + 3, R() < 0.3 ? 1 : 0], [OBSIDIAN, R() < 0.3 ? 2 + ((R()*4)|0) : 0],
             [SADDLE, R() < 0.25 ? 1 : 0], [CRYING_OBSIDIAN, R() < 0.4 ? 1 + ((R()*3)|0) : 0]];
+  } else if(kind === 'city'){
+    loot = [[ECHO_SHARD, R() < 0.6 ? 1 + ((R()*3)|0) : 0], [DIAMI, R() < 0.35 ? 1 + ((R()*2)|0) : 0], [GOLDEN_APPLE, R() < 0.4 ? 1 : 0],
+            [AMETHYST_SHARD, 1 + ((R()*10)|0)], [SCULK, 4 + ((R()*8)|0)], [SCULK_SENSOR, R() < 0.4 ? 1 + ((R()*2)|0) : 0],
+            [SCULK_CATALYST, R() < 0.2 ? 1 : 0], [COALI, R() < 0.5 ? 6 + ((R()*10)|0) : 0], [DISC_1 + ((R()*4)|0), R() < 0.15 ? 1 : 0], [BONE, R() < 0.5 ? 1 + ((R()*8)|0) : 0]];
   } else if(kind === 'wreck-supply'){
     loot = [[PAPER, 1 + ((R()*8)|0)], [POTATO, 2 + ((R()*5)|0)], [CARROT, R() < 0.5 ? 2 + ((R()*5)|0) : 0], [WHEATITEM, 4 + ((R()*8)|0)],
             [COALI, 2 + ((R()*6)|0)], [ROTTEN, R() < 0.6 ? 3 + ((R()*6)|0) : 0], [TNT, R() < 0.3 ? 1 + ((R()*2)|0) : 0], [PUMPKIN, R() < 0.3 ? 1 : 0]];
@@ -6434,6 +6565,8 @@ function emitLevel(id){
   if(id === LAMP_ON) return 15;
   if(id === SEA_PICKLE) return 6;
   if(id === SEA_LANTERN || id === AQ_CONDUIT) return 15;
+  if(id === SCULK_CATALYST) return 6;
+  if(id === SCULK_SENSOR) return 1;
   if(id===GLOWCRYSTAL)return 11;
   if(id === SHROOMLIGHT || id === FIRE || id === END_GATEWAY || id === ANCHOR_LIT) return 15;
   if(id === END_ROD) return 14;
@@ -8732,7 +8865,109 @@ const NETHER_TYPES = {
   strider: { hp: 20, w: 0.45, h: 1.7, build: buildStrider },
   wisp:     { hp: 10, w: 0.35, h: 0.8, build: buildWisp },
   stormling:{ hp: 6, w: 0.25, h: 1.15, build: buildStormling },
+  warden:   { hp: 500, w: 0.45, h: 2.9, build: buildWarden },
 };
+/* The Warden: blind, three blocks tall, 500 health. It finds you by sound
+   (footsteps, mining, placing - sneak to stay quiet) and by smell when you
+   are close; its anger builds until it charges. It hits for 30, and from
+   afar its sonic boom goes through armour, shields and walls. Its chest
+   beats with the souls inside, faster the angrier it gets, and the dark
+   pulses around it. Left alone for a minute, it digs back into the ground. */
+function buildWarden(g, e){
+  const skin = entMat(0x0f3b45), dark = entMat(0x072229);
+  const glow = new THREE.MeshBasicMaterial({ color: 0x40e8e8 }); e.glowMat = glow;
+  for(const sx of [-0.3, 0.3]){ const lg = new THREE.Group(); lg.position.set(sx, 0.82, 0); g.add(lg); box(0.38, 0.82, 0.38, skin, 0, -0.41, 0, lg); e.legs.push(lg); }
+  box(1.12, 1.2, 0.66, skin, 0, 1.42, 0, g);                                   // torso
+  box(0.96, 0.9, 0.02, dark, 0, 1.5, -0.34, g);                                // the ribcage
+  for(const [x, y] of [[-0.22, 1.66], [0.22, 1.66], [0, 1.32]]) box(0.2, 0.2, 0.03, glow, x, y, -0.355, g);   // the souls in its chest
+  const head = new THREE.Group(); head.position.set(0, 2.0, -0.04); g.add(head); e.head = head;
+  box(1.0, 0.9, 0.64, skin, 0, 0.45, 0, head);
+  box(0.8, 0.28, 0.02, dark, 0, 0.26, -0.33, head);                            // no eyes: a dark maw
+  e.tendrils = [];
+  for(const side of [-1, 1]){ const t = new THREE.Group(); t.position.set(side * 0.5, 0.78, 0); head.add(t); box(0.5, 0.42, 0.06, glow, side * 0.25, 0.14, 0, t); t.rotation.z = side * 0.3; e.tendrils.push(t); }
+  for(const sx of [-0.76, 0.76]){ const a = new THREE.Group(); a.position.set(sx, 1.95, 0); g.add(a); box(0.44, 1.65, 0.44, skin, 0, -0.8, 0, a); e.arms.push(a); }
+}
+function wardenHear(e, x, y, z, byPlayer){
+  if(e.emergeT > 0 || e.digT > 0) return;
+  e.target = new THREE.Vector3(x, y, z); e.calmT = 0; e.twitch = 0.6;
+  if(byPlayer) e.anger = Math.min(150, (e.anger || 0) + (Math.hypot(x - e.pos.x, z - e.pos.z) < 6 ? 40 : 20));
+}
+function wardenRoar(e){ tone(70, 38, 1.6, 'sawtooth', 0.22); playN({ f: 180, type: 'lowpass', dur: 1.4, vol: 0.3 }); }
+function sonicBoom(e){
+  const from = e.pos.clone(); from.y += 1.5;
+  const to = player.pos.clone(); to.y += 1.2;
+  for(let t = 0; t <= 1; t += 0.08){ const q = from.clone().lerp(to, t); burstRGB(q.x, q.y, q.z, 0.35, 0.9, 0.95, 2, 0.5); }
+  tone(90, 28, 0.7, 'sawtooth', 0.35); playN({ f: 120, type: 'lowpass', dur: 0.8, vol: 0.4 });
+  damage(10, true);                                                            // through armour, shields and walls
+  const k = to.clone().sub(from).setY(0).normalize();
+  player.vel.x += k.x * 9; player.vel.z += k.z * 9; player.vel.y = Math.max(player.vel.y, 5);
+  flashName('Sonic boom!');
+}
+function wardenThink(e, dt){
+  if(e.emergeT > 0){                                    // clawing up out of the ground
+    e.emergeT -= dt; e.speed = 0;
+    if(Math.random() < dt * 25) burstRGB(e.pos.x + (Math.random() - 0.5) * 1.4, e.pos.y + 0.1, e.pos.z + (Math.random() - 0.5) * 1.4, 0.12, 0.22, 0.24, 2, 0.5);
+    if(!e.roared && e.emergeT < 1.2){ e.roared = true; wardenRoar(e); }
+    return;
+  }
+  if(e.digT > 0){                                       // digging back down
+    e.digT -= dt; e.speed = 0;
+    if(Math.random() < dt * 25) burstRGB(e.pos.x + (Math.random() - 0.5) * 1.4, e.pos.y + 0.1, e.pos.z + (Math.random() - 0.5) * 1.4, 0.12, 0.22, 0.24, 2, 0.5);
+    if(e.digT <= 0) e.remove = true;
+    return;
+  }
+  const dP = e.pos.distanceTo(player.pos), alive = mode === 'survival' && !dead;
+  e.anger = Math.max(0, (e.anger || 0) - dt * (alive ? 0.8 : 20));
+  e.twitch = Math.max(0, (e.twitch || 0) - dt);
+  e.sniffT = (e.sniffT ?? 3) - dt;
+  if(e.sniffT <= 0){ e.sniffT = 4; if(alive && dP < 8){ e.anger = Math.min(150, e.anger + 25); e.target = player.pos.clone(); e.twitch = 0.6; playN({ f: 300, type: 'bandpass', dur: 0.5, vol: 0.12 }); } }   // it smells you
+  if(alive && dP < 2.4) e.anger = Math.max(e.anger, 100);                     // it bumped into you
+  const angry = alive && e.anger >= 80;
+  if(angry) e.target = player.pos.clone();
+  // the darkness it spreads, and its heartbeat
+  e.darkT = (e.darkT ?? 0) - dt;
+  if(e.darkT <= 0){ e.darkT = 6; if(alive && dP < 20) effects.darkness = Math.max(effects.darkness, 12); }
+  e.beatT = (e.beatT ?? 1) - dt;
+  if(e.beatT <= 0){ e.beatT = Math.max(0.5, 2 - e.anger / 90); e.beat = 1; if(dP < 32) tone(54, 40, 0.25, 'sine', 0.16 * (1 - dP / 32)); }
+  e.beat = Math.max(0, (e.beat || 0) - dt * 3);
+  e.boomCd = (e.boomCd ?? 3) - dt;
+  if(e.boomT > 0){                                     // charging the sonic boom
+    e.boomT -= dt; e.speed = 0;
+    if(e.target) faceTo(e, e.target.x, e.target.z);
+    if(e.boomT <= 0){ if(alive && dP < 16) sonicBoom(e); e.boomCd = 5; }
+  } else if(e.target){
+    const l = faceTo(e, e.target.x, e.target.z);
+    e.speed = angry ? 4.0 : l < 1.5 ? 0 : 1.3;
+    if(!angry && l < 1.5) e.target = null;
+    if(angry){
+      if(dP < 2.4 && Math.abs(player.pos.y - e.pos.y) < 2.6 && e.atkCd <= 0){
+        e.atkCd = 1.8; e.swing = 0.35;
+        if(!shieldBlocks(e.pos)) damage(30);
+        const k = player.pos.clone().sub(e.pos).setY(0).normalize(); player.vel.x += k.x * 7; player.vel.z += k.z * 7; player.vel.y = Math.max(player.vel.y, 4);
+        wardenRoar(e);
+      } else if(e.boomCd <= 0 && dP > 4 && dP < 15){ e.boomT = 1.7; tone(60, 160, 1.6, 'sawtooth', 0.12); }
+    }
+  } else e.speed = 0;
+  if(e.anger > 5 || e.target) e.calmT = 0;
+  else if((e.calmT = (e.calmT || 0) + dt) > 60){ e.digT = 5; tone(80, 40, 1.2, 'sine', 0.1); }
+  stepMob(e, dt, 24);
+}
+function animWarden(e, dt){
+  e.group.position.copy(e.pos);
+  if(e.emergeT > 0) e.group.position.y -= (e.emergeT / 6.7) * 3;
+  if(e.digT > 0) e.group.position.y -= (1 - e.digT / 5) * 3;
+  let dyaw = ((e.yaw - e.group.rotation.y + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+  e.group.rotation.y += dyaw * Math.min(1, dt * 5);
+  const sp = Math.min(1, Math.hypot(e.vel.x, e.vel.z) / 3);
+  e.anim += dt * (1.5 + sp * 4);
+  e.legs.forEach((l, j) => { l.rotation.x = Math.sin(e.anim * 2.4 + (j ? Math.PI : 0)) * 0.55 * sp; });
+  const slash = e.swing > 0 ? -Math.sin((1 - e.swing / 0.35) * Math.PI) * 1.8 : 0;
+  e.swing = Math.max(0, (e.swing || 0) - dt);
+  e.arms.forEach((a, j) => { a.rotation.x = e.boomT > 0 ? -0.4 : slash + Math.sin(e.anim * 2.4 + (j ? 0 : Math.PI)) * 0.4 * sp; });
+  if(e.head) e.head.rotation.x = e.boomT > 0 ? -0.5 : 0;
+  if(e.tendrils) e.tendrils.forEach((t, j) => { t.rotation.z = (j ? 1 : -1) * (0.3 + (e.twitch || 0) * Math.sin(e.anim * 30) * 0.5); });
+  if(e.glowMat){ const k = 0.35 + 0.65 * (e.beat || 0); e.glowMat.color.setRGB(0.25 * k, 0.91 * k, 0.91 * k); }
+}
 function spawnNetherMob(type, x, y, z, opt = {}){
   const T = NETHER_TYPES[type];
   if(!T) return null;
@@ -8935,6 +9170,7 @@ function tryGivePiglin(e){
 
 /* ---- the brains ---- */
 function updateNetherMob(e, dt){
+  if(e.type === 'warden'){ e.atkCd -= dt; wardenThink(e, dt); return; }
   e.atkCd -= dt; e.swing = Math.max(0, e.swing - dt);
   if(e.angry > 0) e.angry -= dt;
   const toP = Math.hypot(player.pos.x - e.pos.x, player.pos.z - e.pos.z);
@@ -9137,6 +9373,7 @@ function setStriderCold(e, cold){
 /* ---- how they move ---- */
 function animNether(e, dt){
   const T = e.type;
+  if(T === 'warden'){ animWarden(e, dt); return; }
   if(T === 'wisp'){ animWisp(e, dt); return; }
   if(T === 'ghast'){
     e.group.position.copy(e.pos);
@@ -9202,6 +9439,7 @@ function hurtNether(e, dmg, byPlayer){
   e.hp -= dmg;
   e.swing = 0;
   burstRGB(e.pos.x, e.pos.y + Math.min(e.h, 2) * 0.6, e.pos.z, e.type === 'magma' || e.type === 'blaze' ? 1 : 0.75, e.type === 'blaze' ? 0.6 : 0.2, 0.12, 6, 0.4);
+  if(byPlayer && e.type === 'warden'){ e.anger = 150; e.target = player.pos.clone(); }
   if(byPlayer){
     if(e.type === 'zpiglin') for(const o of netherMobs)                           // strike one and the whole horde turns on you
       if(o.type === 'zpiglin' && o.pos.distanceToSquared(e.pos) < 24 * 24) o.angry = 30 + Math.random() * 12;
@@ -9226,6 +9464,7 @@ function killNether(e){
     case 'wskel': if(Math.random() < 0.33) drop(COALI, 1, 1); drop(BONE, 0, 2); break;
     case 'wisp': if(Math.random() < 0.3) drop(VOLTITE, 1, 1); break;
     case 'strider': drop(STRING, 2, 5); if(e.saddled) drop(SADDLE, 1, 1); break;
+    case 'warden': drop(SCULK_CATALYST, 1, 1); break;
   }
   const big = e.type === 'ghast' ? 3 : 1;
   if(e.type === 'slime') burstRGB(p.x, p.y + e.h * 0.5, p.z, 0.4, 0.8, 0.3, 14, 0.6);
@@ -9244,6 +9483,7 @@ function updateNetherMobs(dt){
   for(let i = netherMobs.length - 1; i >= 0; i--){
     const e = netherMobs[i];
     if(e.pos.distanceToSquared(player.pos) > 100 * 100 || e.pos.y < -10){ removeEnt(netherMobs, i); continue; }
+    if(e.remove){ removeEnt(netherMobs, i); continue; }      // a warden that dug back down
     if(e.hp <= 0){ killNether(e); continue; }
     updateNetherMob(e, dt);
     animNether(e, dt);
@@ -14543,7 +14783,7 @@ function updateCrops(dt){
 }
 function harvestOk(id){
   if(DEEP_BASE[id]) return harvestOk(DEEP_BASE[id]);
-  if(isFire(id) || id === BEDROCK) return false;
+  if(isFire(id) || id === BEDROCK || id === REINFORCED) return false;
   if(id === DEBRIS || id === OBSIDIAN || id === CRYING_OBSIDIAN || id === ANCHOR || id === ANCHOR_LIT) return pickTierHeld() >= 4;
   if(id === END_GATEWAY || id === END_FRAME || id === END_FRAME_EYE || id === STORM_PORTAL) return false;
   if(id === VOLTITE_ORE) return pickTierHeld() >= 5;
@@ -14760,6 +15000,7 @@ function soakSponge(x, y, z){
 }
 function breakBlock(x, y, z, id){
   triggerViewSwing();
+  vibrate(x + 0.5, y + 0.5, z + 0.5, true);
   if(id === TRAPDOOR) trapState.delete(x + ',' + y + ',' + z);
   rsBroke(x, y, z, id);                               // redstone: forget its state, drop whatever was fixed to it
   if(id === BED || id === BEDHEAD){
@@ -14980,6 +15221,7 @@ function doPlace(){
   }
   triggerViewSwing();
   setBlock(x, y, z, held);
+  vibrate(x + 0.5, y + 0.5, z + 0.5, true);
   if(isLeaf(held)) keepLeaf(x, y, z, true);         // placed leaves never decay
   rsNotify(x, y, z);                                // it may join, cut or feed a redstone line
   blockSfx(held, 'place');
@@ -15049,10 +15291,10 @@ const ALL_CREATIVE = (() => {
 // ---- item categories (used to group the creative palette and the crafting list) ----
 const CAT_NAMES = ['Building', 'Nature', 'Ores & Minerals', 'Decoration', 'Utility', 'Tools', 'Combat', 'Food', 'Misc'];
 const _oreBlocks = new Set([RAW_IRON_BLOCK, RAW_GOLD_BLOCK, RAW_COPPER_BLOCK, COALO, IRONO, GOLDO, DIAMO, EMERO, COPPERO, REDSTONE_ORE, LAPIS_ORE, QUARTZ_ORE, DEBRIS, ...Object.keys(DEEP_BASE).map(Number)]);
-const _matItems = new Set([HEART_OF_SEA, NAUTILUS, PRISMARINE_SHARD, PRISMARINE_CRYSTALS, INK_SAC, RAW_IRON, RAW_GOLD, RAW_COPPER, REDSTONE, LAPIS, COALI, IRONI, GOLDI, DIAMI, COPPERI, EMERALD, NETHERITE, QUARTZ, AMETHYST_SHARD, GNUGGET, NSCRAP, STICK, STRING, LEATHER, FEATHER, GUNPOWDER, BLAZEROD, BLAZEPOWDER, GHASTTEAR, MAGMACREAM, ENDERPEARL, SLIMEBALL, BONE, BONE_MEAL, HONEYCOMB, PAPER]);
+const _matItems = new Set([ECHO_SHARD, HEART_OF_SEA, NAUTILUS, PRISMARINE_SHARD, PRISMARINE_CRYSTALS, INK_SAC, RAW_IRON, RAW_GOLD, RAW_COPPER, REDSTONE, LAPIS, COALI, IRONI, GOLDI, DIAMI, COPPERI, EMERALD, NETHERITE, QUARTZ, AMETHYST_SHARD, GNUGGET, NSCRAP, STICK, STRING, LEATHER, FEATHER, GUNPOWDER, BLAZEROD, BLAZEPOWDER, GHASTTEAR, MAGMACREAM, ENDERPEARL, SLIMEBALL, BONE, BONE_MEAL, HONEYCOMB, PAPER]);
 const _decoBlocks = new Set([SEA_LANTERN, TORCH, SOUL_TORCH, PAINTING, FRAME, FLOWERPOT, LANTERN, JACK_O_LANTERN, CARVED_PUMPKIN, GLOWB, CAMPFIRE]);
 const _utilBlocks = new Set([AQ_CONDUIT, REPEATER, LEVER, BUTTON_STONE, BUTTON_WOOD, PLATE_STONE, PLATE_WOOD, RS_TORCH, LAMP, CHEST, CRAFTT, FURN, BREWING, BARREL, ENDERCHEST, COMPOSTER, GRINDSTONE, NOTEBLOCK, JUKEBOX, ANVIL, SMITHING, CAULDRON, LADDER, FENCE, GATE, GATE_OPEN, BED, BEDHEAD, LIGHTNINGROD, TNT, BOOKSHELF, ENCH_TABLE]);
-const _natureBlocks = new Set([MYCELIUM, MUSH_STEM, RED_MUSH_BLOCK, BROWN_MUSH_BLOCK, ...OCEAN_PLANTS, ...CORAL_BLOCKS, DEAD_CORALB, ICE, SPONGE, WET_SPONGE, GRASS, DIRT, SAND, REDSAND, GRAVEL, SNOW, PODZOL, CACTUS, DEADBUSH, MUSHROOMR, MUSHROOMB, TGRASSB, POPPYB, DANDB]);
+const _natureBlocks = new Set([SCULK, SCULK_SENSOR, SCULK_SHRIEKER, SCULK_CATALYST, MYCELIUM, MUSH_STEM, RED_MUSH_BLOCK, BROWN_MUSH_BLOCK, ...OCEAN_PLANTS, ...CORAL_BLOCKS, DEAD_CORALB, ICE, SPONGE, WET_SPONGE, GRASS, DIRT, SAND, REDSAND, GRAVEL, SNOW, PODZOL, CACTUS, DEADBUSH, MUSHROOMR, MUSHROOMB, TGRASSB, POPPYB, DANDB]);
 function itemCat(id){
   const it = ITEMS[id];
   if(id === BOW || id === ARROW_I) return 6;
@@ -15870,6 +16112,7 @@ function vrTryPlace(){
   }
   triggerViewSwing();
   setBlock(x, y, z, held);
+  vibrate(x + 0.5, y + 0.5, z + 0.5, true);
   if(isLeaf(held)) keepLeaf(x, y, z, true);         // placed leaves never decay
   rsNotify(x, y, z);                                // it may join, cut or feed a redstone line
   blockSfx(held, 'place');
@@ -16405,7 +16648,8 @@ if(IS_VR || BUILD === 'auto'){
 const hudEl = document.getElementById('hud');
 const tintEl = document.getElementById('watertint');
 const WATER_FOG = new THREE.Color(0x1f4fa8), _waterFog = new THREE.Color(), _eyeW = new THREE.Vector3();
-let eyeWasWet = false;
+let eyeWasWet = false, darkWas = false, caveFogK = 0;
+const CAVE_FOG = new THREE.Color(0x06070a);
 const clock = new THREE.Clock();
 let timeOfDay = 0.32, frames = 0, fps = 0, fpsT = 0, hudT = 0, saveT = 0, fluidWakeT=0;
 
@@ -16735,8 +16979,8 @@ function updateAmbience(dt){
    lava and flame off you, strength adds to every blow, swiftness quickens
    you, regeneration heals, night vision lights the dark and slow falling
    floats you down. */
-const effects = { fire: 0, strength: 0, speed: 0, regen: 0, night: 0, slow: 0, breath: 0, conduit: 0, fatigue: 0 };
-const EFFECT_NAMES = { fire: 'Fire Resistance', strength: 'Strength', speed: 'Swiftness', regen: 'Regeneration', night: 'Night Vision', slow: 'Slow Falling', breath: 'Water Breathing', conduit: 'Conduit Power', fatigue: 'Mining Fatigue' };
+const effects = { fire: 0, strength: 0, speed: 0, regen: 0, night: 0, slow: 0, breath: 0, conduit: 0, fatigue: 0, darkness: 0 };
+const EFFECT_NAMES = { fire: 'Fire Resistance', strength: 'Strength', speed: 'Swiftness', regen: 'Regeneration', night: 'Night Vision', slow: 'Slow Falling', breath: 'Water Breathing', conduit: 'Conduit Power', fatigue: 'Mining Fatigue', darkness: 'Darkness' };
 let regenTick = 0, xpT = 0;
 const fireproof = () => effects.fire > 0;
 function drinkPotion(id){
@@ -16828,12 +17072,82 @@ function updateConduits(dt){
    }
   }
 }
+/* Sculk sensors hear vibrations within 8 blocks - your footsteps (sneaking
+   is silent), mining and building. A shrieker near a sensor that hears you
+   screams and casts Darkness over you; after the fourth warning a Warden
+   claws its way up beside it. Shriekers you place yourself never call one.
+   The warning fades by one every ten minutes. */
+let sculkScanT = 0, sculkNear = [], sculkStepAcc = 0, lastStepPos = null, shriekCd = 0, warnLevel = 0, warnDecayT = 0;
+function updateSculk(dt){
+  if(dim !== 0) return;
+  shriekCd -= dt;
+  if((warnDecayT += dt) > 600){ warnDecayT = 0; warnLevel = Math.max(0, warnLevel - 1); }
+  if((sculkScanT -= dt) <= 0){
+    sculkScanT = 0.6; sculkNear = [];
+    const px = Math.floor(player.pos.x), py = Math.floor(player.pos.y), pz = Math.floor(player.pos.z);
+    if(py < DEEP_Y + 24) for(let ccx = (px >> 4) - 1; ccx <= (px >> 4) + 1; ccx++) for(let ccz = (pz >> 4) - 1; ccz <= (pz >> 4) + 1; ccz++){
+      const c = chunks.get(ccx + ',' + ccz);
+      if(!c || !c.data) continue;
+      for(let y = Math.max(1, py - 12); y <= py + 12; y++) for(let i = 0; i < 256; i++){
+        const id = c.data[(y << 8) | i];
+        if(id === SCULK_SENSOR || id === SCULK_SHRIEKER) sculkNear.push([ccx * 16 + (i & 15), y, ccz * 16 + (i >> 4), id]);
+      }
+    }
+  }
+  // footsteps: a vibration every block or so you walk, unless you sneak
+  if(lastStepPos && player.onGround && !player.crouching && !player.fly) sculkStepAcc += Math.hypot(player.pos.x - lastStepPos.x, player.pos.z - lastStepPos.z);
+  lastStepPos = (lastStepPos || new THREE.Vector3()).copy(player.pos);
+  if(sculkStepAcc > 1.2){ sculkStepAcc = 0; vibrate(player.pos.x, player.pos.y, player.pos.z, true); }
+  // stepping right onto a shrieker sets it off
+  const under = [Math.floor(player.pos.x), Math.floor(player.pos.y - 0.2), Math.floor(player.pos.z)];
+  if(!player.crouching && mode === 'survival' && getBlock(...under) === SCULK_SHRIEKER) shriek(under);
+}
+function vibrate(x, y, z, byPlayer){
+  if(dim !== 0) return;
+  for(const w of netherMobs) if(w.type === 'warden' && w.pos.distanceTo(_gTo.set(x, y, z)) < 16) wardenHear(w, x, y, z, byPlayer);
+  if(!byPlayer || mode !== 'survival' || dead) return;
+  let heard = null;
+  for(const s of sculkNear) if(s[3] === SCULK_SENSOR && Math.hypot(s[0] + 0.5 - x, s[1] + 0.5 - y, s[2] + 0.5 - z) <= 8){
+    heard = s;
+    burstRGB(s[0] + 0.5, s[1] + 1, s[2] + 0.5, 0.3, 0.9, 0.95, 5, 0.3);          // the sensor's tendrils flash
+    tone(1400, 1800, 0.08, 'sine', 0.05);
+  }
+  if(!heard) return;
+  for(const s of sculkNear) if(s[3] === SCULK_SHRIEKER && Math.hypot(s[0] - heard[0], s[1] - heard[1], s[2] - heard[2]) <= 8){ shriek(s); break; }
+}
+function shriek(s){
+  if(shriekCd > 0) return;
+  shriekCd = 10;
+  warnLevel++; warnDecayT = 0;
+  effects.darkness = Math.max(effects.darkness, 12);
+  burstRGB(s[0] + 0.5, s[1] + 1.2, s[2] + 0.5, 0.2, 0.8, 0.85, 20, 0.6);
+  tone(900, 500, 1.1, 'sawtooth', 0.12); tone(1300, 700, 1.0, 'square', 0.05, 0.05); playN({ f: 2400, type: 'bandpass', dur: 1.0, vol: 0.12 });
+  const ck = (s[0] >> 4) + ',' + (s[2] >> 4), lk = (s[0] & 15) + ',' + s[1] + ',' + (s[2] & 15);
+  const natural = !(edits[ck] && edits[ck][lk] !== undefined);
+  if(warnLevel >= 4 && natural){ warnLevel = 0; summonWarden(s); }
+  else flashName(warnLevel >= 3 ? 'A shrieker screams... something below is listening' : 'A sculk shrieker screams');
+}
+function summonWarden(s){
+  const near = netherMobs.find(w => w.type === 'warden' && w.pos.distanceTo(player.pos) < 48);
+  if(near){ near.anger = Math.max(near.anger || 0, 60); near.target = player.pos.clone(); return; }
+  for(let t = 0; t < 30; t++){
+    const x = s[0] + Math.round((Math.random() - 0.5) * 10), z = s[2] + Math.round((Math.random() - 0.5) * 10);
+    for(let y = s[1] + 3; y > s[1] - 6; y--){
+      if(isSolid(getBlock(x, y - 1, z)) && !isSolid(getBlock(x, y, z)) && !isSolid(getBlock(x, y + 1, z)) && !isSolid(getBlock(x, y + 2, z))){
+        const w = spawnNetherMob('warden', x + 0.5, y, z + 0.5);
+        if(w){ w.emergeT = 6.7; w.anger = 40; w.target = player.pos.clone(); faceTo(w, player.pos.x, player.pos.z); }
+        flashName('The Warden emerges');
+        return;
+      }
+    }
+  }
+}
 function updateEffects(dt){
   for(const k in effects){
     if(effects[k] <= 0) continue;
     effects[k] -= dt;
-    if(effects[k] <= 0){ effects[k] = 0; if(k !== 'conduit') flashName(EFFECT_NAMES[k] + ' has worn off'); }
-    else if(effects[k] < 10 && effects[k] + dt >= 10 && k !== 'conduit') flashName(EFFECT_NAMES[k] + ' is wearing off');
+    if(effects[k] <= 0){ effects[k] = 0; if(k !== 'conduit' && k !== 'darkness') flashName(EFFECT_NAMES[k] + ' has worn off'); }
+    else if(effects[k] < 10 && effects[k] + dt >= 10 && k !== 'conduit' && k !== 'darkness') flashName(EFFECT_NAMES[k] + ' is wearing off');
   }
   if(effects.regen > 0 && !dead){ regenTick -= dt; if(regenTick <= 0){ regenTick = 2.5; if(hp < 20){ hp = Math.min(20, hp + 1); renderHearts(); } } }
   // a thin coloured shimmer around you shows an effect is on
@@ -16842,7 +17156,7 @@ function updateEffects(dt){
     if(on.length){
       const pickFx = on[(Math.random() * on.length) | 0];
       const id = Object.keys(POTIONS).find(q => POTIONS[q].fx === pickFx);
-      const c = new THREE.Color(id ? POTIONS[id].col : pickFx === 'conduit' ? '#6ad8f0' : '#5a6a3a'), pp = player.pos;
+      const c = new THREE.Color(id ? POTIONS[id].col : pickFx === 'conduit' ? '#6ad8f0' : pickFx === 'darkness' ? '#101018' : '#5a6a3a'), pp = player.pos;
       burstRGB(pp.x + (Math.random() - 0.5), pp.y + Math.random() * 1.8, pp.z + (Math.random() - 0.5), c.r, c.g, c.b, 1, 0.2);
     }
   }
@@ -18884,6 +19198,12 @@ const TP_BIOMES = ['plains', 'forest', 'birch', 'jungle', 'taiga', 'snowy', 'swa
 const biomeLabel = b => b.split('-').map(w => w[0].toUpperCase() + w.slice(1)).join(' ');
 // what the HUD shows: high ground is snow-capped on screen, so name it that way even in a warm climate
 function hudBiome(x, z){
+  const py = Math.floor(player.pos.y);
+  if(dim === 0 && py < terrainHeight(x, z) - 8){
+    if(lushAt(x, z)) return 'lush-caves';
+    if(dripAt(x, z)) return 'dripstone-caves';
+    if(py < DEEP_Y && deepDarkAt(x, z)) return 'deep-dark';
+  }
   const b = biomeAt(x, z);
   if(b === 'snowy' || b === 'frostvale' || MOUNTAIN_BIOMES.has(b)) return b;
   if(terrainHeight(x, z) >= SNOW_H - 6) return 'snowy peaks';
@@ -19140,7 +19460,7 @@ function animate(){
   updateWeather(dt);
   updateNetherAir(dt);
   updateAdvancements(dt);
-  if(inGame && !dead){ updateEffects(dt); updateAir(dt); updateConduits(dt); }
+  if(inGame && !dead){ updateEffects(dt); updateAir(dt); updateConduits(dt); updateSculk(dt); }
   updateXPOrbs(dt);
   updateFishing(dt);
   updateShield(dt);
@@ -19188,6 +19508,11 @@ function animate(){
     renderer.setClearColor(skyCol);
     scene.fog.color.copy(skyCol);
   }
+  // deep underground, out of the sky's reach, the distance fades to black rather than to sky blue
+  if(dim === 0){
+    caveFogK += ((lightAtPlayer().sky < 5 && player.pos.y < SEA - 6 ? 1 : 0) - caveFogK) * Math.min(1, dt * 1.5);
+    if(caveFogK > 0.01){ skyCol.lerp(CAVE_FOG, caveFogK); renderer.setClearColor(skyCol); scene.fog.color.copy(skyCol); }
+  }
   // with your head under water, as in Minecraft: a deep blue murk that closes in (in VR too)
   camera.getWorldPosition(_eyeW);
   if(isWet(getBlock(Math.floor(_eyeW.x), Math.floor(_eyeW.y), Math.floor(_eyeW.z)))){
@@ -19195,6 +19520,12 @@ function animate(){
     renderer.setClearColor(_waterFog); scene.fog.color.copy(_waterFog);
     scene.fog.near = 4; scene.fog.far = effects.conduit > 0 ? 110 : 52; eyeWasWet = true;
   } else if(eyeWasWet){ eyeWasWet = false; scene.fog.near = RD * 16 * 0.55; scene.fog.far = RD * 16 * 0.95; }
+  if(effects.darkness > 0 && dim === 0){
+    const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 1000 * 2.2);
+    _waterFog.setRGB(0.01, 0.01, 0.015); renderer.setClearColor(_waterFog); scene.fog.color.copy(_waterFog);
+    scene.fog.near = 1; scene.fog.far = 9 + 12 * pulse; darkWas = true;
+    b *= 0.25 + 0.3 * pulse;
+  } else if(darkWas){ darkWas = false; scene.fog.near = RD * 16 * 0.55; scene.fog.far = RD * 16 * 0.95; }
   matO.color.setScalar(b);
   matT.color.setScalar(b);
   matC.color.setScalar(b);
@@ -19455,7 +19786,7 @@ window.__bc = {
   addTestConn: send => { const c = { open: true, send, peer: 'test', close(){} }; conns.push(c); return c; },
   dropTestConns: () => { conns = conns.filter(c => c.peer !== 'test'); },
   mobLists: () => Object.fromEntries(MOB_LISTS.map(([k, l]) => [k, l.length])),
-  mountainBiome, jaggedAt,
+  mountainBiome, jaggedAt, vnoise, deepDarkAt, cityDef, cityBlock, vibrate, summonWarden, sculkState: () => ({ warnLevel, near: sculkNear.length }), netherMobs, spawnNetherMob,
   monumentDef, monumentBlock, conduitFrame, soakSponge, airState: () => air, effectsNow: () => effects, spawnSea, seaLife, deadElders,
   colInfo, continentAt, waterBiome, wreckDef, ruinDef, treasureDef, wrecksNear, ruinsNear, treasuresNear, nearestTreasure, OCEAN, setOldLand, oldLandKeys: () => oldLandKeys, isWet,
   atlas, BLOCKS, tileFor, ORE_K, YDISP, CAVE, cavernsNear, dungeonsNear, ravinesNear, leafQueue, keepLeaf, keptLeaves, rs: { place: placeRS, use: useRS, parts: rsParts, power: rsPower, step: dt => updateRedstone(dt), notify: rsNotify },
