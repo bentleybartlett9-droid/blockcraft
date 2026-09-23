@@ -1156,6 +1156,66 @@ function outpostDef(gx, gz){ return cellDef(outpostCache, gx, gz, () => {
   return { x, z, y, cage: [cgx, terrainHeight(cgx, cgz) + 1, cgz], dummy: [dmx, terrainHeight(dmx, dmz), dmz], key: 'outpost:' + gx + ',' + gz };
 }); }
 const outpostsNear = (wx, wz) => cellsNear(outpostDef, 400, wx, wz);
+/* Trial chambers, as in Minecraft: deep underground halls of tuff and copper
+   - a great hall with a breeze's spawner on a copper dais, side rooms down
+   copper-lit corridors, trial spawners that wake when you come near, vaults
+   that open for a trial key, and chests. Only ever under new land. */
+const trialCache = new Map();
+const TRIAL_MOBS = ['zombie', 'skeleton', 'spider', 'husk', 'stray', 'cavespider', 'slime', 'bogged', 'silverfish'];
+function trialDef(gx, gz){ return cellDef(trialCache, gx, gz, () => {
+  if(GEN_V < 4 || hash(gx, gz, 6501) > 0.55) return null;
+  const x = gx * 352 + 80 + Math.floor(hash(gx, gz, 6502) * 192), z = gz * 352 + 80 + Math.floor(hash(gx, gz, 6503) * 192);
+  for(const [dx, dz] of [[0, 0], [-40, -40], [40, -40], [-40, 40], [40, 40]]) if(oldLandFade(x + dx, z + dz) > 0) return null;
+  const top = Math.min(...[[0, 0], [-34, 0], [34, 0], [0, -34], [0, 34]].map(([dx, dz]) => terrainHeight(x + dx, z + dz)));
+  const y = Math.min(26 + Math.floor(hash(gx, gz, 6504) * 14), top - 24);   // world y -38 to -24
+  if(y < 14) return null;
+  for(const c of citiesNear(x, z)) if(Math.hypot((c.x ?? c.cx) - x, (c.z ?? c.cz) - z) < 120) return null;
+  const pick = k => TRIAL_MOBS[Math.floor(hash(gx, gz, 6510 + k) * TRIAL_MOBS.length)];
+  const rooms = [[0, -26], [26, 0], [0, 26], [-26, 0]];
+  const spawners = [{ x, y: y + 1, z, type: 'breeze' }, { x: x - 7, y, z: z - 7, type: pick(0) }, { x: x + 7, y, z: z - 7, type: pick(1) },
+                    ...rooms.map(([dx, dz], i) => ({ x: x + dx, y, z: z + dz, type: pick(2 + i) }))];
+  return { x, y, z, rooms, spawners, vaults: [[x - 5, y, z + 10], [x + 5, y, z + 10]], key: 'trial:' + gx + ',' + gz };
+}); }
+const trialsNear = (wx, wz, r) => cellsNear(trialDef, 352, wx, wz, r);
+function stampTrial(t, set, cx, cz){
+  const x0 = cx * 16, z0 = cz * 16, Y = t.y;
+  const inC = (wx, wz) => wx >= x0 && wx < x0 + 16 && wz >= z0 && wz < z0 + 16;
+  const put = (wx, y, wz, id) => { if(inC(wx, wz)) set(wx - x0, y, wz - z0, id); };
+  const copper = (wx, y, wz) => [CUT_COPPER, EXPOSED_COPPER, WEATHERED_COPPER, OXIDIZED_COPPER][Math.floor(hash3(wx, y, wz, 6520) * 4)];
+  const room = (ax, az, hw, h) => {
+    for(let i = -hw; i <= hw; i++) for(let k = -hw; k <= hw; k++){
+      const wx = ax + i, wz = az + k;
+      if(!inC(wx, wz)) continue;
+      const wall = Math.abs(i) === hw || Math.abs(k) === hw;
+      for(let dy = -1; dy <= h; dy++){
+        let id = AIR;
+        if(dy === -1) id = i % 4 === 0 && k % 4 === 0 ? CHISELED_TUFF : TUFF_TILES;
+        else if(dy === h) id = !wall && (i * 3 + k) % 7 === 0 ? COPPER_GRATE : TUFF_BRICKS;
+        else if(wall) id = dy === 3 && (i + k) % 6 === 0 ? COPPER_BULB : dy === h - 1 ? copper(wx, Y + dy, wz) : dy === 0 ? POLISHED_TUFF : TUFF_BRICKS;
+        put(wx, Y + dy, wz, id);
+      }
+    }
+  };
+  room(t.x, t.z, 11, 10);                                                 // the great hall
+  for(const [dx, dz] of t.rooms) room(t.x + dx, t.z + dz, 5, 6);          // the side rooms
+  for(const [dx, dz] of [[0, -1], [1, 0], [0, 1], [-1, 0]]) for(let sN = 11; sN <= 21; sN++) for(let w = -2; w <= 2; w++){   // corridors between
+    const wx = t.x + dx * sN + (dx === 0 ? w : 0), wz = t.z + dz * sN + (dz === 0 ? w : 0);
+    for(let dy = -1; dy <= 4; dy++)
+      put(wx, Y + dy, wz, dy === -1 ? (w === 0 ? COPPER_GRATE : TUFF_TILES) : dy === 4 ? TUFF_BRICKS : Math.abs(w) === 2 ? (dy === 2 && sN % 4 === 0 ? COPPER_BULB : TUFF_BRICKS) : AIR);
+  }
+  for(let i = -2; i <= 2; i++) for(let k = -2; k <= 2; k++) put(t.x + i, Y, t.z + k, COPPER_TILES);   // the breeze's dais
+  for(const sp of t.spawners) put(sp.x, sp.y, sp.z, TRIAL_SPAWNER);
+  for(const [vx, vy, vz] of t.vaults) put(vx, vy, vz, VAULT);
+  t.rooms.forEach(([dx, dz], i) => {
+    const chx = t.x + dx + 3, chz = t.z + dz + 3;
+    if(inC(chx, chz)){ put(chx, Y, chz, CHEST); stockLootChest(chx, Y, chz, t.key + ':' + i, 'trial'); }
+  });
+}
+function nearestTrial(x, z){
+  let best = null, bd = Infinity;
+  for(const t of trialsNear(x, z, 3)){ const d = Math.hypot(t.x - x, t.z - z); if(d < bd){ bd = d; best = t; } }
+  return best;
+}
 function stampOutpost(o, set, cx, cz){
   const x0 = cx * 16, z0 = cz * 16, base = o.y, y0 = base + 1, FEN = 863, SLAB = 816;   // dark oak fence and slab
   const put = (wx, y, wz, id) => { if(wx >= x0 && wx < x0 + 16 && wz >= z0 && wz < z0 + 16) set(wx - x0, y, wz - z0, id); };
@@ -1643,7 +1703,7 @@ const SPAWN_EGGS = [
   ['bat','Bat','#4c3e30','#0f0f0f'], ['parrot','Parrot','#0da70b','#ff0000'], ['allay','Allay','#00daff','#00adff'],
   ['glowsquid','Glow Squid','#095656','#85f1bc'], ['pufferfish','Pufferfish','#f6b201','#37c3f2'], ['tadpole','Tadpole','#6d533d','#160a00'],
   ['pillager','Pillager','#532f36','#959b9b'], ['vindicator','Vindicator','#959b9b','#275e61'], ['evoker','Evoker','#959b9b','#1e1c1a'], ['vex','Vex','#7a90a4','#e8edf1'],
-  ['ravager','Ravager','#757470','#5b5049'], ['wandering_trader','Wandering Trader','#456296','#eaa430'],
+  ['ravager','Ravager','#757470','#5b5049'], ['wandering_trader','Wandering Trader','#456296','#eaa430'], ['breeze','Breeze','#af94df','#9166df'],
 ];
 const EGG_BASE = 410;                      // 410-446
 const APPLE=457, GOLDEN_APPLE=458, CARROT=459, POTATO=460, BAKED_POTATO=461, MILK=462, EGG=463, SUGAR=464,
@@ -1995,7 +2055,11 @@ BLOCKS[SCULK_SHRIEKER]={name:'Sculk Shrieker',top:383,bottom:380,side:384};BLOCK
 BLOCKS[DEEPSLATE_BRICKS]={name:'Deepslate Bricks',all:387};BLOCKS[DEEPSLATE_TILES]={name:'Deepslate Tiles',all:388};BLOCKS[REINFORCED]={name:'Reinforced Deepslate',top:390,bottom:390,side:389};
 ITEMS[ECHO_SHARD]={name:'Echo Shard',icon:265};
 const PHANTOM_MEMBRANE = 930, ARMADILLO_SCUTE = 931, GLOW_INK_SAC = 932, TOTEM = 935, NETHER_STAR = 936;
-const WITHER_SKULL = 876, BEACON = 877, EMERALD_BLOCK = 878;
+const WITHER_SKULL = 876, BEACON = 877, EMERALD_BLOCK = 878, TRIAL_SPAWNER = 879, VAULT = 880, COPPER_BULB = 881, COPPER_GRATE = 882;
+const TRIAL_KEY = 937, BREEZE_ROD = 938, WIND_CHARGE = 939, HEAVY_CORE = 940, MACE = 941, TRIAL_MAP = 942;
+BLOCKS[TRIAL_SPAWNER]={name:'Trial Spawner',all:704};BLOCKS[VAULT]={name:'Vault',all:705};BLOCKS[COPPER_BULB]={name:'Copper Bulb',all:706};BLOCKS[COPPER_GRATE]={name:'Copper Grate',all:707};
+ITEMS[TRIAL_KEY]={name:'Trial Key',icon:382};ITEMS[BREEZE_ROD]={name:'Breeze Rod',icon:383};ITEMS[WIND_CHARGE]={name:'Wind Charge',icon:384};
+ITEMS[HEAVY_CORE]={name:'Heavy Core',icon:385};ITEMS[MACE]={name:'Mace',icon:386,tool:{type:'mace',tier:4}};ITEMS[TRIAL_MAP]={name:'Trial Explorer Map',icon:387};
 BLOCKS[WITHER_SKULL]={name:'Wither Skeleton Skull',all:700};BLOCKS[BEACON]={name:'Beacon',all:702};BLOCKS[EMERALD_BLOCK]={name:'Block of Emerald',all:703};
 ITEMS[NETHER_STAR]={name:'Nether Star',icon:381};
 ITEMS[TOTEM]={name:'Totem of Undying',icon:380};
@@ -2222,7 +2286,7 @@ const isDoor    = id => id === DOOR || id === DOORTOP;
 const isOpaque = id => id !== ICE && id !== WITHER_SKULL && !STAINED.has(id) && !WALLS.has(id) && !isFenceish(id) && id !== TRAPDOOR && id !== ANVIL && id !== COMPOSTER && id !== GRINDSTONE && id !== CAULDRON && id !== LIGHTNINGROD && id !== AIR && id !== WATER && id !== GLASS && id !== LAVA && id !== PORTAL && id !== ENDPORTAL && id !== END_GATEWAY && id !== STORM_PORTAL && !isCross(id) && !isPartial(id) && !isDoor(id) && !isFlat(id);
 const isSolid  = id => id !== TRAPDOOR && id !== GATE_OPEN && id !== AIR && id !== WATER && id !== LAVA && id !== PORTAL && id !== ENDPORTAL && id !== END_GATEWAY && id !== STORM_PORTAL && !isCross(id) && !isDoor(id) && !isFlat(id);
 const isLiquid = id => id === WATER || id === LAVA;
-const emitsLight = id => id === BEACON || id === CREAKING_HEART_ON || id === SCULK_CATALYST || id === SCULK_SENSOR || id === SEA_LANTERN || id === AQ_CONDUIT || id === SEA_PICKLE || id === RS_TORCH || id === LAMP_ON || id===GLOWCRYSTAL || id === ENDERCHEST || id === JACK_O_LANTERN || id === LANTERN || id === CAMPFIRE || id === STORM_PORTAL || id === CONDUIT_LIT || id === VOLTITE_ORE || id === END_ROD || id === END_GATEWAY || id === CRYING_OBSIDIAN || id === ANCHOR_LIT || id === SHROOMLIGHT || id === MAGMA || isFire(id) || id === SOUL_TORCH || id === GLOWVINE || id === AMETHYST_C || id === AMBERLAMP || id === GLOWB || id === GLOWSTONE || id === LAVA || id === PORTAL || id === ENDPORTAL || id === ENDCRYSTAL;
+const emitsLight = id => id === BEACON || id === COPPER_BULB || id === TRIAL_SPAWNER || id === CREAKING_HEART_ON || id === SCULK_CATALYST || id === SCULK_SENSOR || id === SEA_LANTERN || id === AQ_CONDUIT || id === SEA_PICKLE || id === RS_TORCH || id === LAMP_ON || id===GLOWCRYSTAL || id === ENDERCHEST || id === JACK_O_LANTERN || id === LANTERN || id === CAMPFIRE || id === STORM_PORTAL || id === CONDUIT_LIT || id === VOLTITE_ORE || id === END_ROD || id === END_GATEWAY || id === CRYING_OBSIDIAN || id === ANCHOR_LIT || id === SHROOMLIGHT || id === MAGMA || isFire(id) || id === SOUL_TORCH || id === GLOWVINE || id === AMETHYST_C || id === AMBERLAMP || id === GLOWB || id === GLOWSTONE || id === LAVA || id === PORTAL || id === ENDPORTAL || id === ENDCRYSTAL;
 const occl     = id => isOpaque(id);
 function tileFor(id, face){
   const d = BLOCKS[id];
@@ -2302,7 +2366,7 @@ function handTime(id){
   if(id === CLOUD) return 0.35;
   if(id === SKYGRASS) return 0.8;
   if(id === VOLTITE_ORE) return 8;
-  if(id === BEDROCK || id === REINFORCED || id === STORM_PORTAL || id === END_GATEWAY || id === END_FRAME || id === END_FRAME_EYE || id === ENDPORTAL) return mode === 'creative' ? 0.05 : Infinity;
+  if(id === BEDROCK || id === TRIAL_SPAWNER || id === VAULT || id === REINFORCED || id === STORM_PORTAL || id === END_GATEWAY || id === END_FRAME || id === END_FRAME_EYE || id === ENDPORTAL) return mode === 'creative' ? 0.05 : Infinity;
   if(id === CHORUS_PLANT || id === CHORUS_FLOWER) return 1.2;
   if(id === CRYING_OBSIDIAN || id === ANCHOR || id === ANCHOR_LIT) return 60;
   if(id === NETHERRACK || id === CRIM_NYL || id === WARP_NYL) return 1.2;
@@ -2436,6 +2500,10 @@ const RECIPES = [
   { out: [BEACON, 1], in: [[GLASS, 5], [OBSIDIAN, 3], [NETHER_STAR, 1]], st: 'table' },
   { out: [EMERALD_BLOCK, 1], in: [[EMERALD, 9]], st: 'table' },
   { out: [EMERALD, 9], in: [[EMERALD_BLOCK, 1]] },
+  { out: [WIND_CHARGE, 4], in: [[BREEZE_ROD, 1]] },
+  { out: [MACE, 1], in: [[HEAVY_CORE, 1], [BREEZE_ROD, 1]], st: 'table' },
+  { out: [COPPER_BULB, 4], in: [[COPPERB, 3], [BLAZEROD, 1], [REDSTONE, 1]], st: 'table' },
+  { out: [COPPER_GRATE, 4], in: [[COPPERB, 1]], st: 'table' },
   { out: [PALE_PLANK, 4], in: [[PALE_LOG, 1]] },
   { out: [PALE_MOSS_CARPET, 3], in: [[PALE_MOSS, 2]] },
   { out: [RESIN_BRICK, 1], in: [[RESIN_CLUMP, 1], [COALI, 1]], st: 'furnace' },
@@ -2637,6 +2705,31 @@ itemAtlas.width = 128; itemAtlas.height = 1024;   // 512 icons
     const d = Math.hypot((x - 7.5) * 1.1, (y - 9) * 0.95);
     if(d > 5.6 && !(y < 5 && Math.abs(x - 7.5) < 1.5 && y > 1)) return null;
     return y < 5 ? [30, 90, 96] : d > 4.6 ? [16, 60, 66] : (x + y) % 4 === 0 ? [160, 255, 240] : [60, 200, 190]; });
+  px(382, (x, y) => {                                                   // trial key: a copper-gold key
+    const C = [214, 150, 64], D = [150, 96, 40];
+    const d = Math.hypot(x - 4.5, y - 4.5); if(d < 3.2) return d > 1.4 ? C : null;
+    if(Math.abs((x - 6) - (y - 6)) < 1.1 && x >= 6 && x <= 13) return C;
+    if((x === 11 && y === 13) || (x === 13 && y === 11) || (x === 12 && y === 14)) return D;
+    return null; });
+  px(383, (x, y) => {                                                   // breeze rod: a pale blue rod
+    const t = Math.abs(x - (15 - y)); if(t > 1.3 || x < 2 || x > 13) return null;
+    return t < 0.6 ? [230, 240, 255] : [150, 170, 230]; });
+  px(384, (x, y) => {                                                   // wind charge: a ball of swirling air
+    const d = Math.hypot(x - 7.5, y - 7.5); if(d > 5.8) return null;
+    const a = Math.atan2(y - 7.5, x - 7.5), band = Math.floor(d * 1.3 + a * 1.2 + 8) % 2;
+    return band ? [226, 236, 255] : [150, 176, 230]; });
+  px(385, (x, y) => {                                                   // heavy core: a dark, heavy lump
+    const d = Math.max(Math.abs(x - 7.5), Math.abs(y - 7.5)); if(d > 5) return null;
+    return d > 4 ? [40, 42, 48] : (x < 7 && y < 7) ? [120, 124, 136] : [74, 78, 88]; });
+  px(386, (x, y) => {                                                   // mace: a studded head on a short handle
+    if(Math.hypot(x - 10.5, y - 5) < 3.4) return (x + y) % 3 === 0 ? [90, 90, 100] : [170, 170, 182];
+    if(Math.abs((x - 2) + (y - 14)) < 1.1 && x >= 2 && x <= 9) return [120, 80, 44];
+    return null; });
+  px(387, (x, y) => {                                                   // trial explorer map
+    if(x < 1 || x > 14 || y < 2 || y > 13) return null;
+    if(x === 1 || x === 14 || y === 2 || y === 13) return [150, 110, 70];
+    if(Math.abs(x - 10) + Math.abs(y - 6) < 2) return [196, 110, 50];
+    return (x * 3 + y) % 7 === 0 ? [214, 190, 150] : [232, 210, 172]; });
   px(381, (x, y) => {                                                   // Nether Star: a white four-pointed star
     const dx = Math.abs(x - 7.5), dy = Math.abs(y - 7.5);
     if(dx * dy > 3.2 || dx + dy > 8.5) return null;
@@ -3378,6 +3471,24 @@ itemAtlas.width = 128; itemAtlas.height = 1024;   // 512 icons
     return x % 4 === 0 ? [96 + k, 66 + k, 40 + k] : [124 + k, 88 + k, 52 + k];
   });
   put(302, (x, y, r) => { const k = Math.floor((r() - 0.5) * 16); return x % 4 === 0 ? [70 + k, 72 + k, 78 + k] : [96 + k, 98 + k, 104 + k]; });   // cast iron
+  put(704, (x, y, r) => {                                                                     // trial spawner: a dark cage, embers inside
+    const k = Math.floor((r() - 0.5) * 12);
+    if(x === 0 || y === 0 || x === 15 || y === 15) return [44 + k, 42 + k, 40 + k];
+    if(x % 5 === 0 || y % 5 === 0) return [78 + k, 72 + k, 66 + k];
+    return r() < 0.3 ? [230, 140, 50] : [70 + k, 40 + k, 24]; });
+  put(705, (x, y, r) => {                                                                     // vault: a steel strongbox with a keyhole
+    const k = Math.floor((r() - 0.5) * 10);
+    if(x <= 1 || y <= 1 || x >= 14 || y >= 14) return [60 + k, 62 + k, 70 + k];
+    if(x >= 4 && x <= 11 && y >= 4 && y <= 11){ if((x === 7 || x === 8) && y >= 6 && y <= 10) return [60, 230, 220]; return [26, 28, 34]; }
+    return [96 + k, 100 + k, 110 + k]; });
+  put(706, (x, y, r) => {                                                                     // copper bulb: a copper frame round a bright lamp
+    const k = Math.floor((r() - 0.5) * 14);
+    if(x <= 2 || y <= 2 || x >= 13 || y >= 13) return [190 + k, 110 + k, 70 + k];
+    const d = Math.hypot(x - 7.5, y - 7.5); return d < 2.5 ? [255, 250, 220] : [255, 215 + k, 140]; });
+  put(707, (x, y, r) => {                                                                     // copper grate
+    const k = Math.floor((r() - 0.5) * 14);
+    if((x % 4 === 1 || x % 4 === 2) && (y % 4 === 1 || y % 4 === 2)) return [36, 26, 22];
+    return [180 + k, 102 + k, 66 + k]; });
   put(700, (x, y, r) => { const k = Math.floor((r() - 0.5) * 14); return (x + y * 3) % 7 === 0 ? [30 + k, 30 + k, 32 + k] : [52 + k, 52 + k, 54 + k]; });   // wither skeleton skull
   put(701, (x, y, r) => {                                                                     // and its face
     const k = Math.floor((r() - 0.5) * 12);
@@ -6480,6 +6591,7 @@ function* genChunkSteps(cx, cz){
     for(const t of treasuresNear(mx, mz)) stampTreasure(t, set, cx, cz);
     for(const m of monumentsNear(mx, mz)) stampMonument(m, set, data, cx, cz);
     for(const c of citiesNear(mx, mz)) stampCity(c, set, cx, cz);
+    for(const t of trialsNear(mx, mz)) if(Math.abs(t.x - mx) < 48 && Math.abs(t.z - mz) < 48) stampTrial(t, set, cx, cz);
   }
   // underground structures: dungeons, mineshafts, strongholds
   for(const d of dungeonsNear(cx * 16 + 8, cz * 16 + 8)){
@@ -6749,6 +6861,9 @@ function stockLootChest(x, y, z, key, kind){
             [DIAMI, R() < 0.2 ? 1 : 0], [GNUGGET, R() < 0.5 ? 1 + ((R()*10)|0) : 0]];
   } else if(kind === 'wreck-map'){
     loot = [[TREASURE_MAP, 1], [PAPER, 1 + ((R()*10)|0)], [FEATHER, 1 + ((R()*5)|0)], [MAP, R() < 0.3 ? 1 : 0]];
+  } else if(kind === 'trial'){
+    loot = [[ARROW_I, 3 + ((R()*6)|0)], [BREAD, 1 + ((R()*3)|0)], [EMERALD, R() < 0.5 ? 1 + ((R()*3)|0) : 0], [IRONI, R() < 0.4 ? 1 + ((R()*2)|0) : 0],
+            [WIND_CHARGE, R() < 0.35 ? 2 + ((R()*4)|0) : 0], [HONEY_BOTTLE, R() < 0.3 ? 1 : 0], [TRIAL_KEY, R() < 0.25 ? 1 : 0], [BAKED_POTATO, R() < 0.4 ? 2 + ((R()*2)|0) : 0]];
   } else if(kind === 'outpost'){
     loot = [[ARROW_I, 2 + ((R()*7)|0)], [WHEATITEM, 3 + ((R()*3)|0)], [CARROT, R() < 0.5 ? 2 + ((R()*4)|0) : 0], [POTATO, R() < 0.5 ? 2 + ((R()*4)|0) : 0],
             [DARK_LOG, 2 + ((R()*2)|0)], [STRING, R() < 0.5 ? 1 + ((R()*5)|0) : 0], [IRONI, R() < 0.4 ? 1 + ((R()*3)|0) : 0], [BOW, R() < 0.3 ? 1 : 0],
@@ -7878,6 +7993,7 @@ function fallDamageForDistance(distance,gorilla=xrActive&&vrMoveMode==='gorilla'
  if(gorilla)return distance>7.01?Math.floor(Math.max(1,Math.floor(distance-7))*protection):0;
  return distance>3.5?Math.floor((distance-3)*protection):0;
 }
+let windLaunchY = null, windThrowT = 0;
 let bobT = 0, bobAmt = 0, fov = 72, fallPeak = player.pos.y, stepAcc = 0, cactusT = 0, lavaT = 0;
 function physics(dt){
   const p = player, v = p.vel;
@@ -7944,7 +8060,7 @@ function physics(dt){
   }
   updatePlayerEffects(dt);
   if(p.fly || inWater || p.gorillaHold || gliding || levT > 0 || effects.slow > 0 || climbing) fallPeak = p.pos.y;   // hanging on is not falling
-  else if(!p.onGround) fallPeak = Math.max(fallPeak, p.pos.y);
+  else if(!p.onGround) fallPeak = windLaunchY !== null ? Math.min(Math.max(fallPeak, p.pos.y), windLaunchY) : Math.max(fallPeak, p.pos.y);
   if(p.onGround && getBlock(Math.floor(p.pos.x), Math.floor(p.pos.y - 0.2), Math.floor(p.pos.z)) === SLIME_BLOCK) fallPeak = p.pos.y;   // slime cushions any fall
   if(p.onGround){
     const d = fallPeak - p.pos.y;
@@ -7954,6 +8070,7 @@ function physics(dt){
     }
     const fallHit=fallDamageForDistance(d);if(fallHit>0)damage(fallHit);   // Armour and Feather Falling still apply.
     fallPeak = p.pos.y;
+    if(p.vel.y <= 0) windLaunchY = null;
   }
   // cactus contact damage
   cactusT -= dt;
@@ -9714,6 +9831,7 @@ const NETHER_TYPES = {
   ravager:    { hp: 100, w: 0.6, h: 2.2, build: buildRavager },
   wandering_trader: { hp: 20, w: 0.3, h: 1.95, build: buildTrader },
   wither:     { hp: 300, w: 0.5, h: 3.3, build: buildWitherBoss },
+  breeze:     { hp: 30, w: 0.35, h: 1.77, build: buildBreeze },
 };
 /* The Warden: blind, three blocks tall, 500 health. It finds you by sound
    (footsteps, mining, placing - sneak to stay quiet) and by smell when you
@@ -10129,6 +10247,189 @@ function witherBar(e){
   witherEl.innerHTML = 'Wither<div style="width:300px;height:8px;background:#2a0a3a;margin:4px auto 0;border:1px solid #000"><div style="height:100%;width:' + pct + '%;background:' + (e.armoured ? '#8a6aff' : '#b020d0') + '"></div></div>';
 }
 setInterval(() => { if(witherBarShown && performance.now() - witherBarT > 1500){ witherBarShown = ''; witherEl.style.display = 'none'; } }, 500);
+/* ---- the Breeze --------------------------------------------------------------
+   Only found in trial chambers: a hovering head over a whirl of wind, with
+   rods spinning round its core. It bounds about the room, keeps its distance
+   and fires wind charges that bowl you over; arrows glance off it. It drops
+   breeze rods - wind charges to throw yourself, and half of a mace. */
+const BRZ = { body: entMat(0xb4c4ee), dark: entMat(0x7f90c8), hair: entMat(0x9fb2e6),
+  rod: new THREE.MeshBasicMaterial({ color: 0xd8e6ff }), eye: new THREE.MeshBasicMaterial({ color: 0x9ff4ff }),
+  wind: new THREE.MeshBasicMaterial({ color: 0xdce8ff, transparent: true, opacity: 0.38, depthWrite: false, side: THREE.DoubleSide }) };
+const BRZ_SWIRL = [0, 1, 2, 3].map(k => new THREE.CylinderGeometry(0.44 - k * 0.09, 0.36 - k * 0.09, 0.2, 10, 1, true));
+const WIND_MAT = new THREE.MeshBasicMaterial({ color: 0xe4eeff, transparent: true, opacity: 0.8 });
+function buildBreeze(g, e){
+  e.legs = []; e.arms = [];
+  const head = new THREE.Group(); head.position.set(0, 1.28, 0); g.add(head); e.head = head;
+  box(0.5, 0.44, 0.5, BRZ.body, 0, 0.22, 0, head);
+  box(0.38, 0.08, 0.02, BRZ.eye, 0, 0.25, -0.255, head);           // a glowing slit of an eye
+  box(0.54, 0.1, 0.54, BRZ.hair, 0, 0.47, 0, head);
+  const tuft = box(0.22, 0.24, 0.22, BRZ.hair, 0.08, 0.6, 0.06, head); tuft.rotation.z = -0.4;
+  box(0.16, 0.5, 0.16, BRZ.dark, 0, 1.0, 0, g);                      // its core
+  e.rods = new THREE.Group(); e.rods.position.y = 1.0; g.add(e.rods);
+  for(let k = 0; k < 3; k++){ const a = k / 3 * 6.283, r = box(0.1, 0.62, 0.1, BRZ.rod, Math.cos(a) * 0.42, 0, Math.sin(a) * 0.42, e.rods); r.rotation.z = 0.35; r.rotation.y = a; }
+  e.swirl = BRZ_SWIRL.map((geo, k) => { const m = new THREE.Mesh(geo, BRZ.wind); m.position.y = 0.72 - k * 0.19; g.add(m); return m; });
+}
+function breezeThink(e, dt){
+  e.atkCd -= dt; e.shoot = Math.max(0, (e.shoot || 0) - dt);
+  const alive = mode === 'survival' && !dead, dP = e.pos.distanceTo(player.pos);
+  e.hopT = (e.hopT ?? 1 + Math.random()) - dt;
+  if(alive && dP < 20){
+    faceTo(e, player.pos.x, player.pos.z);
+    if(e.onGround && e.hopT <= 0){                                  // it bounds about, keeping its distance
+      e.hopT = 1.1 + Math.random() * 1.4;
+      const away = dP < 5 ? -1 : dP > 12 ? 1 : (Math.random() - 0.5) * 0.6, side = (Math.random() - 0.5) * 2;
+      const fx = -Math.sin(e.yaw), fz = -Math.cos(e.yaw);
+      e.vel.set(fx * 4 * away + fz * side * 3, 7 + Math.random() * 3, fz * 4 * away - fx * side * 3);
+      e.onGround = false;
+      nNoise(e.pos, 900, 0.3, 0.2, 600);
+    }
+    if(e.atkCd <= 0 && dP < 16 && lineOfSight(new THREE.Vector3(e.pos.x, e.pos.y + 1.4, e.pos.z), new THREE.Vector3(player.pos.x, player.pos.y + 1.4, player.pos.z))){
+      e.atkCd = 1.8 + Math.random() * 1.2; e.shoot = 0.4;
+      const from = new THREE.Vector3(e.pos.x - Math.sin(e.yaw) * 0.4, e.pos.y + 1.4, e.pos.z - Math.cos(e.yaw) * 0.4);
+      const to = new THREE.Vector3(player.pos.x, player.pos.y + 1, player.pos.z);
+      spawnFireball('wind', from, to.sub(from).normalize().multiplyScalar(12), e);
+      nNoise(e.pos, 1600, 0.35, 0.25, -900);
+    }
+  } else if(e.onGround && e.hopT <= 0){ e.hopT = 2 + Math.random() * 3; e.vel.set((Math.random() - 0.5) * 3, 6, (Math.random() - 0.5) * 3); e.onGround = false; }
+  e.speed = 0;
+  if(e.onGround) stepMob(e, dt, 24);
+  else { e.vel.y -= 24 * dt; stepEntity(e, dt); }                   // its hops carry it through the air
+}
+function animBreeze(e, dt){
+  e.anim += dt;
+  e.group.position.copy(e.pos);
+  const dyaw = ((e.yaw - e.group.rotation.y + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+  e.group.rotation.y += dyaw * Math.min(1, dt * 8);
+  e.rods.rotation.y += dt * (e.shoot > 0 ? 14 : 5);
+  e.swirl.forEach((m, k) => { m.rotation.y -= dt * (6 + k * 2); m.position.x = Math.sin(e.anim * 5 + k) * 0.04; });
+  e.head.position.y = 1.28 + Math.sin(e.anim * 3) * 0.04;
+  e.head.rotation.x = e.shoot > 0 ? -0.25 : 0;
+}
+// a wind charge bursting: it bowls over everything close - and one at your feet throws you high
+function windBurst(p){
+  burstRGB(p.x, p.y, p.z, 0.9, 0.95, 1, 18, 1.2);
+  nNoise(p, 1100, 0.45, 0.35, -700, 50, 2);
+  const R = 2.6, d = Math.hypot(player.pos.x - p.x, player.pos.y + 0.5 - p.y, player.pos.z - p.z);
+  if(d < R && !player.fly){
+    const k = 1 - d / (R + 0.5), l = Math.hypot(player.pos.x - p.x, player.pos.z - p.z) || 1;
+    player.vel.x += (player.pos.x - p.x) / l * 8 * k; player.vel.z += (player.pos.z - p.z) / l * 8 * k;
+    player.vel.y = Math.max(player.vel.y, 8 + 14 * k);                  // about seven blocks, right at your feet
+    windLaunchY = player.pos.y; player.onGround = false;              // you only take a fall from below where it launched you
+  }
+  for(const list of [zombies, skeletons, spiders, creepers, netherMobs, animals, villagers]) for(const e of list){
+    const q = e.pos.distanceTo(p);
+    if(q > R || e.boss || e.type === 'breeze') continue;
+    const k = 1 - q / (R + 0.5), l = Math.hypot(e.pos.x - p.x, e.pos.z - p.z) || 1;
+    e.vel.x += (e.pos.x - p.x) / l * 8 * k; e.vel.z += (e.pos.z - p.z) / l * 8 * k; e.vel.y = 4 + 6 * k; e.onGround = false;
+  }
+}
+/* The mace: fall onto something with it and the blow grows with the drop - and
+   the smash stops your fall and knocks everything nearby away. */
+let maceBonusNow = 0;
+function maceSmash(e){
+  const f = fallPeak - player.pos.y;
+  maceBonusNow = 4 * Math.min(3, f) + 2 * Math.min(5, Math.max(0, f - 3)) + Math.max(0, f - 8);
+  fallPeak = player.pos.y; player.vel.y = Math.max(player.vel.y, 3);
+  burstRGB(e.pos.x, e.pos.y + 0.2, e.pos.z, 0.55, 0.5, 0.45, 30, 1.6);
+  boomSfx(4); nNoise(e.pos, 180, 0.5, 0.4, -80);
+  for(const list of [zombies, skeletons, spiders, creepers, netherMobs, animals]) for(const m of list){
+    if(m === e || m.boss) continue;
+    const q = m.pos.distanceTo(e.pos); if(q > 3.5) continue;
+    const l = Math.hypot(m.pos.x - e.pos.x, m.pos.z - e.pos.z) || 1;
+    m.vel.x += (m.pos.x - e.pos.x) / l * 6; m.vel.z += (m.pos.z - e.pos.z) / l * 6; m.vel.y = 5;
+  }
+}
+/* ---- trial spawners and vaults ----
+   A trial spawner wakes when you come close: it sends its creatures out in
+   flames, a few at a time, and when you've beaten them all it throws out its
+   rewards - often a trial key - then rests for half an hour. A vault opens once
+   for each player who brings it a trial key. */
+const trialState = new Map();
+const trialCools = (() => { try { return JSON.parse(localStorage.getItem(SAVE_KEY + '-trials')) || {}; } catch(e){ return {}; } })();
+const vaultsOpened = (() => { try { return new Set(JSON.parse(localStorage.getItem(SAVE_KEY + '-vaults')) || []); } catch(e){ return new Set(); } })();
+function trialAlive(m){
+  const list = m.kind === 'nether' ? netherMobs : m.kind === 'zombie' ? zombies : m.kind === 'skeleton' ? skeletons : m.kind === 'spider' ? spiders : null;
+  return !!list && list.includes(m) && m.hp > 0;
+}
+function trialSpawn(sp){
+  for(let a = 0; a < 10; a++){
+    const ox = sp.x + Math.round((Math.random() - 0.5) * 8), oz = sp.z + Math.round((Math.random() - 0.5) * 8);
+    let oy = sp.y + 2;
+    while(oy > sp.y - 3 && !(isSolid(getBlock(ox, oy - 1, oz)) && getBlock(ox, oy, oz) === AIR && getBlock(ox, oy + 1, oz) === AIR)) oy--;
+    if(oy <= sp.y - 3 || (ox === sp.x && oz === sp.z)) continue;
+    const X = ox + 0.5, Y = oy + 0.05, Z = oz + 0.5, T = sp.type;
+    burstRGB(X, Y + 1, Z, 1, 0.55, 0.15, 16, 0.7);
+    const last = list => list[list.length - 1];
+    if(T === 'zombie' || T === 'husk'){ spawnZombie(X, Y, Z, T === 'husk' ? 'husk' : undefined); return last(zombies); }
+    if(T === 'skeleton' || T === 'stray' || T === 'bogged'){ spawnSkeleton(X, Y, Z, T === 'skeleton' ? undefined : T); return last(skeletons); }
+    if(T === 'spider' || T === 'cavespider'){ spawnSpider(X, Y, Z, false, T === 'cavespider'); return last(spiders); }
+    return spawnNetherMob(T, X, Y, Z, T === 'slime' ? { size: 2 } : {});
+  }
+  return null;
+}
+function trialReward(sp){
+  const give = (id, n) => { spawnDropAt(sp.x + 0.5, sp.y + 1.2, sp.z + 0.5, id, n); const d = drops[drops.length - 1]; if(d) d.vel.set((Math.random() - 0.5) * 3, 5, (Math.random() - 0.5) * 3); };
+  if(Math.random() < 0.65) give(TRIAL_KEY, 1);
+  const pool = sp.type === 'breeze' ? [[WIND_CHARGE, 3, 6], [BREAD, 2, 4], [EMERALD, 1, 3]] : [[BREAD, 2, 4], [BAKED_POTATO, 2, 4], [ARROW_I, 4, 8], [EMERALD, 1, 2], [IRONI, 1, 2]];
+  for(let k = 1 + ((Math.random() * 2) | 0); k > 0; k--){ const [id, lo, hi] = pool[(Math.random() * pool.length) | 0]; give(id, lo + ((Math.random() * (hi - lo + 1)) | 0)); }
+  [660, 880, 1100].forEach((f, j) => tone(f, f, 0.2, 'triangle', 0.09, j * 0.1));
+  burstRGB(sp.x + 0.5, sp.y + 1, sp.z + 0.5, 1, 0.8, 0.3, 24, 1);
+}
+let trialT = 0;
+function updateTrials(dt){
+  if((trialT -= dt) > 0) return;
+  trialT = 1;
+  const px = player.pos.x, pz = player.pos.z, now = Date.now();
+  for(const t of trialsNear(px, pz)){
+    if(Math.hypot(t.x - px, t.z - pz) > 72) continue;
+    for(const sp of t.spawners){
+      if(getBlock(sp.x, sp.y, sp.z) !== TRIAL_SPAWNER) continue;
+      const key = sp.x + ',' + sp.y + ',' + sp.z, d = Math.hypot(px - sp.x - 0.5, pz - sp.z - 0.5), dy = Math.abs(player.pos.y - sp.y);
+      if((trialCools[key] || 0) > now){ if(d < 24 && Math.random() < 0.5) burstRGB(sp.x + 0.5, sp.y + 1.1, sp.z + 0.5, 0.3, 0.3, 0.32, 3, 0.3); continue; }
+      let st = trialState.get(key);
+      if(!st){
+        if(d > 14 || dy > 6 || mode !== 'survival' || dead) continue;
+        st = { mobs: [], spawned: 0, total: sp.type === 'breeze' ? 2 : 6, spawnT: 0 };
+        trialState.set(key, st);
+        flashName('A trial spawner wakes'); tone(220, 330, 0.6, 'sawtooth', 0.08);
+      }
+      if(d > 48){ trialState.delete(key); continue; }                // walked away: it settles again
+      burstRGB(sp.x + 0.5, sp.y + 0.8, sp.z + 0.5, 1, 0.55, 0.15, 3, 0.35);   // flames while it's awake
+      st.mobs = st.mobs.filter(trialAlive);
+      const most = sp.type === 'breeze' ? 1 : 3;
+      if(st.spawned < st.total && st.mobs.length < most && (st.spawnT -= 1) <= 0){
+        st.spawnT = 2;
+        const m = trialSpawn(sp);
+        if(m){ st.mobs.push(m); st.spawned++; }
+      }
+      if(st.spawned >= st.total && !st.mobs.length){
+        trialReward(sp); trialState.delete(key);
+        trialCools[key] = now + 30 * 60000; safeSet(SAVE_KEY + '-trials', JSON.stringify(trialCools));
+        flashName('Trial complete!');
+      }
+    }
+  }
+}
+const VAULT_LOOT = [[EMERALD, 2, 4, 20], [ARROW_I, 4, 12, 14], [IRONI, 1, 4, 12], [GOLDI, 2, 4, 8], [DIAMI, 1, 2, 6], [GOLDEN_APPLE, 1, 1, 5],
+                    [WIND_CHARGE, 4, 12, 12], [SHIELD, 1, 1, 4], [DAXE, 1, 1, 3], [HEAVY_CORE, 1, 1, 4]];
+function openVault(x, y, z){
+  const key = x + ',' + y + ',' + z;
+  if(vaultsOpened.has(key)){ flashName('This vault has already rewarded you'); tone(200, 160, 0.2, 'square', 0.05); return; }
+  if(heldId() !== TRIAL_KEY){ flashName('The vault needs a trial key'); return; }
+  if(mode === 'survival') consumePlacedItem();
+  vaultsOpened.add(key); safeSet(SAVE_KEY + '-vaults', JSON.stringify([...vaultsOpened]));
+  const total = VAULT_LOOT.reduce((a, q) => a + q[3], 0);
+  for(let n = 1 + ((Math.random() * 3) | 0); n > 0; n--){
+    let r = Math.random() * total, pick = VAULT_LOOT[0];
+    for(const q of VAULT_LOOT){ if((r -= q[3]) < 0){ pick = q; break; } }
+    const [id, lo, hi] = pick;
+    spawnDropAt(x + 0.5, y + 1.1, z + 0.5, id, lo + ((Math.random() * (hi - lo + 1)) | 0));
+    const d = drops[drops.length - 1]; if(d) d.vel.set((Math.random() - 0.5) * 2, 4, (Math.random() - 0.5) * 2);
+  }
+  playN({ f: 300, type: 'lowpass', dur: 0.3, vol: 0.2 }); [523, 784, 1046].forEach((f, j) => tone(f, f, 0.25, 'sine', 0.08, 0.2 + j * 0.1));
+  burstRGB(x + 0.5, y + 1, z + 0.5, 0.3, 0.9, 0.85, 20, 0.8);
+  flashName('The vault opens');
+}
 /* ---- beacons ---------------------------------------------------------------
    Set a beacon on a pyramid of iron, gold, diamond or emerald blocks (one to
    four tiers) under open sky and it throws a beam of light up into the
@@ -10307,7 +10608,7 @@ const TRADER_POOL = [
   [SAP_OAK, 1, 1], [SAP_BIRCH, 1, 1], [SAP_SPRUCE, 1, 1], [SAP_JUNGLE, 1, 1], [SAP_DARK, 1, 1], [SAP_PALE, 1, 1], [FERN, 1, 1], [KELP, 1, 1],
   [CACTUS, 3, 1], [PUMPKIN, 1, 1], [REDSAND, 1, 4], [SAND, 1, 8], [PACKEDICE, 3, 1], [DRIP_DOWN, 2, 2], [MOSS, 1, 2], [PODZOL, 1, 3],
   [GLOWSTONE, 2, 1], [CORAL_TUBE, 3, 1], [CORALB_TUBE, 3, 1], [SEA_PICKLE, 2, 1], [NAUTILUS, 5, 1], [SLIMEBALL, 4, 1], [GUNPOWDER, 1, 1],
-  [DYE[4], 1, 3], [DYE[11], 1, 3], [DYE[13], 1, 3], [DYE[14], 1, 3],
+  [TRIAL_MAP, 6, 1], [DYE[4], 1, 3], [DYE[11], 1, 3], [DYE[13], 1, 3], [DYE[14], 1, 3],
 ].map(([id, cost, n]) => ({ in: [[EMERALD, cost]], out: [id, n] }));
 const TRADER_BUYS = [{ in: [[WATER_BOTTLE, 1]], out: [EMERALD, 1] }, { in: [[BAKED_POTATO, 4]], out: [EMERALD, 1] }, { in: [[MILK, 1]], out: [EMERALD, 1] }];
 function traderTrades(){
@@ -10992,6 +11293,7 @@ function updateNightMobs(dt){
   updateFlyers(dt);
   updateIllagers(dt);
   updateBeacons(dt);
+  updateTrials(dt);
   // a hoglin brought into the Overworld turns into a zoglin
   for(const e of netherMobs) if(e.type === 'hoglin' && !e.puppet && (e.zomT = (e.zomT || 0) + dt) > 15){
     const z = spawnNetherMob('zoglin', e.pos.x, e.pos.y, e.pos.z); if(z) z.yaw = e.yaw; e.remove = true;
@@ -11230,6 +11532,9 @@ function netherVoice(e, mood = 'idle'){
     case 'wandering_trader':
       if(!e.invis) villagerVoice(e, mood === 'die' ? 'die' : mood === 'hurt' ? 'hurt' : 'idle');
       break;
+    case 'breeze':
+      nNoise(p, mood === 'die' ? 700 : 1300, mood === 'die' ? 1 : 0.45, idle ? 0.12 : 0.22, mood === 'die' ? -500 : 500, 40, 4);
+      break;
     case 'wither':
       if(mood === 'die'){ nTone(p, 140, 40, 3, 'sawtooth', 0.35, 120); nNoise(p, 300, 3, 0.4, -200, 120); }
       else if(mood === 'hurt') nTone(p, 260, 140, 0.4, 'sawtooth', 0.25, 90);
@@ -11318,6 +11623,7 @@ function tryGivePiglin(e){
 function updateNetherMob(e, dt){
   if(e.type === 'warden'){ e.atkCd -= dt; wardenThink(e, dt); return; }
   if(e.type === 'wither'){ witherThink(e, dt); return; }
+  if(e.type === 'breeze'){ breezeThink(e, dt); return; }
   if(e.type === 'creaking'){ e.atkCd -= dt; creakingThink(e, dt); return; }
   if(e.type === 'silverfish' || e.type === 'endermite'){ e.atkCd -= dt; bugThink(e, dt); return; }
   if(e.type === 'phantom'){ phantomThink(e, dt, daylightOf(timeOfDay)); return; }
@@ -11528,6 +11834,7 @@ function animNether(e, dt){
   const T = e.type;
   if(T === 'warden'){ animWarden(e, dt); return; }
   if(T === 'wither'){ animWitherBoss(e, dt); return; }
+  if(T === 'breeze'){ animBreeze(e, dt); return; }
   if(T === 'creaking'){ animCreaking(e, dt); return; }
   if(T === 'bat' || T === 'parrot' || T === 'allay'){ e.group.position.copy(e.pos); e.group.rotation.y = e.yaw; return; }
   if(e.illager || e.trader){ animIllager(e, dt); return; }
@@ -11600,6 +11907,7 @@ function hurtNether(e, dmg, byPlayer){
     if(e.heart) burstRGB(e.heart[0] + 0.5, e.heart[1] + 0.5, e.heart[2] + 0.5, 1, 0.55, 0.15, 10, 0.5);
     return;
   }
+  if(e.type === 'breeze' && arrowHitNow){ burstRGB(e.pos.x, e.pos.y + 1, e.pos.z, 0.85, 0.9, 1, 8, 0.6); nNoise(e.pos, 1500, 0.2, 0.2, -600); return; }   // it turns arrows aside
   if(e.type === 'wither'){
     if(e.spawnT > 0) return;                                          // untouchable while it gathers itself
     if(e.armoured && arrowHitNow){ burstRGB(e.pos.x, e.pos.y + 2.3, e.pos.z, 0.5, 0.6, 1, 8, 0.6); playN({ f: 1800, type: 'highpass', dur: 0.1, vol: 0.12 }); return; }   // arrows glance off its armour
@@ -11634,6 +11942,7 @@ function killNether(e){
     case 'slime': if(e.size === 1) drop(SLIMEBALL, 0, 2); break;
     case 'wskel': if(Math.random() < 0.33) drop(COALI, 1, 1); drop(BONE, 0, 2); if(Math.random() < 0.05) drop(WITHER_SKULL, 1, 1); break;
     case 'wither': drop(NETHER_STAR, 1, 1); break;
+    case 'breeze': drop(BREEZE_ROD, 1, 2); break;
     case 'wisp': if(Math.random() < 0.3) drop(VOLTITE, 1, 1); break;
     case 'strider': drop(STRING, 2, 5); if(e.saddled) drop(SADDLE, 1, 1); break;
     case 'warden': drop(SCULK_CATALYST, 1, 1); break;
@@ -11682,7 +11991,7 @@ const fireGeo = new THREE.BoxGeometry(1, 1, 1);
 function spawnFireball(type, from, vel, owner){
   const g = new THREE.Group();
   const s = type === 'ghast' ? 1 : 0.32;
-  const m = new THREE.Mesh(fireGeo, type === 'spark' ? SPARK_MAT : type === 'wskull' ? WSKULL_MATS : NMAT.fire); m.scale.setScalar(s); g.add(m);
+  const m = new THREE.Mesh(fireGeo, type === 'spark' ? SPARK_MAT : type === 'wskull' ? WSKULL_MATS : type === 'wind' ? WIND_MAT : NMAT.fire); m.scale.setScalar(s); g.add(m);
   g.position.copy(from);
   scene.add(g);
   const f = { kind: 'fireball', type, group: g, mesh: m, pos: from.clone(), vel: vel.clone(), w: s * 0.5, h: s, age: 0, owner, byPlayer: false, yaw: 0 };
@@ -11693,6 +12002,7 @@ function fireballBurst(f){
   const p = f.pos;
   if(f.type === 'spark'){ burstRGB(p.x, p.y, p.z, 0.7, 0.9, 1, 8, 0.4); return; }
   if(f.type === 'wskull'){ explode(p.x, p.y, p.z, f.blue ? 1.8 : 1.1, 3); return; }
+  if(f.type === 'wind'){ windBurst(p); return; }
   if(f.type === 'ghast'){
     explode(p.x, p.y, p.z, 1.6, 6);                                  // a small blast that breaks blocks
     for(let k = 0; k < 6; k++){                                      // and leaves fires burning
@@ -11717,7 +12027,8 @@ function updateFireballs(dt){
     f.group.position.copy(f.pos);
     if(f.type === 'wskull'){ f.group.rotation.y = Math.atan2(-f.vel.x, -f.vel.z); if(Math.random() < 0.5) burstRGB(f.pos.x, f.pos.y, f.pos.z, 0.15, 0.15, 0.18, 1, 0.2); }
     else f.mesh.rotation.x += dt * 5, f.mesh.rotation.y += dt * 4;
-    if(f.type !== 'wskull' && Math.random() < (f.type === 'ghast' ? 0.9 : 0.5)) burstRGB(f.pos.x, f.pos.y, f.pos.z, 1, 0.5 + Math.random() * 0.3, 0.1, 1, f.type === 'ghast' ? 0.5 : 0.2);
+    if(f.type === 'wind' && Math.random() < 0.6) burstRGB(f.pos.x, f.pos.y, f.pos.z, 0.85, 0.9, 1, 1, 0.15);
+    if(f.type !== 'wskull' && f.type !== 'wind' && Math.random() < (f.type === 'ghast' ? 0.9 : 0.5)) burstRGB(f.pos.x, f.pos.y, f.pos.z, 1, 0.5 + Math.random() * 0.3, 0.1, 1, f.type === 'ghast' ? 0.5 : 0.2);
     let hit = f.age > 12;
     // the player
     if(!hit){
@@ -11728,6 +12039,7 @@ function updateFireballs(dt){
         else if(f.type === 'blaze'){ if(mobCtx || !fireproof()) damage(5); setBurn(5); }
         else if(f.type === 'spark') damage(3);
         else if(f.type === 'wskull'){ damage(f.blue ? 12 : 8); setWither(10); }
+        else if(f.type === 'wind') damage(1);
         hit = true;
       }
     }
@@ -11735,8 +12047,9 @@ function updateFireballs(dt){
     if(!hit) for(const e of netherMobs){
       if(e === f.owner && !f.byPlayer) continue;
       if(f.type === 'spark' && !f.byPlayer && (e.type === 'wisp' || e.type === 'stormling')) continue;   // the storm spares its own
+      if(f.type === 'wind' && e.type === 'breeze') continue;                                            // breezes ride the wind
       if(Math.abs(f.pos.x - e.pos.x) < e.w + f.w && Math.abs(f.pos.z - e.pos.z) < e.w + f.w && f.pos.y > e.pos.y - f.w && f.pos.y < e.pos.y + e.h + f.w){
-        if(e.type !== 'blaze' && e.type !== 'magma') hurtNether(e, f.type === 'ghast' ? (e.type === 'ghast' && f.byPlayer ? 1000 : 6) : 5, f.byPlayer);
+        if(e.type !== 'blaze' && e.type !== 'magma') hurtNether(e, f.type === 'wind' ? 1 : f.type === 'ghast' ? (e.type === 'ghast' && f.byPlayer ? 1000 : 6) : 5, f.byPlayer);
         if(f.byPlayer && f.type === 'ghast' && e.type === 'ghast' && !mobCtx) grantAdv('sender');
         hit = true; break;
       }
@@ -12209,7 +12522,7 @@ function updateBlastFx(dt){
     if(k >= 1){ scene.remove(f.m); f.geo.dispose(); f.mat.dispose(); blastFx.splice(i, 1); }
   }
 }
-const BLAST_PROOF = new Set([OBSIDIAN, CRYING_OBSIDIAN, BEDROCK, ENDPORTAL, END_GATEWAY, ENCH_TABLE, ANVIL, ENDERCHEST, BEACON]);
+const BLAST_PROOF = new Set([TRIAL_SPAWNER, VAULT, OBSIDIAN, CRYING_OBSIDIAN, BEDROCK, ENDPORTAL, END_GATEWAY, ENCH_TABLE, ANVIL, ENDERCHEST, BEACON]);
 function explode(x, y, z, radius, dmgMax, fromNet){
   const r = Math.ceil(radius);
   const touched = new Set();
@@ -12576,6 +12889,7 @@ const TRADE_POOL = [
   { in: [[LEATHER, 3]], out: [EMERALD, 1] },
   { in: [[STRING, 6]],  out: [EMERALD, 1] },
   { in: [[EMERALD, 1]], out: [BEEFC, 3] },
+  { in: [[EMERALD, 8]], out: [TRIAL_MAP, 1] },
 ];
 function pickTrades(prof){
   const pool = [...((prof && prof.trades) || TRADE_POOL)], picks = [];
@@ -13622,6 +13936,7 @@ function useSpawnEgg(hit){
 }
 function useSpecial(o, d, hit, eh){
   const held = heldId();
+  if(hit && hit.id === VAULT && (!eh || hit.t <= eh.t)){ openVault(hit.x, hit.y, hit.z); triggerViewSwing(); return true; }
   if(hit && hit.id === BEACON && (!eh || hit.t <= eh.t) && !(held && !ITEMS[held] && player.crouching)){ cycleBeacon(hit.x, hit.y, hit.z); triggerViewSwing(); return true; }
   if(eh && eh.e.kind === 'animal' && (eh.e.type === 'wolf' || eh.e.type === 'cat') && !eh.e.puppet && (!hit || eh.t < hit.t) && useOnWolf(eh.e)){ triggerViewSwing(); return true; }
   if(eh && (!hit || eh.t < hit.t) && eh.e.kind === 'animal' && RIDE[eh.e.type] && !eh.e.puppet && useRideable(eh.e)){ triggerViewSwing(); return true; }
@@ -13659,6 +13974,14 @@ function useSpecial(o, d, hit, eh){
   if(eh && eh.e.kind === 'nether' && eh.e.type === 'strider' && !eh.e.puppet && (!hit || eh.t < hit.t)){
     if(held === SADDLE && !eh.e.saddled){ if(survival) consumePlacedItem(); saddleStrider(eh.e); return true; }
     if(eh.e.saddled){ mountStrider(eh.e); return true; }
+  }
+  if(held === WIND_CHARGE){
+    if(performance.now() - windThrowT < 500) return true;
+    windThrowT = performance.now();
+    if(survival) consumePlacedItem();
+    const f = spawnFireball('wind', o.clone().addScaledVector(d, 0.8), d.clone().normalize().multiplyScalar(24), null); f.byPlayer = true;
+    nNoise(player.pos, 1400, 0.3, 0.2, -600); triggerViewSwing();
+    return true;
   }
   if(held === BOW){
     if(bowCd > 0) return true;
@@ -14560,6 +14883,7 @@ function heldDamageBase(){
     if(t.type === 'sword') return [5, 6, 7, 8, 9, 12][t.tier - 1];
     if(t.type === 'axe') return [4, 5, 6, 7, 8, 10][t.tier - 1];
     if(t.type === 'trident') return 9;
+    if(t.type === 'mace') return 6 + maceBonusNow;
   }
   return 3;
 }
@@ -14591,6 +14915,8 @@ function startAnimalPanic(e){
   }
 }
 function punchEntity(e){
+  maceBonusNow = 0;
+  if(heldId() === MACE && !player.onGround && !mobCtx && e && e.pos && fallPeak - player.pos.y > 1.5) maceSmash(e);
   if(e && !mobCtx && ['zombie', 'skeleton', 'spider', 'enderman', 'nether'].includes(e.kind)) petTarget = e;
   if(heldId() === STORMBREAKER && !mobCtx && e.pos && !e.puppet && e.kind !== 'fireball') boltAt(e.pos.x, e.pos.y, e.pos.z, true);   // Stormbreaker calls lightning
   if(e.dragon && e.dragon.puppet) e = e.dragon;
@@ -17518,7 +17844,7 @@ const ALL_CREATIVE = (() => {
 // ---- item categories (used to group the creative palette and the crafting list) ----
 const CAT_NAMES = ['Building', 'Nature', 'Ores & Minerals', 'Decoration', 'Utility', 'Tools', 'Combat', 'Food', 'Misc'];
 const _oreBlocks = new Set([RAW_IRON_BLOCK, RAW_GOLD_BLOCK, RAW_COPPER_BLOCK, COALO, IRONO, GOLDO, DIAMO, EMERO, COPPERO, REDSTONE_ORE, LAPIS_ORE, QUARTZ_ORE, DEBRIS, ...Object.keys(DEEP_BASE).map(Number)]);
-const _matItems = new Set([NETHER_STAR, TOTEM, GLOW_INK_SAC, ARMADILLO_SCUTE, PHANTOM_MEMBRANE, ...DYE, COCOA, RESIN_CLUMP, RESIN_BRICK, ECHO_SHARD, HEART_OF_SEA, NAUTILUS, PRISMARINE_SHARD, PRISMARINE_CRYSTALS, INK_SAC, RAW_IRON, RAW_GOLD, RAW_COPPER, REDSTONE, LAPIS, COALI, IRONI, GOLDI, DIAMI, COPPERI, EMERALD, NETHERITE, QUARTZ, AMETHYST_SHARD, GNUGGET, NSCRAP, STICK, STRING, LEATHER, FEATHER, GUNPOWDER, BLAZEROD, BLAZEPOWDER, GHASTTEAR, MAGMACREAM, ENDERPEARL, SLIMEBALL, BONE, BONE_MEAL, HONEYCOMB, PAPER]);
+const _matItems = new Set([TRIAL_KEY, BREEZE_ROD, WIND_CHARGE, HEAVY_CORE, NETHER_STAR, TOTEM, GLOW_INK_SAC, ARMADILLO_SCUTE, PHANTOM_MEMBRANE, ...DYE, COCOA, RESIN_CLUMP, RESIN_BRICK, ECHO_SHARD, HEART_OF_SEA, NAUTILUS, PRISMARINE_SHARD, PRISMARINE_CRYSTALS, INK_SAC, RAW_IRON, RAW_GOLD, RAW_COPPER, REDSTONE, LAPIS, COALI, IRONI, GOLDI, DIAMI, COPPERI, EMERALD, NETHERITE, QUARTZ, AMETHYST_SHARD, GNUGGET, NSCRAP, STICK, STRING, LEATHER, FEATHER, GUNPOWDER, BLAZEROD, BLAZEPOWDER, GHASTTEAR, MAGMACREAM, ENDERPEARL, SLIMEBALL, BONE, BONE_MEAL, HONEYCOMB, PAPER]);
 const _decoBlocks = new Set([...CARPET, SEA_LANTERN, TORCH, SOUL_TORCH, PAINTING, FRAME, FLOWERPOT, LANTERN, JACK_O_LANTERN, CARVED_PUMPKIN, GLOWB, CAMPFIRE]);
 const _utilBlocks = new Set([AQ_CONDUIT, REPEATER, LEVER, BUTTON_STONE, BUTTON_WOOD, PLATE_STONE, PLATE_WOOD, RS_TORCH, LAMP, CHEST, CRAFTT, FURN, BREWING, BARREL, ENDERCHEST, COMPOSTER, GRINDSTONE, NOTEBLOCK, JUKEBOX, ANVIL, SMITHING, CAULDRON, LADDER, FENCE, GATE, GATE_OPEN, BED, BEDHEAD, LIGHTNINGROD, TNT, BOOKSHELF, ENCH_TABLE]);
 const _natureBlocks = new Set([PALE_MOSS, PALE_MOSS_CARPET, PALE_HANGING_MOSS, EYEBLOSSOM_C, PALE_GRASS, CREAKING_HEART, SCULK, SCULK_SENSOR, SCULK_SHRIEKER, SCULK_CATALYST, MYCELIUM, MUSH_STEM, RED_MUSH_BLOCK, BROWN_MUSH_BLOCK, ...OCEAN_PLANTS, ...CORAL_BLOCKS, DEAD_CORALB, ICE, SPONGE, WET_SPONGE, GRASS, DIRT, SAND, REDSAND, GRAVEL, SNOW, PODZOL, CACTUS, DEADBUSH, MUSHROOMR, MUSHROOMB, TGRASSB, POPPYB, DANDB]);
@@ -20351,7 +20677,7 @@ function mapDot(wx, wz, col, r){
 }
 let treasureNote = null;
 function updateMap(dt){
-  const heldMap = heldId(), holding = inGame && !dead && (heldMap === MAP || (heldMap === TREASURE_MAP && dim === 0)) && dim !== 1;
+  const heldMap = heldId(), holding = inGame && !dead && (heldMap === MAP || ((heldMap === TREASURE_MAP || heldMap === TRIAL_MAP) && dim === 0)) && dim !== 1;
   if(xrActive){
     if(!mapVRAttached && rightCtrl){ rightCtrl.add(mapVR); mapVR.position.set(0, 0.04, -0.14); mapVR.rotation.set(-1.1, 0, 0); mapVRAttached = true; }
     mapVR.visible = holding; mapFlat.visible = false;
@@ -20375,8 +20701,8 @@ function updateMap(dt){
   // the markers
   msx.drawImage(mapBase, 0, 0);
   if(bedSpawn) mapDot(bedSpawn.x, bedSpawn.z, '#e03030', 2);
-  if(heldMap === TREASURE_MAP){                   // X marks the spot - or, off the edge, a red pointer toward it
-    const t = nearestTreasure(cx, cz);
+  if(heldMap === TREASURE_MAP || heldMap === TRIAL_MAP){   // X marks the spot - or, off the edge, a red pointer toward it
+    const t = heldMap === TRIAL_MAP ? nearestTrial(cx, cz) : nearestTreasure(cx, cz);
     if(t){
       let mx = t.x - mapCx + MAP_N / 2, my = t.z - mapCz + MAP_N / 2;
       const inside = mx >= 4 && my >= 4 && mx < MAP_N - 4 && my < MAP_N - 4;
@@ -20384,7 +20710,7 @@ function updateMap(dt){
       msx.strokeStyle = '#b01818'; msx.lineWidth = inside ? 2.5 : 2; msx.beginPath();
       const r = inside ? 4 : 2.5;
       msx.moveTo(mx - r, my - r); msx.lineTo(mx + r, my + r); msx.moveTo(mx + r, my - r); msx.lineTo(mx - r, my + r); msx.stroke();
-      if(treasureNote !== t.key){ treasureNote = t.key; flashName('X marks the spot - ' + Math.round(Math.hypot(t.x - cx, t.z - cz)) + ' blocks away. Dig under the beach!'); }
+      if(treasureNote !== t.key){ treasureNote = t.key; flashName('X marks the spot - ' + Math.round(Math.hypot(t.x - cx, t.z - cz)) + (heldMap === TRIAL_MAP ? ' blocks away - the trial chambers lie deep underground' : ' blocks away. Dig under the beach!')); }
     } else if(treasureNote !== 'none'){ treasureNote = 'none'; flashName('This map shows no treasure near here'); }
   }
   for(const a of animals) if(a.tamed) mapDot(a.pos.x, a.pos.z, '#f0c040', 1);
@@ -22062,7 +22388,7 @@ window.__bc = {
   PART_BASE, WALLS, FENCES, partState, partBoxes, placePartial, stairQuads,
   COLORS, DYE, CONCRETE, POWDER, SGLASS, TERRA16, GLAZED, CARPET, WOOL16, hardenNear,
   playerSees, updatePale, paleState: () => ({ blossomOpen, paleHere }),
-  splashes, sinceRestSet: v => { sinceRest = v; }, updateNightMobs, spawnFromEgg, useOnFlyer, trySummonWither, placeSkull, beaconLevel, updateBeacons, beams, cycleBeacon, raidState: () => raid, startRaid, spawnPatrol, spawnTrader, outpostsNear, outpostDef, fangs, useTotem, updateIllagers, rideState: () => rideHorse, useRideable, updateHorseRide,
+  splashes, sinceRestSet: v => { sinceRest = v; }, updateNightMobs, spawnFromEgg, useOnFlyer, trialDef, trialsNear, nearestTrial, updateTrials, trialState, openVault, windBurst, trialCools: () => trialCools, trySummonWither, placeSkull, beaconLevel, updateBeacons, beams, cycleBeacon, raidState: () => raid, startRaid, spawnPatrol, spawnTrader, outpostsNear, outpostDef, fangs, useTotem, updateIllagers, rideState: () => rideHorse, useRideable, updateHorseRide,
   mountainBiome, jaggedAt, vnoise, deepDarkAt, cityDef, cityBlock, vibrate, summonWarden, sculkState: () => ({ warnLevel, near: sculkNear.length }), netherMobs, spawnNetherMob,
   monumentDef, monumentBlock, conduitFrame, soakSponge, airState: () => air, effectsNow: () => effects, spawnSea, seaLife, deadElders,
   colInfo, continentAt, waterBiome, wreckDef, ruinDef, treasureDef, wrecksNear, ruinsNear, treasuresNear, nearestTreasure, OCEAN, setOldLand, oldLandKeys: () => oldLandKeys, isWet,
