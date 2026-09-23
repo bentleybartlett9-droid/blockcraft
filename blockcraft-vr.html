@@ -1565,6 +1565,10 @@ const SPAWN_EGGS = [
   ['magma','Magma Cube','#340000','#fcfc00'], ['wskel','Wither Skeleton','#141414','#474d4d'], ['strider','Strider','#9c3436','#4d494d'],
   ['shulker','Shulker','#946794','#4d3852'], ['wisp','Storm Wisp','#8ae8ff','#ffffff'], ['stormling','Stormling','#2c3a54','#8ae8ff'],
   ['slime','Slime','#51a03e','#7ebf6e'], ['drowned','Drowned','#8ff1d7','#799c65'],
+  ['husk','Husk','#797061','#e6cc94'], ['zvillager','Zombie Villager','#563c33','#799c65'], ['stray','Stray','#617677','#ddeaea'], ['bogged','Bogged','#8a9c72','#314d1b'],
+  ['silverfish','Silverfish','#6e6e6e','#303030'], ['endermite','Endermite','#161616','#6e6e6e'], ['phantom','Phantom','#43518a','#88ff00'], ['zoglin','Zoglin','#c66e55','#e6e6e6'],
+  ['witch','Witch','#340000','#51a03e'], ['cavespider','Cave Spider','#0c424e','#a80e0e'], ['mooshroom','Mooshroom','#a00f10','#b7b7b7'], ['warden','Warden','#0f4649','#39d6e0'],
+  ['guardian','Guardian','#5a8272','#f17d30'], ['elder','Elder Guardian','#ceccba','#747693'], ['dolphin','Dolphin','#223b4d','#f9f9f9'], ['squid','Squid','#223b4d','#708899'],
 ];
 const EGG_BASE = 410;                      // 410-446
 const APPLE=457, GOLDEN_APPLE=458, CARROT=459, POTATO=460, BAKED_POTATO=461, MILK=462, EGG=463, SUGAR=464,
@@ -1574,8 +1578,9 @@ const isCake = id => id >= CAKE && id <= CAKE3;
 const CROP_GROWING = new Set([WHEAT0, WHEAT1, WHEAT2, CARROT0, CARROT1, CARROT2, POTATO0, POTATO1, POTATO2]);
 const BONE=455, BONE_MEAL=456, SHIELD=454, ROD=447, COD=448, SALMON=449, COOKED_COD=450, COOKED_SALMON=451, PUFFERFISH=452, TROPICAL=453;
 const EGG_RUN = 37, EGG_EXTRA = 479;          // eggs past the first 37 carry on from 479
-const eggId = i => i < EGG_RUN ? EGG_BASE + i : EGG_EXTRA + i - EGG_RUN, eggIcon = i => i < EGG_RUN ? 120 + i : i === EGG_RUN ? 175 : 180 + i - EGG_RUN;
-const eggMob = id => { const i = id >= EGG_BASE && id < EGG_BASE + EGG_RUN ? id - EGG_BASE : id >= EGG_EXTRA ? EGG_RUN + id - EGG_EXTRA : -1; return i >= 0 && i < SPAWN_EGGS.length ? SPAWN_EGGS[i][0] : null; };
+// eggs past the 38th have their own run of ids (900-) and icons (285-)
+const eggId = i => i < EGG_RUN ? EGG_BASE + i : i <= EGG_RUN + 1 ? EGG_EXTRA + i - EGG_RUN : 900 + i - EGG_RUN - 2, eggIcon = i => i < EGG_RUN ? 120 + i : i === EGG_RUN ? 175 : i === EGG_RUN + 1 ? 181 : 285 + i - EGG_RUN - 2;
+const eggMob = id => { const i = id >= EGG_BASE && id < EGG_BASE + EGG_RUN ? id - EGG_BASE : id === EGG_EXTRA || id === EGG_EXTRA + 1 ? EGG_RUN + id - EGG_EXTRA : id >= 900 && id < 960 ? EGG_RUN + 2 + id - 900 : -1; return i >= 0 && i < SPAWN_EGGS.length ? SPAWN_EGGS[i][0] : null; };
 const SLIMEBALL=477, SLIME_BLOCK=478, LANTERN=490, CAMPFIRE=491, BEEHIVE=492, BEEHIVE_FULL=493, HONEY_BOTTLE=494, HONEYCOMB=495, FENCE=496, GATE=497, GATE_OPEN=498, SHEARS=499, TRIDENT=500, JUKEBOX=501, DISC_1=502, MAP=506, ANVIL=507, CARVED_PUMPKIN=508, JACK_O_LANTERN=509, PAINTING=510, COMPOSTER=511, GRINDSTONE=512, NOTEBLOCK=513, BARREL=514, FRAME=515, ENDERCHEST=516, CAULDRON=517, LIGHTNINGROD=518, SMITHING=519, FLOWERPOT=520, BEDHEAD=521, TRAPDOOR=522, REDGUM_LOG=523, REDGUM_PLANK=524, REDGUM_LEAVES=525, BOAB_PLANK=526, COBBLE=527, REDSTONE_ORE=528, REDSTONE=529, LAPIS_ORE=530, LAPIS=531, REDSTONE_BLOCK=532, LAPIS_BLOCK=533, DS_COAL=534, DS_IRON=535, DS_COPPER=536, DS_GOLD=537, DS_REDSTONE=538, DS_LAPIS=539, DS_DIAMOND=540, DS_EMERALD=541, RAW_IRON=542, RAW_GOLD=543, RAW_COPPER=544, RAW_IRON_BLOCK=545, RAW_GOLD_BLOCK=546, RAW_COPPER_BLOCK=547, LEVER=548, BUTTON_STONE=549, BUTTON_WOOD=550, PLATE_STONE=551, PLATE_WOOD=552, RS_TORCH=553, RS_TORCH_OFF=554, RS_WIRE=555, LAMP=556, LAMP_ON=557, REPEATER=558;   // 502-505: music discs
 const isFenceish = id => id === FENCE || id === GATE || id === GATE_OPEN || FENCES.has(id);
 const hivesSeen = new Set();           // "x,y,z" of overworld hives the mesher has seen
@@ -1912,6 +1917,8 @@ BLOCKS[SCULK]={name:'Sculk',all:380};BLOCKS[SCULK_SENSOR]={name:'Sculk Sensor',t
 BLOCKS[SCULK_SHRIEKER]={name:'Sculk Shrieker',top:383,bottom:380,side:384};BLOCKS[SCULK_CATALYST]={name:'Sculk Catalyst',top:385,bottom:387,side:386};
 BLOCKS[DEEPSLATE_BRICKS]={name:'Deepslate Bricks',all:387};BLOCKS[DEEPSLATE_TILES]={name:'Deepslate Tiles',all:388};BLOCKS[REINFORCED]={name:'Reinforced Deepslate',top:390,bottom:390,side:389};
 ITEMS[ECHO_SHARD]={name:'Echo Shard',icon:265};
+const PHANTOM_MEMBRANE = 930;
+ITEMS[PHANTOM_MEMBRANE]={name:'Phantom Membrane',icon:301};
 // the Pale Garden: pale oak, pale moss, eyeblossoms, the creaking heart and its resin
 const PALE_LOG=612, PALE_PLANK=613, PALE_LEAVES=614, SAP_PALE=615, PALE_MOSS=616, PALE_MOSS_CARPET=617, PALE_HANGING_MOSS=618,
       EYEBLOSSOM_C=619, EYEBLOSSOM_O=620, CREAKING_HEART=621, RESIN_BRICKS=622, PALE_GRASS=623, RESIN_CLUMP=624, RESIN_BRICK=625;
@@ -2540,6 +2547,9 @@ itemAtlas.width = 128; itemAtlas.height = 1024;   // 512 icons
   px(284, (x, y) => {                                                   // cocoa beans
     for(const [bx, by] of [[5, 8], [10, 7], [8, 11]]){ const d = Math.hypot((x - bx) * 1.2, y - by); if(d < 2.8) return d > 2 ? [70, 40, 20] : [120, 70, 36]; }
     return null; });
+  px(301, (x, y) => {                                                   // phantom membrane: a grey-violet leathery sheet
+    if(y < 3 || y > 13 || x < 2 || x > 13 || (x + y) % 7 === 0 && x > 10) return null;
+    return (x === 2 || y === 3) ? [150, 150, 170] : (x * 3 + y) % 5 === 0 ? [110, 110, 140] : [180, 176, 196]; });
   px(266, (x, y) => {                                                   // resin clump: an amber blob
     const d = Math.hypot((x - 7.5) * 1.1, (y - 8) * 0.9) + (hash(x, y, 7407) - 0.5) * 1.4;
     if(d > 5.8) return null;
@@ -7739,7 +7749,7 @@ function physics(dt){
   if(riding) return;                 // vehicle controls the player's position
   const inWater = isWet(getBlock(Math.floor(p.pos.x), Math.floor(p.pos.y + 0.2), Math.floor(p.pos.z)));
   const sprint = key('ShiftLeft') && !p.fly && key('KeyW') && !inWater;
-  const speed = (p.fly ? (key('ShiftRight') ? 26 : 16) : inWater ? 2.6 : sprint ? 7.2 : 4.3) * (effects.speed > 0 && !p.fly ? 1.4 : 1);
+  const speed = (p.fly ? (key('ShiftRight') ? 26 : 16) : inWater ? 2.6 : sprint ? 7.2 : 4.3) * (effects.speed > 0 && !p.fly ? 1.4 : 1) * (effects.slowness > 0 && !p.fly ? 0.7 : 1);
   if(!xrActive && !gliding){
     let fx = 0, fz = 0;
     if(key('KeyW')) fz -= 1; if(key('KeyS')) fz += 1;
@@ -8263,6 +8273,7 @@ function trySleep(bx, by, bz){
   for(const z of zombies)
     if(z.pos.distanceToSquared(player.pos) < 144){ flashName('You may not rest now — monsters are nearby!'); return false; }
   tone(420, 220, 0.5, 'sine', 0.1);
+  sinceRest = 0;                                      // rested: no phantoms for three days
   if(mpActive()){
     // Playing together: as in Minecraft, you lie down and the night only
     // passes once everyone is in bed (the host keeps the clock and counts)
@@ -8764,13 +8775,23 @@ function animMob(e, dt){
 /* ============================ zombies =============================== */
 const zombies = [];
 const zMats = { skin: entMat(0x70a858), shirt: entMat(0x2c7874), pants: entMat(0x463f99) };
+const huskMats = { skin: entMat(0x8f7d57), shirt: entMat(0x6b5b3c), pants: entMat(0x4c4332) };
+const zvMats = { skin: entMat(0x5f8f4a), shirt: entMat(0x5a3f2a), pants: entMat(0x3f3222), nose: entMat(0x4f7a3c) };
 const dMats = { skin: entMat(0x5aa39a), shirt: entMat(0x3f6f68), pants: entMat(0x44587a), weed: entMat(0x3c7a3a) };
 function spawnZombie(x, y, z, variant){
   const g = new THREE.Group();
   const legs = [], arms = [];
-  const drowned = variant === 'drowned', M = drowned ? dMats : zMats, trident = drowned && Math.random() < 0.15;
-  box(0.5, 0.5, 0.5, M.skin, 0, 1.7, 0, g);
-  box(0.52, 0.74, 0.28, M.shirt, 0, 1.08, 0, g);
+  const drowned = variant === 'drowned', husk = variant === 'husk', zv = variant === 'zvillager', baby = variant === 'baby';
+  const M = drowned ? dMats : husk ? huskMats : zv ? zvMats : zMats, trident = drowned && Math.random() < 0.15;
+  if(zv){                                                    // a zombie villager: the villager's long head and nose, and its robe
+    box(0.5, 0.62, 0.5, M.skin, 0, 1.76, 0, g);
+    box(0.12, 0.24, 0.14, M.nose, 0, 1.64, -0.31, g);
+    box(0.54, 0.95, 0.34, M.shirt, 0, 1.0, 0, g);
+  } else {
+    box(0.5, 0.5, 0.5, M.skin, 0, 1.7, 0, g);
+    box(0.52, 0.74, 0.28, M.shirt, 0, 1.08, 0, g);
+  }
+  if(husk) box(0.54, 0.1, 0.3, entMat(0x5a4c30), 0, 0.74, 0, g);   // a husk's sash
   if(drowned){ box(0.08, 0.3, 0.02, M.weed, 0.12, 1.2, -0.15, g); box(0.1, 0.2, 0.02, M.weed, -0.18, 0.95, -0.15, g); box(0.52, 0.06, 0.06, M.weed, 0, 1.94, -0.2, g); }
   for(const sx of [-0.37, 0.37])
     arms.push(box(0.2, 0.2, 0.74, M.skin, sx, 1.32, -0.32, g));
@@ -8778,11 +8799,12 @@ function spawnZombie(x, y, z, variant){
   for(const sx of [-0.14, 0.14])
     legs.push(box(0.22, 0.72, 0.24, M.pants, sx, 0.36, 0, g));
   scene.add(g);
+  if(baby) g.scale.setScalar(0.55);                         // baby zombies: small and quick
   zombies.push({
-    drowned, trident, throwCd: 2,
+    drowned, trident, throwCd: 2, husk, zv, baby, variant: variant || '',
     kind: 'zombie', group: g, legs, arms,
     pos: new THREE.Vector3(x, y, z), vel: new THREE.Vector3(),
-    w: 0.35, h: 1.85, hp: 20,
+    w: baby ? 0.2 : 0.35, h: baby ? 1.0 : 1.85, hp: 20,
     yaw: Math.random() * Math.PI * 2, speed: 0, t: 0.5,
     onGround: false, anim: Math.random() * 9,
     atkCd: 0, groanT: 2 + Math.random() * 5, skyT: 0, exposed: false, fireT: 0,
@@ -8818,15 +8840,21 @@ function updateZombieSpawns(dt, daylight){
     spawnNetherMob('slime', x + 0.5, h + 1.05, z + 0.5);
     return;
   }
+  const coldLand = ['snowy', 'frostvale', 'grove', 'snowy-slopes', 'frozen-peaks', 'jagged-peaks', 'snowy-beach'].includes(spawnBiome), swampy = spawnBiome === 'swamp' || spawnBiome === 'willow-marsh';
+  if(roll < (swampy ? 0.34 : 0.07) && netherMobs.filter(m => m.type === 'witch').length < 3){   // witches, mostly in the swamps
+    spawnNetherMob('witch', x + 0.5, h + 1.05, z + 0.5);
+    return;
+  }
   if(roll < 0.24){
-    spawnSkeleton(x + 0.5, h + 1.05, z + 0.5);
+    spawnSkeleton(x + 0.5, h + 1.05, z + 0.5, coldLand && Math.random() < 0.8 ? 'stray' : swampy && Math.random() < 0.7 ? 'bogged' : undefined);
     if(Math.hypot(x - player.pos.x, z - player.pos.z) < 40) boneRattle(.1,new THREE.Vector3(x,h+1,z));
   } else if(roll < 0.45){
     spawnCreeper(x + 0.5, h + 1.05, z + 0.5);   // creepers arrive in silence
   } else if(roll < 0.65){
     spawnSpider(x + 0.5, h + 1.05, z + 0.5);
   } else {
-    spawnZombie(x + 0.5, h + 1.05, z + 0.5);
+    const r2z = Math.random();
+    spawnZombie(x + 0.5, h + 1.05, z + 0.5, spawnBiome === 'desert' && r2z < 0.8 ? 'husk' : r2z < 0.05 ? 'zvillager' : r2z < 0.1 ? 'baby' : undefined);
     if(Math.hypot(x - player.pos.x, z - player.pos.z) < 40) zombieGroan(.12,new THREE.Vector3(x,h+1,z));
   }
 }
@@ -9328,6 +9356,11 @@ const NETHER_TYPES = {
   stormling:{ hp: 6, w: 0.25, h: 1.15, build: buildStormling },
   warden:   { hp: 500, w: 0.45, h: 2.9, build: buildWarden },
   creaking: { hp: 1, w: 0.4, h: 2.7, build: buildCreaking },
+  silverfish: { hp: 8, w: 0.2, h: 0.3, build: buildSilverfish },
+  endermite:  { hp: 8, w: 0.2, h: 0.3, build: buildEndermite },
+  phantom:    { hp: 20, w: 0.45, h: 0.5, build: buildPhantom },
+  zoglin:     { hp: 40, w: 0.6, h: 1.4, build: buildZoglin },
+  witch:      { hp: 26, w: 0.3, h: 1.95, build: buildWitch },
 };
 /* The Warden: blind, three blocks tall, 500 health. It finds you by sound
    (footsteps, mining, placing - sneak to stay quiet) and by smell when you
@@ -9468,6 +9501,152 @@ function updatePale(dt){
       }
     }
   }
+}
+/* ---- the smaller monsters ------------------------------------------------ */
+// silverfish hide in stone: break stone high in the mountains, or the bricks of a stronghold, and one may wriggle out
+function buildBug(g, e, cols, n){
+  e.segs = [];
+  for(let i = 0; i < n; i++){
+    const w = 0.26 - Math.abs(i - 1) * 0.05;
+    e.segs.push(box(w, 0.2 - i * 0.02, 0.16, entMat(cols[i % cols.length]), 0, 0.1, -0.18 + i * 0.15, g));
+  }
+  box(0.08, 0.04, 0.04, entMat(0x202020), -0.08, 0.14, -0.27, g); box(0.08, 0.04, 0.04, entMat(0x202020), 0.08, 0.14, -0.27, g);   // feelers
+}
+function buildSilverfish(g, e){ buildBug(g, e, [0x8a8a8a, 0x7a7a7a, 0x6a6a6a, 0x5a5a5a], 4); }
+function buildEndermite(g, e){ buildBug(g, e, [0x2a1a3a, 0x3a2050, 0x2a1a3a], 3); box(0.04, 0.04, 0.02, new THREE.MeshBasicMaterial({ color: 0xc070ff }), 0, 0.2, -0.26, g); }
+function bugThink(e, dt){
+  if(e.type === 'endermite' && (e.life = (e.life ?? 120) - dt) <= 0){ e.remove = true; return; }   // endermites fade after two minutes
+  const alive = mode === 'survival' && !dead, d = e.pos.distanceTo(player.pos);
+  if(alive && d < 16){ faceTo(e, player.pos.x, player.pos.z); e.speed = 3.6; if(netherMelee(e, e.type === 'endermite' ? 2 : 1, 0.9, 2, 2)) netherVoice(e, 'attack'); }
+  else wander(e, dt, 1.4);
+  stepMob(e, dt, 24);
+}
+// phantoms: they come for anyone who hasn't slept in three days, circling high and swooping down
+function buildPhantom(g, e){
+  const skin = entMat(0x43518a), belly = entMat(0x5f6fa8);
+  box(0.5, 0.18, 0.9, skin, 0, 0.25, 0, g);
+  box(0.4, 0.12, 0.7, belly, 0, 0.18, 0, g);
+  box(0.4, 0.16, 0.3, skin, 0, 0.26, -0.55, g);                                 // head
+  const eye = new THREE.MeshBasicMaterial({ color: 0x88ff44 });
+  box(0.1, 0.05, 0.02, eye, -0.12, 0.3, -0.71, g); box(0.1, 0.05, 0.02, eye, 0.12, 0.3, -0.71, g);
+  e.wings = [];
+  for(const side of [-1, 1]){ const w = new THREE.Group(); w.position.set(side * 0.25, 0.27, 0); g.add(w);
+    box(0.7, 0.05, 0.6, skin, side * 0.35, 0, 0, w); box(0.6, 0.04, 0.35, belly, side * 1.0, 0, 0.1, w); e.wings.push(w); }
+  const tail = new THREE.Group(); tail.position.set(0, 0.25, 0.45); g.add(tail); box(0.3, 0.1, 0.5, skin, 0, 0, 0.25, tail); e.tail = tail;
+}
+function phantomThink(e, dt, daylight){
+  const alive = mode === 'survival' && !dead;
+  if(daylight > 0.5 && skyExposed(Math.floor(e.pos.x), Math.ceil(e.pos.y + 1), Math.floor(e.pos.z))){   // it burns up in the sun
+    e.hp -= 6 * dt; if(Math.random() < dt * 8) burstRGB(e.pos.x, e.pos.y + 0.3, e.pos.z, 1, 0.5, 0.1, 2, 0.3);
+  }
+  e.circleA = (e.circleA ?? Math.random() * 6.28) + dt * 0.6;
+  e.swoopCd = (e.swoopCd ?? 4 + Math.random() * 4) - dt;
+  const home = player.pos;
+  let tx, ty, tz;
+  if(alive && e.swoopCd <= 0){                                  // the swoop: straight at you
+    tx = home.x; ty = home.y + 1; tz = home.z;
+    if(e.pos.distanceTo(_gTo.set(tx, ty, tz)) < 1.2){
+      if(!shieldBlocks(e.pos)) damage(2);
+      playN({ f: 500, type: 'bandpass', dur: 0.2, vol: 0.2 });
+      e.swoopCd = 5 + Math.random() * 4;
+    }
+  } else { tx = home.x + Math.cos(e.circleA) * 10; ty = home.y + 12; tz = home.z + Math.sin(e.circleA) * 10; }
+  const dir = _gTo.set(tx - e.pos.x, ty - e.pos.y, tz - e.pos.z), l = dir.length() || 1, sp = e.swoopCd <= 0 ? 9 : 5;
+  e.vel.lerp(dir.multiplyScalar(sp / l), Math.min(1, dt * 2.5));
+  const nx = e.pos.x + e.vel.x * dt, ny = e.pos.y + e.vel.y * dt, nz = e.pos.z + e.vel.z * dt;
+  if(isSolid(getBlock(Math.floor(nx), Math.floor(ny + 0.3), Math.floor(nz)))){ e.vel.y = 4; e.swoopCd = Math.max(e.swoopCd, 2); }
+  else e.pos.set(nx, ny, nz);
+  e.yaw = Math.atan2(-e.vel.x, -e.vel.z);
+  e.wingT = (e.wingT || 0) + dt * 6;
+  if(e.wings) e.wings.forEach((w, j) => { w.rotation.z = (j ? -1 : 1) * Math.sin(e.wingT) * 0.5; });
+  e.cryT = (e.cryT ?? 4) - dt;
+  if(e.cryT <= 0){ e.cryT = 5 + Math.random() * 6; if(e.pos.distanceTo(player.pos) < 40) playN({ f: 1100, type: 'bandpass', q: 4, dur: 0.6, vol: 0.08, slide: -500 }); }
+}
+// zoglins: a hoglin that strayed into the Overworld and rotted; it attacks everything
+function buildZoglin(g, e){
+  buildHoglin(g, e);
+  const done = new Map();
+  g.traverse(o => { if(!o.isMesh) return;
+    const conv = m => { if(done.has(m)) return done.get(m); const c = m.clone(); c.color = (m.color ? m.color.clone() : new THREE.Color(1, 1, 1)).lerp(new THREE.Color(0xd8b8a8), 0.45); c.userData.base = c.color.clone(); entMats.push(c); done.set(m, c); return c; };
+    o.material = Array.isArray(o.material) ? o.material.map(conv) : conv(o.material); });
+}
+// witches: potion-throwers of the swamps. They splash Harming, Poison and Slowness, and drink Healing when hurt
+const witchMats = { robe: entMat(0x4b2a5c), skin: entMat(0xbd8f68), hat: entMat(0x1f1a24), band: entMat(0x4e9331), wart: entMat(0x5a7a3a) };
+function buildWitch(g, e){
+  const M = witchMats;
+  box(0.5, 0.62, 0.5, M.skin, 0, 1.72, 0, g);
+  box(0.12, 0.26, 0.14, M.skin, 0, 1.6, -0.31, g);                    // her long nose
+  box(0.05, 0.05, 0.04, M.wart, 0.04, 1.54, -0.39, g);                // and its wart
+  box(0.54, 1.15, 0.34, M.robe, 0, 0.9, 0, g);
+  box(0.6, 0.22, 0.24, M.robe, 0, 1.18, -0.2, g);                     // folded arms
+  box(0.74, 0.06, 0.74, M.hat, 0, 2.05, 0, g);
+  box(0.5, 0.2, 0.5, M.hat, 0, 2.18, 0, g); box(0.52, 0.06, 0.52, M.band, 0, 2.12, 0, g);
+  const tip = box(0.3, 0.22, 0.3, M.hat, 0.03, 2.38, 0.04, g); tip.rotation.z = -0.15;
+  const tip2 = box(0.14, 0.16, 0.14, M.hat, 0.08, 2.54, 0.1, g); tip2.rotation.z = -0.35;
+  e.legs = [];
+}
+const splashes = [];
+function witchThink(e, dt){
+  const alive = mode === 'survival' && !dead, d = Math.hypot(player.pos.x - e.pos.x, player.pos.z - e.pos.z);
+  e.drinkCd = (e.drinkCd ?? 0) - dt;
+  if(e.hp < 13 && e.drinkCd <= 0){ e.drinkCd = 6; e.hp = Math.min(26, e.hp + 6); burstRGB(e.pos.x, e.pos.y + 1.6, e.pos.z, 0.95, 0.25, 0.3, 12, 0.5); playN({ f: 400, type: 'lowpass', dur: 0.4, vol: 0.12 }); }   // a gulp of healing
+  if(alive && d < 16){
+    faceTo(e, player.pos.x, player.pos.z);
+    e.speed = d > 10 ? 1.8 : d < 5 ? -1.6 : 0;                         // keeps her distance
+    if(e.atkCd <= 0 && d < 12){
+      e.atkCd = 3;
+      const kind = effects.slowness <= 0 && d > 6 && Math.random() < 0.35 ? 'slowness' : effects.poison <= 0 && Math.random() < 0.3 ? 'poison' : 'harming';
+      const from = new THREE.Vector3(e.pos.x, e.pos.y + 1.6, e.pos.z), t = d / 9;
+      const vel = new THREE.Vector3((player.pos.x - e.pos.x) / t, ((player.pos.y + 1) - from.y) / t + 9 * t, (player.pos.z - e.pos.z) / t);
+      const col = kind === 'harming' ? 0x6a1a3a : kind === 'poison' ? 0x4e9331 : 0x5a6c81;
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.28, 0.22), new THREE.MeshBasicMaterial({ color: col }));
+      mesh.position.copy(from); scene.add(mesh);
+      splashes.push({ mesh, pos: from, vel, kind, col: new THREE.Color(col), age: 0 });
+      playN({ f: 900, type: 'bandpass', dur: 0.15, vol: 0.1 });
+    }
+  } else wander(e, dt, 1.0);
+  e.callT = (e.callT ?? 5) - dt;
+  if(e.callT <= 0){ e.callT = 6 + Math.random() * 8; if(e.pos.distanceTo(player.pos) < 24) playN({ f: 700, type: 'bandpass', q: 3, dur: 0.35, vol: 0.1, slide: 300 }); }   // a cackle
+  stepMob(e, dt, 24);
+}
+function updateSplashes(dt){
+  for(let i = splashes.length - 1; i >= 0; i--){
+    const q = splashes[i];
+    q.age += dt; q.vel.y -= 18 * dt;
+    q.pos.addScaledVector(q.vel, dt); q.mesh.position.copy(q.pos); q.mesh.rotation.x += dt * 8;
+    const nearP = q.pos.distanceTo(_gTo.set(player.pos.x, player.pos.y + 1, player.pos.z)) < 1;
+    if(!nearP && q.age < 6 && !isSolid(getBlock(Math.floor(q.pos.x), Math.floor(q.pos.y), Math.floor(q.pos.z)))) continue;
+    // it shatters
+    burstRGB(q.pos.x, q.pos.y, q.pos.z, q.col.r, q.col.g, q.col.b, 22, 0.8);
+    playN({ f: 2600, type: 'highpass', dur: 0.2, vol: 0.14 });
+    if(mode === 'survival' && !dead && q.pos.distanceTo(_gTo.set(player.pos.x, player.pos.y + 1, player.pos.z)) < 4){
+      if(q.kind === 'harming') damage(6, true);
+      else if(q.kind === 'poison') effects.poison = Math.max(effects.poison, 22);
+      else effects.slowness = Math.max(effects.slowness, 67);
+    }
+    scene.remove(q.mesh); splashes.splice(i, 1);
+  }
+}
+// three sleepless days bring the phantoms; sleeping (or dying) resets the count
+let sinceRest = (() => { try { return +localStorage.getItem(SAVE_KEY + '-rest') || 0; } catch(e){ return 0; } })(), restSaveT = 0, phantomT = 30;
+function updateNightMobs(dt){
+  if(dim !== 0) return;
+  if(mode === 'survival' && !dead) sinceRest += dt;
+  if((restSaveT -= dt) <= 0){ restSaveT = 30; safeSet(SAVE_KEY + '-rest', String(Math.floor(sinceRest))); }
+  updateSplashes(dt);
+  // a hoglin brought into the Overworld turns into a zoglin
+  for(const e of netherMobs) if(e.type === 'hoglin' && !e.puppet && (e.zomT = (e.zomT || 0) + dt) > 15){
+    const z = spawnNetherMob('zoglin', e.pos.x, e.pos.y, e.pos.z); if(z) z.yaw = e.yaw; e.remove = true;
+    burstRGB(e.pos.x, e.pos.y + 1, e.pos.z, 0.6, 0.8, 0.5, 16, 0.6);
+  }
+  if((phantomT -= dt) > 0) return;
+  phantomT = 30 + Math.random() * 30;
+  const night = daylightOf(timeOfDay) < 0.3, px = Math.floor(player.pos.x), pz = Math.floor(player.pos.z);
+  if(!night || mode !== 'survival' || dead || sinceRest < 3600 || netherMobs.filter(m => m.type === 'phantom').length >= 4) return;
+  if(!skyExposed(px, Math.ceil(player.pos.y + 2), pz)) return;
+  const n = 1 + ((Math.random() * 3) | 0);
+  for(let k = 0; k < n; k++) spawnNetherMob('phantom', player.pos.x + (Math.random() - 0.5) * 16, player.pos.y + 20 + Math.random() * 6, player.pos.z + (Math.random() - 0.5) * 16);
+  flashName('Phantoms! You haven\'t slept in days');
 }
 function wardenHear(e, x, y, z, byPlayer){
   if(e.emergeT > 0 || e.digT > 0) return;
@@ -9754,6 +9933,9 @@ function tryGivePiglin(e){
 function updateNetherMob(e, dt){
   if(e.type === 'warden'){ e.atkCd -= dt; wardenThink(e, dt); return; }
   if(e.type === 'creaking'){ e.atkCd -= dt; creakingThink(e, dt); return; }
+  if(e.type === 'silverfish' || e.type === 'endermite'){ e.atkCd -= dt; bugThink(e, dt); return; }
+  if(e.type === 'phantom'){ phantomThink(e, dt, daylightOf(timeOfDay)); return; }
+  if(e.type === 'witch'){ e.atkCd -= dt; witchThink(e, dt); return; }
   e.atkCd -= dt; e.swing = Math.max(0, e.swing - dt);
   if(e.angry > 0) e.angry -= dt;
   const toP = Math.hypot(player.pos.x - e.pos.x, player.pos.z - e.pos.z);
@@ -9810,7 +9992,7 @@ function updateNetherMob(e, dt){
         faceTo(e, player.pos.x, player.pos.z); e.speed = toP > 2.5 ? 1.4 : 0;   // they come over to stare at your gold
       } else wander(e, dt, T === 'zpiglin' ? 0.9 : 1.1);
     }
-  } else if(T === 'hoglin'){
+  } else if(T === 'hoglin' || T === 'zoglin'){
     if(canHunt && toP < 16){
       faceTo(e, player.pos.x, player.pos.z);
       e.speed = 3.2;
@@ -9958,6 +10140,8 @@ function animNether(e, dt){
   const T = e.type;
   if(T === 'warden'){ animWarden(e, dt); return; }
   if(T === 'creaking'){ animCreaking(e, dt); return; }
+  if(T === 'phantom'){ e.group.position.copy(e.pos); e.group.rotation.y = e.yaw; e.group.rotation.x = Math.max(-0.8, Math.min(0.8, Math.atan2(e.vel.y, Math.hypot(e.vel.x, e.vel.z)) )); return; }
+  if(T === 'silverfish' || T === 'endermite'){ animMob(e, dt); e.anim += dt * 8; if(e.segs) e.segs.forEach((q, i) => { q.position.x = Math.sin(e.anim + i * 1.2) * 0.04 * Math.min(1, e.speed); }); return; }
   if(T === 'wisp'){ animWisp(e, dt); return; }
   if(T === 'ghast'){
     e.group.position.copy(e.pos);
@@ -10008,7 +10192,7 @@ function animNether(e, dt){
     if(e.arms[1]) e.arms[1].rotation.x = e.aiming ? -1.45 : (aggro ? -0.5 : -walk) + slash;
     if(e.ears){ const f = Math.sin(e.anim * 5) * 0.12 * (0.3 + sp); e.ears[0].rotation.z = -0.55 + f; e.ears[1].rotation.z = 0.55 - f; }
     if(e.head) e.head.rotation.x = e.bartering > 0 ? 0.45 : 0;
-  } else if(T === 'hoglin'){
+  } else if(T === 'hoglin' || T === 'zoglin'){
     e.headToss = Math.max(0, (e.headToss || 0) - dt);
     e.head.rotation.x = 0.55 - Math.sin(Math.min(1, e.headToss / 0.4) * Math.PI) * 1.1;
   } else if(T === 'strider'){
@@ -10055,6 +10239,9 @@ function killNether(e){
     case 'wisp': if(Math.random() < 0.3) drop(VOLTITE, 1, 1); break;
     case 'strider': drop(STRING, 2, 5); if(e.saddled) drop(SADDLE, 1, 1); break;
     case 'warden': drop(SCULK_CATALYST, 1, 1); break;
+    case 'phantom': drop(PHANTOM_MEMBRANE, 0, 1); break;
+    case 'zoglin': drop(ROTTEN, 1, 3); break;
+    case 'witch': for(let k = 1 + ((Math.random() * 3) | 0); k > 0; k--) drop([GLASS_BOTTLE, GLOWDUST, GUNPOWDER, REDSTONE, SUGAR, STICK][(Math.random() * 6) | 0], 1, 2); break;
   }
   const big = e.type === 'ghast' ? 3 : 1;
   if(e.type === 'slime') burstRGB(p.x, p.y + e.h * 0.5, p.z, 0.4, 0.8, 0.3, 14, 0.6);
@@ -10344,6 +10531,7 @@ function killZombie(i){
   if(mode === 'survival' && !z.drowned && Math.random() < 0.08) spawnDropAt(z.pos.x, z.pos.y + 0.5, z.pos.z, Math.random() < 0.5 ? CARROT : POTATO);
   if(mode === 'survival' && z.drowned && Math.random() < 0.05) spawnDropAt(z.pos.x, z.pos.y + 0.5, z.pos.z, NAUTILUS);   // some drowned carry a nautilus shell
   if(mode === 'survival' && z.trident && Math.random() < 0.25) spawnDropAt(z.pos.x, z.pos.y + 0.5, z.pos.z, TRIDENT);
+  if(mode === 'survival' && Math.random() < 0.6) spawnDropAt(z.pos.x, z.pos.y + 0.5, z.pos.z, ROTTEN, 1 + ((Math.random() * 2) | 0));
   removeEnt(zombies, i);
 }
 function updateZombies(dt, daylight){
@@ -10351,7 +10539,7 @@ function updateZombies(dt, daylight){
     const z = zombies[i];
     if(z.pos.distanceToSquared(player.pos) > 110 * 110){ removeEnt(zombies, i); continue; }
     const zWet = z.drowned && isWet(getBlock(Math.floor(z.pos.x), Math.floor(z.pos.y + 0.9), Math.floor(z.pos.z)));
-    if(daylight > 0.5){
+    if(daylight > 0.5 && !z.husk){                 // husks don't burn in the sun
       z.skyT -= dt;
       if(z.skyT <= 0){ z.skyT = 0.5; z.exposed = !zWet && skyExposed(Math.floor(z.pos.x), Math.ceil(z.pos.y + z.h), Math.floor(z.pos.z)); }
       if(z.exposed){
@@ -10374,7 +10562,7 @@ function updateZombies(dt, daylight){
     if(tgt){
       const dx = tgt.pos.x - z.pos.x, dz = tgt.pos.z - z.pos.z, l = tdist || 1;
       z.yaw = Math.atan2(-dx / l, -dz / l);
-      z.speed = 2.3;
+      z.speed = z.baby ? 3.5 : 2.3;
       if(z.trident && tgt === player && tdist > 3 && tdist < 15 && (z.throwCd -= dt) <= 0){
         z.throwCd = 3 + Math.random() * 2;
         const o = new THREE.Vector3(z.pos.x, z.pos.y + 1.5, z.pos.z), aim = new THREE.Vector3(player.pos.x, player.pos.y + 1.2 + tdist * 0.04, player.pos.z).sub(o).normalize();
@@ -10386,7 +10574,7 @@ function updateZombies(dt, daylight){
         z.atkCd = 1.1;
         monsterCall(z,'attack');
         if(tgt === player){
-          if(!shieldBlocks(z.pos)) damage(3);
+          if(!shieldBlocks(z.pos)){ damage(3); if(z.husk && mode === 'survival'){ hunger = Math.max(0, hunger - 2); } }   // a husk's blow leaves you hungry
           player.vel.x += dx / l * 7;
           player.vel.z += dz / l * 7;
           player.vel.y = Math.max(player.vel.y, 4);
@@ -10437,21 +10625,26 @@ function updateZombies(dt, daylight){
 /* =========================== skeletons ============================== */
 const skeletons = [];
 const skelMats = { bone: entMat(0xdcdcd6), dark: entMat(0xa8a8a0), bow: entMat(0x8a6b3a) };
-function spawnSkeleton(x, y, z){
+const strayMats = { bone: entMat(0xb8c4c6), dark: entMat(0x8a9a9c), rag: entMat(0x6d8a92) };
+const boggedMats = { bone: entMat(0xb4b88f), dark: entMat(0x6f7a4c), moss: entMat(0x4e6b2c), cap: entMat(0x9a2a24) };
+function spawnSkeleton(x, y, z, variant){
   const g = new THREE.Group();
   const legs = [], arms = [];
-  box(0.5, 0.5, 0.5, skelMats.bone, 0, 1.7, 0, g);
-  box(0.4, 0.72, 0.18, skelMats.dark, 0, 1.09, 0, g);
+  const stray = variant === 'stray', bogged = variant === 'bogged', SM = stray ? strayMats : bogged ? boggedMats : skelMats;
+  box(0.5, 0.5, 0.5, SM.bone, 0, 1.7, 0, g);
+  box(0.4, 0.72, 0.18, SM.dark, 0, 1.09, 0, g);
+  if(stray){ box(0.46, 0.5, 0.24, SM.rag, 0, 1.2, 0, g); box(0.52, 0.12, 0.52, SM.rag, 0, 1.97, 0, g); }        // ragged, frost-bitten clothes and hood
+  if(bogged){ box(0.52, 0.2, 0.52, SM.moss, 0, 1.97, 0, g); for(const [mx, mz] of [[-0.14, 0.05], [0.16, -0.1]]){ box(0.06, 0.1, 0.06, entMat(0xe6dcc8), mx, 2.12, mz, g); box(0.18, 0.08, 0.18, SM.cap, mx, 2.2, mz, g); } }   // moss and mushrooms
   for(const sx of [-0.3, 0.3])
-    arms.push(box(0.14, 0.14, 0.6, skelMats.bone, sx, 1.34, -0.26, g));
+    arms.push(box(0.14, 0.14, 0.6, SM.bone, sx, 1.34, -0.26, g));
   box(0.08, 0.7, 0.08, skelMats.bow, 0.3, 1.34, -0.58, g);       // bow held out front
   for(const sx of [-0.12, 0.12])
-    legs.push(box(0.14, 0.72, 0.14, skelMats.bone, sx, 0.36, 0, g));
+    legs.push(box(0.14, 0.72, 0.14, SM.bone, sx, 0.36, 0, g));
   scene.add(g);
   skeletons.push({
-    kind: 'skeleton', group: g, legs, arms,
+    kind: 'skeleton', group: g, legs, arms, variant: variant || '', stray, bogged,
     pos: new THREE.Vector3(x, y, z), vel: new THREE.Vector3(),
-    w: 0.3, h: 1.85, hp: 20,
+    w: 0.3, h: 1.85, hp: bogged ? 16 : 20,
     yaw: Math.random() * Math.PI * 2, speed: 0, t: 0.5,
     onGround: false, anim: Math.random() * 9,
     atkCd: 1 + Math.random(), rattleT: 3 + Math.random() * 5, skyT: 0, exposed: false, fireT: 0,
@@ -10467,7 +10660,7 @@ function killSkeleton(i){
   dropXP(s.pos.x, s.pos.y + 1, s.pos.z, 5);
   burstRGB(s.pos.x, s.pos.y + 1, s.pos.z, 0.88, 0.88, 0.82, 14);
   monsterCall(s,'die');
-  if(mode === 'survival' && Math.random() < 0.5) spawnDropAt(s.pos.x, s.pos.y + 0.5, s.pos.z, STICK);
+  if(mode === 'survival' && Math.random() < 0.5) spawnDropAt(s.pos.x, s.pos.y + 0.5, s.pos.z, s.bogged ? MUSHROOMR : STICK);
   if(mode === 'survival'){ const n = (Math.random() * 3) | 0; if(n) spawnDropAt(s.pos.x, s.pos.y + 0.6, s.pos.z, BONE, n); }
   removeEnt(skeletons, i);
 }
@@ -10498,13 +10691,15 @@ function updateSkeletons(dt, daylight){
       else if(distP < 7){ s.yaw += Math.PI; s.speed = 2; }         // back away
       else s.speed = 0;
       if(s.atkCd <= 0 && distP <= 18){
-        s.atkCd = 2.1 + Math.random() * 0.6;
+        s.atkCd = (s.bogged ? 3.5 : 2.1) + Math.random() * 0.6;      // the bogged draws slower
         bowTwang();
         const dy = (player.pos.y + 1.3) - (s.pos.y + 1.4);
         const sp = 15;
         const spread = () => (Math.random() - 0.5) * 1.4;
         spawnArrow(s.pos.x, s.pos.y + 1.4, s.pos.z,
                    dx / l * sp + spread(), dy / l * sp * 0.9 + distP * 0.42 + spread(), dz / l * sp + spread());
+        if(s.stray) arrows[arrows.length - 1].fx = 'slowness';       // a stray's arrows slow you
+        if(s.bogged) arrows[arrows.length - 1].fx = 'poison';        // a bogged's arrows poison you
       }
     } else {
       s.t -= dt;
@@ -10556,7 +10751,7 @@ function updateArrows(dt){
          a.pos.x > p.x - 0.4 && a.pos.x < p.x + 0.4 &&
          a.pos.y > p.y && a.pos.y < p.y + 1.85 &&
          a.pos.z > p.z - 0.4 && a.pos.z < p.z + 0.4){
-        if(!shieldBlocks(a.pos.clone().sub(a.vel.clone().normalize().multiplyScalar(3)))) damage(a.dmg || 3);
+        if(!shieldBlocks(a.pos.clone().sub(a.vel.clone().normalize().multiplyScalar(3)))){ damage(a.dmg || 3); if(a.fx === 'slowness') effects.slowness = Math.max(effects.slowness, 30); if(a.fx === 'poison') effects.poison = Math.max(effects.poison, 4); }
         const l = Math.hypot(a.vel.x, a.vel.z) || 1;
         player.vel.x += a.vel.x / l * 5;
         player.vel.z += a.vel.z / l * 5;
@@ -11911,6 +12106,7 @@ function updateShots(dt){
   }
 }
 function pearlLand(at){
+  if(Math.random() < 0.05 && dim !== 1) setTimeout(() => spawnNetherMob('endermite', at.x, at.y + 0.1, at.z), 100);   // now and then an endermite comes through with you
   // a pearl takes you where it lands - at a price
   burstRGB(player.pos.x, player.pos.y + 1, player.pos.z, 0.5, 0.2, 0.7, 14, 0.8);
   player.pos.set(at.x, Math.floor(at.y) + (isSolid(getBlock(Math.floor(at.x), Math.floor(at.y), Math.floor(at.z))) ? 1 : 0), at.z);
@@ -11983,7 +12179,11 @@ function launchFirework(){
 // right-click / grip with one of the new items; returns true if it was used
 function spawnFromEgg(type, x, y, z){
   if(FANTASY.includes(type) || ['mooshroom','pig','cow','sheep','chicken','horse','wolf','rabbit','fox','llama','goat','axolotl','kangaroo'].includes(type)) return spawnAnimal(type, x, y, z);
-  if(type === 'zombie') return spawnZombie(x, y, z);
+  if(type === 'zombie') return spawnZombie(x, y, z, Math.random() < 0.05 ? 'baby' : undefined);
+  if(type === 'husk' || type === 'zvillager') return spawnZombie(x, y, z, type);
+  if(type === 'stray' || type === 'bogged') return spawnSkeleton(x, y, z, type);
+  if(type === 'cavespider') return spawnSpider(x, y, z, false, true);
+  if(['guardian', 'elder', 'dolphin', 'squid'].includes(type)) return spawnSea(type, x, y + 0.3, z);
   if(type === 'drowned') return spawnZombie(x, y, z, 'drowned');
   if(type === 'skeleton') return spawnSkeleton(x, y, z);
   if(type === 'creeper') return spawnCreeper(x, y, z);
@@ -14291,6 +14491,7 @@ function runMobWorld(dt, daylight){
 function mobExtra(kind, e){
   if(kind === 'animal') return e.type;
   if(kind==='spider')return e.crystal?1:e.cave?2:0;
+  if(kind === 'zombie' || kind === 'skeleton') return e.variant || '';
   if(kind === 'villager') return [e.prof && e.prof.id, e.home[0], e.home[1]];
   if(kind === 'golem') return [e.home[0], e.home[1]];
   if(kind === 'creeper') return e.fuse >= 0 ? 1 : 0;
@@ -14346,8 +14547,8 @@ function makePuppet(kind, row){
   const n = list.length;
   try {
     if(kind === 'animal') spawnAnimal(extra, x, y, z);
-    else if(kind === 'zombie') spawnZombie(x, y, z);
-    else if(kind === 'skeleton') spawnSkeleton(x, y, z);
+    else if(kind === 'zombie') spawnZombie(x, y, z, extra || undefined);
+    else if(kind === 'skeleton') spawnSkeleton(x, y, z, extra || undefined);
     else if(kind === 'creeper') spawnCreeper(x, y, z);
     else if(kind==='spider')spawnSpider(x,y,z,extra===1,extra===2);
     else if(kind === 'enderman') spawnEnderman(x, y, z);
@@ -15598,6 +15799,9 @@ function soakSponge(x, y, z){
 }
 function breakBlock(x, y, z, id){
   triggerViewSwing();
+  if(mode === 'survival' && dim === 0 && ((id === STONE && y > SEA + 40 && Math.random() < 0.01) ||
+     ((id === SBRICK || id === MOSSYBRICK || id === CRACKED) && y < terrainHeight(x, z) - 8 && Math.random() < 0.1)))
+    setTimeout(() => spawnNetherMob('silverfish', x + 0.5, y + 0.05, z + 0.5), 60);   // it was infested
   if(partState.delete(pkey(x, y, z))) savePartState();
   vibrate(x + 0.5, y + 0.5, z + 0.5, true);
   if(id === TRAPDOOR) trapState.delete(x + ',' + y + ',' + z);
@@ -15892,7 +16096,7 @@ const ALL_CREATIVE = (() => {
 // ---- item categories (used to group the creative palette and the crafting list) ----
 const CAT_NAMES = ['Building', 'Nature', 'Ores & Minerals', 'Decoration', 'Utility', 'Tools', 'Combat', 'Food', 'Misc'];
 const _oreBlocks = new Set([RAW_IRON_BLOCK, RAW_GOLD_BLOCK, RAW_COPPER_BLOCK, COALO, IRONO, GOLDO, DIAMO, EMERO, COPPERO, REDSTONE_ORE, LAPIS_ORE, QUARTZ_ORE, DEBRIS, ...Object.keys(DEEP_BASE).map(Number)]);
-const _matItems = new Set([...DYE, COCOA, RESIN_CLUMP, RESIN_BRICK, ECHO_SHARD, HEART_OF_SEA, NAUTILUS, PRISMARINE_SHARD, PRISMARINE_CRYSTALS, INK_SAC, RAW_IRON, RAW_GOLD, RAW_COPPER, REDSTONE, LAPIS, COALI, IRONI, GOLDI, DIAMI, COPPERI, EMERALD, NETHERITE, QUARTZ, AMETHYST_SHARD, GNUGGET, NSCRAP, STICK, STRING, LEATHER, FEATHER, GUNPOWDER, BLAZEROD, BLAZEPOWDER, GHASTTEAR, MAGMACREAM, ENDERPEARL, SLIMEBALL, BONE, BONE_MEAL, HONEYCOMB, PAPER]);
+const _matItems = new Set([PHANTOM_MEMBRANE, ...DYE, COCOA, RESIN_CLUMP, RESIN_BRICK, ECHO_SHARD, HEART_OF_SEA, NAUTILUS, PRISMARINE_SHARD, PRISMARINE_CRYSTALS, INK_SAC, RAW_IRON, RAW_GOLD, RAW_COPPER, REDSTONE, LAPIS, COALI, IRONI, GOLDI, DIAMI, COPPERI, EMERALD, NETHERITE, QUARTZ, AMETHYST_SHARD, GNUGGET, NSCRAP, STICK, STRING, LEATHER, FEATHER, GUNPOWDER, BLAZEROD, BLAZEPOWDER, GHASTTEAR, MAGMACREAM, ENDERPEARL, SLIMEBALL, BONE, BONE_MEAL, HONEYCOMB, PAPER]);
 const _decoBlocks = new Set([...CARPET, SEA_LANTERN, TORCH, SOUL_TORCH, PAINTING, FRAME, FLOWERPOT, LANTERN, JACK_O_LANTERN, CARVED_PUMPKIN, GLOWB, CAMPFIRE]);
 const _utilBlocks = new Set([AQ_CONDUIT, REPEATER, LEVER, BUTTON_STONE, BUTTON_WOOD, PLATE_STONE, PLATE_WOOD, RS_TORCH, LAMP, CHEST, CRAFTT, FURN, BREWING, BARREL, ENDERCHEST, COMPOSTER, GRINDSTONE, NOTEBLOCK, JUKEBOX, ANVIL, SMITHING, CAULDRON, LADDER, FENCE, GATE, GATE_OPEN, BED, BEDHEAD, LIGHTNINGROD, TNT, BOOKSHELF, ENCH_TABLE]);
 const _natureBlocks = new Set([PALE_MOSS, PALE_MOSS_CARPET, PALE_HANGING_MOSS, EYEBLOSSOM_C, PALE_GRASS, CREAKING_HEART, SCULK, SCULK_SENSOR, SCULK_SHRIEKER, SCULK_CATALYST, MYCELIUM, MUSH_STEM, RED_MUSH_BLOCK, BROWN_MUSH_BLOCK, ...OCEAN_PLANTS, ...CORAL_BLOCKS, DEAD_CORALB, ICE, SPONGE, WET_SPONGE, GRASS, DIRT, SAND, REDSAND, GRAVEL, SNOW, PODZOL, CACTUS, DEADBUSH, MUSHROOMR, MUSHROOMB, TGRASSB, POPPYB, DANDB]);
@@ -17059,7 +17263,7 @@ function updateVR(dt){
   const sprintPressed=!!readButtons('left')?.[3]?.pressed;
   if(sprintPressed&&!vrSprintWas)vrSprint=!vrSprint;
   vrSprintWas=sprintPressed;
-  const speed = (player.fly ? (vrSprint?26:16) : swimming?2.6:vrSprint?7.2:4.3) * (effects.speed > 0 && !player.fly ? 1.4 : 1);
+  const speed = (player.fly ? (vrSprint?26:16) : swimming?2.6:vrSprint?7.2:4.3) * (effects.speed > 0 && !player.fly ? 1.4 : 1) * (effects.slowness > 0 && !player.fly ? 0.7 : 1);
   const fwdX = -Math.sin(yaw), fwdZ = -Math.cos(yaw);
   const rgtX =  Math.cos(yaw), rgtZ = -Math.sin(yaw);
   const magnitude=Math.max(1,Math.hypot(dx,dz));
@@ -17581,9 +17785,9 @@ function updateAmbience(dt){
    lava and flame off you, strength adds to every blow, swiftness quickens
    you, regeneration heals, night vision lights the dark and slow falling
    floats you down. */
-const effects = { fire: 0, strength: 0, speed: 0, regen: 0, night: 0, slow: 0, breath: 0, conduit: 0, fatigue: 0, darkness: 0 };
-const EFFECT_NAMES = { fire: 'Fire Resistance', strength: 'Strength', speed: 'Swiftness', regen: 'Regeneration', night: 'Night Vision', slow: 'Slow Falling', breath: 'Water Breathing', conduit: 'Conduit Power', fatigue: 'Mining Fatigue', darkness: 'Darkness' };
-let regenTick = 0, xpT = 0;
+const effects = { fire: 0, strength: 0, speed: 0, regen: 0, night: 0, slow: 0, breath: 0, conduit: 0, fatigue: 0, darkness: 0, slowness: 0, poison: 0 };
+const EFFECT_NAMES = { fire: 'Fire Resistance', strength: 'Strength', speed: 'Swiftness', regen: 'Regeneration', night: 'Night Vision', slow: 'Slow Falling', breath: 'Water Breathing', conduit: 'Conduit Power', fatigue: 'Mining Fatigue', darkness: 'Darkness', slowness: 'Slowness', poison: 'Poison' };
+let regenTick = 0, xpT = 0, poisonTick = 0;
 const fireproof = () => effects.fire > 0;
 function drinkPotion(id){
   const P = POTIONS[id];
@@ -17751,6 +17955,7 @@ function updateEffects(dt){
     if(effects[k] <= 0){ effects[k] = 0; if(k !== 'conduit' && k !== 'darkness') flashName(EFFECT_NAMES[k] + ' has worn off'); }
     else if(effects[k] < 10 && effects[k] + dt >= 10 && k !== 'conduit' && k !== 'darkness') flashName(EFFECT_NAMES[k] + ' is wearing off');
   }
+  if(effects.poison > 0 && !dead){ poisonTick -= dt; if(poisonTick <= 0){ poisonTick = 1.25; if(hp > 1) damage(1, true); } }   // poison wears you down, never below half a heart
   if(effects.regen > 0 && !dead){ regenTick -= dt; if(regenTick <= 0){ regenTick = 2.5; if(hp < 20){ hp = Math.min(20, hp + 1); renderHearts(); } } }
   // a thin coloured shimmer around you shows an effect is on
   if(Math.random() < dt * 3){
@@ -17758,7 +17963,7 @@ function updateEffects(dt){
     if(on.length){
       const pickFx = on[(Math.random() * on.length) | 0];
       const id = Object.keys(POTIONS).find(q => POTIONS[q].fx === pickFx);
-      const c = new THREE.Color(id ? POTIONS[id].col : pickFx === 'conduit' ? '#6ad8f0' : pickFx === 'darkness' ? '#101018' : '#5a6a3a'), pp = player.pos;
+      const c = new THREE.Color(id ? POTIONS[id].col : pickFx === 'conduit' ? '#6ad8f0' : pickFx === 'darkness' ? '#101018' : pickFx === 'slowness' ? '#5a6c81' : pickFx === 'poison' ? '#4e9331' : '#5a6a3a'), pp = player.pos;
       burstRGB(pp.x + (Math.random() - 0.5), pp.y + Math.random() * 1.8, pp.z + (Math.random() - 0.5), c.r, c.g, c.b, 1, 0.2);
     }
   }
@@ -20062,7 +20267,7 @@ function animate(){
   updateWeather(dt);
   updateNetherAir(dt);
   updateAdvancements(dt);
-  if(inGame && !dead){ updateEffects(dt); updateAir(dt); updateConduits(dt); updateSculk(dt); updatePale(dt); }
+  if(inGame && !dead){ updateEffects(dt); updateAir(dt); updateConduits(dt); updateSculk(dt); updatePale(dt); updateNightMobs(dt); }
   updateXPOrbs(dt);
   updateFishing(dt);
   updateShield(dt);
@@ -20397,6 +20602,7 @@ window.__bc = {
   PART_BASE, WALLS, FENCES, partState, partBoxes, placePartial, stairQuads,
   COLORS, DYE, CONCRETE, POWDER, SGLASS, TERRA16, GLAZED, CARPET, WOOL16, hardenNear,
   playerSees, updatePale, paleState: () => ({ blossomOpen, paleHere }),
+  splashes, sinceRestSet: v => { sinceRest = v; }, updateNightMobs, spawnFromEgg,
   mountainBiome, jaggedAt, vnoise, deepDarkAt, cityDef, cityBlock, vibrate, summonWarden, sculkState: () => ({ warnLevel, near: sculkNear.length }), netherMobs, spawnNetherMob,
   monumentDef, monumentBlock, conduitFrame, soakSponge, airState: () => air, effectsNow: () => effects, spawnSea, seaLife, deadElders,
   colInfo, continentAt, waterBiome, wreckDef, ruinDef, treasureDef, wrecksNear, ruinsNear, treasuresNear, nearestTreasure, OCEAN, setOldLand, oldLandKeys: () => oldLandKeys, isWet,
