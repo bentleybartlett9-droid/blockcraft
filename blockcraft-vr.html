@@ -400,7 +400,7 @@ const SPLASHES = ['Punch trees!', 'Now with zombies!', 'Diamonds are deep!', 'On
 document.getElementById('splash').textContent = SPLASHES[Math.floor(Math.random() * SPLASHES.length)];
 {
   const bl = document.getElementById('buildLabel');
-  const label = IS_DESKTOP ? 'Desktop Edition · ' : IS_MOBILE ? 'Mobile Edition · ' : IS_VR ? 'VR · Auto Height + Swing Mining · ' : '';
+  const label = IS_DESKTOP ? 'Desktop Edition · ' : IS_MOBILE ? 'Mobile Edition · ' : IS_VR ? 'VR · New Snow + Seated Gorilla · ' : '';
   if(bl) bl.textContent = label;
 }
 
@@ -1079,7 +1079,8 @@ const T = {GRASS_TOP:0,GRASS_SIDE:1,DIRT:2,STONE:3,SAND:4,LOG_SIDE:5,LOG_TOP:6,L
            SANDSTONE_T:75,PACKEDICE_T:76,PODZOL_T:77,WHITEWOOL_T:78,REDWOOL_T:79,BLUEWOOL_T:80,GREENWOOL_T:81,
            DOOR_T:82,DOORTOP_T:83,
            ENDSTONE_T:84,ENDPORTAL_T:85,DRAGONEGG_T:86,ENDCRYSTAL_T:87,
-           SPAWNER_T:88,RAIL_T:89,COBWEB_T:90,CRACKED_T:91,MOSSYBRICK_T:92,IRONBARS_T:93};
+            SPAWNER_T:88,RAIL_T:89,COBWEB_T:90,CRACKED_T:91,MOSSYBRICK_T:92,IRONBARS_T:93};
+const SNOW_SIDE_TILE = 342;
 const ATLAS_COLS = 8, ATLAS_W = 128, ATLAS_H = 768;   // 384 tiles
 const BLOCKS = {
   [GRASS]:{name:'Grass',  top:T.GRASS_TOP, bottom:T.DIRT, side:T.GRASS_SIDE},
@@ -1092,7 +1093,7 @@ const BLOCKS = {
   [GLASS]:{name:'Glass',  all:T.GLASS},
   [WATER]:{name:'Water',  all:T.WATER},
   [BRICK]:{name:'Bricks', all:T.BRICK},
-  [SNOW] :{name:'Snow',   all:T.SNOW},
+  [SNOW] :{name:'Snow',   top:T.SNOW, bottom:SNOW_SIDE_TILE, side:SNOW_SIDE_TILE},
   [GLOWB]:{name:'Glowstone', all:T.GLOW},
   [COALO]:{name:'Coal Ore',  all:T.COAL},
   [IRONO]:{name:'Iron Ore',  all:T.IRON},
@@ -1740,13 +1741,18 @@ itemAtlas.width = 128; itemAtlas.height = 512;   // 256 icons
     return [base[0]+k, base[1]+Math.floor(k*0.5), base[2]+Math.floor(k*0.5)];
   });
   put(T.SNOW      , (x,y,r) => {
-    if(r() < 0.04) return [255,255,255];                      // sparkling glints
-    const drift = tn(x, y, 0.32, 7);                          // soft wind-blown drifts
-    const grain = tn(x, y, 1.6, 17);                          // fine crystalline grain
-    if(r() < 0.05) return [196, 208, 226];                    // little shadowed dimples
-    const v = drift * 0.6 + grain * 0.25 + r() * 0.15;
-    const c = 214 + Math.floor(v * 32);                       // 214..246: bright, but it reads as ground
-    return [c - 6, c, Math.min(255, c + 10)];                 // cool blue-white, bluer in the shadows
+    const ridge=(Math.sin(x*.82+y*.27)+Math.sin(x*.31-y*.68))*5;
+    const drift=tn(x,y,.22,7)*13,grain=(r()-.5)*8;
+    if(hash(x,y,1771)>.965)return [255,255,255];
+    if(hash(x+4,y-3,1772)<.055)return [198,216,235];
+    const c=Math.max(214,Math.min(250,231+ridge+drift+grain));
+    return [c-5,c,Math.min(255,c+9)];
+  });
+  put(SNOW_SIDE_TILE, (x,y,r) => {
+    if(y<3){const c=244+Math.floor((r()-.5)*8);return [c-3,c,Math.min(255,c+7)];}
+    const wave=Math.sin(x*.72+y*.18)*5,grain=(r()-.5)*9;
+    if(y===5||y===10||y===14){const c=185+Math.floor(wave*.7+grain);return [c-8,c+3,c+21];}
+    const c=Math.max(202,Math.min(240,220+wave+grain));return [c-7,c,c+13];
   });
   put(T.GLASS     , (x,y,r) => {
     if(x===0||x===15||y===0||y===15) return [222,240,246,0.8];
@@ -11890,6 +11896,22 @@ function matClass(id){
   if(isPlant(id) || isLeaf(id)) return 'plant';
   return 'stone';
 }
+let snowStepPhase=0;
+function snowCrunchProfile(kind,phase,P,K){
+  if(kind==='step')return [
+    {f:(phase?760:620)*P,type:'bandpass',q:.7,dur:.085,vol:.26*K,slide:-260},
+    {f:(phase?2500:2150)*P,type:'highpass',dur:.035,vol:.075*K,delay:.018},
+    {f:430*P,type:'lowpass',q:.6,dur:.055,vol:.11*K,slide:-120,delay:.04}
+  ];
+  if(kind==='land')return [
+    {f:520*P,type:'lowpass',q:.55,dur:.13,vol:.34*K,slide:-250},
+    {f:2200*P,type:'highpass',dur:.055,vol:.09*K,delay:.02}
+  ];
+  return [
+    {f:610*P,type:'bandpass',q:.65,dur:.15,vol:.31*K,slide:-300},
+    {f:2750*P,type:'highpass',dur:.05,vol:.065*K,delay:.025}
+  ];
+}
 function blockSfx(id, kind){
   if(!AC) return;
   const K = (kind === 'break' ? 1 : kind === 'place' ? 0.72 : kind === 'land' ? 0.6 : kind === 'mine' ? 0.3 : 0.32) * jr(0.2);
@@ -11906,8 +11928,7 @@ function blockSfx(id, kind){
       playN({ f: 1250 * P, q: 0.6, dur: 0.13, vol: 0.22 * K });
       break;
     case 'snow':
-      playN({ f: 480 * P, type: 'lowpass', q: 0.5, dur: 0.17, vol: 0.3 * K, slide: -240 });   // soft powdery fuff
-      playN({ f: 2700 * P, type: 'highpass', dur: 0.05, vol: 0.05 * K });                      // faint crystal hiss
+      for(const sound of snowCrunchProfile(kind,snowStepPhase++&1,P,K))playN(sound);
       break;
     case 'wood':
       tone(175 * P, 120, 0.07, 'triangle', 0.22 * K);
@@ -14791,8 +14812,8 @@ function updateAvatarArms(){
     upper.visible = fore.visible = !!grip && grip.visible;
     if(!upper.visible) continue;
     const contact=vrMoveMode==='gorilla'&&player.gorillaHold?gHands[hand==='left'?0:1]?.anchor:null;
-    const worldWrist=contact?contact.clone():grip.getWorldPosition(new THREE.Vector3());
-    if(trackedHands[i])trackedHands[i].position.copy(contact?grip.worldToLocal(contact.clone()):new THREE.Vector3());
+    const worldWrist=contact?contact.clone():gorillaHandWorld(grip,new THREE.Vector3());
+    if(trackedHands[i])trackedHands[i].position.copy(grip.worldToLocal(worldWrist.clone()));
     const wrist = vrBody.worldToLocal(worldWrist);
     const shoulder = new THREE.Vector3(side*0.27,-0.24,0);
     const elbow = shoulder.clone().lerp(wrist,0.52);
@@ -14871,6 +14892,7 @@ function updateVRSwingMining(dt){
   if(!xrActive||!inGame||dead||vrCraftOpen||!rightCtrl.userData.inputSource||!tool){resetVRSwing();return;}
   rightCtrl.updateWorldMatrix(true,false);
   const tip=rightCtrl.localToWorld(new THREE.Vector3(0,0,-VR_SWING_TIP));
+  tip.y-=gorillaReachOffset();
   const local=xrRig.worldToLocal(tip.clone());
   if(!vrSwingPrevWorld||!vrSwingPrevLocal||dt<=0||dt>.06){vrSwingPrevWorld=tip;vrSwingPrevLocal=local;return;}
   const physical=local.clone().sub(vrSwingPrevLocal),distance=physical.length(),speed=distance/dt;
@@ -15080,17 +15102,24 @@ const GORILLA_G = 16;
 const GORILLA_THROW = 1.18, GORILLA_MAX = 9, GORILLA_STEP = .35;
 const GORILLA_FLOOR = .15, GORILLA_BODY_H = 1.5, GORILLA_EYE_H = 1.38, GORILLA_PALM = .065, GORILLA_MEMORY = .12;
 const GORILLA_RELEASE_GAP = .018, GORILLA_PRESS_SPEED = .03, GORILLA_DRAG_LIMIT = .18;
-const gHands = Array.from({length:2},()=>({prev:null,anchor:null,n:null,cell:null,tapT:0,releaseT:0,source:null}));
+const gHands = Array.from({length:2},()=>({prev:null,localPrev:null,anchor:null,n:null,cell:null,tapT:0,releaseT:0,source:null}));
 const gHist=[];
-let gYaw=0,gWasHolding=false,gBodyPrev=null,gRigPrev=null,gPrevDt=0;
+let gYaw=0,gWasHolding=false,gBodyPrev=null,gPrevDt=0;
 const _gHead=new THREE.Vector3();
 function vrAutoHeightLift(trackedHeadY,gorilla){
  const target=gorilla?GORILLA_EYE_H:player.eye;
  return Number.isFinite(trackedHeadY)&&trackedHeadY>.3?target-trackedHeadY:(gorilla?-GORILLA_FLOOR:0);
 }
+// Keep Gorilla palms at the player's real-world reach while auto height keeps
+// the head/body consistent. This lets seated and standing players touch the
+// same virtual floor instead of lifting seated hands away from it.
+function gorillaReachOffset(){
+ return vrMoveMode==='gorilla'&&!player.fly?(vrHeightOffset??-GORILLA_FLOOR)+GORILLA_FLOOR:0;
+}
+function gorillaHandWorld(pose,out){pose.getWorldPosition(out);out.y-=gorillaReachOffset();return out;}
 function gorillaReset(){
- for(const h of gHands){h.prev=h.anchor=h.n=h.cell=null;h.releaseT=0;h.source=null;}
- gHist.length=0;gWasHolding=false;gBodyPrev=gRigPrev=null;gPrevDt=0;player.gorillaHold=false;
+ for(const h of gHands){h.prev=h.localPrev=h.anchor=h.n=h.cell=null;h.releaseT=0;h.source=null;}
+ gHist.length=0;gWasHolding=false;gBodyPrev=null;gPrevDt=0;player.gorillaHold=false;
  if(typeof trackedHands!=='undefined')for(const hand of trackedHands)hand.position.set(0,0,0);
 }
 function gorillaActive(swimming){return xrActive&&vrMoveMode==='gorilla'&&!player.fly&&!riding&&!swimming&&!dead;}
@@ -15148,7 +15177,6 @@ function gorillaStep(dt){
  if(!Number.isFinite(dt)||dt<=0)return;
  xrRig.updateMatrixWorld(true);camera.getWorldPosition(_gHead);
  const bodyDelta=gBodyPrev?player.pos.clone().sub(gBodyPrev):new THREE.Vector3();
- const rigDelta=gRigPrev?xrRig.position.clone().sub(gRigPrev):new THREE.Vector3();
  const resetFrame=dt>.06||Math.abs(xrRig.rotation.y-gYaw)>.001||bodyDelta.length()>.8;
  gYaw=xrRig.rotation.y;
  if(resetFrame){gorillaReset();player.vel.set(0,0,0);}
@@ -15156,15 +15184,16 @@ function gorillaStep(dt){
  const impactSpeed=player.vel.y;const push=new THREE.Vector3();let holds=0,unsafe=resetFrame;
  [leftCtrl,rightCtrl].forEach((c,i)=>{
   const h=gHands[i],hand=i?'right':'left';h.tapT-=dt;h.releaseT=Math.max(0,h.releaseT-dt);
-  const grip=controllerGrips[controllers.indexOf(c)],pose=renderer.xr.isPresenting&&grip?grip:c;
-  if(renderer.xr.isPresenting&&(!c.userData.inputSource||!pose.visible)){
-   if(h.anchor)unsafe=true;h.prev=h.anchor=h.n=h.cell=null;return;
-  }
-  const cur=pose.getWorldPosition(new THREE.Vector3());
-  const physicalDelta=h.prev?cur.clone().sub(h.prev).sub(rigDelta):new THREE.Vector3();
-  if(![cur.x,cur.y,cur.z].every(Number.isFinite)){unsafe=true;h.prev=h.anchor=h.n=h.cell=null;return;}
-  if(resetFrame||!h.prev||cur.distanceTo(_gHead)>1.45||physicalDelta.length()>.65||h.source!==c.userData.inputSource){
-   if(h.anchor)unsafe=true;h.prev=cur;h.anchor=h.n=h.cell=null;h.source=c.userData.inputSource;return;
+   const grip=controllerGrips[controllers.indexOf(c)],pose=renderer.xr.isPresenting&&grip?grip:c;
+   if(renderer.xr.isPresenting&&(!c.userData.inputSource||!pose.visible)){
+    if(h.anchor)unsafe=true;h.prev=h.localPrev=h.anchor=h.n=h.cell=null;return;
+   }
+   const raw=pose.getWorldPosition(new THREE.Vector3()),local=xrRig.worldToLocal(raw.clone());
+   const cur=raw.clone();cur.y-=gorillaReachOffset();
+   const physicalDelta=h.localPrev?local.clone().sub(h.localPrev):new THREE.Vector3();
+   if(![cur.x,cur.y,cur.z].every(Number.isFinite)){unsafe=true;h.prev=h.localPrev=h.anchor=h.n=h.cell=null;return;}
+   if(resetFrame||!h.prev||cur.distanceTo(_gHead)>1.45||physicalDelta.length()>.65||h.source!==c.userData.inputSource){
+    if(h.anchor)unsafe=true;h.prev=cur;h.localPrev=local;h.anchor=h.n=h.cell=null;h.source=c.userData.inputSource;return;
   }
   if(h.anchor){
    const id=getBlock(...h.cell),support=gorillaBoxes(id,...h.cell).some(box=>[0,1,2].every(k=>h.anchor.getComponent(k)>=box[k]-GORILLA_PALM-.01&&h.anchor.getComponent(k)<=box[k+3]+GORILLA_PALM+.01));
@@ -15179,7 +15208,7 @@ function gorillaStep(dt){
    if(hit){h.anchor=hit.point;h.n=hit.n;h.cell=hit.cell;hapticPulse(hand,.3,20);if(h.tapT<=0){blockSfx(hit.id,'step');h.tapT=.15;}}
   }
   if(h.anchor){const correction=h.anchor.clone().sub(cur);if(correction.length()>.0025)push.add(correction);holds++;}
-  h.prev=cur;
+   h.prev=cur;h.localPrev=local;
  });
  // A hard landing on the palms counts too; catching a wall still arrests a fall.
  if(holds&&!gWasHolding&&impactSpeed<-2&&gHands.some(h=>h.anchor&&h.n.y>.5)){
@@ -15194,7 +15223,7 @@ function gorillaStep(dt){
   gHist.length=0;
  }
  if(unsafe)gHist.length=0;
- gWasHolding=holds>0;gBodyPrev=player.pos.clone();gRigPrev=xrRig.position.clone();gPrevDt=dt;
+ gWasHolding=holds>0;gBodyPrev=player.pos.clone();gPrevDt=dt;
 }
 
 function updateVR(dt){
@@ -15219,6 +15248,7 @@ function updateVR(dt){
   // place the body under the headset, facing the head's yaw (rig-local space)
   const xrCamB = renderer.xr.getCamera();
   xrRig.updateMatrixWorld(true);
+  if(vrTool){const toolPos=rightCtrl.localToWorld(new THREE.Vector3(0,0,-.12));toolPos.y-=gorillaReachOffset();vrTool.position.copy(rightCtrl.worldToLocal(toolPos));}
   const localHead = camera.position.clone();
   vrBody.position.set(localHead.x, localHead.y, localHead.z);
   const eB = new THREE.Euler().setFromQuaternion(camera.quaternion, 'YXZ');
