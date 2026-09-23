@@ -400,7 +400,7 @@ const SPLASHES = ['Punch trees!', 'Now with zombies!', 'Diamonds are deep!', 'On
 document.getElementById('splash').textContent = SPLASHES[Math.floor(Math.random() * SPLASHES.length)];
 {
   const bl = document.getElementById('buildLabel');
-  const label = IS_DESKTOP ? 'Desktop Edition · ' : IS_MOBILE ? 'Mobile Edition · ' : IS_VR ? 'VR · Swing Mining + Gorilla Arms · ' : '';
+  const label = IS_DESKTOP ? 'Desktop Edition · ' : IS_MOBILE ? 'Mobile Edition · ' : IS_VR ? 'VR · Swing Mining + Headroom Fix · ' : '';
   if(bl) bl.textContent = label;
 }
 
@@ -14503,7 +14503,7 @@ function setVrMoveMode(m){
 }
 const GORILLA_G = 16;
 const GORILLA_THROW = 1.18, GORILLA_MAX = 9, GORILLA_STEP = .35;
-const GORILLA_FLOOR = .5, GORILLA_PALM = .065, GORILLA_MEMORY = .12;
+const GORILLA_FLOOR = .15, GORILLA_BODY_H = 1.78, GORILLA_PALM = .065, GORILLA_MEMORY = .12;
 const GORILLA_RELEASE_GAP = .018, GORILLA_PRESS_SPEED = .03, GORILLA_DRAG_LIMIT = .18;
 const gHands = Array.from({length:2},()=>({prev:null,anchor:null,n:null,cell:null,tapT:0,releaseT:0,source:null}));
 const gHist=[];
@@ -14626,6 +14626,10 @@ function updateVR(dt){
   dbgPanel.visible = false;
   // keep the rig at the player's feet; XR moves the camera within it
   const p = player.pos;
+  // Match the Gorilla collider to a Minecraft-sized player and leave real
+  // headroom. The old half-block floor lift made the unseen collider extend
+  // far above the headset, causing ceiling bumps that looked like empty air.
+  player.h = vrMoveMode === 'gorilla' && !player.fly ? GORILLA_BODY_H : 1.9;
   if(vrHeightOffset === null && camera.position.y > 0.3) vrHeightOffset = player.eye - camera.position.y;
   // gorilla mode is true to scale, with the ground a hand-span above your real
   // floor so a bend reaches it; otherwise your eyes sit at the player's eye
@@ -14807,6 +14811,7 @@ renderer.xr.addEventListener('sessionstart', () => {
 });
 renderer.xr.addEventListener('sessionend', () => {
   xrActive = false;
+  player.h = 1.9;
   RD=Math.min(7,Math.max(2,parseInt(localStorage.getItem(QUEST_DEVICE?'blockcraft-vr-rd':'blockcraft-rd'))||(QUEST_DEVICE?3:5)));curPC=null;applySkyForDim();btnRender.textContent='Render Distance: '+RD;
   vrSelectHeld = vrTrigWas = vrGripWas = false; resetMine(); gorillaReset();
   player.crouchDrop = 0; player.crouching = false;
