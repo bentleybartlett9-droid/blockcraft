@@ -981,6 +981,146 @@ function villagesNear(wx, wz){
   return out;
 }
 
+/* ---- Shipwrecks, ocean ruins and buried treasure, as in Minecraft ----------
+   Shipwrecks lie on the sea floor (or run aground on a beach): a wooden hull
+   with a hold, a deck, a cabin at the stern and a mast - often with the bow
+   broken away - and three chests: supplies, treasure, and a map to buried
+   treasure. Ocean ruins are tumbledown rooms of stone brick (sandstone in warm
+   water), sometimes in clusters, with a chest. Buried treasure is a chest
+   hidden under a beach, holding the Heart of the Sea. */
+const wreckCache = new Map(), ruinCache = new Map(), treasureCache = new Map();
+function cellDef(cache, gx, gz, make){
+  const k = gx + ',' + gz;
+  if(cache.has(k)) return cache.get(k);
+  const v = make();
+  if(cache.size > 4000) cache.clear();
+  cache.set(k, v);
+  return v;
+}
+const WRECK_WOOD = () => [[PLANK, LOG], [SPLANK, SPRUCELOG], [BPLANK, BIRCHLOG], [JPLANK, JUNGLELOG]];
+function wreckDef(gx, gz){ return cellDef(wreckCache, gx, gz, () => {
+  if(GEN_V < 4 || hash(gx, gz, 6101) > 0.55) return null;
+  const x = gx * 240 + 40 + Math.floor(hash(gx, gz, 6102) * 160), z = gz * 240 + 40 + Math.floor(hash(gx, gz, 6103) * 160);
+  const bm = biomeAt(x, z), h = terrainHeight(x, z);
+  const sunk = OCEAN_WATER.has(bm) && !bm.includes('river') && SEA - h >= 8, beached = bm === 'beach' && hash(gx, gz, 6110) < 0.4;
+  if(!sunk && !beached) return null;
+  const w = WRECK_WOOD()[Math.floor(hash(gx, gz, 6104) * 4)];
+  return { x, z, y: h, alongX: hash(gx, gz, 6105) < 0.5, flip: hash(gx, gz, 6106) < 0.5 ? 1 : -1, len: 18 + Math.floor(hash(gx, gz, 6107) * 6),
+           plank: w[0], log: w[1], broken: sunk && hash(gx, gz, 6108) < 0.35, mast: hash(gx, gz, 6109) < 0.75, key: 'wreck:' + gx + ',' + gz };
+}); }
+function ruinDef(gx, gz){ return cellDef(ruinCache, gx, gz, () => {
+  if(GEN_V < 4 || hash(gx, gz, 6201) > 0.6) return null;
+  const x = gx * 176 + 30 + Math.floor(hash(gx, gz, 6202) * 116), z = gz * 176 + 30 + Math.floor(hash(gx, gz, 6203) * 116);
+  const bm = biomeAt(x, z);
+  if(!OCEAN_WATER.has(bm) || bm.includes('river') || SEA - terrainHeight(x, z) < 5) return null;
+  const warm = bm === 'warm-ocean' || bm.includes('lukewarm'), big = hash(gx, gz, 6204) < 0.3;
+  const parts = [];
+  const n = big ? 3 + Math.floor(hash(gx, gz, 6205) * 3) : 1;
+  for(let i = 0; i < n; i++){
+    const px = x + (i ? Math.round((hash(gx, gz, 6210 + i) - 0.5) * 36) : 0), pz = z + (i ? Math.round((hash(gx, gz, 6220 + i) - 0.5) * 36) : 0);
+    const main = i === 0 && big;
+    parts.push({ x: px, z: pz, y: terrainHeight(px, pz), w: main ? 9 + Math.floor(hash(gx, gz, 6230 + i) * 4) : 4 + Math.floor(hash(gx, gz, 6230 + i) * 4),
+                 d: main ? 9 + Math.floor(hash(gx, gz, 6240 + i) * 4) : 4 + Math.floor(hash(gx, gz, 6240 + i) * 4),
+                 tall: main ? 6 : 3 + Math.floor(hash(gx, gz, 6250 + i) * 2), chest: hash(gx, gz, 6260 + i) < (main ? 0.95 : 0.4), key: 'ruin:' + gx + ',' + gz + ':' + i });
+  }
+  return { x, z, warm, parts };
+}); }
+function treasureDef(gx, gz){ return cellDef(treasureCache, gx, gz, () => {
+  if(GEN_V < 4 || hash(gx, gz, 6301) > 0.6) return null;
+  for(let k = 0; k < 16; k++){
+    const x = gx * 192 + Math.floor(hash(gx, gz, 6310 + k) * 192), z = gz * 192 + Math.floor(hash(gx, gz, 6330 + k) * 192);
+    const bm = biomeAt(x, z);
+    if(bm === 'beach' || bm === 'snowy-beach') return { x, z, y: terrainHeight(x, z) - 2, key: 'treasure:' + gx + ',' + gz };
+  }
+  return null;
+}); }
+const cellsNear = (def, size, wx, wz, r = 1) => { const out = [], gx = Math.floor(wx / size), gz = Math.floor(wz / size);
+  for(let a = -r; a <= r; a++) for(let b = -r; b <= r; b++){ const d = def(gx + a, gz + b); if(d) out.push(d); } return out; };
+const wrecksNear = (wx, wz) => cellsNear(wreckDef, 240, wx, wz), ruinsNear = (wx, wz) => cellsNear(ruinDef, 176, wx, wz), treasuresNear = (wx, wz, r) => cellsNear(treasureDef, 192, wx, wz, r);
+// the treasure a buried-treasure map points to: the nearest one
+let treasureAim = null;
+function nearestTreasure(x, z){
+  if(treasureAim && Math.abs(treasureAim.fx - x) < 48 && Math.abs(treasureAim.fz - z) < 48) return treasureAim.t;
+  let best = null, bd = Infinity;
+  for(const t of treasuresNear(x, z, 6)){ const d = (t.x - x) ** 2 + (t.z - z) ** 2; if(d < bd){ bd = d; best = t; } }
+  treasureAim = { fx: x, fz: z, t: best };
+  return best;
+}
+function stampWreck(s, set, cx, cz){
+  const L = s.len, half = L >> 1, x0 = cx * 16, z0 = cz * 16;
+  const at = (u, v) => s.alongX ? [s.x + u * s.flip, s.z + v] : [s.x + v, s.z + u * s.flip];
+  const put = (u, v, dy, id) => { const [wx, wz] = at(u, v); set(wx - x0, s.y + dy, wz - z0, id); };
+  const hollow = dy => s.y + dy <= SEA ? WATER : AIR;
+  const rot = (u, v, dy) => { const [wx, wz] = at(u, v); return hash3(wx, s.y + dy, wz, 6120) < 0.07; };   // planks rotted away
+  const BASE = [0, 1, 2, 3, 3];
+  const width = (u, dy) => Math.min(BASE[dy], Math.floor((half - u) * 0.7), u + half + 1);
+  const bowGone = u => s.broken && u > L / 6 + hash(u, s.x, 6111) * 3;
+  const cabin = u => u <= -half + 4;
+  for(let u = -half; u <= half; u++){
+    if(bowGone(u)) continue;
+    for(let dy = 0; dy <= 4; dy++){
+      const W = width(u, dy);
+      if(W < 0) continue;
+      for(let v = -W; v <= W; v++){
+        const shell = dy === 0 || Math.abs(v) === W || Math.abs(v) > width(u, dy - 1) || u === -half || width(u + 1, dy) < Math.abs(v);
+        if(dy === 4) put(u, v, dy, shell || !(u >= 0 && u <= 1 && v === 0) ? (rot(u, v, dy) ? hollow(dy) : s.plank) : hollow(dy));   // the deck, with its hatch
+        else put(u, v, dy, shell && !rot(u, v, dy) ? s.plank : hollow(dy));
+      }
+    }
+    const W = width(u, 4);
+    if(W >= 1){
+      if(cabin(u)){                                                     // the captain's cabin at the stern
+        for(let dy = 5; dy <= 8; dy++) for(let v = -W; v <= W; v++){
+          const wall = Math.abs(v) === W || u === -half || u === -half + 4;
+          const door = u === -half + 4 && v === 0 && dy <= 6;
+          put(u, v, dy, dy === 8 ? s.plank : wall && !door && !rot(u, v, dy) ? s.plank : hollow(dy));
+        }
+      } else for(const v of [-W, W]) if(!rot(u, v, 5)) put(u, v, 5, FENCE);   // the rail
+    }
+  }
+  if(s.mast){                                                            // the mast and its yard
+    for(let dy = 1; dy <= 13; dy++) put(1, 0, dy, s.log);
+    for(let v = -3; v <= 3; v++) put(1, v, 11, s.log);
+  }
+  const chest = (u, v, dy, kind) => {
+    if(bowGone(u)) return;
+    const [wx, wz] = at(u, v), y = s.y + dy;
+    if(wx < x0 || wx > x0 + 15 || wz < z0 || wz > z0 + 15) return;
+    set(wx - x0, y, wz - z0, CHEST);
+    stockLootChest(wx, y, wz, s.key + ':' + kind, kind);
+  };
+  chest(s.broken ? -1 : half >> 1, 0, 1, 'wreck-supply');
+  chest(-(half >> 1) + 1, 0, 1, 'wreck-treasure');
+  chest(-half + 2, 1, 5, 'wreck-map');
+}
+function stampRuin(r, set, cx, cz){
+  const x0 = cx * 16, z0 = cz * 16;
+  const brick = (x, y, z) => { const q = hash3(x, y, z, 6270);
+    return r.warm ? (q < 0.86 ? SANDSTONE : SAND)
+                  : (q < 0.55 ? SBRICK : q < 0.8 ? MOSSYBRICK : q < 0.95 ? CRACKED : GRAVEL); };
+  for(const p of r.parts){
+    const ax = p.x - (p.w >> 1), az = p.z - (p.d >> 1);
+    if(ax > x0 + 15 || ax + p.w < x0 || az > z0 + 15 || az + p.d < z0) continue;
+    for(let i = 0; i < p.w; i++) for(let k = 0; k < p.d; k++){
+      const wx = ax + i, wz = az + k;
+      if(wx < x0 || wx > x0 + 15 || wz < z0 || wz > z0 + 15) continue;
+      const edge = i === 0 || k === 0 || i === p.w - 1 || k === p.d - 1;
+      const corner = (i === 0 || i === p.w - 1) && (k === 0 || k === p.d - 1);
+      set(wx - x0, p.y, wz - z0, brick(wx, p.y, wz));                  // the floor
+      const top = edge ? (corner ? p.tall : Math.floor(hash(wx, wz, 6271) * (p.tall + 1))) : 0;   // tumbledown walls, corners standing tallest
+      for(let dy = 1; dy <= p.tall; dy++) set(wx - x0, p.y + dy, wz - z0, dy <= top ? brick(wx, p.y + dy, wz) : p.y + dy <= SEA ? WATER : AIR);
+    }
+    if(p.chest){
+      const wx = ax + 1, wz = az + 1;
+      if(wx >= x0 && wx <= x0 + 15 && wz >= z0 && wz <= z0 + 15){ set(wx - x0, p.y + 1, wz - z0, CHEST); stockLootChest(wx, p.y + 1, wz, p.key, 'ruin'); }
+    }
+  }
+}
+function stampTreasure(t, set, cx, cz){
+  if(t.x >> 4 !== cx || t.z >> 4 !== cz) return;
+  set(t.x & 15, t.y, t.z & 15, CHEST);
+  stockLootChest(t.x, t.y, t.z, t.key, 'treasure');
+}
 /* ---- desert pyramids (rarer, desert-only structures with a loot chamber) ---- */
 const pyramidCache = new Map();
 function pyramidDef(gx, gz){
@@ -1491,6 +1631,9 @@ const CORALB_SET = new Set(CORAL_BLOCKS);
 BLOCKS[SEAGRASS]={name:'Seagrass',all:342};BLOCKS[KELP]={name:'Kelp',all:343};BLOCKS[SEA_PICKLE]={name:'Sea Pickle',all:359};BLOCKS[ICE]={name:'Ice',all:360};BLOCKS[DEAD_CORALB]={name:'Dead Coral Block',all:361};
 CORAL_NAMES.forEach((n, i) => { BLOCKS[CORALS[i]] = { name: n + ' Coral', all: 344 + i }; BLOCKS[FANS[i]] = { name: n + ' Coral Fan', all: 349 + i }; BLOCKS[CORAL_BLOCKS[i]] = { name: n + ' Coral Block', all: 354 + i }; });
 ITEMS[DRIED_KELP]={name:'Dried Kelp',icon:255,food:1};
+// treasure of the sea: buried treasure holds the Heart of the Sea; drowned and fishing give nautilus shells
+const HEART_OF_SEA=580, NAUTILUS=581, TREASURE_MAP=582;
+ITEMS[HEART_OF_SEA]={name:'Heart of the Sea',icon:256};ITEMS[NAUTILUS]={name:'Nautilus Shell',icon:257};ITEMS[TREASURE_MAP]={name:'Buried Treasure Map',icon:258};
 const OCEAN_PLANTS = new Set([SEAGRASS, KELP, SEA_PICKLE, ...CORALS, ...FANS]);
 const isWet = id => id === WATER || OCEAN_PLANTS.has(id);   // water, or a plant standing in it
 // Deepslate ores: the ores found below Y 0, set in deepslate. Same drops and tools as the plain ore, slower to mine.
@@ -1816,7 +1959,7 @@ function mulberry32(a){
 const atlas = document.createElement('canvas');
 atlas.width = ATLAS_W; atlas.height = ATLAS_H;
 const itemAtlas = document.createElement('canvas');
-itemAtlas.width = 128; itemAtlas.height = 512;   // 256 icons
+itemAtlas.width = 128; itemAtlas.height = 1024;   // 512 icons
 { // redstone dust (250) and lapis lazuli (251)
   const g = itemAtlas.getContext('2d');
   const px = (tile, fn) => { const ox = tile % 8 * 16, oy = (tile / 8 | 0) * 16;
@@ -1839,6 +1982,25 @@ itemAtlas.width = 128; itemAtlas.height = 512;   // 256 icons
     const d = Math.abs(x - 7.5) * 0.9 + Math.abs(y - 7.5) * 1.1 + (hash(x, y, 7405) - 0.5) * 1.5;
     if(d > 7) return null;
     return d > 6 ? [26, 36, 20] : (x * 2 + y) % 5 === 0 ? [74, 92, 44] : [44, 60, 30]; });
+  px(256, (x, y) => {                                                   // Heart of the Sea: a blue orb with a bright core
+    const d = Math.hypot(x - 7.5, y - 7.5);
+    if(d > 6.4) return null;
+    if(d > 5.4) return [16, 40, 96];
+    if(d < 1.8) return [220, 250, 255];
+    if(d < 3.2) return [90, 210, 240];
+    return (x + y) % 4 === 0 ? [60, 150, 220] : [34, 96, 190]; });
+  px(257, (x, y) => {                                                   // nautilus shell: a cream spiral with brown bands
+    const dx = x - 8, dy = y - 8.5, d = Math.hypot(dx, dy), a = Math.atan2(dy, dx);
+    if(d > 6.5) return null;
+    if(d > 5.6) return [120, 90, 70];
+    const band = Math.floor(d * 1.1 + a / Math.PI * 1.6 + 8) % 2;
+    return d < 1.5 ? [90, 60, 44] : band ? [236, 220, 196] : [176, 112, 76]; });
+  px(258, (x, y) => {                                                   // buried treasure map: parchment, a dotted path and a red X
+    if(x < 1 || x > 14 || y < 2 || y > 13) return null;
+    if(x === 1 || x === 14 || y === 2 || y === 13) return [150, 120, 80];
+    if((x - y === 0 || x + y === 19) && x >= 8 && x <= 11) return [200, 30, 30];
+    if(y === 11 - (x >> 1) && x < 8 && x % 2 === 0) return [110, 80, 50];
+    return (x * 3 + y) % 7 === 0 ? [214, 196, 150] : [232, 216, 172]; });
 }
 {
   const tn = (x, y, s, salt) => vnoise(x * s + 37.7, y * s + 11.3, 5000 + salt);
@@ -5370,6 +5532,13 @@ function* genChunkSteps(cx, cz){
        cz * 16 > p.cz + 16 || (cz + 1) * 16 < p.cz - 16) continue;
     stampPyramid(p, set, data, cx, cz);
   }
+  // the sea's structures
+  if(GEN_V >= 4){
+    const mx = cx * 16 + 8, mz = cz * 16 + 8;
+    for(const w of wrecksNear(mx, mz)) if(Math.abs(w.x - mx) < 24 + 8 && Math.abs(w.z - mz) < 24 + 8) stampWreck(w, set, cx, cz);
+    for(const r of ruinsNear(mx, mz)) if(Math.abs(r.x - mx) < 40 && Math.abs(r.z - mz) < 40) stampRuin(r, set, cx, cz);
+    for(const t of treasuresNear(mx, mz)) stampTreasure(t, set, cx, cz);
+  }
   // underground structures: dungeons, mineshafts, strongholds
   for(const d of dungeonsNear(cx * 16 + 8, cz * 16 + 8)){
     if(cx * 16 > d.cx + 8 || (cx + 1) * 16 < d.cx - 8 ||
@@ -5622,6 +5791,20 @@ function stockLootChest(x, y, z, key, kind){
             [NSCRAP, R() < 0.3 ? 1 : 0], [DEBRIS, R() < 0.3 ? 1 : 0], [DIAMI, R() < 0.25 ? 1 + ((R()*2)|0) : 0],
             [QUARTZ, 4 + ((R()*9)|0)], [GOLD_ARMOUR + 3, R() < 0.3 ? 1 : 0], [OBSIDIAN, R() < 0.3 ? 2 + ((R()*4)|0) : 0],
             [SADDLE, R() < 0.25 ? 1 : 0], [CRYING_OBSIDIAN, R() < 0.4 ? 1 + ((R()*3)|0) : 0]];
+  } else if(kind === 'wreck-supply'){
+    loot = [[PAPER, 1 + ((R()*8)|0)], [POTATO, 2 + ((R()*5)|0)], [CARROT, R() < 0.5 ? 2 + ((R()*5)|0) : 0], [WHEATITEM, 4 + ((R()*8)|0)],
+            [COALI, 2 + ((R()*6)|0)], [ROTTEN, R() < 0.6 ? 3 + ((R()*6)|0) : 0], [TNT, R() < 0.3 ? 1 + ((R()*2)|0) : 0], [PUMPKIN, R() < 0.3 ? 1 : 0]];
+  } else if(kind === 'wreck-treasure'){
+    loot = [[IRONI, 1 + ((R()*5)|0)], [GOLDI, 1 + ((R()*5)|0)], [EMERALD, 1 + ((R()*5)|0)], [LAPIS, R() < 0.5 ? 1 + ((R()*10)|0) : 0],
+            [DIAMI, R() < 0.2 ? 1 : 0], [GNUGGET, R() < 0.5 ? 1 + ((R()*10)|0) : 0]];
+  } else if(kind === 'wreck-map'){
+    loot = [[TREASURE_MAP, 1], [PAPER, 1 + ((R()*10)|0)], [FEATHER, 1 + ((R()*5)|0)], [MAP, R() < 0.3 ? 1 : 0]];
+  } else if(kind === 'ruin'){
+    loot = [[COALI, 1 + ((R()*4)|0)], [WHEATITEM, 2 + ((R()*3)|0)], [GNUGGET, 1 + ((R()*3)|0)], [ROTTEN, R() < 0.5 ? 1 : 0],
+            [EMERALD, R() < 0.3 ? 1 : 0], [GOLDEN_APPLE, R() < 0.05 ? 1 : 0], [ROD, R() < 0.2 ? 1 : 0], [TREASURE_MAP, R() < 0.35 ? 1 : 0]];
+  } else if(kind === 'treasure'){
+    loot = [[HEART_OF_SEA, 1], [IRONI, 1 + ((R()*4)|0)], [GOLDI, 1 + ((R()*4)|0)], [EMERALD, R() < 0.5 ? 4 + ((R()*5)|0) : 0],
+            [DIAMI, R() < 0.5 ? 1 + ((R()*2)|0) : 0], [TNT, R() < 0.5 ? 1 + ((R()*2)|0) : 0], [COOKED_COD, R() < 0.5 ? 2 + ((R()*3)|0) : 0]];
   } else if(kind === 'crystal'){
     loot=[[CRYSTALSHARD,3+Math.floor(R()*4)],[IRONI,2],[TORCH,6],[BREAD,2],[DIAMI,R()<.35?1:0]];
   } else if(kind === 'dungeon'){
@@ -8975,6 +9158,7 @@ function killZombie(i){
   burstRGB(z.pos.x, z.pos.y + 1, z.pos.z, 0.35, 0.55, 0.25, 14);
   zombieDie(z);
   if(mode === 'survival' && !z.drowned && Math.random() < 0.08) spawnDropAt(z.pos.x, z.pos.y + 0.5, z.pos.z, Math.random() < 0.5 ? CARROT : POTATO);
+  if(mode === 'survival' && z.drowned && Math.random() < 0.05) spawnDropAt(z.pos.x, z.pos.y + 0.5, z.pos.z, NAUTILUS);   // some drowned carry a nautilus shell
   if(mode === 'survival' && z.trident && Math.random() < 0.25) spawnDropAt(z.pos.x, z.pos.y + 0.5, z.pos.z, TRIDENT);
   removeEnt(zombies, i);
 }
@@ -14454,7 +14638,7 @@ const ALL_CREATIVE = (() => {
 // ---- item categories (used to group the creative palette and the crafting list) ----
 const CAT_NAMES = ['Building', 'Nature', 'Ores & Minerals', 'Decoration', 'Utility', 'Tools', 'Combat', 'Food', 'Misc'];
 const _oreBlocks = new Set([RAW_IRON_BLOCK, RAW_GOLD_BLOCK, RAW_COPPER_BLOCK, COALO, IRONO, GOLDO, DIAMO, EMERO, COPPERO, REDSTONE_ORE, LAPIS_ORE, QUARTZ_ORE, DEBRIS, ...Object.keys(DEEP_BASE).map(Number)]);
-const _matItems = new Set([RAW_IRON, RAW_GOLD, RAW_COPPER, REDSTONE, LAPIS, COALI, IRONI, GOLDI, DIAMI, COPPERI, EMERALD, NETHERITE, QUARTZ, AMETHYST_SHARD, GNUGGET, NSCRAP, STICK, STRING, LEATHER, FEATHER, GUNPOWDER, BLAZEROD, BLAZEPOWDER, GHASTTEAR, MAGMACREAM, ENDERPEARL, SLIMEBALL, BONE, BONE_MEAL, HONEYCOMB, PAPER]);
+const _matItems = new Set([HEART_OF_SEA, NAUTILUS, RAW_IRON, RAW_GOLD, RAW_COPPER, REDSTONE, LAPIS, COALI, IRONI, GOLDI, DIAMI, COPPERI, EMERALD, NETHERITE, QUARTZ, AMETHYST_SHARD, GNUGGET, NSCRAP, STICK, STRING, LEATHER, FEATHER, GUNPOWDER, BLAZEROD, BLAZEPOWDER, GHASTTEAR, MAGMACREAM, ENDERPEARL, SLIMEBALL, BONE, BONE_MEAL, HONEYCOMB, PAPER]);
 const _decoBlocks = new Set([TORCH, SOUL_TORCH, PAINTING, FRAME, FLOWERPOT, LANTERN, JACK_O_LANTERN, CARVED_PUMPKIN, GLOWB, CAMPFIRE]);
 const _utilBlocks = new Set([REPEATER, LEVER, BUTTON_STONE, BUTTON_WOOD, PLATE_STONE, PLATE_WOOD, RS_TORCH, LAMP, CHEST, CRAFTT, FURN, BREWING, BARREL, ENDERCHEST, COMPOSTER, GRINDSTONE, NOTEBLOCK, JUKEBOX, ANVIL, SMITHING, CAULDRON, LADDER, FENCE, GATE, GATE_OPEN, BED, BEDHEAD, LIGHTNINGROD, TNT, BOOKSHELF, ENCH_TABLE]);
 const _natureBlocks = new Set([...OCEAN_PLANTS, ...CORAL_BLOCKS, DEAD_CORALB, ICE, GRASS, DIRT, SAND, REDSAND, GRAVEL, SNOW, PODZOL, CACTUS, DEADBUSH, MUSHROOMR, MUSHROOMB, TGRASSB, POPPYB, DANDB]);
@@ -15804,6 +15988,8 @@ if(IS_VR || BUILD === 'auto'){
 /* ============================ main loop ============================= */
 const hudEl = document.getElementById('hud');
 const tintEl = document.getElementById('watertint');
+const WATER_FOG = new THREE.Color(0x1f4fa8), _waterFog = new THREE.Color(), _eyeW = new THREE.Vector3();
+let eyeWasWet = false;
 const clock = new THREE.Clock();
 let timeOfDay = 0.32, frames = 0, fps = 0, fpsT = 0, hudT = 0, saveT = 0, fluidWakeT=0;
 
@@ -17137,8 +17323,9 @@ function mapDot(wx, wz, col, r){
   msx.fillStyle = '#000'; msx.fillRect(x - r - 0.5, y - r - 0.5, r * 2 + 1, r * 2 + 1);
   msx.fillStyle = col; msx.fillRect(x - r, y - r, r * 2, r * 2);
 }
+let treasureNote = null;
 function updateMap(dt){
-  const holding = inGame && !dead && heldId() === MAP && dim !== 1;
+  const heldMap = heldId(), holding = inGame && !dead && (heldMap === MAP || (heldMap === TREASURE_MAP && dim === 0)) && dim !== 1;
   if(xrActive){
     if(!mapVRAttached && rightCtrl){ rightCtrl.add(mapVR); mapVR.position.set(0, 0.04, -0.14); mapVR.rotation.set(-1.1, 0, 0); mapVRAttached = true; }
     mapVR.visible = holding; mapFlat.visible = false;
@@ -17162,6 +17349,18 @@ function updateMap(dt){
   // the markers
   msx.drawImage(mapBase, 0, 0);
   if(bedSpawn) mapDot(bedSpawn.x, bedSpawn.z, '#e03030', 2);
+  if(heldMap === TREASURE_MAP){                   // X marks the spot - or, off the edge, a red pointer toward it
+    const t = nearestTreasure(cx, cz);
+    if(t){
+      let mx = t.x - mapCx + MAP_N / 2, my = t.z - mapCz + MAP_N / 2;
+      const inside = mx >= 4 && my >= 4 && mx < MAP_N - 4 && my < MAP_N - 4;
+      if(!inside){ const dx = t.x - cx, dz = t.z - cz, k = (MAP_N / 2 - 6) / Math.max(Math.abs(dx), Math.abs(dz)); mx = MAP_N / 2 + dx * k; my = MAP_N / 2 + dz * k; }
+      msx.strokeStyle = '#b01818'; msx.lineWidth = inside ? 2.5 : 2; msx.beginPath();
+      const r = inside ? 4 : 2.5;
+      msx.moveTo(mx - r, my - r); msx.lineTo(mx + r, my + r); msx.moveTo(mx + r, my - r); msx.lineTo(mx - r, my + r); msx.stroke();
+      if(treasureNote !== t.key){ treasureNote = t.key; flashName('X marks the spot - ' + Math.round(Math.hypot(t.x - cx, t.z - cz)) + ' blocks away. Dig under the beach!'); }
+    } else if(treasureNote !== 'none'){ treasureNote = 'none'; flashName('This map shows no treasure near here'); }
+  }
   for(const a of animals) if(a.tamed) mapDot(a.pos.x, a.pos.z, '#f0c040', 1);
   for(const r of remotes.values()) if(r.t && (r.dim | 0) === dim) mapDot(r.t.x, r.t.z, '#4a8af0', 2);
   const look = camera.getWorldDirection(new THREE.Vector3());               // where your head points, VR or not
@@ -18017,7 +18216,7 @@ function fishLoot(){
   const luck = heldEnch('luck'), r = Math.random();
   const treasure = 0.05 + luck * 0.021, junk = 0.1 - luck * 0.025;
   if(r < treasure){
-    const t = [[SADDLE, 1], [BOW, 1], [ROD, 1], [EMERALD, 1 + (Math.random() * 3 | 0)], [DIAMI, 1]][(Math.random() * 5) | 0];
+    const t = [[SADDLE, 1], [BOW, 1], [ROD, 1], [EMERALD, 1 + (Math.random() * 3 | 0)], [DIAMI, 1], [NAUTILUS, 1]][(Math.random() * 6) | 0];
     return t;
   }
   if(r < treasure + junk) return [[LEATHER, 1], [STICK, 1 + (Math.random() * 3 | 0)], [STRING, 1 + (Math.random() * 2 | 0)], [ROTTEN, 1], [WATER_BOTTLE, 1], [GLASS_BOTTLE, 1]][(Math.random() * 6) | 0];
@@ -18382,6 +18581,13 @@ function animate(){
     renderer.setClearColor(skyCol);
     scene.fog.color.copy(skyCol);
   }
+  // with your head under water, as in Minecraft: a deep blue murk that closes in (in VR too)
+  camera.getWorldPosition(_eyeW);
+  if(isWet(getBlock(Math.floor(_eyeW.x), Math.floor(_eyeW.y), Math.floor(_eyeW.z)))){
+    _waterFog.copy(WATER_FOG).multiplyScalar(dim === 0 ? 0.2 + 0.8 * Math.pow(daylight, 0.7) : 0.5);
+    renderer.setClearColor(_waterFog); scene.fog.color.copy(_waterFog);
+    scene.fog.near = 4; scene.fog.far = 52; eyeWasWet = true;
+  } else if(eyeWasWet){ eyeWasWet = false; scene.fog.near = RD * 16 * 0.55; scene.fog.far = RD * 16 * 0.95; }
   matO.color.setScalar(b);
   matT.color.setScalar(b);
   matC.color.setScalar(b);
@@ -18642,7 +18848,7 @@ window.__bc = {
   addTestConn: send => { const c = { open: true, send, peer: 'test', close(){} }; conns.push(c); return c; },
   dropTestConns: () => { conns = conns.filter(c => c.peer !== 'test'); },
   mobLists: () => Object.fromEntries(MOB_LISTS.map(([k, l]) => [k, l.length])),
-  colInfo, continentAt, waterBiome, OCEAN, setOldLand, oldLandKeys: () => oldLandKeys, isWet,
+  colInfo, continentAt, waterBiome, wreckDef, ruinDef, treasureDef, wrecksNear, ruinsNear, treasuresNear, nearestTreasure, OCEAN, setOldLand, oldLandKeys: () => oldLandKeys, isWet,
   atlas, BLOCKS, tileFor, ORE_K, YDISP, CAVE, cavernsNear, dungeonsNear, ravinesNear, leafQueue, keepLeaf, keptLeaves, rs: { place: placeRS, use: useRS, parts: rsParts, power: rsPower, step: dt => updateRedstone(dt), notify: rsNotify },
   stateAt: (kind, k) => ({ comp: composters, cauld: cauldrons, pot: pottedPlants, frame: frameItems }[kind] || new Map()).get(k),
   mpState: () => ({ code: mpRoomCode, status: mpStatusText, conns: conns.length,
