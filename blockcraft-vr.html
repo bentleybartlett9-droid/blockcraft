@@ -1712,8 +1712,12 @@ const EGG_BASE = 410;                      // 410-446
 const APPLE=457, GOLDEN_APPLE=458, CARROT=459, POTATO=460, BAKED_POTATO=461, MILK=462, EGG=463, SUGAR=464,
       CAKE=465, CAKE1=466, CAKE2=467, CAKE3=468, CARROT0=469, CARROT1=470, CARROT2=471, CARROT3=472, POTATO0=473, POTATO1=474, POTATO2=475, POTATO3=476;
 const CAKES = [CAKE, CAKE1, CAKE2, CAKE3], CARROT_STAGES = [CARROT0, CARROT1, CARROT2, CARROT3], POTATO_STAGES = [POTATO0, POTATO1, POTATO2, POTATO3];
+const BEET0=4130,BEET1=4131,BEET2=4132,BEET3=4133,MELON_STEM0=4134,MELON_STEM1=4135,MELON_STEM2=4136,MELON_STEM3=4137,PUMPKIN_STEM0=4138,PUMPKIN_STEM1=4139,PUMPKIN_STEM2=4140,PUMPKIN_STEM3=4141,HOPPER=4142;
+const BEETROOT=4200,BEET_SEEDS=4201,MELON_SEEDS=4202,PUMPKIN_SEEDS=4203,BEET_SOUP=4204,FARM_FEAST=4205,COOKIE=4206;
+const BEET_STAGES=[BEET0,BEET1,BEET2,BEET3],MELON_STAGES=[MELON_STEM0,MELON_STEM1,MELON_STEM2,MELON_STEM3],PUMPKIN_STAGES=[PUMPKIN_STEM0,PUMPKIN_STEM1,PUMPKIN_STEM2,PUMPKIN_STEM3];
+const FARM_CROP_BLOCKS=new Set([...BEET_STAGES,...MELON_STAGES,...PUMPKIN_STAGES]);
 const isCake = id => id >= CAKE && id <= CAKE3;
-const CROP_GROWING = new Set([WHEAT0, WHEAT1, WHEAT2, CARROT0, CARROT1, CARROT2, POTATO0, POTATO1, POTATO2]);
+const CROP_GROWING = new Set([WHEAT0, WHEAT1, WHEAT2, CARROT0, CARROT1, CARROT2, POTATO0, POTATO1, POTATO2,...BEET_STAGES,...MELON_STAGES,...PUMPKIN_STAGES]);
 const BONE=455, BONE_MEAL=456, SHIELD=454, ROD=447, COD=448, SALMON=449, COOKED_COD=450, COOKED_SALMON=451, PUFFERFISH=452, TROPICAL=453;
 const EGG_RUN = 37, EGG_EXTRA = 479;          // eggs past the first 37 carry on from 479
 // eggs past the 38th have their own run of ids (900-929, then 960-) and icons (285-300, then 304-),
@@ -1725,6 +1729,7 @@ const SLIMEBALL=477, SLIME_BLOCK=478, LANTERN=490, CAMPFIRE=491, BEEHIVE=492, BE
 const isFenceish = id => id === FENCE || id === GATE || id === GATE_OPEN || FENCES.has(id);
 const hivesSeen = new Set();           // "x,y,z" of overworld hives the mesher has seen
 const campfires = new Set();            // "dim:x,y,z" of campfires the mesher has seen
+const hopperSeen = new Set();            // loaded hoppers only; keeps the Quest scan tiny
 const NETH_ARMOUR=376,   // 376-379: netherite armour
       BOW=380, ARROW_I=381, EYE_ENDER=382, ELYTRA=383, FIREWORK=384, PAPER=385, CHORUS_FRUIT=386,
       POPPED_CHORUS=387, SHULKER_SHELL=388, SADDLE=389, FUNGUS_STICK=390;
@@ -2372,6 +2377,12 @@ ITEMS[POTATO]={name:'Potato',icon:170,food:1,plant:POTATO0};ITEMS[BAKED_POTATO]=
 ITEMS[EGG]={name:'Egg',icon:173};ITEMS[SUGAR]={name:'Sugar',icon:174};
 BLOCKS[CAKE]={name:'Cake',top:262,bottom:263,side:261};for(const c of [CAKE1,CAKE2,CAKE3])BLOCKS[c]={name:'Cake',top:262,bottom:263,side:261};
 CARROT_STAGES.forEach((c,i)=>BLOCKS[c]={name:'Carrots',all:264+i,cross:true});POTATO_STAGES.forEach((c,i)=>BLOCKS[c]={name:'Potatoes',all:268+i,cross:true});
+BEET_STAGES.forEach((c,i)=>BLOCKS[c]={name:'Beetroot',all:1230+i,cross:true});
+MELON_STAGES.forEach((c,i)=>BLOCKS[c]={name:'Melon Stem',all:1234+i,cross:true});
+PUMPKIN_STAGES.forEach((c,i)=>BLOCKS[c]={name:'Pumpkin Stem',all:1238+i,cross:true});
+BLOCKS[HOPPER]={name:'Hopper',all:1242};
+Object.assign(ITEMS,{[BEETROOT]:{name:'Beetroot',icon:49,food:1,sat:1.2},[BEET_SEEDS]:{name:'Beetroot Seeds',icon:35,plant:BEET0},[MELON_SEEDS]:{name:'Melon Seeds',icon:35,plant:MELON_STEM0},[PUMPKIN_SEEDS]:{name:'Pumpkin Seeds',icon:35,plant:PUMPKIN_STEM0},[BEET_SOUP]:{name:'Beetroot Soup',icon:51,food:6,sat:7.2,mealFx:['regen',6]},[FARM_FEAST]:{name:'Harvest Feast',icon:50,food:10,sat:12,mealFx:['strength',45]},[COOKIE]:{name:'Cookie',icon:41,food:2,sat:.4,mealFx:['speed',15]}});
+Object.assign(ITEMS[PORKC],{sat:9.6});Object.assign(ITEMS[MUTTONC],{sat:9.6});Object.assign(ITEMS[BEEFC],{sat:12.8});Object.assign(ITEMS[CHICKENC],{sat:7.2});Object.assign(ITEMS[BREAD],{sat:6});Object.assign(ITEMS[BAKED_POTATO],{sat:6});Object.assign(ITEMS[PUMPKINPIE],{sat:4.8});Object.assign(ITEMS[BERRYPIE],{sat:7.2,mealFx:['speed',20]});Object.assign(ITEMS[VEGSTEW],{sat:10.8,mealFx:['regen',5]});
 ITEMS[BONE]={name:'Bone',icon:165};ITEMS[BONE_MEAL]={name:'Bone Meal',icon:166};ITEMS[SHIELD]={name:'Shield',icon:164,tool:{type:'shield',tier:3}};ITEMS[ROD]={name:'Fishing Rod',icon:157,tool:{type:'rod',tier:1}};ITEMS[COD]={name:'Raw Cod',icon:158,food:2};ITEMS[SALMON]={name:'Raw Salmon',icon:159,food:2};
 ITEMS[COOKED_COD]={name:'Cooked Cod',icon:160,food:5};ITEMS[COOKED_SALMON]={name:'Cooked Salmon',icon:161,food:6};
 ITEMS[PUFFERFISH]={name:'Pufferfish',icon:162,food:1};ITEMS[TROPICAL]={name:'Tropical Fish',icon:163,food:1};ITEMS[GLASS_BOTTLE]={name:'Glass Bottle',icon:107};ITEMS[WATER_BOTTLE]={name:'Water Bottle',icon:108};
@@ -2413,7 +2424,7 @@ function removeArmour(slot){
 const nameOf = id => BLOCKS[id]?.name || ITEMS[id]?.name || 'Empty';
 const isPlant  = id => isSapling(id) || FLORA_IDS.has(id) || id === TGRASSB || id === POPPYB || id === DANDB || id === DEADBUSH ||
                        id === MUSHROOMR || id === MUSHROOMB || id === EYEBLOSSOM_C || id === EYEBLOSSOM_O ||
-                       id === WHEAT0 || id === WHEAT1 || id === WHEAT2 || id === WHEAT3 || (id >= CARROT0 && id <= POTATO3) || CAVE_PLANTS.has(id) || NETHER_PLANTS.has(id);
+                       id === WHEAT0 || id === WHEAT1 || id === WHEAT2 || id === WHEAT3 || (id >= CARROT0 && id <= POTATO3) || FARM_CROP_BLOCKS.has(id) || CAVE_PLANTS.has(id) || NETHER_PLANTS.has(id);
 const isCross  = id => id === PALE_HANGING_MOSS || OCEAN_PLANTS.has(id) || id === AQ_CONDUIT || id === RS_TORCH || id === RS_TORCH_OFF || id===GLOWCRYSTAL || isPlant(id) || id === TORCH || id === COBWEB || id === IRONBARS || CAVE_CROSS.has(id) || NETHER_CROSS.has(id);
 const isFlat   = id => CARPETS.has(id) || id === PALE_MOSS_CARPET || (id >= LEVER && id <= PLATE_WOOD) || id === RS_WIRE || id === REPEATER || id === BED || id === BEDHEAD || id === RAIL || id === SNOW_LAYER || id === LADDER || id === PAINTING || id === FRAME || id === FLOWERPOT || isCake(id) || id === LANTERN || id === CAMPFIRE;   // thin plate on the ground (or, for a ladder, on a wall)
 const isSlab   = id => SLABS.has(id) || id === SLAB_STONE || id === SLAB_WOOD || id === SLAB_BRICK || id === SLAB_SAND || id === SLAB_NBRICK;
@@ -2476,7 +2487,7 @@ function toolClassOf(id){
   if(id === SKYGRASS || id === CLOUD) return 'shovel';
   if(id === ENCH_TABLE) return 'pick';
   if(id === LADDER || id === CAMPFIRE || id === PAINTING) return 'axe';
-  if(id === LANTERN || id === ANVIL) return 'pick';
+  if(id === LANTERN || id === ANVIL || id === HOPPER) return 'pick';
   if(id === COMPOSTER) return 'axe';
   if(id === GRINDSTONE) return 'pick';
   if(id === NOTEBLOCK) return 'axe';
@@ -2714,7 +2725,12 @@ RECIPES.push(
  {out:[VEGSTEW,1],in:[[MUSHROOMB,1],[MUSHROOMR,1],[WHEATITEM,1]],st:'table'},
  {out:[COALI,1],in:[[EXTRA_WOODS.map(w=>w.log).concat([LOG,BIRCHLOG,SPRUCELOG,JUNGLELOG]),1]],st:'furnace'},
  {out:[PUMPKINPIE,1],in:[[PUMPKIN,1],[WHEATITEM,2]],st:'table'},
- {out:[BREAD,1],in:[[WHEATITEM,3]]});
+ {out:[BREAD,1],in:[[WHEATITEM,3]]},
+ {out:[BEET_SOUP,1],in:[[BEETROOT,6],[BOWL,1]],st:'table'},
+ {out:[FARM_FEAST,1],in:[[BEETROOT,2],[CARROT,2],[BAKED_POTATO,1],[BREAD,1]],st:'table'},
+ {out:[COOKIE,8],in:[[WHEATITEM,2],[SUGAR,1]],st:'table'},
+ {out:[MELON_SEEDS,4],in:[[MELON,1]]},{out:[PUMPKIN_SEEDS,4],in:[[PUMPKIN,1]]},
+ {out:[HOPPER,1],in:[[IRONI,5],[CHEST,1]],st:'table'});
 ARMOUR_SETS.forEach((set,t)=>ARMOUR_SLOTS.forEach((slot,j)=>RECIPES.push(set.upgrade?{out:[set.base+j,1],in:[[set.upgrade+j,1],[set.material,1]],st:'table'}:{out:[set.base+j,1],in:[[set.material,[5,8,7,4][j]]],st:'table'})));
 RECIPES.push({out:[COPPERI,1],in:[[COPPERO,1],[COALI,1]],st:'furnace'},{out:[COPPERB,1],in:[[COPPERI,9]],st:'table'},
   {out:[COPPERI,9],in:[[COPPERB,1]]},{out:[AMETHYST,1],in:[[AMETHYST_SHARD,4]]},{out:[DRIPSTONE,1],in:[[DRIP_UP,4]]});
@@ -3443,6 +3459,9 @@ itemAtlas.width = 128; itemAtlas.height = 1024;   // 512 icons
       if(style==='shulker'){ const seam=y===7||y===8, rim=x<2||x>13||y<2||y>13; return seam?tone(edge,-5):rim?tone(edge,8):tone(c,g); }
       return tone(c,g); };
     MC_BLOCKS.forEach(([id,name,tile,source,style,color],i)=>put(tile,mcPx(style,color,2400+i*13)));
+    const cropPx=(kind,stage)=>(x,y,r)=>{const stem=Math.abs(x-7.5)<1.7||Math.abs(y-7.5)<1.2;if(!stem&&r()>.11+stage*.08)return[0,0,0,0];const ripe=stage===3;if(kind==='beet')return ripe&&y<7?[142+(r()*20|0),34,45,1]:[45,105+stage*25,42,1];return ripe?[112+stage*14,150+stage*18,45,1]:[82+stage*12,112+stage*15,40,1];};
+    BEET_STAGES.forEach((id,i)=>put(1230+i,cropPx('beet',i)));MELON_STAGES.forEach((id,i)=>put(1234+i,cropPx('melon',i)));PUMPKIN_STAGES.forEach((id,i)=>put(1238+i,cropPx('pumpkin',i)));
+    put(1242,(x,y,r)=>{const rim=x<2||x>13||y<2||y>13,slot=y<6&&x>3&&x<12,k=(r()-.5)*14;return slot?[25,27,30]:rim?[92+k,94+k,99+k]:[62+k,64+k,70+k];});
   }
   { // the deep dark
     const q = r => Math.floor((r() - 0.5) * 14);
@@ -7188,7 +7207,7 @@ function stampFarm(hs, setW){
     else {
       const water = (dx === Math.floor(w / 2));
       setW(wx, y0, wz, water ? WATER : FARMLAND);
-      if(!water){ const pick = GEN_V >= 3 ? hash(hs.x, hs.z, 8621) : 0; setW(wx, y0 + 1, wz, pick < 0.5 ? WHEAT3 : pick < 0.75 ? CARROT3 : POTATO3, true); }
+      if(!water){ const pick = GEN_V >= 3 ? hash(hs.x, hs.z, 8621) : 0; setW(wx, y0 + 1, wz, pick < 0.1 ? BEET3 : pick < 0.5 ? WHEAT3 : pick < 0.75 ? CARROT3 : POTATO3, true); }
     }
   }
 }
@@ -7721,6 +7740,7 @@ function* buildChunkSteps(c,reuseLight=false){
       continue;
     }
     if((b === BEEHIVE || b === BEEHIVE_FULL) && dim === 0) hivesSeen.add((wx0 + lx) + ',' + y + ',' + (wz0 + lz));
+    if(b===HOPPER)hopperSeen.add(dim+':'+(wx0+lx)+','+y+','+(wz0+lz));
     if(b === CAMPFIRE){
       if(dim === 0 || dim === 1 || dim === 3) campfires.add(dim + ':' + (wx0 + lx) + ',' + y + ',' + (wz0 + lz));
       const nlF = light ? sampleLight(light, lx, y + 1, lz) : 15, llF = 0.3 + (nlF / 15) * 0.7;
@@ -8822,7 +8842,7 @@ function eatHeld(){
   if(!food) return false;
   if(hunger >= 20){ flashName('Hunger is full'); return false; }
   const ateName = nameOf(s.id), ateId = s.id;
-  hunger=Math.min(20,hunger+food);saturation=Math.min(hunger,saturation+food*.65);
+  hunger=Math.min(20,hunger+food);saturation=Math.min(hunger,saturation+(ITEMS[s.id]?.sat ?? food*.65));
   renderHearts();
   s.count--;
   if(s.count <= 0){ s.id = 0; s.count = 0; s.dur = 0; }
@@ -8837,6 +8857,8 @@ function eatHeld(){
   if(ateId === HONEY_BOTTLE) addItem(GLASS_BOTTLE);
   if(ateId === MUSH_STEW && mode === 'survival') addItem(BOWL);          // the bowl comes back
   if(ateId === GOLDEN_APPLE){ effects.regen = Math.max(effects.regen, 12); hp = Math.min(20, hp + 4); renderHearts(); }
+  const meal=ITEMS[ateId]?.mealFx;if(meal){effects[meal[0]]=Math.max(effects[meal[0]]||0,meal[1]);flashName(nameOf(ateId)+' gave '+EFFECT_NAMES[meal[0]]);}
+  if(ateId===BEET_SOUP) addItem(BOWL);
   return true;
 }
 function trySleep(bx, by, bz){
@@ -13507,7 +13529,7 @@ const VIL_PROF = [
   { id:'farmer', name:'Farmer', robe:0x8a6a3f, badge:0xd9c06a, hat:0xd9c06a, voice:210, trades:[
       {in:[[WHEATITEM,16]],out:[EMERALD,1]}, {in:[[MELONSLICE,10]],out:[EMERALD,1]},
       {in:[[EMERALD,1]],out:[BREAD,6]}, {in:[[EMERALD,1]],out:[MELONSLICE,4]},
-      {in:[[CARROT,20]],out:[EMERALD,1]}, {in:[[EMERALD,2]],out:[HONEYCOMB,3]} ]},
+      {in:[[CARROT,20]],out:[EMERALD,1]}, {in:[[BEETROOT,15]],out:[EMERALD,1]}, {in:[[EMERALD,1]],out:[BEET_SEEDS,8]}, {in:[[EMERALD,2]],out:[HONEYCOMB,3]} ]},
   { id:'librarian', name:'Librarian', robe:0xd6d0c0, badge:0x6d5f8a, hat:0, voice:250, trades:[
       {in:[[STRING,12]],out:[EMERALD,1]}, {in:[[EMERALD,1]],out:[GLASS,6]},
       {in:[[EMERALD,3]],out:[BOOKSHELF,2]}, {in:[[EMERALD,1]],out:[TORCH,8]}, {in:[[PAPER,24]],out:[EMERALD,1]},
@@ -13747,6 +13769,11 @@ function updateVillagerSpawns(dt){
     }
   }
 }
+function farmerWork(e,dt){
+  if(e.prof?.id!=='farmer'||daylightOf(timeOfDay)<.35)return false;e.farmT=(e.farmT||2)-dt;if(e.farmT>0)return false;e.farmT=3+Math.random()*4;
+  let best=null,bd=49;for(let dz=-6;dz<=6;dz++)for(let dx=-6;dx<=6;dx++)for(let y=Math.floor(e.pos.y)-1;y<=Math.floor(e.pos.y)+2;y++){const id=getBlock(Math.floor(e.pos.x)+dx,y,Math.floor(e.pos.z)+dz),st=cropStages(id);if(!st||st===MELON_STAGES||st===PUMPKIN_STAGES||st.indexOf(id)!==3)continue;const d=dx*dx+dz*dz;if(d<bd){bd=d;best={x:Math.floor(e.pos.x)+dx,y,z:Math.floor(e.pos.z)+dz,id};}}
+  if(!best)return false;const dx=best.x+.5-e.pos.x,dz=best.z+.5-e.pos.z,l=Math.hypot(dx,dz)||1;e.yaw=Math.atan2(-dx/l,-dz/l);if(l>2.2){e.speed=1.15;e.farmT=.6;return true;}harvestCropAt(best.x,best.y,best.z,best.id,true);burstRGB(best.x+.5,best.y+.5,best.z+.5,.45,.8,.25,7,.5);villagerVoice(e,'yes');return true;
+}
 function updateVillagers(dt){
   for(let i = villagers.length - 1; i >= 0; i--){
     const e = villagers[i];
@@ -13779,6 +13806,8 @@ function updateVillagers(dt){
       e.speed = 4;
       e.hmT -= dt;
       if(e.hmT <= 0){ e.hmT = 1.2; villagerVoice(e, 'no'); }  // panic cry
+    } else if(!night && farmerWork(e,dt)){
+      // the farmer is walking to, harvesting or replanting a ripe crop
     } else if(night){
       // curfew: get back to your own doorstep and settle
       const dhx = e.home[0] - e.pos.x, dhz = e.home[1] - e.pos.z, dh = Math.hypot(dhx, dhz);
@@ -17766,8 +17795,17 @@ function updateRedstone(dt){
   }
 }
 const WHEAT_STAGES = [WHEAT0, WHEAT1, WHEAT2, WHEAT3];
-const cropStages = id => WHEAT_STAGES.includes(id) ? WHEAT_STAGES : CARROT_STAGES.includes(id) ? CARROT_STAGES : POTATO_STAGES.includes(id) ? POTATO_STAGES : null;
-const cropSeed = st => st === CARROT_STAGES ? CARROT : st === POTATO_STAGES ? POTATO : SEEDS;
+const cropStages = id => WHEAT_STAGES.includes(id) ? WHEAT_STAGES : CARROT_STAGES.includes(id) ? CARROT_STAGES : POTATO_STAGES.includes(id) ? POTATO_STAGES : BEET_STAGES.includes(id) ? BEET_STAGES : MELON_STAGES.includes(id) ? MELON_STAGES : PUMPKIN_STAGES.includes(id) ? PUMPKIN_STAGES : null;
+const cropSeed = st => st === CARROT_STAGES ? CARROT : st === POTATO_STAGES ? POTATO : st === BEET_STAGES ? BEET_SEEDS : st === MELON_STAGES ? MELON_SEEDS : st === PUMPKIN_STAGES ? PUMPKIN_SEEDS : SEEDS;
+function cropFruit(st){return st===MELON_STAGES?MELON:st===PUMPKIN_STAGES?PUMPKIN:0;}
+function harvestCropAt(x,y,z,id,replant=false){
+  const st=cropStages(id);if(!st)return false;const ripe=st.indexOf(id)===3,seed=cropSeed(st);
+  if(st===WHEAT_STAGES){if(ripe)spawnDropAt(x+.5,y+.3,z+.5,WHEATITEM,1);spawnDropAt(x+.35,y+.3,z+.5,SEEDS,ripe?1+(Math.random()*3|0):1);}
+  else if(st===CARROT_STAGES||st===POTATO_STAGES){spawnDropAt(x+.5,y+.3,z+.5,st===CARROT_STAGES?CARROT:POTATO,ripe?2+(Math.random()*3|0):1);}
+  else if(st===BEET_STAGES){if(ripe)spawnDropAt(x+.5,y+.3,z+.5,BEETROOT,1+(Math.random()*3|0));spawnDropAt(x+.35,y+.3,z+.5,BEET_SEEDS,ripe?1+(Math.random()*3|0):1);}
+  else spawnDropAt(x+.5,y+.3,z+.5,seed,1+(ripe?(Math.random()*2|0):0));
+  if(replant){setBlock(x,y,z,st[0]);addCrop(x,y,z);}else{setBlock(x,y,z,AIR);removeCrop(x,y,z);}return true;
+}
 
 /* ------------------------ boats & minecarts ------------------------ */
 const vehicles = [];
@@ -18072,12 +18110,13 @@ function addCrop(x, y, z){
 function removeCrop(x, y, z){ crops.delete(x + ',' + y + ',' + z); }
 function updateCrops(dt){
   for(const c of crops.values()){
-    if(c.stage >= 3) continue;
-    // only grow if the block is still our wheat and has light (day) / near player loaded
+    // only grow if the block is still a crop and has light (day) / near player loaded
     const here = getBlock(c.x, c.y, c.z), st = cropStages(here);
     if(!st){ crops.delete(c.x + ',' + c.y + ',' + c.z); continue; }
     c.stage = st.indexOf(here);
-    if(c.stage >= 3) continue;
+    if(c.stage >= 3){
+      const fruit=cropFruit(st);if(!fruit)continue;c.t-=dt*(daylightOf(timeOfDay)>.4?1:.35);if(c.t<=0){c.t=20+Math.random()*25;const dirs=[[1,0],[-1,0],[0,1],[0,-1]].sort(()=>Math.random()-.5);for(const [dx,dz] of dirs){const below=getBlock(c.x+dx,c.y-1,c.z+dz);if(getBlock(c.x+dx,c.y,c.z+dz)===AIR&&[FARMLAND,DIRT,GRASS,SAVGRASS].includes(below)){setBlock(c.x+dx,c.y,c.z+dz,fruit);break;}}}continue;
+    }
     if(getBlock(c.x, c.y - 1, c.z) !== FARMLAND){    // support removed -> pop off
       setBlock(c.x, c.y, c.z, AIR);
       if(mode === 'survival') spawnDropAt(c.x + 0.5, c.y + 0.3, c.z + 0.5, cropSeed(st), 1);
@@ -18355,27 +18394,8 @@ function breakBlock(x, y, z, id){
   }
   burst(x, y, z, tileFor(id, 0));
   blockSfx(id, 'break');
-  if(CARROT_STAGES.includes(id) || POTATO_STAGES.includes(id)){
-    removeCrop(x, y, z);
-    if(mode === 'survival'){
-      const item = CARROT_STAGES.includes(id) ? CARROT : POTATO, ripe = id === CARROT3 || id === POTATO3;
-      spawnDropAt(x + 0.5, y + 0.4, z + 0.5, item, ripe ? 2 + ((Math.random() * 3) | 0) : 1);
-    }
-    return;
-  }
-  // crops: drop seeds always, wheat only when fully grown
-  if(id === WHEAT0 || id === WHEAT1 || id === WHEAT2 || id === WHEAT3){
-    removeCrop(x, y, z);
-    if(mode === 'survival'){
-      if(id === WHEAT3){
-        spawnDropAt(x + 0.5, y + 0.4, z + 0.5, WHEATITEM, 1);
-        spawnDropAt(x + 0.3, y + 0.4, z + 0.5, SEEDS, 1 + Math.floor(Math.random() * 2));
-      } else {
-        spawnDropAt(x + 0.5, y + 0.4, z + 0.5, SEEDS, 1);
-      }
-    }
-    return;
-  }
+  if(cropStages(id)){ if(mode==='survival')harvestCropAt(x,y,z,id,false); else {setBlock(x,y,z,AIR);removeCrop(x,y,z);} return; }
+  if(id===MELON&&mode==='survival'){for(let n=0;n<3+(Math.random()*5|0);n++)spawnDropAt(x+.5,y+.4,z+.5,MELONSLICE,1);return;}
   if(id === FLOWERPOT){
     const pl = pottedPlants.get(x + ',' + y + ',' + z);
     if(pl && mode === 'survival') spawnDropAt(x + 0.5, y + 0.4, z + 0.5, pl, 1);
@@ -18386,8 +18406,8 @@ function breakBlock(x, y, z, id){
     if(e && e.item && mode === 'survival') spawnDropAt(x + 0.5, y + 0.5, z + 0.5, e.item, 1);
     frameItems.delete(x + ',' + y + ',' + z); saveFrames();
   }
-  if(id === CHEST || id === COPPER_CHEST || id === BARREL){
-    const key = x + ',' + y + ',' + z;
+  if(id === CHEST || id === COPPER_CHEST || id === BARREL || id===HOPPER){
+    const key = id===HOPPER?'hopper:'+dim+':'+x+','+y+','+z:x + ',' + y + ',' + z;
     const sl = chests[key];
     if(sl){
       for(const s of sl) if(s.id && s.count > 0) spawnDropAt(x + 0.5, y + 0.6, z + 0.5, s.id, s.count);
@@ -18447,6 +18467,7 @@ function doPlace(){
     if(hit.id === TRAPDOOR){ toggleTrap(hit.x, hit.y, hit.z); triggerViewSwing(); return; }
     if(useRS(hit)) return;
     if(hit.id === CHEST || hit.id === COPPER_CHEST || hit.id === BARREL){ openChest(hit.x, hit.y, hit.z); return; }
+    if(hit.id===HOPPER){openChest(hit.x,hit.y,hit.z,'hopper:'+dim+':'+hit.x+','+hit.y+','+hit.z);return;}
     if(hit.id === ENDERCHEST){ openChest(hit.x, hit.y, hit.z, 'ender'); return; }
     if(hit.id === TNT){ igniteTNT(hit.x, hit.y, hit.z); return; }
     if(hit.id === ENCH_TABLE && mode === 'survival'){ openEnchant(hit); return; }
@@ -22382,6 +22403,17 @@ function updateCampfires(dt){
     if(Math.random() < 0.04 && Math.hypot(x - player.pos.x, z - player.pos.z) < 10) playN({ f: 1800, type: 'highpass', dur: 0.05, vol: 0.05 });   // a crackle
   }
 }
+/* ============================== HOPPERS ============================== */
+let hopperT=0;
+function stackInto(slots,id,n){let moved=0;for(const s of slots){if(s.id===id&&s.count<64){const q=Math.min(n,64-s.count);s.count+=q;n-=q;moved+=q;if(!n)return moved;}}for(const s of slots){if(!s.id||s.count<=0){const q=Math.min(n,64);s.id=id;s.count=q;s.dur=0;n-=q;moved+=q;if(!n)return moved;}}return moved;}
+function updateHoppers(dt){
+  hopperT-=dt;if(hopperT>0)return;hopperT=.25;
+  for(const key of [...hopperSeen]){const [dd,rest]=key.split(':'),[x,y,z]=rest.split(',').map(Number);if(+dd!==dim)continue;if(getBlock(x,y,z)!==HOPPER){hopperSeen.delete(key);continue;}if(Math.abs(x-player.pos.x)>48||Math.abs(z-player.pos.z)>48)continue;
+    const hk='hopper:'+key,slots=chestSlots(hk);
+    for(let i=drops.length-1;i>=0;i--){const d=drops[i];if(Math.abs(d.pos.x-(x+.5))<.8&&Math.abs(d.pos.z-(z+.5))<.8&&d.pos.y>=y&&d.pos.y<y+1.8){const moved=stackInto(slots,d.id,d.n||1);if(moved){d.n=(d.n||1)-moved;chestsDirty=true;if(d.n<=0){scene.remove(d.mesh);drops.splice(i,1);}}}}
+    const below=getBlock(x,y-1,z);if(below===CHEST||below===COPPER_CHEST||below===BARREL){const out=chestSlots(x+','+(y-1)+','+z),src=slots.find(q=>q.id&&q.count>0);if(src&&stackInto(out,src.id,1)){src.count--;if(src.count<=0){src.id=0;src.count=0;src.dur=0;}chestsDirty=true;}}
+  }
+}
 /* ============================== FARMING ==============================
    Till with a hoe, plant seeds, carrots or potatoes on farmland, milk a
    cow with a bucket (milk clears every effect), and eat cake a slice at a
@@ -23180,6 +23212,7 @@ function animate(){
   if(inGame) updatePetsWorld(dt);
   if(inGame) updateHerd(dt);
   if(inGame) updateCampfires(dt);
+  if(inGame) updateHoppers(dt);
   if(inGame) updateCauldrons(dt);
   updateSeaLife(dt);
   updateBees(dt);
