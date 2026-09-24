@@ -2516,6 +2516,21 @@ BLOCKS[TRIAL_SPAWNER]={name:'Trial Spawner',all:704};BLOCKS[VAULT]={name:'Vault'
 ITEMS[TRIAL_KEY]={name:'Trial Key',icon:382};ITEMS[BREEZE_ROD]={name:'Breeze Rod',icon:383};ITEMS[WIND_CHARGE]={name:'Wind Charge',icon:384};
 ITEMS[HEAVY_CORE]={name:'Heavy Core',icon:385};ITEMS[MACE]={name:'Mace',icon:386,tool:{type:'mace',tier:4}};ITEMS[TRIAL_MAP]={name:'Trial Explorer Map',icon:387};
 const MANSION_MAP = 946; ITEMS[MANSION_MAP] = { name: 'Woodland Explorer Map', icon: 391 };
+/* Redstone machinery, as in Minecraft: pistons and sticky pistons, dispensers,
+   droppers and observers. Each faces one way, kept in its redstone part. */
+const PISTON = 5500, STICKY_PISTON = 5501, PISTON_HEAD = 5502, STICKY_HEAD = 5503, DISPENSER = 5504, DROPPER = 5505, OBSERVER = 5506;
+const MT = { side: 723, face: 724, sticky: 725, back: 726, inner: 727, rod: 728, disp: 729, drop: 730, obs: 731, obsBack: 732, obsOn: 733, obsSide: 734 };
+BLOCKS[PISTON] = { name: 'Piston', top: MT.face, bottom: MT.back, side: MT.side };
+BLOCKS[STICKY_PISTON] = { name: 'Sticky Piston', top: MT.sticky, bottom: MT.back, side: MT.side };
+BLOCKS[PISTON_HEAD] = { name: 'Piston Head', all: MT.face }; BLOCKS[STICKY_HEAD] = { name: 'Sticky Piston Head', all: MT.sticky };
+BLOCKS[DISPENSER] = { name: 'Dispenser', top: 734, bottom: 734, side: MT.disp };
+BLOCKS[DROPPER] = { name: 'Dropper', top: 734, bottom: 734, side: MT.drop };
+BLOCKS[OBSERVER] = { name: 'Observer', top: MT.obsSide, bottom: MT.obsSide, side: MT.obs };
+const MACH_FACED = new Set([PISTON, STICKY_PISTON, DISPENSER, DROPPER, OBSERVER]);
+const isPistonHead = id => id === PISTON_HEAD || id === STICKY_HEAD;
+const isContainerBlock = id => id === CHEST || id === COPPER_CHEST || id === BARREL || id === DISPENSER || id === DROPPER;
+let mechReady = false, mechMoving = false;
+
 /* Armour trims, as in Minecraft: smithing templates found in the world's
    structures. At a smithing table, a template and a trim material (iron,
    copper, gold, lapis, emerald, diamond, netherite, redstone, amethyst or
@@ -2994,7 +3009,7 @@ function faceVisible(b, n){
   if(b === GLASS) return n === WATER;
   return !isOpaque(n);
 }
-const dropOf = id => id===CREAKING_HEART_ON?CREAKING_HEART:id===PALE_GRASS?DIRT:id===EYEBLOSSOM_O?EYEBLOSSOM_C:id===MYCELIUM?DIRT:id===SEA_LANTERN?PRISMARINE_CRYSTALS:CORALB_SET.has(id)?DEAD_CORALB:id===RS_WIRE?REDSTONE:id===RS_TORCH_OFF?RS_TORCH:id===LAMP_ON?LAMP:DEEP_BASE[id] ? dropOf(DEEP_BASE[id]) : id===IRONO?RAW_IRON:id===GOLDO?RAW_GOLD:id===COPPERO?RAW_COPPER:id===REDSTONE_ORE?REDSTONE:id===LAPIS_ORE?LAPIS:id===STONE?COBBLE:id===BEDHEAD?BED:id===BEEHIVE_FULL?BEEHIVE:id===GATE_OPEN?GATE:id===SKYGRASS?STORMSTONE:id===VOLTITE_ORE?VOLTITE:id===CONDUIT_LIT?CONDUIT:id===CHORUS_PLANT?CHORUS_FRUIT:id===ANCHOR_LIT?ANCHOR:id===CRIM_NYL||id===WARP_NYL?NETHERRACK:id===QUARTZ_ORE?QUARTZ:id===NGOLD_ORE?GNUGGET:id===GILDED?(Math.random()<.1?GNUGGET:GILDED):id===SNOWY_GRASS?DIRT:id===GLOWVINE?BERRIES:id===AMETHYST_C||id===BUDDING?AMETHYST_SHARD:id===DRIP_DOWN?DRIP_UP:id===BERRYBUSH?BERRIES:id===CRYSTALORE||id===GLOWCRYSTAL?CRYSTALSHARD:id === GRASS || id === SAVGRASS || id === FARMLAND ? DIRT : id === COALO ? COALI : id === DIAMO ? DIAMI :
+const dropOf = id => id===PISTON_HEAD?PISTON:id===STICKY_HEAD?STICKY_PISTON:id===CREAKING_HEART_ON?CREAKING_HEART:id===PALE_GRASS?DIRT:id===EYEBLOSSOM_O?EYEBLOSSOM_C:id===MYCELIUM?DIRT:id===SEA_LANTERN?PRISMARINE_CRYSTALS:CORALB_SET.has(id)?DEAD_CORALB:id===RS_WIRE?REDSTONE:id===RS_TORCH_OFF?RS_TORCH:id===LAMP_ON?LAMP:DEEP_BASE[id] ? dropOf(DEEP_BASE[id]) : id===IRONO?RAW_IRON:id===GOLDO?RAW_GOLD:id===COPPERO?RAW_COPPER:id===REDSTONE_ORE?REDSTONE:id===LAPIS_ORE?LAPIS:id===STONE?COBBLE:id===BEDHEAD?BED:id===BEEHIVE_FULL?BEEHIVE:id===GATE_OPEN?GATE:id===SKYGRASS?STORMSTONE:id===VOLTITE_ORE?VOLTITE:id===CONDUIT_LIT?CONDUIT:id===CHORUS_PLANT?CHORUS_FRUIT:id===ANCHOR_LIT?ANCHOR:id===CRIM_NYL||id===WARP_NYL?NETHERRACK:id===QUARTZ_ORE?QUARTZ:id===NGOLD_ORE?GNUGGET:id===GILDED?(Math.random()<.1?GNUGGET:GILDED):id===SNOWY_GRASS?DIRT:id===GLOWVINE?BERRIES:id===AMETHYST_C||id===BUDDING?AMETHYST_SHARD:id===DRIP_DOWN?DRIP_UP:id===BERRYBUSH?BERRIES:id===CRYSTALORE||id===GLOWCRYSTAL?CRYSTALSHARD:id === GRASS || id === SAVGRASS || id === FARMLAND ? DIRT : id === COALO ? COALI : id === DIAMO ? DIAMI :
                      id === EMERO ? EMERALD : id === DEADBUSH ? STICK : id;
 function toolClassOf(id){
   if(MC_WOOD_BLOCKS.has(id)) return 'axe';
@@ -3142,6 +3157,11 @@ const RECIPES = [
   { out: [WAXE, 1],   in: [[ANY_PLANK, 3], [STICK, 2]], st: 'table' },
   { out: [SAXE, 1],   in: [[ANY_COBBLE, 3], [STICK, 2]], st: 'table' },
   { out: [BRUSH, 1],  in: [[FEATHER, 1], [COPPERI, 1], [STICK, 1]], st: 'table' },
+  { out: [PISTON, 1], in: [[ANY_PLANK, 3], [ANY_COBBLE, 4], [IRONI, 1], [REDSTONE, 1]], st: 'table' },
+  { out: [STICKY_PISTON, 1], in: [[PISTON, 1], [SLIMEBALL, 1]] },
+  { out: [DISPENSER, 1], in: [[ANY_COBBLE, 7], [BOW, 1], [REDSTONE, 1]], st: 'table' },
+  { out: [DROPPER, 1], in: [[ANY_COBBLE, 7], [REDSTONE, 1]], st: 'table' },
+  { out: [OBSERVER, 1], in: [[ANY_COBBLE, 6], [REDSTONE, 2], [QUARTZ, 1]], st: 'table' },
   ...TRIM_NAMES.map((n, i) => ({ out: [TRIM0 + i, 2], in: [[TRIM0 + i, 1], [DIAMI, 7], [ANY_COBBLE, 1]], st: 'table' })),
   { out: [IAXE, 1],   in: [[IRONI, 3], [STICK, 2]], st: 'table' },
   { out: [DAXE, 1],   in: [[DIAMI, 3], [STICK, 2]], st: 'table' },
@@ -5762,6 +5782,25 @@ scene.fog = new THREE.Fog(0x87b5e5, RD * 16 * 0.55, RD * 16 * 0.95);
     g.putImageData(out, dx, dy);
   });
 }
+{ // the machines' faces
+  const g = atlas.getContext('2d'), at = t => [t % 8 * 16, Math.floor(t / 8) * 16];
+  const copy = (src, dst, h = 16) => { const [sx, sy] = at(src), [dx, dy] = at(dst); g.drawImage(atlas, sx, sy, 16, h, dx, dy, 16, h); };
+  const rect = (t, x, y, w, h, c) => { const [ox, oy] = at(t); g.fillStyle = c; g.fillRect(ox + x, oy + y, w, h); };
+  const CB = tileFor(COBBLE, 0), PL = tileFor(PLANK, 0);
+  for(const t of Object.values(MT)){ const [ox, oy] = at(t); g.clearRect(ox, oy, 16, 16); }
+  copy(CB, MT.side); copy(PL, MT.side, 4); rect(MT.side, 0, 4, 16, 1, '#3a3a3a');                      // cobblestone, planks along the top
+  copy(PL, MT.face); rect(MT.face, 5, 5, 6, 6, '#9a9a9a'); rect(MT.face, 6, 6, 4, 4, '#6a6a6a');         // the pushing face
+  copy(PL, MT.sticky); for(let i = 0; i < 40; i++) rect(MT.sticky, (i * 7) % 15, (i * 11) % 15, 2, 2, i % 3 ? '#62b84a' : '#8ad86a');   // slime on it
+  copy(CB, MT.back); rect(MT.back, 4, 4, 8, 8, '#4a4a4a'); rect(MT.back, 6, 6, 4, 4, '#8a8a8a');
+  copy(CB, MT.inner); rect(MT.inner, 5, 5, 6, 6, '#222'); rect(MT.inner, 6, 6, 4, 4, '#9a7446');         // the rod's end, extended
+  copy(PL, MT.rod);
+  copy(CB, MT.disp); rect(MT.disp, 4, 4, 8, 7, '#1c1c1c'); rect(MT.disp, 5, 12, 6, 1, '#1c1c1c');        // a dispenser's mouth
+  copy(CB, MT.drop); rect(MT.drop, 5, 5, 6, 6, '#1c1c1c');
+  copy(CB, MT.obs); rect(MT.obs, 0, 0, 16, 16, 'rgba(70,70,78,0.55)'); rect(MT.obs, 2, 5, 5, 4, '#141414'); rect(MT.obs, 9, 5, 5, 4, '#141414'); rect(MT.obs, 5, 11, 6, 2, '#a8a8a8');   // its face
+  copy(CB, MT.obsBack); rect(MT.obsBack, 6, 6, 4, 4, '#3a1212');
+  copy(CB, MT.obsOn); rect(MT.obsOn, 6, 6, 4, 4, '#ff2a2a'); rect(MT.obsOn, 7, 7, 1, 1, '#ffb0b0');
+  copy(CB, MT.obsSide); rect(MT.obsSide, 7, 2, 2, 12, '#707070'); rect(MT.obsSide, 5, 4, 6, 2, '#707070');
+}
 const tex = new THREE.CanvasTexture(atlas);
 tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter;
 tex.generateMipmaps = false; tex.colorSpace = THREE.SRGBColorSpace;
@@ -8054,6 +8093,7 @@ function hardenNear(x, y, z){
 }
 function setBlock(x, y, z, id){
   if(y < 0 || y >= HEIGHT) return;
+  const oldId = mechReady ? getBlock(x, y, z) : 0;
   if(typeof precipTops !== 'undefined' && precipTops.size) precipTops.delete(x + ',' + z);
   const cx = x >> 4, cz = z >> 4, lx = x & 15, lz = z & 15;
   const c = chunkAt(cx, cz); ensureData(c);
@@ -8072,6 +8112,7 @@ function setBlock(x, y, z, id){
   // borders) updates correctly when torches are placed or blocks change.
   for(let dx = -1; dx <= 1; dx++) for(let dz = -1; dz <= 1; dz++) rebuild(chunkAt(cx + dx, cz + dz));
   if(!netApplying && conns.length) mpBroadcast({ t: 'set', x, y, z, id });
+  if(mechReady && oldId !== id) mechChanged(x, y, z, oldId, id);
 }
 const meshQueue=new Map();let activeMeshJob=null;
 // Finish active work, then rebuild again if edits arrived mid-job; never starve flowing water.
@@ -8288,6 +8329,7 @@ function* buildChunkSteps(c,reuseLight=false){
     if(!b) continue;
     if(CROP_GROWING.has(b) && dim === 0 && !crops.has((wx0 + lx) + ',' + y + ',' + (wz0 + lz)) && getBlock(wx0 + lx, y - 1, wz0 + lz) === FARMLAND) addCrop(wx0 + lx, y, wz0 + lz);   // planted before a reload: keep it growing
     if(isCross(b)){ pushCross(b === TORCH || emitsLight(b) ? GC : C, lx, y, lz, tileFor(b, 0), light, isPlant(b) || b === SEAGRASS || b === KELP ? 1 : 0); continue; }
+    if(isPistonHead(b)){ pushPistonHead(O, lx, y, lz, b, wx0 + lx, wz0 + lz, light); continue; }
     if(isPartial(b)){ pushPartial(O, lx, y, lz, b, light, wx0 + lx, wz0 + lz); continue; }
     if(isDoor(b)){ pushDoor(O, lx, y, lz, b, wx0 + lx, wz0 + lz, light); continue; }
     if(b === LADDER){ pushLadder(O, lx, y, lz, gb, light); continue; }
@@ -8523,7 +8565,7 @@ function* buildChunkSteps(c,reuseLight=false){
         }
         continue;
       }
-      pushFace(bucket, gb, lx, y, lz, F, tileFor(b, f), mode, light,b===WATER?flowingHeight(wx0+lx,y,wz0+lz):1);
+      pushFace(bucket, gb, lx, y, lz, F, MACH_FACED.has(b) ? machineTile(b, f, wx0 + lx, y, wz0 + lz) : tileFor(b, f), mode, light,b===WATER?flowingHeight(wx0+lx,y,wz0+lz):1);
     }
   }
   const staged={cx:c.cx,cz:c.cz,light,meshes:[]};let committed=false;
@@ -8618,6 +8660,22 @@ function pushCross(B, lx, y, lz, tile, light, sway=0){
 }
 // Render a slab (half-height box) or stairs (half box + top-back step) as
 // explicit boxes. Textured from the material's source tile, lit like a solid.
+const RS2F = [2, 3, 0, 1, 4, 5];                                             // a redstone direction to a mesh face
+function machineTile(b, f, wx, y, wz){
+  const p = rsParts.get(rsKey(wx, y, wz)), F = RS2F[p ? p.face | 0 : 1], piston = b === PISTON || b === STICKY_PISTON;
+  if(f === F) return piston ? (p && p.ext ? MT.inner : b === STICKY_PISTON ? MT.sticky : MT.face) : b === DISPENSER ? MT.disp : b === DROPPER ? MT.drop : MT.obs;
+  if(f === (F ^ 1)) return b === OBSERVER ? (p && p.on ? MT.obsOn : MT.obsBack) : piston ? MT.back : tileFor(COBBLE, 0);
+  return b === OBSERVER ? MT.obsSide : piston ? MT.side : tileFor(COBBLE, 0);
+}
+function pushPistonHead(B, lx, y, lz, b, wx, wz, light){
+  const p = rsParts.get(rsKey(wx, y, wz)), d = RS_DIRS[p ? p.face | 0 : 1], ll = light ? 0.2 + (sampleLight(light, lx, y, lz) / 15) * 0.8 : 1;
+  const a = d[0] ? 0 : d[1] ? 1 : 2, sg = d[a], base = [lx, y, lz];
+  const plate = [[lx, y, lz], [lx + 1, y + 1, lz + 1]], rod = [[lx + 0.375, y + 0.375, lz + 0.375], [lx + 0.625, y + 0.625, lz + 0.625]];
+  plate[0][a] = base[a] + (sg > 0 ? 0.75 : 0); plate[1][a] = base[a] + (sg > 0 ? 1 : 0.25);
+  rod[0][a] = base[a] + (sg > 0 ? -0.25 : 0.25); rod[1][a] = base[a] + (sg > 0 ? 0.75 : 1.25);
+  pushBox(B, b === STICKY_HEAD ? MT.sticky : MT.face, ...plate[0], ...plate[1], ll);
+  pushBox(B, MT.rod, ...rod[0], ...rod[1], ll);
+}
 function pushBox(B, tile, x0, y0, z0, x1, y1, z1, ll){
   // 6 faces of an axis-aligned box; UVs map to the tile, brightness = ll * face shade
   const faces = [
@@ -13990,7 +14048,7 @@ function explode(x, y, z, radius, dmgMax, fromNet){
     (edits[ck] = edits[ck] || {})[(bx & 15) + ',' + by + ',' + (bz & 15)] = AIR;
     touched.add(ck);
     if(b === TNT){ if(!fromNet) igniteTNT(bx, by, bz, 0.3 + Math.random() * 0.6, true); }
-    else if(b === CHEST || b === COPPER_CHEST || b === BARREL){
+    else if(isContainerBlock(b)){
       const key = bx + ',' + by + ',' + bz;
       if(chests[key]){
         for(const s of chests[key]) if(s.id && s.count > 0) spawnDropAt(bx + 0.5, by + 0.5, bz + 0.5, s.id, s.count);
@@ -18347,6 +18405,7 @@ function toggleDoor(x, y, z){
    network around it, never the whole world. */
 const rsParts = (() => { try { return new Map(JSON.parse(localStorage.getItem(SAVE_KEY + '-redstone')) || []); } catch(e){ return new Map(); } })();
 const rsPower = (() => { try { return new Map(JSON.parse(localStorage.getItem(SAVE_KEY + '-rspower')) || []); } catch(e){ return new Map(); } })();
+mechReady = true;
 const rsLast = new Map(), rsQueue = new Map(), rsFlips = new Map(), rsBurnt = new Map(), rsTicks = new Map();
 let rsDirty = false, rsSaveT = 0, rsPlateT = 0;
 const RS_TICK = 100;                                                     // one redstone tick, ms
@@ -18355,8 +18414,8 @@ const RS_DIRS = [[0,-1,0],[0,1,0],[-1,0,0],[1,0,0],[0,0,-1],[0,0,1]];   // what 
 const RS_H = [[1,0],[-1,0],[0,1],[0,-1]];                               // pairs 0/1 and 2/3 are opposites
 const isRSSourceGen = id => (id >= LEVER && id <= RS_TORCH) || id === REDSTONE_BLOCK;   // power everything around them
 const isRSSource = id => isRSSourceGen(id) || id === REPEATER;
-const isRSConsumer = id => isDoor(id) || id === TRAPDOOR || id === GATE || id === GATE_OPEN || id === LAMP || id === LAMP_ON || id === TNT || id === NOTEBLOCK;
-const isRSAny = id => isRSSource(id) || id === RS_TORCH_OFF || id === RS_WIRE || isRSConsumer(id);
+const isRSConsumer = id => isDoor(id) || id === TRAPDOOR || id === GATE || id === GATE_OPEN || id === LAMP || id === LAMP_ON || id === TNT || id === NOTEBLOCK || id === PISTON || id === STICKY_PISTON || id === DISPENSER || id === DROPPER;
+const isRSAny = id => isRSSource(id) || id === RS_TORCH_OFF || id === RS_WIRE || isRSConsumer(id) || id === OBSERVER;
 const rsPart = (x, y, z) => rsParts.get(rsKey(x, y, z));
 const rsOn = (x, y, z, id) => id === REDSTONE_BLOCK || id === RS_TORCH || !!(rsPart(x, y, z) || {}).on;
 const rsFace = (x, y, z) => (rsPart(x, y, z) || {}).face | 0;
@@ -18364,6 +18423,7 @@ function rsSetPart(x, y, z, part){
   rsParts.set(rsKey(x, y, z), part); rsDirty = true;
   if(!netApplying && conns.length) mpBroadcast({ t: 'rs', x, y, z, p: part });
   rebuild(chunkAt(x >> 4, z >> 4)); rsNotify(x, y, z);
+  if(mechReady) observeAt(x, y, z);                                     // a lever flicked or a piston moving is a change too
 }
 function rsNotify(x, y, z){ rsQueue.set(x + ',' + y + ',' + z, [x, y, z]); }
 function rsSchedule(key, ms, fn){ if(!rsTicks.has(key)) rsTicks.set(key, { at: Date.now() + ms, fn }); }
@@ -18405,6 +18465,7 @@ function rsSolve(ox, oy, oz){
     else if((id === PLATE_STONE || id === PLATE_WOOD) && rsOn(x, y, z, id)) strong.add(K(x, y - 1, z));
     else if(id === RS_TORCH) strong.add(K(x, y + 1, z));
     else if(id === REPEATER && rsOn(x, y, z, id)){ const f = RS_DIRS[rsFace(x, y, z)], fk = K(x + f[0], y, z + f[2]); repOut.add(fk); if(isSolid(idAt(x + f[0], y, z + f[2]))) strong.add(fk); }
+    else if(id === OBSERVER && rsOn(x, y, z, id)){ const f = RS_DIRS[rsFace(x, y, z)], bx = x - f[0], by = y - f[1], bz = z - f[2], bk = K(bx, by, bz); repOut.add(bk); if(isSolid(idAt(bx, by, bz))) strong.add(bk); }   // out of its back
   }
   // a torch never powers the block it hangs on
   const torchOn = (x, y, z, tx, ty, tz) => { const f = RS_DIRS[rsFace(tx, ty, tz)]; return !(tx + f[0] === x && ty + f[1] === y && tz + f[2] === z); };
@@ -18471,7 +18532,9 @@ function rsSolve(ox, oy, oz){
     const dk = rsKey(x, y, z), on = id === DOOR ? poweredAt(x, y, z) || poweredAt(x, y + 1, z) : poweredAt(x, y, z), was = !!rsLast.get(dk);
     rsLast.set(dk, on);
     if(id === LAMP || id === LAMP_ON){ const want = on ? LAMP_ON : LAMP; if(want !== id) setBlock(x, y, z, want); continue; }
-    if(on === was) continue;                                            // act on changes: a powered door can still be worked by hand
+    if(id === PISTON || id === STICKY_PISTON){ const pp = rsPart(x, y, z); if(pp && !!pp.ext !== on) rsSchedule('p' + k, RS_TICK, () => pistonAct(x, y, z, on)); continue; }
+    if(on === was) continue;
+    if((id === DISPENSER || id === DROPPER) && on){ rsSchedule('d' + k, RS_TICK * 2, () => dispense(x, y, z)); continue; }                                            // act on changes: a powered door can still be worked by hand
     if(isDoor(id)){ if(getDoorInfo(x, y, z).open !== on) toggleDoor(x, y, z); }
     else if(id === TRAPDOOR){ if(getTrapInfo(x, y, z).open !== on) toggleTrap(x, y, z); }
     else if(id === GATE || id === GATE_OPEN){ const want = on ? GATE_OPEN : GATE; if(want !== id){ setBlock(x, y, z, want); blockSfx(PLANK, on ? 'break' : 'place'); } }
@@ -18479,6 +18542,159 @@ function rsSolve(ox, oy, oz){
     else if(id === NOTEBLOCK && on) playNote(x, y, z, noteBlocks.get(x + ',' + y + ',' + z) | 0);
   }
   for(const ck of remesh){ const [cx, cz] = ck.split(',').map(Number); rebuild(chunkAt(cx, cz)); }
+}
+
+/* ---- the machines' workings ---- */
+MC_TRANSPARENT_BLOCKS.add(PISTON_HEAD); MC_TRANSPARENT_BLOCKS.add(STICKY_HEAD);   // a head doesn't hide what's behind it
+// which way a machine faces when you put it down: toward you (an observer looks away, at what you clicked)
+function placeFace(id){
+  const v = camera.getWorldDirection(new THREE.Vector3()), ax = Math.abs(v.x), ay = Math.abs(v.y), az = Math.abs(v.z);
+  let f = ay > ax && ay > az ? (v.y < 0 ? 1 : 0) : ax > az ? (v.x > 0 ? 2 : 3) : (v.z > 0 ? 4 : 5);
+  if(id === OBSERVER) f ^= 1;
+  return f;
+}
+function mechChanged(x, y, z, oldId, id){
+  const key = rsKey(x, y, z);
+  if(MACH_FACED.has(oldId) && oldId !== id){
+    const p = rsParts.get(key);
+    if((oldId === PISTON || oldId === STICKY_PISTON) && p && p.ext && !mechMoving){   // a broken piston takes its head with it
+      const d = RS_DIRS[p.face | 0], hx = x + d[0], hy = y + d[1], hz = z + d[2];
+      if(isPistonHead(getBlock(hx, hy, hz))){ mechMoving = true; setBlock(hx, hy, hz, AIR); mechMoving = false; rsParts.delete(rsKey(hx, hy, hz)); }
+    }
+    rsParts.delete(key); rsDirty = true;
+  }
+  if(isPistonHead(oldId) && !isPistonHead(id)){
+    const p = rsParts.get(key);
+    if(p && !mechMoving){                                               // break the head and the piston goes too (the head drops the piston)
+      const d = RS_DIRS[p.face | 0], bx = x - d[0], by = y - d[1], bz = z - d[2];
+      if(getBlock(bx, by, bz) === PISTON || getBlock(bx, by, bz) === STICKY_PISTON){ mechMoving = true; setBlock(bx, by, bz, AIR); mechMoving = false; rsParts.delete(rsKey(bx, by, bz)); }
+    }
+    rsParts.delete(key); rsDirty = true;
+  }
+  if(MACH_FACED.has(id) && !mechMoving && !netApplying && !rsParts.has(key)) rsSetPart(x, y, z, { face: placeFace(id), on: false, ext: false });
+  observeAt(x, y, z);
+}
+// an observer watching (x, y, z) sees it change and gives a short pulse out of its back
+function observeAt(x, y, z){
+  for(let i = 0; i < 6; i++){
+    const d = RS_DIRS[i], ox = x - d[0], oy = y - d[1], oz = z - d[2];
+    if(getBlock(ox, oy, oz) !== OBSERVER) continue;
+    const p = rsPart(ox, oy, oz);
+    if(!p || (p.face | 0) !== i || p.pend || p.on) continue;
+    p.pend = true;
+    const k = rsKey(ox, oy, oz);
+    rsSchedule('oa' + k, RS_TICK, () => {
+      const q = rsPart(ox, oy, oz); if(!q || getBlock(ox, oy, oz) !== OBSERVER) return;
+      q.pend = false; q.on = true; rsSetPart(ox, oy, oz, q);
+      rsSchedule('ob' + k, RS_TICK * 2, () => { const r = rsPart(ox, oy, oz); if(r && r.on){ r.on = false; rsSetPart(ox, oy, oz, r); } });
+    });
+  }
+}
+const PISTON_FIXED = () => new Set([OBSIDIAN, CRYING_OBSIDIAN, BEDROCK, CHEST, COPPER_CHEST, BARREL, ENDERCHEST, FURN, BREWING, ENCH_TABLE, SPAWNER, BEACON, ANVIL, CAULDRON,
+  JUKEBOX, NOTEBLOCK, HOPPER, DISPENSER, DROPPER, VAULT, TRIAL_SPAWNER, END_FRAME, REINFORCED, ANCHOR, BED, BEDHEAD, PISTON_HEAD, STICKY_HEAD, FRAME, CRAFTT]);
+let pistonFixed = null;
+function pistonMovable(b, x, y, z){
+  pistonFixed = pistonFixed || PISTON_FIXED();
+  if(!isSolid(b) || pistonFixed.has(b) || isPartial(b) || isDoor(b) || BLAST_PROOF.has(b)) return false;
+  if((b === PISTON || b === STICKY_PISTON) && (rsPart(x, y, z) || {}).ext) return false;   // an extended piston stays put
+  return true;
+}
+// shove whatever stands where blocks have just moved to
+function pistonShove(cells, d){
+  const inCells = (p, h, w) => cells.some(([cx, cy, cz]) => p.x + w > cx && p.x - w < cx + 1 && p.z + w > cz && p.z - w < cz + 1 && p.y + h > cy && p.y < cy + 1);
+  if(!dead && inCells(player.pos, player.h, player.w)){
+    player.pos.x += d[0]; player.pos.z += d[2]; player.pos.y += d[1] > 0 ? 1.02 : d[1];
+    if(d[1] > 0) player.vel.y = Math.max(player.vel.y, 0);
+    fallPeak = player.pos.y;
+  }
+  for(const list of POT_TARGETS()) for(const m of list) if(m.pos && inCells(m.pos, m.h || 1.5, m.w || 0.3)){ m.pos.x += d[0]; m.pos.y += d[1]; m.pos.z += d[2]; }
+}
+function pistonAct(x, y, z, extend){
+  const id = getBlock(x, y, z); if(id !== PISTON && id !== STICKY_PISTON) return;
+  const pp = rsPart(x, y, z); if(!pp || !!pp.ext === extend) return;
+  const d = RS_DIRS[pp.face | 0], at = n => [x + d[0] * n, y + d[1] * n, z + d[2] * n];
+  const touched = [[x, y, z]];
+  if(extend){
+    const line = []; let smash = null;
+    for(let n = 1; n <= 13; n++){
+      const [cx, cy, cz] = at(n), b = getBlock(cx, cy, cz);
+      if(cy <= 0 || cy >= HEIGHT - 1) return;
+      if(b === AIR || isLiquid(b)) break;
+      if(!isSolid(b)){ smash = [cx, cy, cz, b]; break; }                  // plants, torches, dust: knocked off
+      if(!pistonMovable(b, cx, cy, cz) || line.length >= 12) return;      // too heavy, or too many
+      line.push([cx, cy, cz, b]);
+    }
+    mechMoving = true;
+    if(smash){ const [bx, by, bz, bb] = smash; if(mode === 'survival' && dropOf(bb)) spawnDropAt(bx + 0.5, by + 0.4, bz + 0.5, dropOf(bb), 1); setBlock(bx, by, bz, AIR); rsParts.delete(rsKey(bx, by, bz)); touched.push([bx, by, bz]); }
+    const moved = [];
+    for(let i = line.length - 1; i >= 0; i--){
+      const [cx, cy, cz, b] = line[i], nx = cx + d[0], ny = cy + d[1], nz = cz + d[2];
+      setBlock(nx, ny, nz, b);
+      const ok = rsKey(cx, cy, cz), part = rsParts.get(ok);
+      if(part){ rsParts.delete(ok); rsParts.set(rsKey(nx, ny, nz), part); }
+      moved.push([nx, ny, nz]); touched.push([nx, ny, nz]);
+    }
+    const [hx, hy, hz] = at(1);
+    setBlock(hx, hy, hz, id === STICKY_PISTON ? STICKY_HEAD : PISTON_HEAD);
+    rsParts.set(rsKey(hx, hy, hz), { face: pp.face | 0 });
+    mechMoving = false;
+    pp.ext = true; rsSetPart(x, y, z, pp);
+    pistonShove([...moved, [hx, hy, hz]], d);
+    playN({ f: 320, type: 'lowpass', dur: 0.14, vol: 0.28 }); tone(190, 140, 0.08, 'square', 0.05);
+  } else {
+    const [hx, hy, hz] = at(1), [tx, ty, tz] = at(2);
+    mechMoving = true;
+    if(isPistonHead(getBlock(hx, hy, hz))){ setBlock(hx, hy, hz, AIR); rsParts.delete(rsKey(hx, hy, hz)); }
+    if(id === STICKY_PISTON){                                           // a sticky piston pulls the block back with it
+      const b = getBlock(tx, ty, tz);
+      if(b !== AIR && pistonMovable(b, tx, ty, tz)){
+        setBlock(hx, hy, hz, b); setBlock(tx, ty, tz, AIR);
+        const part = rsParts.get(rsKey(tx, ty, tz)); if(part){ rsParts.delete(rsKey(tx, ty, tz)); rsParts.set(rsKey(hx, hy, hz), part); }
+      }
+    }
+    mechMoving = false;
+    pp.ext = false; rsSetPart(x, y, z, pp);
+    touched.push([hx, hy, hz], [tx, ty, tz]);
+    playN({ f: 260, type: 'lowpass', dur: 0.12, vol: 0.22 });
+  }
+  rsDirty = true;
+  for(const [a, b, c] of touched){ rsNotify(a, b, c); for(const q of RS_DIRS) rsNotify(a + q[0], b + q[1], c + q[2]); }
+}
+// a dispenser uses what it holds; a dropper just drops it (or passes it into a chest in front)
+function dispense(x, y, z){
+  const id = getBlock(x, y, z); if(id !== DISPENSER && id !== DROPPER) return;
+  const p = rsPart(x, y, z) || { face: 1 }, d = RS_DIRS[p.face | 0], fx = x + d[0], fy = y + d[1], fz = z + d[2];
+  const slots = chestSlots(x + ',' + y + ',' + z), full = [];
+  slots.forEach((q, i) => { if(q.id && q.count > 0) full.push(i); });
+  if(!full.length){ tone(1200, 1300, 0.05, 'square', 0.03); return; }
+  const s = slots[full[(Math.random() * full.length) | 0]], item = s.id, front = getBlock(fx, fy, fz);
+  const take = () => { s.count--; if(s.count <= 0){ s.id = 0; s.count = 0; s.dur = 0; s.ench = undefined; } chestsDirty = true; };
+  const o = new THREE.Vector3(x + 0.5 + d[0] * 0.45, y + 0.5 + d[1] * 0.45, z + 0.5 + d[2] * 0.45), dv = new THREE.Vector3(d[0], d[1], d[2]);
+  const click = () => playN({ f: 1500, type: 'bandpass', dur: 0.05, vol: 0.14 });
+  const spit = () => { take(); spawnDropAt(o.x + d[0] * 0.3, o.y + d[1] * 0.3 - 0.1, o.z + d[2] * 0.3, item, 1); const dr = drops[drops.length - 1]; if(dr && dr.vel) dr.vel.set(d[0] * 4 + (Math.random() - 0.5), d[1] * 4 + 1.2, d[2] * 4 + (Math.random() - 0.5)); click(); };
+  if(id === DROPPER){
+    if(isContainerBlock(front)){ if(stackInto(chestSlots(fx + ',' + fy + ',' + fz), item, 1)){ take(); chestsDirty = true; click(); } return; }
+    spit(); return;
+  }
+  const pi = potInfo(item);
+  if(item === ARROW_I || (pi && pi.form === 'tipped')){
+    take(); launchShot('arrow', o, dv); if(pi) shots[shots.length - 1].pot = pi.k; bowTwang(); return;
+  }
+  if(pi && (pi.form === 'splash' || pi.form === 'linger')){
+    take(); launchShot('potion', o, dv); const sh = shots[shots.length - 1];
+    sh.pot = pi.k; sh.linger = pi.form === 'linger'; sh.vel.setLength(14); sh.vel.y += 2;
+    if(!potMats.has(pi.k)) potMats.set(pi.k, new THREE.MeshBasicMaterial({ color: new THREE.Color(pi.P.col) }));
+    sh.mesh.material = potMats.get(pi.k); sh.mesh.scale.setScalar(0.3); click(); return;
+  }
+  if((item === WATERBUCKET || item === LAVABUCKET) && (front === AIR || isCross(front))){ setBlock(fx, fy, fz, item === WATERBUCKET ? WATER : LAVA); s.id = BUCKET; chestsDirty = true; click(); return; }
+  if(item === BUCKET && (front === WATER || front === LAVA) && s.count === 1){ setBlock(fx, fy, fz, AIR); s.id = front === WATER ? WATERBUCKET : LAVABUCKET; chestsDirty = true; click(); return; }
+  if(item === FLINTSTEEL){
+    if(front === TNT){ igniteTNT(fx, fy, fz); click(); return; }
+    if(front === AIR){ setBlock(fx, fy, fz, FIRE); click(); return; }
+  }
+  if(item === TNT && (front === AIR || isCross(front))){ take(); setBlock(fx, fy, fz, TNT); igniteTNT(fx, fy, fz); click(); return; }
+  if(typeof eggMob === 'function' && eggMob(item) && (front === AIR || isCross(front))){ take(); spawnFromEgg(eggMob(item), fx + 0.5, fy + 0.05, fz + 0.5); click(); return; }
+  spit();
 }
 // a torch flicked more than 8 times in 3 s burns out for a while (Minecraft's torch burnout)
 function rsTorchFlip(x, y, z){
@@ -19193,7 +19409,7 @@ function breakBlock(x, y, z, id){
     if(e && e.item && mode === 'survival') spawnDropAt(x + 0.5, y + 0.5, z + 0.5, e.item, 1);
     frameItems.delete(x + ',' + y + ',' + z); saveFrames();
   }
-  if(id === CHEST || id === COPPER_CHEST || id === BARREL || id===HOPPER){
+  if(isContainerBlock(id) || id===HOPPER){
     const key = id===HOPPER?'hopper:'+dim+':'+x+','+y+','+z:x + ',' + y + ',' + z;
     const sl = chests[key];
     if(sl){
@@ -19253,7 +19469,7 @@ function doPlace(){
     if(isDoor(hit.id)){ toggleDoor(hit.x, hit.y, hit.z); triggerViewSwing(); return; }
     if(hit.id === TRAPDOOR){ toggleTrap(hit.x, hit.y, hit.z); triggerViewSwing(); return; }
     if(useRS(hit)) return;
-    if(hit.id === CHEST || hit.id === COPPER_CHEST || hit.id === BARREL){ openChest(hit.x, hit.y, hit.z); return; }
+    if(isContainerBlock(hit.id)){ openChest(hit.x, hit.y, hit.z); return; }
     if(hit.id===HOPPER){openChest(hit.x,hit.y,hit.z,'hopper:'+dim+':'+hit.x+','+hit.y+','+hit.z);return;}
     if(hit.id === ENDERCHEST){ openChest(hit.x, hit.y, hit.z, 'ender'); return; }
     if(hit.id === TNT){ igniteTNT(hit.x, hit.y, hit.z); return; }
@@ -20323,7 +20539,7 @@ function vrTryPlace(){
     if(isDoor(hit.id)){ toggleDoor(hit.x, hit.y, hit.z); triggerViewSwing(); return; }
     if(hit.id === TRAPDOOR){ toggleTrap(hit.x, hit.y, hit.z); triggerViewSwing(); return; }
     if(useRS(hit)) return;
-    if(hit.id === CHEST || hit.id === COPPER_CHEST || hit.id === BARREL){ openChest(hit.x, hit.y, hit.z); return; }
+    if(isContainerBlock(hit.id)){ openChest(hit.x, hit.y, hit.z); return; }
     if(hit.id === ENDERCHEST){ openChest(hit.x, hit.y, hit.z, 'ender'); return; }
     if(hit.id === TNT){ igniteTNT(hit.x, hit.y, hit.z); return; }
     if(hit.id === ENCH_TABLE && mode === 'survival'){ enchantAt = hit; openCraftVR('enchant'); return; }
@@ -24435,6 +24651,7 @@ window.__bc = {
   playerSees, updatePale, paleState: () => ({ blossomOpen, paleHere }),
   potInfo, POT_KINDS, SPLASH0, LINGER0, TIPPED0, potionBurst, potClouds, applyPotion, potionOnMob, effectsNow2: () => effects,
   biomeVariant, builtNear, VARIANTS, SUNFLOWER, BAMBOO,
+  PISTON, STICKY_PISTON, PISTON_HEAD, STICKY_HEAD, DISPENSER, DROPPER, OBSERVER, pistonAct, dispense, observeAt, machineTile, rsPartAt: (x, y, z) => rsPart(x, y, z), rsSetPartAt: (x, y, z, p) => rsSetPart(x, y, z, p), chestSlotsAt: k => chestSlots(k),
   TRIM0, TRIM_NAMES, TRIM_MATS, trimOf, POT_MODS, eL, effSpeedMul, useSmithing, stackName, updateArmourModel,
   landDef, landsNear, LAND_KINDS, nearestMansion, MANSION_MAP, BRUSH, SHERD0, useBrush, brushLoot, updateLandmarks, templeLever, stampLands,
   splashes, sinceRestSet: v => { sinceRest = v; }, updateNightMobs, spawnFromEgg, useOnFlyer, creativeList, recipeList, mcCat, openCraft, setSlot: (i, id, n = 1, ench) => { const q = survInv[i]; q.id = id; q.count = n; q.dur = ITEMS[id] && ITEMS[id].tool ? TIER_DUR[ITEMS[id].tool.tier - 1] : 0; q.ench = ench; invDirty = true; renderHotbar(); }, heldStack: () => survInv[sel], useAnvil, armourEnch: () => armourEnch, armour: () => armour, keepers: () => keepers, updateKeepers, useHappyGhast, useCopperGolem, rideGhastNow: () => rideGhast, updateGhastRide, dryHydration: () => dryHyd, updateDriedGhasts, tryBuildGolem, chestsNearPos, trialDef, trialsNear, nearestTrial, updateTrials, trialState, openVault, windBurst, trialCools: () => trialCools, trySummonWither, placeSkull, beaconLevel, updateBeacons, beams, cycleBeacon, raidState: () => raid, startRaid, spawnPatrol, spawnTrader, outpostsNear, outpostDef, fangs, useTotem, updateIllagers, rideState: () => rideHorse, useRideable, updateHorseRide,
