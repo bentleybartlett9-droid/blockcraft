@@ -6885,9 +6885,19 @@ function stockPyramidChest(x, y, z, key){
     [GUNPOWDER, 1 + Math.floor(Math.random() * 4)],
     [DISC_1 + ((Math.random() * 4) | 0), Math.random() < 0.35 ? 1 : 0],
   ];
+  // The spawner-side chest is the hidden mineshaft vault. It receives a
+  // second high-tier roll so exploring a dangerous branch has a real payoff.
+  if(kind === 'mine' && String(key).endsWith('b')){
+    loot.push([EMERALD, 1 + ((R() * 3) | 0)]);
+    if(R() < 0.38) loot.push([GOLDEN_APPLE, 1]);
+    if(y - YDISP < -20 && R() < 0.28) loot.push([DIAMI, 1]);
+  }
+  const lootRarity = id => [ELYTRA, HEART_OF_SEA, TEMPEST_HEART].includes(id) ? 'legendary'
+    : [DIAMI, GOLDEN_APPLE, ENCHANTED_BOOK, DEBRIS, NSCRAP, TRIAL_KEY].includes(id) || (id >= DISC_1 && id < DISC_1 + 4) ? 'epic'
+    : [EMERALD, GOLDI, SADDLE, OBSIDIAN, CRYING_OBSIDIAN, ECHO_SHARD].includes(id) ? 'rare' : 'common';
   let si = 0;
-  for(const [id, n] of loot){ if(n > 0){ slots[si] = { id, count: n, dur: 0 }; si += 2; } }
-  { const bl = typeof kind === 'string' ? BOOK_LOOT[kind] : 0.4; if(bl && Math.random() < bl) slots[Math.min(26, si)] = { id: ENCHANTED_BOOK, count: 1, dur: 0, ench: randomBookEnch(true) }; }
+  for(const [id, n] of loot){ if(n > 0 && si < 27){ slots[si] = { id, count: n, dur: 0, rarity: lootRarity(id) }; si += 2; } }
+  { const bl = typeof kind === 'string' ? BOOK_LOOT[kind] : 0.4; if(bl && Math.random() < bl) slots[Math.min(26, si)] = { id: ENCHANTED_BOOK, count: 1, dur: 0, ench: randomBookEnch(true), rarity: 'epic' }; }
   chests[ck] = slots;
   chestsDirty = true;
 }
@@ -8331,7 +8341,12 @@ const DIFFICULTIES=['peaceful','easy','normal','hard'];
 let difficulty=DIFFICULTIES.includes(localStorage.getItem('blockcraft-difficulty'))?localStorage.getItem('blockcraft-difficulty'):'normal';
 const DIFFICULTY={peaceful:{damage:0,detect:.65,spread:2.2},easy:{damage:.55,detect:.8,spread:1.35},normal:{damage:1,detect:1,spread:.75},hard:{damage:1.5,detect:1.25,spread:.22}};
 function difficultyRules(){return DIFFICULTY[difficulty]||DIFFICULTY.normal;}
-function monsterDamage(n,kind='monster'){if(difficulty==='peaceful')return;hurtKind=kind;damage(Math.max(1,Math.round(n*difficultyRules().damage)));}
+function depthThreatScale(y=player.pos.y){
+  if(dim !== 0) return 1;
+  const shown = y - YDISP;
+  return shown < -32 ? 1.55 : shown < 0 ? 1.25 : 1;
+}
+function monsterDamage(n,kind='monster'){if(difficulty==='peaceful')return;hurtKind=kind;damage(Math.max(1,Math.round(n*difficultyRules().damage*depthThreatScale())));}
 function playerNoiseRadius(){
  const speed=Math.hypot(player.vel.x,player.vel.z);let r=speed>6?18:speed>2?11:4;
  if((typeof mouseHeld!=='undefined'&&mouseHeld[0])||(typeof vrBreakHeld!=='undefined'&&vrBreakHeld))r=Math.max(r,16);
@@ -8510,8 +8525,20 @@ function spaceOK(r){
   if(ITEMS[id] && ITEMS[id].tool) return survInv.some(s => !s.id || s.count === 0);
   return spaceFor(id) >= n;
 }
+const RECIPE_UNLOCKS = new Map([
+  [DPICK, ['diamond', 'Find your first diamond']], [DAXE, ['diamond', 'Find your first diamond']],
+  [DSHOV, ['diamond', 'Find your first diamond']], [DSWORD, ['diamond', 'Find your first diamond']],
+  [NPICK, ['netherite', 'Forge a netherite ingot']], [NSWORD, ['netherite', 'Forge a netherite ingot']],
+  [NAXE, ['netherite', 'Forge a netherite ingot']],
+  [STORMKEY_I, ['dragon', 'Defeat the Ender Dragon']],
+  [STORMBREAKER, ['wyrm', 'Defeat the Tempest Wyrm']], [VOLT_PICK, ['wyrm', 'Defeat the Tempest Wyrm']],
+]);
+function recipeLock(r){
+  const g = RECIPE_UNLOCKS.get(r.out[0]);
+  return g && !advDone.has(g[0]) ? g[1] : '';
+}
 function canCraft(r){
-  return stationOk(r) && r.in.every(([id, n]) => invCount(id) >= n) && spaceOK(r);
+  return !recipeLock(r) && stationOk(r) && r.in.every(([id, n]) => invCount(id) >= n) && spaceOK(r);
 }
 function doCraft(i){
   const r = RECIPES[i];
@@ -8652,8 +8679,10 @@ function renderCraftList(){
     const cost = document.createElement('div');
     cost.className = 'rcost';
     const where = r.st === 'table' ? CRAFTT : r.st === 'furnace' ? FURN : r.st === 'brew' ? BREWING : null;
-    cost.textContent = r.in.map(([id, n]) => n + ' ' + inName(id) + ' (' + invCount(id) + ')').join(' + ') +
+    const lock = recipeLock(r);
+    cost.textContent = lock ? 'Locked · ' + lock : r.in.map(([id, n]) => n + ' ' + inName(id) + ' (' + invCount(id) + ')').join(' + ') +
       (where ? (nearStation(where) ? '  · at the ' : '  · needs a ') + BLOCKS[where].name.toLowerCase() + (nearStation(where) ? '' : ' nearby') : '');
+    if(lock){ row.style.opacity = '.68'; name.textContent = '🔒 ' + name.textContent; }
     const btn = document.createElement('button');
     btn.className = 'mcbtn';
     btn.textContent = 'Craft';
@@ -9545,7 +9574,7 @@ function spawnZombie(x, y, z, variant){
     drowned, trident, throwCd: 2, husk, zv, baby, variant: variant || '',
     kind: 'zombie', group: g, legs, arms,
     pos: new THREE.Vector3(x, y, z), vel: new THREE.Vector3(),
-    w: baby ? 0.2 : 0.35, h: baby ? 1.0 : 1.85, hp: 20,
+    w: baby ? 0.2 : 0.35, h: baby ? 1.0 : 1.85, hp: Math.round(20 * depthThreatScale(y)),
     yaw: Math.random() * Math.PI * 2, speed: 0, t: 0.5,
     onGround: false, anim: Math.random() * 9,
     atkCd: 0, groanT: 2 + Math.random() * 5, skyT: 0, exposed: false, fireT: 0,
@@ -13006,7 +13035,7 @@ function spawnSkeleton(x, y, z, variant){
   skeletons.push({
     kind: 'skeleton', group: g, legs, arms, variant: variant || '', stray, bogged,
     pos: new THREE.Vector3(x, y, z), vel: new THREE.Vector3(),
-    w: 0.3, h: 1.85, hp: bogged ? 16 : 20,
+    w: 0.3, h: 1.85, hp: Math.round((bogged ? 16 : 20) * depthThreatScale(y)),
     yaw: Math.random() * Math.PI * 2, speed: 0, t: 0.5,
     onGround: false, anim: Math.random() * 9,
     atkCd: 1 + Math.random(), rattleT: 3 + Math.random() * 5, skyT: 0, exposed: false, fireT: 0,
@@ -13383,7 +13412,7 @@ function spawnSpider(x, y, z, crystal=false, cave=false){
   spiders.push({
     kind:'spider',crystal,cave,angry:crystal||cave,group:g,legs,arms:[],
     pos: new THREE.Vector3(x, y, z), vel: new THREE.Vector3(),
-    w:cave?.4:.6,h:cave?.6:.9,hp:cave?12:16,
+    w:cave?.4:.6,h:cave?.6:.9,hp:Math.round((cave?12:16)*depthThreatScale(y)),
     yaw: Math.random() * Math.PI * 2, speed: 0, t: 0.5,
     onGround: false, anim: Math.random() * 9, atkCd: 0, groanT: 3 + Math.random() * 4,
   });
@@ -13627,7 +13656,7 @@ function moveStack(from, i, to){
   }
   if(s.count > 0){
     const empty = to.find(t => !t.id || t.count === 0);
-    if(empty){ empty.id = s.id; empty.count = s.count; empty.dur = s.dur; empty.ench = s.ench; s.id = 0; s.count = 0; s.dur = 0; s.ench = undefined; }
+    if(empty){ empty.id = s.id; empty.count = s.count; empty.dur = s.dur; empty.ench = s.ench; empty.rarity = s.rarity; s.id = 0; s.count = 0; s.dur = 0; s.ench = undefined; s.rarity = undefined; }
   }
   chestsDirty = true; invDirty = true;
 }
@@ -13639,6 +13668,11 @@ function renderChestUI(){
     arr.forEach((s, i) => {
       const cell = document.createElement('div');
       cell.className = 'islot';
+      if(s.rarity && s.rarity !== 'common'){
+        const rc = { rare:'#58a6ff', epic:'#c070ff', legendary:'#ffb52e' }[s.rarity];
+        cell.style.boxShadow = 'inset 0 0 0 3px ' + rc + ',0 0 7px ' + rc;
+        cell.title = s.rarity.toUpperCase() + ' · ' + nameOf(s.id);
+      }
       const cv = document.createElement('canvas');
       cv.width = 16; cv.height = 16;
       drawIcon(cv.getContext('2d'), s.count > 0 ? s.id : 0);
@@ -15026,6 +15060,12 @@ const WM = {
   horn: nSkinMat(4, 4, ({ fill }) => fill(['#c8ccd6', '#b4b8c4', '#dadee6'])),
   face: nSkinMat(16, 16, ({ fill, px }) => { fill(['#26324a', '#2c3a54']); px(3, 11, '#0a0e16', 10, 2); for(let x = 3; x < 13; x += 2) px(x, 10, '#e8ecf4'); }),
 };
+function showWyrmBar(e){
+  let el=document.getElementById('wyrmbar');
+  if(!el){el=document.createElement('div');el.id='wyrmbar';el.style.cssText='position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:6;width:60%;max-width:520px;text-align:center;pointer-events:none;font:12px monospace;color:#bdefff;text-shadow:0 1px 2px #000';el.innerHTML='<div id="wyrmlabel" style="margin-bottom:3px">TEMPEST WYRM</div><div style="height:10px;background:#102030;border:2px solid #39738a;border-radius:3px;overflow:hidden"><div id="wyrmfill" style="height:100%;width:100%;background:linear-gradient(90deg,#40a8d0,#b8f4ff)"></div></div>';document.body.appendChild(el);}el.style.display='block';updateWyrmBar(e);
+}
+function updateWyrmBar(e){const f=document.getElementById('wyrmfill'),l=document.getElementById('wyrmlabel');if(f&&e)f.style.width=Math.max(0,e.hp/WYRM_MAX_HP*100)+'%';if(l&&e)l.textContent='TEMPEST WYRM — '+String(e.phase).toUpperCase()+(e.rage?' — RAGE '+e.rage:'');}
+function hideWyrmBar(){const e=document.getElementById('wyrmbar');if(e)e.style.display='none';}
 function spawnWyrm(){
   if(wyrms.length) return wyrms[0];
   const g = new THREE.Group(), H = WM.hide;
@@ -15071,14 +15111,14 @@ function spawnWyrm(){
   e.bar = bar; e.barFill = fill;
   e.headHit = { kind: 'wyrmHead', wyrm: e, pos: new THREE.Vector3(), w: 1.2, h: 1.7 };
   e.bodyHits = [4, 9, 14, 19].map(i => ({ kind: 'wyrmBody', wyrm: e, seg: i, pos: new THREE.Vector3(), w: 1.0, h: 1.6 }));
-  wyrms.push(e);
+  wyrms.push(e); showWyrmBar(e);
   dragonRoar(e, true);
   flashName('The Tempest Wyrm rises!');
   return e;
 }
 function removeWyrm(e){
   scene.remove(e.group); scene.remove(e.group2); scene.remove(e.bar);
-  const i = wyrms.indexOf(e); if(i >= 0) wyrms.splice(i, 1);
+  const i = wyrms.indexOf(e); if(i >= 0) wyrms.splice(i, 1); if(!wyrms.length) hideWyrmBar();
 }
 function animWyrm(e, dt){
   e.anim += dt;
@@ -15112,6 +15152,7 @@ function animWyrm(e, dt){
   const f = Math.max(0, e.hp / WYRM_MAX_HP);
   e.barFill.scale.x = Math.max(0.001, f); e.barFill.position.x = -2.9 * (1 - f);
   e.barFill.material.color.setHex(e.rage >= 2 ? 0xff6a8a : e.rage ? 0xffd46a : 0x6ad8ff);
+  updateWyrmBar(e);
 }
 function hurtWyrm(e, amount){
   if(!e || e.phase === 'dying') return;
@@ -17150,6 +17191,7 @@ document.addEventListener('keydown', e => {
   if(e.code === 'KeyF' && mode === 'creative'){ player.fly = !player.fly; player.vel.y = 0; tone(600, 900, 0.06, 'triangle', 0.08); }
   if(e.code === 'KeyM') toggleMusic();
   if(e.code === 'KeyL') toggleGuide();
+  if(e.code === 'KeyK') toggleWaypoint();
   if(e.code === 'KeyT') toggleTeleport();
   if(e.code.startsWith('Digit')){
     const d = +e.code.slice(5);
@@ -18374,6 +18416,7 @@ function doPlace(){
   if(eh&&(!hit||eh.t<hit.t)&&feedFantasy(eh.e))return;
   if(eh&&(!hit||eh.t<hit.t)&&!eh.e.puppet&&tryGivePiglin(eh.e))return;
   if(useSpecial(camera.position, _dir, hit, eh))return;
+  if(heldId()===MAP){ toggleWaypoint(); triggerViewSwing(); return; }
   if(eh && eh.e.kind === 'golem' && (!hit || eh.t < hit.t) && mode === 'survival' && heldId() === IRONI){
     if(healGolem(eh.e)) return;
   }
@@ -19021,7 +19064,11 @@ function buildCraftPanel(){
     const contents=chestSlots(chestPos);
     contents.forEach((item,i)=>{const x=35+(i%9)*152,y=260+Math.floor(i/9)*118;
       button(x,y,142,108,'',()=>{moveStack(contents,i,survInv);renderHotbar();vrMenuStatus=item.count?'Inventory full: make room for the rest.':'Taken.';},item.count>0);
-      if(item.count){icon(item.id,x+42,y+6,50);text(nameOf(item.id),x+5,y+76,17,'#222',132);text('×'+item.count,x+96,y+20,18);}
+      if(item.count){
+        const rc={rare:'#286fb4',epic:'#873bb7',legendary:'#b36b00'}[item.rarity]||'#222';
+        icon(item.id,x+42,y+6,50);text(nameOf(item.id),x+5,y+76,17,rc,132);text('×'+item.count,x+96,y+20,18);
+        if(item.rarity&&item.rarity!=='common')text(item.rarity.toUpperCase(),x+5,y+99,13,rc,132);
+      }
     });
     button(35,645,540,55,'Store held stack',()=>{moveStack(survInv,sel,contents);renderHotbar();vrMenuStatus='Stored what fits in the chest.';},heldId()!==0&&mode==='survival');
     button(620,645,540,55,'Backpack / choose another held item',()=>{vrMenuTab='inventory';});
@@ -21690,6 +21737,19 @@ function mapDot(wx, wz, col, r){
   msx.fillStyle = '#000'; msx.fillRect(x - r - 0.5, y - r - 0.5, r * 2 + 1, r * 2 + 1);
   msx.fillStyle = col; msx.fillRect(x - r, y - r, r * 2, r * 2);
 }
+let mapWaypoints = (()=>{ try{return JSON.parse(localStorage.getItem(SAVE_KEY+'-waypoints'))||[];}catch(e){return [];} })();
+const WAYPOINT_COLORS=['#ffcc32','#45d7ff','#ff6ca8','#9cff55','#c28cff','#ff8b45','#52f0c0','#ffffff'];
+function saveWaypoints(){ safeSet(SAVE_KEY+'-waypoints',JSON.stringify(mapWaypoints)); }
+function toggleWaypoint(){
+  if(!inGame || dim === 1) return;
+  const near = mapWaypoints.findIndex(w=>w.dim===dim&&Math.hypot(w.x-player.pos.x,w.z-player.pos.z)<8);
+  if(near>=0){ const w=mapWaypoints.splice(near,1)[0]; saveWaypoints(); flashName('Removed waypoint '+w.name); }
+  else {
+    const same=mapWaypoints.filter(w=>w.dim===dim), n=same.length+1;
+    const w={x:Math.round(player.pos.x),z:Math.round(player.pos.z),dim,name:'Marker '+n,color:WAYPOINT_COLORS[same.length%WAYPOINT_COLORS.length]};
+    mapWaypoints.push(w); if(mapWaypoints.length>24)mapWaypoints.shift(); saveWaypoints(); flashName('Waypoint saved: '+w.name);
+  }
+}
 let treasureNote = null;
 function updateMap(dt){
   const heldMap = heldId(), holding = inGame && !dead && (heldMap === MAP || ((heldMap === TREASURE_MAP || heldMap === TRIAL_MAP) && dim === 0)) && dim !== 1;
@@ -21716,6 +21776,7 @@ function updateMap(dt){
   // the markers
   msx.drawImage(mapBase, 0, 0);
   if(bedSpawn) mapDot(bedSpawn.x, bedSpawn.z, '#e03030', 2);
+  for(const w of mapWaypoints) if(w.dim===dim) mapDot(w.x,w.z,w.color||'#ffcc32',2);
   if(heldMap === TREASURE_MAP || heldMap === TRIAL_MAP){   // X marks the spot - or, off the edge, a red pointer toward it
     const t = heldMap === TRIAL_MAP ? nearestTrial(cx, cz) : nearestTreasure(cx, cz);
     if(t){
@@ -22948,7 +23009,8 @@ function grantAdv(id){
   showToast('Advancement made!', a.title + (next ? '   Next: ' + next.title : ''), a.icon);
   [523, 659, 784, 1046].forEach((f, i) => tone(f, f, 0.18, 'triangle', 0.08, i * 0.09));
   if(guideOpen) renderGuide();
-  if(typeof vrCraftOpen !== 'undefined' && vrCraftOpen && vrMenuTab === 'guide') buildCraftPanel();
+  if(craftOpen) renderCraft();
+  if(typeof vrCraftOpen !== 'undefined' && vrCraftOpen) buildCraftPanel();
 }
 // the first thing not yet done, in order: the way on
 function nextAdv(){ return ADVANCEMENTS.find(a => !advDone.has(a.id)) || null; }
@@ -22997,10 +23059,20 @@ function showToast(title, body, icon, warn){
 const guideEl = document.createElement('div');
 guideEl.style.cssText = 'position:fixed;inset:6% 8%;z-index:25;background:#1c1c22f2;border:3px solid #555;border-radius:8px;color:#eee;font:14px system-ui;padding:18px 24px;overflow:auto;display:none';
 document.body.appendChild(guideEl);
+function progressionTier(){
+  if(advDone.has('wyrm'))return ['STORMFORGED','The Tempest Wyrm has fallen. Forge Stormbreaker.'];
+  if(advDone.has('dragon'))return ['STORMLANDS','The Storm Key recipe is unlocked.'];
+  if(advDone.has('end'))return ['THE END','Destroy the crystals and defeat the dragon.'];
+  if(advDone.has('nether'))return ['NETHER','Find a fortress, blaze rods and ancient debris.'];
+  if(advDone.has('diamond'))return ['PORTAL READY','Mine obsidian and light a Nether portal.'];
+  if(advDone.has('iron'))return ['DEEP MINER','Diamonds are strongest below visible Y 16.'];
+  return ['OVERWORLD','Build tools, find iron and prepare for the deep caves.'];
+}
 function renderGuide(){
-  const next = nextAdv();
+  const next = nextAdv(), tier=progressionTier();
   const used = storageUsed();
   let h = '<div style="display:flex;justify-content:space-between;align-items:baseline"><h2 style="margin:0 0 6px;color:#f5d547">Guide &mdash; ' + advDone.size + ' / ' + ADVANCEMENTS.length + '</h2><span style="color:#999">L to close</span></div>';
+  h += '<p style="background:#263244;padding:8px 12px;border-radius:5px;margin:6px 0"><b style="color:#72d7ff">Tier: '+tier[0]+'</b> &mdash; '+tier[1]+'</p>';
   h += next ? '<p style="background:#2e3a2e;padding:8px 12px;border-radius:5px;margin:6px 0 14px"><b style="color:#9fe39f">Next: ' + next.title + '</b> &mdash; ' + next.how + '</p>'
             : '<p style="color:#9fe39f">Every advancement earned. The storm is yours.</p>';
   h += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px">';
@@ -23024,11 +23096,12 @@ function toggleGuide(on = !guideOpen){
 }
 // the Guide tab of the VR menu
 function drawGuideVR(g, text){
-  const next = nextAdv();
+  const next = nextAdv(), tier=progressionTier();
   text('GUIDE  ' + advDone.size + ' / ' + ADVANCEMENTS.length, 35, 205, 28, '#202020');
-  g.fillStyle = next ? '#cfe3c8' : '#d8e8d0'; g.fillRect(35, 228, 1370, 70);
-  text(next ? 'Next: ' + next.title : 'Every advancement earned!', 50, 250, 26, '#1f4a22', 1340);
-  if(next) text(next.how, 50, 282, 21, '#2b2b2b', 1340);
+  g.fillStyle='#c9def0';g.fillRect(35,228,1370,42);text('Tier: '+tier[0]+' — '+tier[1],50,256,21,'#173a55',1340);
+  g.fillStyle = next ? '#cfe3c8' : '#d8e8d0'; g.fillRect(35, 274, 1370, 70);
+  text(next ? 'Next: ' + next.title : 'Every advancement earned!', 50, 296, 26, '#1f4a22', 1340);
+  if(next) text(next.how, 50, 328, 21, '#2b2b2b', 1340);
   ADV_CHAPTERS.forEach((ch, c) => {
     const x = 35 + (c % 2) * 690, y0 = 330 + Math.floor(c / 2) * 370;
     text(ch, x, y0, 26, '#34506a');
