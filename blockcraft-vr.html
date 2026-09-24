@@ -1263,6 +1263,230 @@ function stampOutpost(o, set, cx, cz){
   const [dx, dyb, dz] = o.dummy;
   put(dx, dyb + 1, dz, FEN); put(dx, dyb + 2, dz, FEN); put(dx - 1, dyb + 2, dz, FEN); put(dx + 1, dyb + 2, dz, FEN); put(dx, dyb + 3, dz, CARVED_PUMPKIN);
 }
+/* Landmarks: the smaller structures of the overworld, as in Minecraft - desert
+   wells, igloos (half of them over a secret basement), swamp huts with a witch
+   and her black cat, jungle temples with an arrow trap and a lever puzzle,
+   ruined portals, and fossils buried under deserts and swamps. Only ever on new land. */
+const SUS_SAND = 4099, WHITE_CARPET = 719, SPRUCE_SLAB = 810;
+const LAND_KINDS = {
+  well:   { cell: 128, seed: 6601, chance: 0.6,  r: 3,  biomes: ['desert'] },
+  igloo:  { cell: 176, seed: 6611, chance: 0.7,  r: 8,  biomes: ['snowy', 'snowy-slopes', 'grove', 'frostvale'] },
+  hut:    { cell: 208, seed: 6621, chance: 0.75, r: 5,  biomes: ['swamp', 'willow-marsh'] },
+  temple: { cell: 272, seed: 6631, chance: 0.7,  r: 10, biomes: ['jungle'] },
+  portal: { cell: 320, seed: 6641, chance: 0.45, r: 7,  biomes: null },
+  fossil: { cell: 128, seed: 6651, chance: 0.35, r: 9,  biomes: ['desert', 'swamp', 'willow-marsh', 'badlands', 'outback'] },
+};
+for(const k in LAND_KINDS) LAND_KINDS[k].cache = new Map();
+let catPalForce = -1;                                                     // the witch's cat is always black
+function landDef(kind, gx, gz){ const K = LAND_KINDS[kind], S = K.seed; return cellDef(K.cache, gx, gz, () => {
+  if(GEN_V < 4 || hash(gx, gz, S) > K.chance) return null;
+  let x = 0, z = 0, ok = false;
+  for(let t = 0; t < 8 && !ok; t++){                                     // a few tries at finding the right biome in this cell
+    x = gx * K.cell + 24 + Math.floor(hash(gx, gz, S + 100 + t) * (K.cell - 48)); z = gz * K.cell + 24 + Math.floor(hash(gx, gz, S + 200 + t) * (K.cell - 48));
+    const bm = biomeAt(x, z);
+    ok = K.biomes ? K.biomes.includes(bm) : !(OCEAN_WATER.has(bm) || bm.includes('river') || bm.includes('beach'));
+  }
+  if(!ok) return null;
+  const R = K.r + 2;
+  for(const [dx, dz] of [[0, 0], [-R, -R], [R, -R], [-R, R], [R, R]]) if(oldLandFade(x + dx, z + dz) > 0) return null;   // never where you've lived
+  const y = terrainHeight(x, z);
+  let lo = y, hi = y;
+  for(const [dx, dz] of [[-K.r, -K.r], [K.r, -K.r], [-K.r, K.r], [K.r, K.r], [0, -K.r], [0, K.r], [-K.r, 0], [K.r, 0]]){ const h = terrainHeight(x + dx, z + dz); lo = Math.min(lo, h); hi = Math.max(hi, h); }
+  if(kind !== 'fossil'){
+    if(kind === 'hut' ? y < SEA - 4 : y <= SEA + 1) return null;
+    if(hi - lo > (kind === 'temple' ? 5 : kind === 'hut' ? 5 : 3)) return null;   // a fairly level site
+    for(const v of villagesNear(x, z)) if(Math.hypot(v.cx - x, v.cz - z) < 80) return null;
+    for(const o of outpostsNear(x, z)) if(Math.hypot(o.x - x, o.z - z) < 40) return null;
+    for(const p of pyramidsNear(x, z)) if(Math.hypot(p.cx - x, p.cz - z) < 30) return null;
+    for(const k2 in LAND_KINDS){                                           // and a little way from each other
+      if(k2 === kind) break;
+      if(k2 !== 'fossil') for(const o of landsNear(k2, x, z)) if(Math.hypot(o.x - x, o.z - z) < K.r + LAND_KINDS[k2].r + 12) return null;
+    }
+  }
+  const L = { kind, x, z, y, key: kind + ':' + gx + ',' + gz, h: n => hash(gx, gz, S + 10 + n) };
+  if(kind === 'igloo') L.basement = L.h(0) < 0.5;
+  if(kind === 'hut') L.fh = Math.max(y, SEA) + 3;
+  if(kind === 'temple'){
+    let c = Math.floor(L.h(1) * 7) + 1; L.combo = [c & 1, c & 2, c & 4].map(Boolean);
+    L.plate = [x + 4, y - 4, z]; L.trapFrom = [x + 4.5, y - 2.5, z - 6.2];
+    L.levers = [[x - 1, y - 4, z - 6], [x, y - 4, z - 6], [x + 1, y - 4, z - 6]]; L.panel = [[x - 4, y - 4, z - 5], [x - 4, y - 3, z - 5]];
+  }
+  if(kind === 'portal'){ L.ax = L.h(2) < 0.5; L.flat = L.h(3) < 0.25; L.gold = L.h(4) < 0.35; }
+  if(kind === 'fossil'){ L.y = lo - 10 - Math.floor(L.h(5) * 12); if(L.y < 10) return null; L.ax = L.h(6) < 0.5; L.len = 8 + Math.floor(L.h(7) * 5); L.coal = L.h(8) < 0.2; }
+  return L;
+}); }
+const landsNear = (kind, wx, wz, r = 1) => cellsNear((gx, gz) => landDef(kind, gx, gz), LAND_KINDS[kind].cell, wx, wz, r);
+function stampLands(set, data, cx, cz){
+  const x0 = cx * 16, z0 = cz * 16, mx = x0 + 8, mz = z0 + 8;
+  const inC = (wx, wz) => wx >= x0 && wx < x0 + 16 && wz >= z0 && wz < z0 + 16;
+  const put = (wx, y, wz, id) => { if(inC(wx, wz)) set(wx - x0, y, wz - z0, id); };
+  const get = (wx, y, wz) => inC(wx, wz) && y >= 0 && y < HEIGHT ? data[(y << 8) | ((wz - z0) << 4) | (wx - x0)] : AIR;
+  for(const kind in LAND_KINDS){
+    const K = LAND_KINDS[kind];
+    for(const L of landsNear(kind, mx, mz)){
+      if(Math.abs(L.x - mx) > K.r + 9 || Math.abs(L.z - mz) > K.r + 9) continue;
+      ({ well: stampWell, igloo: stampIgloo, hut: stampHut, temple: stampTemple, portal: stampRuinedPortal, fossil: stampFossil })[kind](L, put, get, inC);
+    }
+  }
+}
+function stampWell(L, put){
+  const { x, y, z } = L;
+  for(let i = -2; i <= 2; i++) for(let k = -2; k <= 2; k++){
+    const ai = Math.abs(i), ak = Math.abs(k), mid = !i && !k;
+    for(let yy = y - 3; yy < y; yy++) put(x + i, yy, z + k, mid ? WATER : SANDSTONE);
+    put(x + i, y, z + k, mid ? WATER : SANDSTONE);
+    for(let yy = y + 1; yy <= y + 5; yy++) put(x + i, yy, z + k, AIR);
+    if(ai === 2 || ak === 2) put(x + i, y + 1, z + k, SLAB_SAND);                           // the rim
+    else if(ai === 1 && ak === 1){ put(x + i, y + 1, z + k, SANDSTONE); put(x + i, y + 2, z + k, SANDSTONE); }   // the pillars
+    if(ai <= 1 && ak <= 1) put(x + i, y + 3, z + k, mid ? SANDSTONE : SLAB_SAND);            // the roof
+  }
+  put(x + (L.h(9) < 0.5 ? 1 : -1), y - 1, z + 1, SUS_SAND);                                   // something buried under it
+}
+function stampIgloo(L, put){
+  const { x, z } = L, F = L.y;
+  for(let i = -5; i <= 5; i++) for(let k = -6; k <= 5; k++){
+    const wx = x + i, wz = z + k, r2 = i * i + k * k;
+    for(let yy = F + 1; yy <= F + 6; yy++) put(wx, yy, wz, AIR);                              // clear the site
+    if(r2 <= 16) for(let yy = Math.min(terrainHeight(wx, wz), F); yy <= F; yy++) put(wx, yy, wz, SNOW);
+    for(let dy = 0; dy <= 4; dy++){
+      const out = r2 / 12.96 + dy * dy / 14.4, inn = r2 / 6.76 + dy * dy / 8.4;
+      if(out > 1) continue;
+      put(wx, F + 1 + dy, wz, inn <= 1 ? (dy === 0 ? WHITE_CARPET : AIR) : dy === 1 && (i === 0 || k === 0) && k >= 0 ? ICE : SNOW);
+    }
+  }
+  for(let k = -6; k <= -3; k++) for(let i = -1; i <= 1; i++){                                   // the entrance tunnel
+    put(x + i, F, z + k, SNOW);
+    for(let dy = 0; dy <= 2; dy++) put(x + i, F + 1 + dy, z + k, i === 0 && dy < 2 ? AIR : SNOW);
+  }
+  put(x + 2, F + 1, z + 1, BED); put(x + 2, F + 1, z, BEDHEAD);
+  put(x - 2, F + 1, z + 1, FURN); put(x - 2, F + 1, z, CRAFTT); put(x - 1, F + 1, z + 2, TORCH);
+  if(!L.basement) return;
+  const B = F - 9;
+  put(x, F + 1, z + 1, TRAPDOOR);                                                               // a trapdoor under the carpet...
+  for(let yy = B + 1; yy <= F; yy++){                                                           // ...and a ladder down
+    put(x, yy, z + 1, LADDER);
+    if(yy > B + 3 && yy < F) for(const [a, b] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) put(x + a, yy, z + 1 + b, SBRICK);
+  }
+  put(x, F + 1, z + 1, TRAPDOOR);
+  for(let i = -4; i <= 4; i++) for(let k = -2; k <= 7; k++){
+    const wall = Math.abs(i) === 4 || k === -2 || k === 7;
+    for(let dy = 0; dy <= 4; dy++){
+      const yy = B + dy, bid = hash3(x + i, yy, z + k, 6612) < 0.2 ? MOSSYBRICK : hash3(x + i, yy, z + k, 6613) < 0.15 ? CRACKED : SBRICK;
+      if(i === 0 && k === 1 && dy > 0) continue;                                                  // the ladder shaft
+      put(x + i, yy, z + k, wall || dy === 0 || dy === 4 ? bid : AIR);
+    }
+  }
+  for(const s of [-1, 1]){                                                                     // two cells behind iron bars
+    for(let dy = 1; dy <= 3; dy++){ put(x + s * 2, B + dy, z + 5, IRONBARS); put(x + s * 3, B + dy, z + 5, IRONBARS); put(x + s, B + dy, z + 5, SBRICK); put(x + s, B + dy, z + 6, SBRICK); }
+  }
+  put(x, B + 1, z + 5, SBRICK); put(x, B + 1, z + 6, SBRICK);
+  put(x - 3, B + 1, z - 1, BREWING); put(x - 3, B + 1, z, CAULDRON); put(x - 3, B + 1, z + 2, TORCH); put(x + 3, B + 1, z + 2, TORCH);
+  put(x + 3, B + 1, z - 1, CHEST); stockLootChest(x + 3, B + 1, z - 1, L.key, 'igloo');
+  L.cells = [[x - 2.5, B + 1.05, z + 6.5], [x + 3.5, B + 1.05, z + 6.5]];
+}
+function stampHut(L, put){
+  const { x, z } = L, g = L.y, Fh = L.fh;
+  for(let i = -3; i <= 3; i++) for(let k = -5; k <= 4; k++){
+    const wx = x + i, wz = z + k;
+    for(let yy = Math.max(g + 1, SEA + 1); yy <= Fh + 7; yy++) put(wx, yy, wz, AIR);
+  }
+  for(let i = -2; i <= 2; i++) for(let k = -3; k <= 3; k++){
+    const ai = Math.abs(i), wall = ai === 2 || k === -2 || k === 3, corner = ai === 2 && (k === -3 || k === -2 || k === 3);
+    put(x + i, Fh, z + k, SPLANK);
+    if(corner) for(let yy = terrainHeight(x + i, z + k) + 1; yy < Fh; yy++) put(x + i, yy, z + k, LOG);   // the stilts
+    if(k === -3){ if(ai === 2) put(x + i, Fh + 1, z + k, FENCE); continue; }                   // the porch
+    for(let dy = 1; dy <= 3; dy++){
+      let id = wall ? (corner ? LOG : SPLANK) : AIR;
+      if(k === -2 && i === 0 && dy <= 2) id = AIR;                                              // the doorway
+      if(dy === 2 && ((ai === 2 && k === 0) || (k === 3 && i === 0))) id = AIR;                 // windows
+      put(x + i, Fh + dy, z + k, id);
+    }
+  }
+  for(let i = -3; i <= 3; i++) for(let k = -4; k <= 4; k++){                                    // the roof
+    const ai = Math.abs(i);
+    put(x + i, Fh + 4, z + k, ai === 3 ? SPRUCE_SLAB : SPLANK);
+    if(ai <= 1) put(x + i, Fh + 5, z + k, SPRUCE_SLAB);
+  }
+  for(let yy = Math.max(terrainHeight(x, z - 4) + 1, g + 1); yy <= Fh; yy++) put(x, yy, z - 4, LADDER);   // up onto the porch
+  put(x + 1, Fh + 1, z + 2, CRAFTT); put(x - 1, Fh + 1, z + 2, CAULDRON); put(x - 1, Fh + 1, z - 1, FLOWERPOT);
+}
+function stampTemple(L, put){
+  const X = L.x, Z = L.z, Y = L.y;
+  const mat = (i, y, k) => hash3(X + i, y, Z + k, 6660) < 0.55 ? MOSSY : COBBLE;
+  for(let i = -6; i <= 6; i++) for(let k = -9; k <= 7; k++){
+    const wx = X + i, wz = Z + k, wall = Math.abs(i) === 6 || Math.abs(k) === 7;
+    if(k < -7){                                                                                // steps up to the door
+      if(Math.abs(i) > 2) continue;
+      const top = k === -8 ? Y : Y - 1;
+      for(let y = Math.min(terrainHeight(wx, wz), top); y <= top; y++) put(wx, y, wz, COBBLE);
+      for(let y = top + 1; y <= Y + 4; y++) put(wx, y, wz, AIR);
+      continue;
+    }
+    for(let y = Math.min(terrainHeight(wx, wz), Y - 6); y < Y - 5; y++) put(wx, y, wz, COBBLE);   // footing
+    for(let y = Y - 5; y <= Y + 13; y++){
+      let id = AIR;
+      if(y === Y - 5 || y === Y || y === Y + 5 || y === Y + 8) id = y === Y + 8 || wall ? mat(i, y, k) : COBBLE;   // floors and roof
+      else if(wall && y < Y + 8) id = y === Y + 4 && (i + k) % 3 === 0 ? CHISELED_STONE : mat(i, y, k);
+      else if(y > Y + 8 && y <= Y + 11 && Math.abs(i) <= 3 && Math.abs(k) <= 3){                // the little tower on top
+        const tw = Math.abs(i) === 3 || Math.abs(k) === 3;
+        id = y === Y + 11 ? (i === 0 && k === 0 ? CHISELED_STONE : mat(i, y, k)) : tw ? (y === Y + 9 && (i === 0 || k === 0) ? AIR : mat(i, y, k)) : AIR;
+      }
+      put(wx, y, wz, id);
+    }
+  }
+  for(let i = -1; i <= 1; i++) for(let y = Y + 1; y <= Y + 3; y++) put(X + i, y, Z - 7, AIR);   // the doorway
+  for(const s of [-6, 6]) for(const k of [-4, 0, 4]){ put(X + s, Y + 2, Z + k, AIR); put(X + s, Y + 6, Z + k, AIR); }   // windows
+  for(const i of [-4, 4]) put(X + i, Y + 6, Z - 7, AIR);
+  for(const i of [-3, 3]) for(const k of [-4, 4]) for(let y = Y + 1; y <= Y + 4; y++) put(X + i, y, Z + k, CHISELED_STONE);   // pillars
+  for(let y = Y + 1; y <= Y + 5; y++) put(X + 4, y, Z + 6, LADDER);                              // up to the top floor
+  for(let st = 0; st <= 4; st++) for(const i of [-5, -4]){                                      // stairs down to the vault
+    for(let y = Y - st; y <= Y; y++) put(X + i, y, Z + 1 + st, AIR);
+    for(let y = Y - 4; y <= Y - st - 1; y++) put(X + i, y, Z + 1 + st, MOSSYBRICK);
+  }
+  // the trap corridor: step on the plate and arrows fly from the far wall
+  for(let k = -6; k <= 6; k++) for(let y = Y - 4; y <= Y - 1; y++) put(X + 2, y, Z + k, k === 5 && y <= Y - 3 ? AIR : mat(2, y, k));
+  put(X + 4, Y - 4, Z, PLATE_STONE); put(X + 4, Y - 3, Z - 7, CHISELED_STONE);
+  put(X + 4, Y - 4, Z - 6, CHEST); stockLootChest(X + 4, Y - 4, Z - 6, L.key + ':trap', 'jungle');
+  // the puzzle: three levers, and a chest sealed in the wall until they are set right
+  for(let i = -5; i <= -3; i++) for(let k = -6; k <= -5; k++) for(let y = Y - 4; y <= Y - 1; y++) put(X + i, y, Z + k, MOSSYBRICK);
+  put(X - 4, Y - 4, Z - 6, CHEST); put(X - 4, Y - 3, Z - 6, AIR); stockLootChest(X - 4, Y - 4, Z - 6, L.key + ':puzzle', 'jungle');
+  for(const [lx, ly, lz] of L.levers) put(lx, ly, lz, LEVER);
+}
+function stampRuinedPortal(L, put){
+  const { x, z, y } = L, h3 = (a, b, c, n) => hash3(a, b, c, n);
+  for(let i = -6; i <= 6; i++) for(let k = -6; k <= 6; k++){                                   // the nether spreading around it
+    const r = Math.hypot(i, k), wx = x + i, wz = z + k, n = h3(wx, 0, wz, 6680);
+    if(r > 6 || n > (1 - r / 6.2) * 1.15) continue;
+    const th = terrainHeight(wx, wz);
+    put(wx, th, wz, n < 0.08 ? MAGMA : NETHERRACK); put(wx, th + 1, wz, AIR);
+  }
+  if(L.gold) put(x + 2, terrainHeight(x + 2, z - 2), z - 2, GOLDB);
+  const at = (u, v) => L.flat ? [x + u, y, z + v - 2] : L.ax ? [x + u, y + 1 + v, z] : [x, y + 1 + v, z + u];
+  if(!L.flat) for(let u = -3; u <= 2; u++) for(let v = 0; v <= 6; v++){ const [wx, yy, wz] = at(u, v); put(wx, yy, wz, AIR); }
+  for(let u = -2; u <= 1; u++) for(let v = 0; v <= 4; v++){
+    const [wx, yy, wz] = at(u, v), frame = u === -2 || u === 1 || v === 0 || v === 4;
+    if(!frame){ if(L.flat) put(wx, yy, wz, NETHERRACK); continue; }
+    if(h3(wx, yy, wz, 6681) > (v === 0 ? 0.9 : 0.68)) continue;                                  // broken away
+    put(wx, yy, wz, h3(wx, yy, wz, 6682) < 0.2 ? CRYING_OBSIDIAN : OBSIDIAN);
+  }
+  for(let n = 0; n < 3; n++){                                                                  // bits of it lying about
+    const wx = x + Math.round((L.h(20 + n) - 0.5) * 9), wz = z + Math.round((L.h(30 + n) - 0.5) * 9);
+    put(wx, terrainHeight(wx, wz) + 1, wz, n ? OBSIDIAN : CRYING_OBSIDIAN);
+  }
+  const chx = x + (L.ax ? 3 : 2), chz = z + (L.ax ? 2 : 3), chy = terrainHeight(chx, chz) + 1;
+  put(chx, chy, chz, CHEST); put(chx, chy + 1, chz, AIR); stockLootChest(chx, chy, chz, L.key, 'portal');
+}
+function stampFossil(L, put, get){
+  const { x, z, y } = L, bone = L.coal ? COALO : BONE_BLOCK;
+  const at = (u, w, h) => L.ax ? [x + u - (L.len >> 1), y + h, z + w] : [x + w, y + h, z + u - (L.len >> 1)];
+  const lay = (u, w, h) => { const [wx, yy, wz] = at(u, w, h), b = get(wx, yy, wz); if(b && b !== WATER && b !== LAVA && b !== BEDROCK) put(wx, yy, wz, bone); };
+  for(let u = 0; u < L.len; u++){
+    lay(u, 0, 0);                                                                              // the spine
+    if(u % 2 === 0 && u >= 2) for(const s of [-1, 1]){ lay(u, s, -1); lay(u, 2 * s, -2); lay(u, 2 * s, -3); lay(u, s, -4); }   // ribs
+  }
+  for(let u = L.len; u < L.len + 3; u++) for(let w = -1; w <= 1; w++) for(let h = -1; h <= 1; h++)   // the skull
+    if(!(u === L.len + 1 && w !== 0 && h === 0)) lay(u, w, h);
+}
 const wrecksNear = (wx, wz) => cellsNear(wreckDef, 240, wx, wz), ruinsNear = (wx, wz) => cellsNear(ruinDef, 176, wx, wz), treasuresNear = (wx, wz, r) => cellsNear(treasureDef, 192, wx, wz, r);
 // the treasure a buried-treasure map points to: the nearest one
 let treasureAim = null;
@@ -2067,7 +2291,7 @@ const WITHER_SKULL = 876, BEACON = 877, EMERALD_BLOCK = 878, TRIAL_SPAWNER = 879
 const DRIED_GHAST = 883, COPPER_CHEST = 884, HARNESS = 943, BOOK = 944, ENCHANTED_BOOK = 945;
 ITEMS[BOOK]={name:'Book',icon:389};ITEMS[ENCHANTED_BOOK]={name:'Enchanted Book',icon:390};
 // how likely a loot chest is to hold an enchanted book (Mending and the other treasures only come this way, or from librarians)
-const BOOK_LOOT = { dungeon: 0.35, mine: 0.25, city: 0.55, endcity: 0.5, bastion: 0.3, fortress: 0.2, library: 0.5, ruin: 0.15, 'wreck-treasure': 0.2, outpost: 0.2, trial: 0.2, treasure: 0.15 };
+const BOOK_LOOT = { jungle: 0.35, dungeon: 0.35, mine: 0.25, city: 0.55, endcity: 0.5, bastion: 0.3, fortress: 0.2, library: 0.5, ruin: 0.15, 'wreck-treasure': 0.2, outpost: 0.2, trial: 0.2, treasure: 0.15 };
 BLOCKS[DRIED_GHAST]={name:'Dried Ghast',all:708};BLOCKS[COPPER_CHEST]={name:'Copper Chest',top:709,bottom:709,side:710};ITEMS[HARNESS]={name:'Harness',icon:388};
 const TRIAL_KEY = 937, BREEZE_ROD = 938, WIND_CHARGE = 939, HEAVY_CORE = 940, MACE = 941, TRIAL_MAP = 942;
 BLOCKS[TRIAL_SPAWNER]={name:'Trial Spawner',all:704};BLOCKS[VAULT]={name:'Vault',all:705};BLOCKS[COPPER_BULB]={name:'Copper Bulb',all:706};BLOCKS[COPPER_GRATE]={name:'Copper Grate',all:707};
@@ -6826,6 +7050,7 @@ function* genChunkSteps(cx, cz){
     for(const m of monumentsNear(mx, mz)) stampMonument(m, set, data, cx, cz);
     for(const c of citiesNear(mx, mz)) stampCity(c, set, cx, cz);
     for(const t of trialsNear(mx, mz)) if(Math.abs(t.x - mx) < 48 && Math.abs(t.z - mz) < 48) stampTrial(t, set, cx, cz);
+    stampLands(set, data, cx, cz);
   }
   // underground structures: dungeons, mineshafts, strongholds
   for(const d of dungeonsNear(cx * 16 + 8, cz * 16 + 8)){
@@ -7113,6 +7338,15 @@ function stockLootChest(x, y, z, key, kind){
     loot = [[ARROW_I, 2 + ((R()*7)|0)], [WHEATITEM, 3 + ((R()*3)|0)], [CARROT, R() < 0.5 ? 2 + ((R()*4)|0) : 0], [POTATO, R() < 0.5 ? 2 + ((R()*4)|0) : 0],
             [DARK_LOG, 2 + ((R()*2)|0)], [STRING, R() < 0.5 ? 1 + ((R()*5)|0) : 0], [IRONI, R() < 0.4 ? 1 + ((R()*3)|0) : 0], [BOW, R() < 0.3 ? 1 : 0],
             [EMERALD, R() < 0.35 ? 1 + ((R()*2)|0) : 0]];
+  } else if(kind === 'jungle'){
+    loot = [[BONE, 2 + ((R()*5)|0)], [ROTTEN, 3 + ((R()*5)|0)], [GOLDI, R() < 0.6 ? 2 + ((R()*5)|0) : 0], [IRONI, R() < 0.6 ? 1 + ((R()*4)|0) : 0],
+            [EMERALD, R() < 0.5 ? 1 + ((R()*3)|0) : 0], [DIAMI, R() < 0.25 ? 1 + ((R()*2)|0) : 0], [SADDLE, R() < 0.2 ? 1 : 0]];
+  } else if(kind === 'igloo'){
+    loot = [[GOLDEN_APPLE, 1], [COALI, 1 + ((R()*4)|0)], [APPLE, R() < 0.6 ? 1 + ((R()*3)|0) : 0], [WHEATITEM, R() < 0.5 ? 2 + ((R()*3)|0) : 0],
+            [GNUGGET, R() < 0.5 ? 1 + ((R()*3)|0) : 0], [ROTTEN, R() < 0.4 ? 1 : 0], [SAXE, R() < 0.3 ? 1 : 0], [EMERALD, R() < 0.3 ? 1 : 0]];
+  } else if(kind === 'portal'){
+    loot = [[OBSIDIAN, 1 + ((R()*2)|0)], [FLINTSTEEL, R() < 0.4 ? 1 : 0], [GNUGGET, 4 + ((R()*15)|0)], [GOLDI, R() < 0.5 ? 2 + ((R()*6)|0) : 0],
+            [GOLDEN_APPLE, R() < 0.15 ? 1 : 0], [GOLD_ARMOUR + ((R()*4)|0), R() < 0.45 ? 1 : 0], [GOLDB, R() < 0.05 ? 1 : 0]];
   } else if(kind === 'ruin'){
     loot = [[COALI, 1 + ((R()*4)|0)], [WHEATITEM, 2 + ((R()*3)|0)], [GNUGGET, 1 + ((R()*3)|0)], [ROTTEN, R() < 0.5 ? 1 : 0],
             [EMERALD, R() < 0.3 ? 1 : 0], [GOLDEN_APPLE, R() < 0.05 ? 1 : 0], [ROD, R() < 0.2 ? 1 : 0], [TREASURE_MAP, R() < 0.35 ? 1 : 0]];
@@ -9017,7 +9251,7 @@ function spawnAnimal(type, x, y, z){
                   kangaroo:rooMats,fox:foxMats,llama:llamaMats,goat:goatMats,axolotl:axoMats,
                   donkey:donkeyMats,mule:muleMats,skeleton_horse:skelHorseMats,zombie_horse:zomHorseMats,ocelot:ocelotMats,panda:pandaMats,polar_bear:bearMats,
                   turtle:turtleMats,armadillo:armaMats,camel:camelMats,sniffer:snifferMats,
-                  cat:CAT_PALS[(Math.random() * CAT_PALS.length) | 0],
+                  cat:CAT_PALS[catPalForce >= 0 ? catPalForce : (Math.random() * CAT_PALS.length) | 0],
                   frog:FROG_PALS[(() => { const t = climateT(Math.floor(x), Math.floor(z)); return t < 0.38 ? 'cold' : t > 0.6 ? 'warm' : 'temperate'; })()]};
   const m=moosh?mooMats:palettes[type];
   const part=(w,h,d,mat,x,y,z,parent=g)=>box(w,h,d,mat,x,y,z,parent);
@@ -11777,6 +12011,59 @@ function spawnTrader(){
   return e;
 }
 let illT = 2, patrolT = 300 + Math.random() * 300, traderT = 90;
+function templeLever(x, y, z){
+  for(const t of landsNear('temple', x, z)){
+    if(!t.levers.some(l => l[0] === x && l[1] === y && l[2] === z)) continue;
+    const on = t.levers.map(l => !!(rsPart(...l) || {}).on);
+    if(on.every((v, j) => v === t.combo[j]) && t.panel.some(p => getBlock(...p) !== AIR)){
+      for(const p of t.panel) setBlock(p[0], p[1], p[2], AIR);
+      playN({ f: 140, type: 'lowpass', dur: 0.7, vol: 0.35 }); tone(90, 60, 0.5, 'sawtooth', 0.05);
+      flashName('Stone grinds somewhere nearby...');
+    }
+  }
+}
+const landSeen = new Set(), trapCd = new Map();
+let landT = 1, trapT = 0;
+function updateLandmarks(dt){
+  const px = player.pos.x, pz = player.pos.z, now = performance.now() / 1000;
+  if((trapT -= dt) <= 0){
+    trapT = 0.1;
+    for(const t of landsNear('temple', px, pz)){
+      const [qx, qy, qz] = t.plate;
+      if(Math.floor(px) !== qx || Math.floor(pz) !== qz || Math.abs(player.pos.y - qy) > 0.7 || getBlock(qx, qy, qz) !== PLATE_STONE) continue;
+      if(now < (trapCd.get(t.key) || 0)) continue;
+      trapCd.set(t.key, now + 1.5);
+      playN({ f: 1200, type: 'bandpass', dur: 0.05, vol: 0.2 });
+      for(let n = 0; n < 2; n++){
+        const [fx, fy, fz] = t.trapFrom, dx = px - fx + (Math.random() - 0.5) * 0.3, dy = player.pos.y + 1.2 - fy, dz = pz - fz, d = Math.hypot(dx, dy, dz) || 1, sp = 20;
+        spawnArrow(fx, fy, fz, dx / d * sp, dy / d * sp + 9 * d / sp, dz / d * sp);
+      }
+    }
+  }
+  if((landT -= dt) > 0) return;
+  landT = 3;
+  // a witch keeps a hut, with her black cat
+  for(const L of landsNear('hut', px, pz)){
+    if(Math.hypot(L.x - px, L.z - pz) > 72 || getBlock(L.x, L.fh, L.z) !== SPLANK) continue;
+    const night = daylightOf(timeOfDay) < 0.4;
+    if(!landSeen.has(L.key) || (night && !netherMobs.some(m => m.hut === L.key) && Math.random() < 0.1)){
+      const first = !landSeen.has(L.key);
+      landSeen.add(L.key);
+      const w = spawnNetherMob('witch', L.x + 0.5, L.fh + 1.05, L.z + 0.5);
+      if(w){ w.hut = L.key; w.home = [L.x, L.z]; }
+      if(first){ catPalForce = 2; spawnAnimal('cat', L.x - 0.5, L.fh + 1.05, L.z + 1.5); catPalForce = -1; }
+    }
+  }
+  // the igloo's basement: a villager and a zombie villager shut in their cells
+  for(const L of landsNear('igloo', px, pz)){
+    if(!L.basement || landSeen.has(L.key) || Math.hypot(L.x - px, L.z - pz) > 48) continue;
+    const B = L.y - 9;
+    if(getBlock(L.x + 3, B + 1, L.z - 1) !== CHEST) continue;                                    // not built yet
+    landSeen.add(L.key);
+    spawnVillager(L.x - 2.5, B + 1.05, L.z + 6.5, L.x - 2.5, L.z + 6.5, 'cleric');
+    spawnZombie(L.x + 3.5, B + 1.05, L.z + 6.5, 'zvillager');
+  }
+}
 const outpostSeen = new Set();
 function updateIllagers(dt){
   updateFangs(dt);
@@ -11980,6 +12267,7 @@ function updateNightMobs(dt){
   updateSplashes(dt);
   updateFlyers(dt);
   updateIllagers(dt);
+  updateLandmarks(dt);
   updateBeacons(dt);
   updateTrials(dt);
   updateDriedGhasts(dt);
@@ -17728,6 +18016,7 @@ function useRS(hit){
   if(hit.id === LEVER){
     const part = Object.assign({ face: 0 }, rsPart(hit.x, hit.y, hit.z)); part.on = !part.on;
     rsSetPart(hit.x, hit.y, hit.z, part); playN({ f: part.on ? 900 : 700, type: 'bandpass', dur: 0.05, vol: 0.16 }); triggerViewSwing();
+    templeLever(hit.x, hit.y, hit.z);
     return true;
   }
   if(hit.id === BUTTON_STONE || hit.id === BUTTON_WOOD){
@@ -23546,6 +23835,7 @@ window.__bc = {
   PART_BASE, WALLS, FENCES, partState, partBoxes, placePartial, stairQuads,
   COLORS, DYE, CONCRETE, POWDER, SGLASS, TERRA16, GLAZED, CARPET, WOOL16, hardenNear,
   playerSees, updatePale, paleState: () => ({ blossomOpen, paleHere }),
+  landDef, landsNear, LAND_KINDS, updateLandmarks, templeLever, stampLands,
   splashes, sinceRestSet: v => { sinceRest = v; }, updateNightMobs, spawnFromEgg, useOnFlyer, creativeList, recipeList, mcCat, openCraft, setSlot: (i, id, n = 1, ench) => { const q = survInv[i]; q.id = id; q.count = n; q.dur = ITEMS[id] && ITEMS[id].tool ? TIER_DUR[ITEMS[id].tool.tier - 1] : 0; q.ench = ench; invDirty = true; renderHotbar(); }, heldStack: () => survInv[sel], useAnvil, armourEnch: () => armourEnch, armour: () => armour, keepers: () => keepers, updateKeepers, useHappyGhast, useCopperGolem, rideGhastNow: () => rideGhast, updateGhastRide, dryHydration: () => dryHyd, updateDriedGhasts, tryBuildGolem, chestsNearPos, trialDef, trialsNear, nearestTrial, updateTrials, trialState, openVault, windBurst, trialCools: () => trialCools, trySummonWither, placeSkull, beaconLevel, updateBeacons, beams, cycleBeacon, raidState: () => raid, startRaid, spawnPatrol, spawnTrader, outpostsNear, outpostDef, fangs, useTotem, updateIllagers, rideState: () => rideHorse, useRideable, updateHorseRide,
   mountainBiome, jaggedAt, vnoise, deepDarkAt, cityDef, cityBlock, vibrate, summonWarden, sculkState: () => ({ warnLevel, near: sculkNear.length }), netherMobs, spawnNetherMob,
   monumentDef, monumentBlock, conduitFrame, soakSponge, airState: () => air, effectsNow: () => effects, spawnSea, seaLife, deadElders,
