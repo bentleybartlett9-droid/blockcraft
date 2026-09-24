@@ -1704,6 +1704,7 @@ const SPAWN_EGGS = [
   ['glowsquid','Glow Squid','#095656','#85f1bc'], ['pufferfish','Pufferfish','#f6b201','#37c3f2'], ['tadpole','Tadpole','#6d533d','#160a00'],
   ['pillager','Pillager','#532f36','#959b9b'], ['vindicator','Vindicator','#959b9b','#275e61'], ['evoker','Evoker','#959b9b','#1e1c1a'], ['vex','Vex','#7a90a4','#e8edf1'],
   ['ravager','Ravager','#757470','#5b5049'], ['wandering_trader','Wandering Trader','#456296','#eaa430'], ['breeze','Breeze','#af94df','#9166df'],
+  ['happy_ghast','Happy Ghast','#fbfbfb','#8cc4e6'], ['copper_golem','Copper Golem','#c56a41','#5bb49e'],
 ];
 const EGG_BASE = 410;                      // 410-446
 const APPLE=457, GOLDEN_APPLE=458, CARROT=459, POTATO=460, BAKED_POTATO=461, MILK=462, EGG=463, SUGAR=464,
@@ -2056,6 +2057,8 @@ BLOCKS[DEEPSLATE_BRICKS]={name:'Deepslate Bricks',all:387};BLOCKS[DEEPSLATE_TILE
 ITEMS[ECHO_SHARD]={name:'Echo Shard',icon:265};
 const PHANTOM_MEMBRANE = 930, ARMADILLO_SCUTE = 931, GLOW_INK_SAC = 932, TOTEM = 935, NETHER_STAR = 936;
 const WITHER_SKULL = 876, BEACON = 877, EMERALD_BLOCK = 878, TRIAL_SPAWNER = 879, VAULT = 880, COPPER_BULB = 881, COPPER_GRATE = 882;
+const DRIED_GHAST = 883, COPPER_CHEST = 884, HARNESS = 943;
+BLOCKS[DRIED_GHAST]={name:'Dried Ghast',all:708};BLOCKS[COPPER_CHEST]={name:'Copper Chest',top:709,bottom:709,side:710};ITEMS[HARNESS]={name:'Harness',icon:388};
 const TRIAL_KEY = 937, BREEZE_ROD = 938, WIND_CHARGE = 939, HEAVY_CORE = 940, MACE = 941, TRIAL_MAP = 942;
 BLOCKS[TRIAL_SPAWNER]={name:'Trial Spawner',all:704};BLOCKS[VAULT]={name:'Vault',all:705};BLOCKS[COPPER_BULB]={name:'Copper Bulb',all:706};BLOCKS[COPPER_GRATE]={name:'Copper Grate',all:707};
 ITEMS[TRIAL_KEY]={name:'Trial Key',icon:382};ITEMS[BREEZE_ROD]={name:'Breeze Rod',icon:383};ITEMS[WIND_CHARGE]={name:'Wind Charge',icon:384};
@@ -2488,7 +2491,7 @@ function toolClassOf(id){
   if([DRIPSTONE,TUFF,CALCITE,AMETHYST,BUDDING,COPPERO,COPPERB].includes(id))return 'pick';
   if(id === MOSS) return 'shovel';
   if([MARBLE,MARBLEBRICK,BASALT,BASALTBRICK,MOSAIC,AMBERLAMP].includes(id))return 'pick';
-  if(isLog(id) || ANY_PLANK.includes(id) || id === CRAFTT || id === BED || id === BEDHEAD || id === TRAPDOOR || id === CHEST || id === BARREL) return 'axe';
+  if(isLog(id) || ANY_PLANK.includes(id) || id === CRAFTT || id === BED || id === BEDHEAD || id === TRAPDOOR || id === CHEST || id === COPPER_CHEST || id === BARREL) return 'axe';
   if(id === GRASS || id === SAVGRASS || id === DIRT || id === SAND || id === SNOW || id === SNOWY_GRASS || id === SNOW_LAYER) return 'shovel';
   if(id === DEEPSLATE) return 'pick';
   if(id === STONE || id === COBBLE || id === BRICK || id === SBRICK || id === GLOWB || id === FURN || id === IRONB ||
@@ -2546,7 +2549,7 @@ function handTime(id){
   if(id === GRASS || id === SAVGRASS || id === DIRT || id === SAND || id === SNOW) return 0.75;
   if(id === WOOL) return 1.0;
   if(id === GLOWB) return 2.0;
-  if(isLog(id) || ANY_PLANK.includes(id) || id === CRAFTT || id === BED || id === BEDHEAD || id === CHEST || id === BARREL) return 3.0;
+  if(isLog(id) || ANY_PLANK.includes(id) || id === CRAFTT || id === BED || id === BEDHEAD || id === CHEST || id === COPPER_CHEST || id === BARREL) return 3.0;
   if(id === CRYSTALORE || id === DIAMO || id === IRONB || id === GOLDB || id === DIAMB) return 5.0;
   if(id === COALO || id === IRONO || id === GOLDO || id === EMERO) return 4.5;
   if(id === DEEPSLATE) return 5.5;                 // noticeably tougher than surface stone
@@ -2647,6 +2650,9 @@ const RECIPES = [
   { out: [EMERALD_BLOCK, 1], in: [[EMERALD, 9]], st: 'table' },
   { out: [EMERALD, 9], in: [[EMERALD_BLOCK, 1]] },
   { out: [WIND_CHARGE, 4], in: [[BREEZE_ROD, 1]] },
+  { out: [DRIED_GHAST, 1], in: [[GHASTTEAR, 8], [SOULSAND, 1]], st: 'table' },
+  { out: [HARNESS, 1], in: [[LEATHER, 3], [GLASS, 2], [WOOL, 1]], st: 'table' },
+  { out: [COPPER_CHEST, 1], in: [[CHEST, 1], [COPPERI, 8]], st: 'table' },
   { out: [MACE, 1], in: [[HEAVY_CORE, 1], [BREEZE_ROD, 1]], st: 'table' },
   { out: [COPPER_BULB, 4], in: [[COPPERB, 3], [BLAZEROD, 1], [REDSTONE, 1]], st: 'table' },
   { out: [COPPER_GRATE, 4], in: [[COPPERB, 1]], st: 'table' },
@@ -2853,6 +2859,11 @@ itemAtlas.width = 128; itemAtlas.height = 1024;   // 512 icons
     const d = Math.hypot((x - 7.5) * 1.1, (y - 9) * 0.95);
     if(d > 5.6 && !(y < 5 && Math.abs(x - 7.5) < 1.5 && y > 1)) return null;
     return y < 5 ? [30, 90, 96] : d > 4.6 ? [16, 60, 66] : (x + y) % 4 === 0 ? [160, 255, 240] : [60, 200, 190]; });
+  px(388, (x, y) => {                                                   // harness: a padded frame with goggles
+    if(y >= 3 && y <= 5 && x >= 1 && x <= 14) return (x + y) % 3 ? [70, 130, 210] : [50, 100, 180];
+    if((x <= 2 || x >= 13) && y >= 5 && y <= 12) return [120, 84, 50];
+    if(y >= 8 && y <= 11 && ((x >= 4 && x <= 7) || (x >= 9 && x <= 12))) return (x === 4 || x === 7 || x === 9 || x === 12 || y === 8 || y === 11) ? [40, 40, 44] : [150, 220, 250];
+    return null; });
   px(382, (x, y) => {                                                   // trial key: a copper-gold key
     const C = [214, 150, 64], D = [150, 96, 40];
     const d = Math.hypot(x - 4.5, y - 4.5); if(d < 3.2) return d > 1.4 ? C : null;
@@ -3644,6 +3655,20 @@ itemAtlas.width = 128; itemAtlas.height = 1024;   // 512 icons
     return x % 4 === 0 ? [96 + k, 66 + k, 40 + k] : [124 + k, 88 + k, 52 + k];
   });
   put(302, (x, y, r) => { const k = Math.floor((r() - 0.5) * 16); return x % 4 === 0 ? [70 + k, 72 + k, 78 + k] : [96 + k, 98 + k, 104 + k]; });   // cast iron
+  put(708, (x, y, r) => {                                                                     // dried ghast: a shrivelled grey-brown face
+    const k = Math.floor((r() - 0.5) * 16);
+    if((y === 6 || y === 7) && ((x >= 3 && x <= 5) || (x >= 10 && x <= 12))) return [60, 52, 46];   // eyes screwed shut
+    if(y === 11 && x >= 6 && x <= 9) return [66, 56, 50];
+    return (x * 5 + y * 3) % 9 === 0 || (y % 4 === 2 && x % 3) ? [118 + k, 104 + k, 92 + k] : [146 + k, 132 + k, 118 + k]; });
+  put(709, (x, y, r) => {                                                                     // copper chest, top
+    const k = Math.floor((r() - 0.5) * 14);
+    if(x === 0 || y === 0 || x === 15 || y === 15) return [120 + k, 64 + k, 40];
+    return y % 5 === 0 ? [160 + k, 88 + k, 56] : [196 + k, 114 + k, 74 + k]; });
+  put(710, (x, y, r) => {                                                                     // copper chest, sides with its latch
+    const k = Math.floor((r() - 0.5) * 14);
+    if(x === 0 || y === 0 || x === 15 || y === 15 || y === 5) return [120 + k, 64 + k, 40];
+    if(x >= 6 && x <= 9 && y >= 4 && y <= 8) return [70, 150, 130];
+    return [196 + k, 114 + k, 74 + k]; });
   put(704, (x, y, r) => {                                                                     // trial spawner: a dark cage, embers inside
     const k = Math.floor((r() - 0.5) * 12);
     if(x === 0 || y === 0 || x === 15 || y === 15) return [44 + k, 42 + k, 40 + k];
@@ -8171,7 +8196,7 @@ let bobT = 0, bobAmt = 0, fov = 72, fallPeak = player.pos.y, stepAcc = 0, cactus
 function physics(dt){
   const p = player, v = p.vel;
   if(updateStriderRide(dt)) return;   // on a strider it carries you
-  if(updateHorseRide(dt)) return;     // on a horse, a donkey, a camel...
+  if(updateGhastRide(dt) || updateHorseRide(dt)) return;     // on a horse, a donkey, a camel...
   if(riding) return;                 // vehicle controls the player's position
   const inWater = isWet(getBlock(Math.floor(p.pos.x), Math.floor(p.pos.y + 0.2), Math.floor(p.pos.z)));
   const sprint = key('ShiftLeft') && !p.fly && key('KeyW') && !inWater;
@@ -10005,6 +10030,9 @@ const NETHER_TYPES = {
   wandering_trader: { hp: 20, w: 0.3, h: 1.95, build: buildTrader },
   wither:     { hp: 300, w: 0.5, h: 3.3, build: buildWitherBoss },
   breeze:     { hp: 30, w: 0.35, h: 1.77, build: buildBreeze },
+  happy_ghast: { hp: 20, w: 2.0, h: 5.8, build: buildHappyGhast },
+  ghastling:  { hp: 20, w: 0.5, h: 1.45, build: buildHappyGhast },
+  copper_golem: { hp: 12, w: 0.3, h: 1.05, build: buildCopperGolem },
 };
 /* The Warden: blind, three blocks tall, 500 health. It finds you by sound
    (footsteps, mining, placing - sneak to stay quiet) and by smell when you
@@ -10420,6 +10448,340 @@ function witherBar(e){
   witherEl.innerHTML = 'Wither<div style="width:300px;height:8px;background:#2a0a3a;margin:4px auto 0;border:1px solid #000"><div style="height:100%;width:' + pct + '%;background:' + (e.armoured ? '#8a6aff' : '#b020d0') + '"></div></div>';
 }
 setInterval(() => { if(witherBarShown && performance.now() - witherBarT > 1500){ witherBarShown = ''; witherEl.style.display = 'none'; } }, 500);
+/* ---- companions that are kept with the world ------------------------------
+   Happy ghasts, ghastlings and copper golems are yours: they're saved with the
+   world and come back when you do. */
+let keepers = (() => { try { return JSON.parse(localStorage.getItem(SAVE_KEY + '-keepers')) || []; } catch(e){ return []; } })();
+const saveKeepers = () => safeSet(SAVE_KEY + '-keepers', JSON.stringify(keepers));
+function keeperState(e){
+  if(e.type === 'copper_golem') return { age: e.age || 0, wax: e.waxed ? 1 : 0 };
+  if(e.type === 'ghastling') return { age: e.age || 0, hx: e.home ? e.home.x : e.pos.x, hy: e.home ? e.home.y : e.pos.y, hz: e.home ? e.home.z : e.pos.z };
+  return { h: e.harness ? 1 : 0, hx: e.home ? e.home.x : e.pos.x, hy: e.home ? e.home.y : e.pos.y, hz: e.home ? e.home.z : e.pos.z };
+}
+function applyKeeper(e, d){
+  if(!d) return;
+  if(d.age) e.age = d.age;
+  if(d.wax) e.waxed = true;
+  if(d.h){ e.harness = 1; if(e.harnessG) e.harnessG.visible = true; }
+  if(d.hx !== undefined) e.home = new THREE.Vector3(d.hx, d.hy, d.hz);
+}
+function keepMob(e){
+  e.keepId = Date.now().toString(36) + ((Math.random() * 1e6) | 0).toString(36);
+  keepers.push({ id: e.keepId, type: e.type, dim, x: e.pos.x, y: e.pos.y, z: e.pos.z, d: keeperState(e) }); saveKeepers();
+}
+function dropKeeper(e){ keepers = keepers.filter(r => r.id !== e.keepId); saveKeepers(); e.keepId = null; }
+let keeperT = 0;
+function updateKeepers(dt){
+  if(mobsFromHost() || (keeperT -= dt) > 0) return;
+  keeperT = 2;
+  const live = new Map();
+  for(const e of netherMobs) if(e.keepId) live.set(e.keepId, e);
+  for(const r of keepers){
+    const e = live.get(r.id);
+    if(e){ r.x = e.pos.x; r.y = e.pos.y; r.z = e.pos.z; r.d = keeperState(e); continue; }
+    if(r.dim !== dim || Math.hypot(r.x - player.pos.x, r.z - player.pos.z) > 80) continue;
+    const c = chunks.get((Math.floor(r.x) >> 4) + ',' + (Math.floor(r.z) >> 4));
+    if(!c || !c.built) continue;
+    const n = spawnNetherMob(r.type, r.x, r.y + 0.05, r.z);
+    if(n){ n.keepId = r.id; applyKeeper(n, r.d); }
+  }
+  if(keepers.length) saveKeepers();
+}
+/* ---- the Happy Ghast ---------------------------------------------------------
+   As in Minecraft: craft a dried ghast (eight ghast tears round soul sand) and
+   set it in water. It soaks up the water for twenty minutes, then out pops a
+   ghastling, which trails after you and grows up over another twenty into a
+   happy ghast - big, white and gentle. It follows anyone holding a harness;
+   put the harness on it and climb aboard: it flies where you look, jump rises,
+   sneak gets off. Its goggles come down over its eyes when you ride. */
+const HG = {
+  skin: nSkinMat(16, 16, ({ fill }) => fill(['#f5f5f5', '#efefef', '#f9f9f9', '#e8e8e8'])),
+  face: nSkinMat(16, 16, ({ fill, px }) => {
+    fill(['#f5f5f5', '#efefef', '#f9f9f9']);
+    px(3, 5, '#202024', 3, 4); px(10, 5, '#202024', 3, 4); px(4, 5, '#ffffff', 1, 1); px(11, 5, '#ffffff', 1, 1);   // big dark eyes
+    px(1, 10, '#f4a8b8', 3, 2); px(12, 10, '#f4a8b8', 3, 2);                                                      // rosy cheeks
+    px(6, 11, '#4a3434', 4, 1); px(7, 12, '#4a3434', 2, 1);                                                       // a little smile
+  }),
+  tent: entMat(0xe6e6e6), harness: entMat(0x3f7fd0), strap: entMat(0x6a4a2a), rim: entMat(0x2a2a2e),
+  lens: new THREE.MeshBasicMaterial({ color: 0x9fe0ff, transparent: true, opacity: 0.7 }),
+};
+function buildHappyGhast(g, e){
+  const S = e.type === 'ghastling' ? 1 : 4, M = HG;
+  e.S = S; e.legs = []; e.arms = [];
+  const body = new THREE.Group(); body.position.y = S * 0.45; g.add(body); e.body = body;
+  box(S, S, S, faces(M.skin, M.skin, M.skin, M.face), 0, S / 2, 0, body);
+  e.tents = [];
+  for(let i = -1; i <= 1; i++) for(let k = -1; k <= 1; k++){
+    const t = new THREE.Group(); t.position.set(i * S * 0.3, 0.01, k * S * 0.3); body.add(t);
+    const L = S * (0.26 + ((i + 2) * 7 + (k + 2) * 3) % 5 * 0.04);
+    box(S * 0.1, L, S * 0.1, M.tent, 0, -L / 2, 0, t); e.tents.push(t);
+  }
+  const h = new THREE.Group(); body.add(h); e.harnessG = h; h.visible = false;
+  box(S * 1.04, S * 0.08, S * 1.04, M.harness, 0, S + S * 0.03, 0, h);                 // the seat frame
+  for(const x of [-1, 1]) box(S * 0.1, S * 0.1, S * 1.0, M.strap, x * S * 0.42, S + S * 0.1, 0, h);   // hand rails
+  for(const [x, z] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) box(S * 0.07, S * 0.55, S * 0.07, M.strap, x * S * 0.51, S * 0.74, z * S * 0.51, h);
+  const gog = new THREE.Group(); gog.position.set(0, S * 1.02, -S * 0.5); h.add(gog); e.goggles = gog;
+  for(const sx of [-1, 1]){ box(S * 0.3, S * 0.2, S * 0.05, M.rim, sx * S * 0.21, 0, -0.01, gog); box(S * 0.22, S * 0.13, S * 0.06, M.lens, sx * S * 0.21, 0, -0.02, gog); }
+  box(S * 1.02, S * 0.05, S * 0.03, M.rim, 0, 0, 0.01, gog);
+}
+function ghastBlocked(e, x, y, z){
+  const S = e.S, r = S * 0.47;
+  for(const ox of [-r, 0, r]) for(const oz of [-r, 0, r]) for(const oy of [S * 0.1, S * 0.5, S * 1.0, S * 1.4])
+    if(isSolid(getBlock(Math.floor(x + ox), Math.floor(y + oy), Math.floor(z + oz)))) return true;
+  return false;
+}
+function ghastMove(e, dt){
+  const nx = e.pos.x + e.vel.x * dt, ny = e.pos.y + e.vel.y * dt, nz = e.pos.z + e.vel.z * dt;
+  if(!ghastBlocked(e, nx, e.pos.y, e.pos.z)) e.pos.x = nx; else e.vel.x = 0;
+  if(!ghastBlocked(e, e.pos.x, e.pos.y, nz)) e.pos.z = nz; else e.vel.z = 0;
+  if(!ghastBlocked(e, e.pos.x, ny, e.pos.z)) e.pos.y = ny; else e.vel.y = 0;
+}
+function happyThink(e, dt){
+  e.home = e.home || e.pos.clone();
+  if(e.type === 'ghastling' && (e.age = (e.age || 0) + dt) >= 1200){      // grown up
+    const n = spawnNetherMob('happy_ghast', e.pos.x, e.pos.y, e.pos.z);
+    if(n){ n.home = e.home.clone(); n.yaw = e.yaw; if(e.keepId) keepMob(n); }
+    if(e.keepId) dropKeeper(e);
+    e.remove = true;
+    burstRGB(e.pos.x, e.pos.y + 1, e.pos.z, 1, 1, 1, 30, 2);
+    if(e.pos.distanceTo(player.pos) < 48) flashName('Your ghastling has grown into a happy ghast');
+    return;
+  }
+  if(e === rideGhast) return;                                           // its rider steers it
+  const S = e.S, dP = e.pos.distanceTo(player.pos);
+  const follow = !dead && dP < 16 && (heldId() === HARNESS || e.type === 'ghastling');
+  let tx, ty, tz, sp = e.type === 'ghastling' ? 2.2 : 2.6;
+  if(follow){
+    faceTo(e, player.pos.x, player.pos.z);
+    if(dP < S + 2){ e.vel.multiplyScalar(Math.max(0, 1 - dt * 3)); ghastMove(e, dt); return; }
+    tx = player.pos.x; ty = player.pos.y + (e.type === 'ghastling' ? 0.8 : 1.5); tz = player.pos.z;
+  } else {
+    if(!e.goal || e.pos.distanceTo(e.goal) < 1.5 || (e.t -= dt) <= 0){
+      e.t = 5 + Math.random() * 6;
+      const gx = e.home.x + (Math.random() - 0.5) * 20, gz = e.home.z + (Math.random() - 0.5) * 20;
+      e.goal = new THREE.Vector3(gx, Math.max(terrainHeight(Math.floor(gx), Math.floor(gz)) + 2 + Math.random() * 3, e.home.y - 2), gz);
+    }
+    tx = e.goal.x; ty = e.goal.y; tz = e.goal.z; sp *= 0.6;
+    if(Math.hypot(e.vel.x, e.vel.z) > 0.2) e.yaw = Math.atan2(-e.vel.x, -e.vel.z);
+  }
+  const dir = _gTo.set(tx - e.pos.x, ty - e.pos.y, tz - e.pos.z), l = dir.length() || 1;
+  e.vel.lerp(dir.multiplyScalar(Math.min(sp, l) / l), Math.min(1, dt * 1.5));
+  ghastMove(e, dt);
+}
+function animHappy(e, dt){
+  e.anim += dt;
+  e.group.position.copy(e.pos); e.group.position.y += Math.sin(e.anim * 1.4) * 0.08 * e.S;
+  const dyaw = ((e.yaw - e.group.rotation.y + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+  e.group.rotation.y += dyaw * Math.min(1, dt * 3);
+  e.tents.forEach((t, i) => { t.rotation.x = Math.sin(e.anim * 1.8 + i * 1.3) * 0.25; t.rotation.z = Math.cos(e.anim * 1.5 + i * 2.1) * 0.2; });
+  if(e.goggles){                                                        // goggles down over its eyes while it's ridden
+    const down = e === rideGhast ? 1 : 0;
+    e.gogK = (e.gogK || 0) + (down - (e.gogK || 0)) * Math.min(1, dt * 4);
+    e.goggles.position.y = e.S * (1.02 - e.gogK * 0.44); e.goggles.rotation.x = (1 - e.gogK) * -0.6;
+  }
+}
+let rideGhast = null;
+function useHappyGhast(e){
+  const held = heldId();
+  if(held === HARNESS && !e.harness){
+    consumePlacedItem(); e.harness = 1; e.harnessG.visible = true;
+    playN({ f: 300, type: 'lowpass', dur: 0.2, vol: 0.12 }); netherVoice(e, 'idle');
+    flashName('Harnessed - use it with an empty hand to climb aboard'); return true;
+  }
+  if(held === SHEARS && e.harness){
+    e.harness = 0; e.harnessG.visible = false; if(rideGhast === e) dismountGhast();
+    spawnDropAt(e.pos.x, e.pos.y + 1, e.pos.z, HARNESS); playN({ f: 2000, type: 'highpass', dur: 0.1, vol: 0.1 }); return true;
+  }
+  if(!e.harness){ flashName('It needs a harness before you can ride it'); return true; }
+  if(held && !ITEMS[held]) return false;                                // holding a block: you're building on it
+  rideGhast = e; e.rideT = 0; e.rideDim = dim; player.fly = false;
+  flashName('Look where to go, forward to fly, jump to rise, sneak to get off');
+  return true;
+}
+function dismountGhast(){
+  const e = rideGhast; rideGhast = null;
+  if(!e) return;
+  const a = e.yaw + Math.PI / 2, r = e.S * 0.5 + 0.9;
+  player.pos.set(e.pos.x + Math.cos(a) * r, e.pos.y + e.S * 0.9, e.pos.z - Math.sin(a) * r); player.vel.set(0, 0, 0); fallPeak = player.pos.y;
+}
+function updateGhastRide(dt){
+  const e = rideGhast;
+  if(!e) return false;
+  const sneak = key('ShiftLeft') || player.crouching;
+  if(!netherMobs.includes(e) || dead || dim !== e.rideDim || (sneak && e.rideT > 0.4)){ dismountGhast(); return false; }
+  e.rideT += dt;
+  camera.getWorldDirection(_cDir);
+  const la = xrActive ? readAxes('left') : null;
+  const fwd = key('KeyW') || (la && (la[3] || 0) < -0.35), back = key('KeyS') || (la && (la[3] || 0) > 0.35);
+  const up = key('Space') || (xrActive && readButtons('right')?.[4]?.pressed);
+  const want = new THREE.Vector3();
+  if(fwd) want.copy(_cDir).multiplyScalar(6.5); else if(back) want.copy(_cDir).multiplyScalar(-2.5);
+  if(up) want.y = Math.max(want.y, 4);
+  e.vel.lerp(want, Math.min(1, dt * 2.5));
+  e.yaw = Math.atan2(-_cDir.x, -_cDir.z);
+  ghastMove(e, dt);
+  player.pos.set(e.pos.x, e.pos.y + e.S * 1.45 + 0.1, e.pos.z);
+  player.vel.set(0, 0, 0); player.onGround = true; fallPeak = player.pos.y;
+  return true;
+}
+// dried ghasts soak up water, then hatch
+const dryHyd = (() => { try { return JSON.parse(localStorage.getItem(SAVE_KEY + '-dried')) || {}; } catch(e){ return {}; } })();
+let dryT = 0;
+function updateDriedGhasts(dt){
+  if((dryT -= dt) > 0) return;
+  dryT = 2;
+  const px = player.pos.x, pz = player.pos.z;
+  let changed = false;
+  for(const ck in edits){
+    const [cx, cz] = ck.split(',').map(Number);
+    if(Math.abs(cx * 16 + 8 - px) > 96 || Math.abs(cz * 16 + 8 - pz) > 96) continue;
+    const ed = edits[ck];
+    for(const k in ed){
+      if(ed[k] !== DRIED_GHAST) continue;
+      const [lx, y, lz] = k.split(',').map(Number), x = cx * 16 + lx, z = cz * 16 + lz, key2 = x + ',' + y + ',' + z;
+      if(getBlock(x, y, z) !== DRIED_GHAST){ if(dryHyd[key2]){ delete dryHyd[key2]; changed = true; } continue; }
+      if(![[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]].some(([a, b, c]) => getBlock(x + a, y + b, z + c) === WATER)) continue;
+      const was = dryHyd[key2] || 0, now = was + 2; dryHyd[key2] = now; changed = true;
+      if(Math.random() < 0.5) burstRGB(x + 0.5, y + 1, z + 0.5, 0.6, 0.8, 1, 2, 0.3);   // it drinks
+      if(Math.floor(was / 400) !== Math.floor(now / 400) && now < 1200) playN({ f: 500, type: 'lowpass', dur: 0.3, vol: 0.08 });
+      if(now >= 1200){
+        setBlock(x, y, z, WATER); delete dryHyd[key2];
+        const g = spawnNetherMob('ghastling', x + 0.5, y + 0.3, z + 0.5);
+        if(g){ g.home = g.pos.clone(); keepMob(g); }
+        burstRGB(x + 0.5, y + 1, z + 0.5, 1, 1, 1, 20, 0.8); netherVoice({ type: 'ghastling', pos: new THREE.Vector3(x, y, z) }, 'idle');
+        flashName('A ghastling! It will follow you about and grow up in twenty minutes');
+      }
+    }
+  }
+  if(changed) safeSet(SAVE_KEY + '-dried', JSON.stringify(dryHyd));
+}
+/* ---- the Copper Golem --------------------------------------------------------
+   Set a carved pumpkin on a block of copper: up gets a copper golem and the
+   block turns into a copper chest. Whatever you put in a copper chest, it
+   carries off, a stack at a time, to a chest nearby that already holds that
+   thing - or an empty one. Left alone it weathers, copper to green, slowing as
+   it goes, and at last seizes up into a statue. Honeycomb waxes it (no more
+   weathering); an axe scrapes the green away and brings a statue back. */
+const CG_STAGE = 1500;
+const CG_MATS = [0xc8703f, 0xa8826a, 0x6fa47c, 0x4fa68e].map(c => entMat(c)), CG_DARK = [0x8a4a2a, 0x7a5a4a, 0x4a7a5a, 0x3a7a6a].map(c => entMat(c));
+const CG_EYE = new THREE.MeshBasicMaterial({ color: 0xffe9a8 });
+function buildCopperGolem(g, e){
+  e.tint = []; e.tintD = [];
+  const M = CG_MATS[0], K = CG_DARK[0];
+  e.legs = [limb(0.14, 0.24, 0.16, K, -0.1, 0.24, 0, g), limb(0.14, 0.24, 0.16, K, 0.1, 0.24, 0, g)];
+  e.legs.forEach(l => e.tintD.push(l.children[0]));
+  e.tint.push(box(0.42, 0.3, 0.28, M, 0, 0.39, 0, g));
+  e.arms = [limb(0.1, 0.42, 0.12, M, -0.27, 0.53, 0, g), limb(0.1, 0.42, 0.12, M, 0.27, 0.53, 0, g)];
+  e.arms.forEach(a => e.tint.push(a.children[0]));
+  const head = new THREE.Group(); head.position.set(0, 0.54, 0); g.add(head); e.head = head;
+  e.tint.push(box(0.52, 0.36, 0.44, M, 0, 0.18, 0, head));
+  box(0.12, 0.08, 0.02, CG_EYE, -0.12, 0.2, -0.225, head); box(0.12, 0.08, 0.02, CG_EYE, 0.12, 0.2, -0.225, head);
+  e.tintD.push(box(0.08, 0.14, 0.08, K, 0, 0.1, -0.26, head));          // its nose
+  e.tintD.push(box(0.05, 0.2, 0.05, K, 0, 0.46, 0, head));              // the lightning rod it wears
+  e.tint.push(box(0.11, 0.08, 0.11, M, 0, 0.58, 0, head));
+  e.hold = new THREE.Group(); e.hold.position.set(0, 0.42, -0.32); g.add(e.hold);
+}
+function setCopperStage(e, st){ e.tint.forEach(m => { m.material = CG_MATS[st]; }); e.tintD.forEach(m => { m.material = CG_DARK[st]; }); }
+function chestsNearPos(p, copper){
+  const out = [];
+  for(let cx = (Math.floor(p.x) >> 4) - 2; cx <= (Math.floor(p.x) >> 4) + 2; cx++) for(let cz = (Math.floor(p.z) >> 4) - 2; cz <= (Math.floor(p.z) >> 4) + 2; cz++){
+    const ed = edits[cx + ',' + cz];
+    if(!ed) continue;
+    for(const k in ed){
+      const id = ed[k];
+      if(copper ? id !== COPPER_CHEST : id !== CHEST) continue;
+      const [lx, y, lz] = k.split(',').map(Number), x = cx * 16 + lx, z = cz * 16 + lz;
+      if(Math.abs(x - p.x) > 32 || Math.abs(z - p.z) > 32 || Math.abs(y - p.y) > 8 || getBlock(x, y, z) !== id) continue;
+      out.push({ pos: [x, y, z], id, key: x + ',' + y + ',' + z, d: Math.hypot(x - p.x, y - p.y, z - p.z) });
+    }
+  }
+  return out.sort((a, b) => a.d - b.d);
+}
+const chestHas = key => chests[key] && chests[key].some(q => q.id && q.count > 0);
+function chestTakes(key, it){
+  const sl = chests[key];
+  if(!sl || sl.every(q => !q.id || q.count <= 0)) return true;                  // empty: fine
+  if(!sl.some(q => q.id === it.id && q.count > 0)) return false;                 // only a chest that already holds it
+  return sl.some(q => !q.id || q.count <= 0 || (q.id === it.id && !(ITEMS[it.id] && ITEMS[it.id].tool) && q.count < 64));
+}
+function chestPut(key, it){
+  const sl = chestSlots(key), tool = ITEMS[it.id] && ITEMS[it.id].tool;
+  if(!tool) for(const q of sl){ if(it.count <= 0) break; if(q.id === it.id && q.count > 0 && q.count < 64){ const m = Math.min(64 - q.count, it.count); q.count += m; it.count -= m; } }
+  for(const q of sl){ if(it.count <= 0) break; if(!q.id || q.count <= 0){ const m = tool ? 1 : it.count; q.id = it.id; q.count = m; q.dur = it.dur || 0; it.count -= m; } }
+  chestsDirty = true;
+  if(chestOpen && chestPos === key && typeof renderChestUI === 'function') renderChestUI();
+}
+function copperHold(e, it){
+  e.carry = it && it.count > 0 ? it : null;
+  while(e.hold.children.length) e.hold.remove(e.hold.children[0]);
+  if(!e.carry){ return; }
+  const id = e.carry.id, mat = !!ITEMS[id] ? matItemSolid : isCross(id) ? (id === TORCH || emitsLight(id) ? matGC : matC) : isLeaf(id) || isFenceish(id) ? matLeaf : matO;
+  const m = new THREE.Mesh(dropGeo(id), mat); m.scale.setScalar(1.3); e.hold.add(m);
+}
+function copperThink(e, dt){
+  if(!e.waxed) e.age = (e.age || 0) + dt;
+  const st = Math.min(3, Math.floor((e.age || 0) / CG_STAGE));
+  if(st !== e.stage){ e.stage = st; setCopperStage(e, st); }
+  e.statue = !e.waxed && (e.age || 0) > CG_STAGE * 4.5;
+  if(e.statue){ e.speed = 0; stepMob(e, dt, 24); return; }
+  const pace = [1.7, 1.5, 1.25, 1.0][st];
+  e.waitT = Math.max(0, (e.waitT || 0) - dt);
+  const t = e.task;
+  if(e.waitT > 0 || !t){
+    e.speed = 0;
+    if(e.waitT <= 0 && (e.scanT = (e.scanT || 0) - dt) <= 0){
+      e.scanT = 2;
+      if(e.carry){                                                     // still holding something: find it a home
+        const to = chestsNearPos(e.pos, false).find(c => chestTakes(c.key, e.carry));
+        if(to) e.task = { go: 'put', to }; else { const back = chestsNearPos(e.pos, true)[0]; if(back) e.task = { go: 'back', to: back }; }
+      } else {
+        const src = chestsNearPos(e.pos, true).find(c => chestHas(c.key));
+        if(src) e.task = { go: 'take', to: src };
+      }
+    }
+    if(!e.task && e.waitT <= 0) wander(e, dt, pace * 0.6);
+    stepMob(e, dt, 24); unstick(e, dt);
+    return;
+  }
+  const [x, y, z] = t.to.pos;
+  if(getBlock(x, y, z) !== t.to.id){ e.task = null; return; }
+  const l = faceTo(e, x + 0.5, z + 0.5);
+  if(l > 1.5 || Math.abs(e.pos.y - y) > 2){ e.speed = pace; stepMob(e, dt, 24); unstick(e, dt); return; }
+  e.speed = 0; e.reachT = 0.5; blockSfx(CHEST, 'place');
+  if(t.go === 'take'){
+    const q = (chests[t.to.key] || []).find(s2 => s2.id && s2.count > 0);
+    if(q){ const n = Math.min(16, q.count); copperHold(e, { id: q.id, count: n, dur: q.dur || 0 }); q.count -= n; if(q.count <= 0){ q.id = 0; q.count = 0; q.dur = 0; } chestsDirty = true;
+      if(chestOpen && chestPos === t.to.key && typeof renderChestUI === 'function') renderChestUI(); }
+    e.task = null; e.waitT = 0.8; e.scanT = 0;
+  } else {
+    if(e.carry){ chestPut(t.to.key, e.carry); copperHold(e, e.carry); }
+    e.task = null; e.waitT = t.go === 'back' ? 10 : 1.2; e.scanT = 0;
+    if(!e.carry) netherVoice(e, 'idle');
+  }
+  stepMob(e, dt, 24);
+}
+function animCopper(e, dt){
+  if(e.statue){ e.group.position.copy(e.pos); return; }                 // frozen in its last pose
+  animMob(e, dt);
+  e.reachT = Math.max(0, (e.reachT || 0) - dt);
+  const walk = Math.sin(e.anim * 3) * 0.5 * Math.min(1, Math.hypot(e.vel.x, e.vel.z));
+  const hold = e.carry ? -1.2 : e.reachT > 0 ? -1.5 : null;
+  e.arms[0].rotation.x = hold !== null ? hold : walk; e.arms[1].rotation.x = hold !== null ? hold : -walk;
+  e.head.rotation.z = e.task ? 0 : Math.sin(e.anim * 0.8) * 0.08;
+  if(e.waxed && Math.random() < dt * 0.3) burstRGB(e.pos.x, e.pos.y + 0.8, e.pos.z, 1, 0.85, 0.4, 1, 0.3);
+}
+function useCopperGolem(e){
+  const held = heldId(), axe = ITEMS[held] && ITEMS[held].tool && ITEMS[held].tool.type === 'axe';
+  if(held === HONEYCOMB && !e.waxed){ consumePlacedItem(); e.waxed = true; burstRGB(e.pos.x, e.pos.y + 0.6, e.pos.z, 1, 0.8, 0.3, 14, 0.5); flashName('Waxed - it will stay this colour'); return true; }
+  if(axe && (e.waxed || (e.age || 0) >= CG_STAGE)){
+    if(e.waxed) e.waxed = false;
+    else e.age = Math.max(0, (Math.min(3, Math.floor(e.age / CG_STAGE)) - 1) * CG_STAGE);
+    damageTool(['axe']); burstRGB(e.pos.x, e.pos.y + 0.6, e.pos.z, 0.9, 0.9, 0.9, 12, 0.5); playN({ f: 2400, type: 'highpass', dur: 0.15, vol: 0.12 });
+    flashName(e.statue ? 'It creaks back to life' : 'Scraped');
+    return true;
+  }
+  return false;
+}
 /* ---- the Breeze --------------------------------------------------------------
    Only found in trial chambers: a hovering head over a whirl of wind, with
    rods spinning round its core. It bounds about the room, keeps its distance
@@ -11467,6 +11829,7 @@ function updateNightMobs(dt){
   updateIllagers(dt);
   updateBeacons(dt);
   updateTrials(dt);
+  updateDriedGhasts(dt);
   // a hoglin brought into the Overworld turns into a zoglin
   for(const e of netherMobs) if(e.type === 'hoglin' && !e.puppet && (e.zomT = (e.zomT || 0) + dt) > 15){
     const z = spawnNetherMob('zoglin', e.pos.x, e.pos.y, e.pos.z); if(z) z.yaw = e.yaw; e.remove = true;
@@ -11705,6 +12068,18 @@ function netherVoice(e, mood = 'idle'){
     case 'wandering_trader':
       if(!e.invis) villagerVoice(e, mood === 'die' ? 'die' : mood === 'hurt' ? 'hurt' : 'idle');
       break;
+    case 'happy_ghast': case 'ghastling': {
+      const f = e.type === 'ghastling' ? 1150 : 720;                 // a soft, happy coo
+      if(mood === 'die') nTone(p, f, f * 0.3, 1, 'sine', 0.15, 50);
+      else if(mood === 'hurt') nTone(p, f * 1.3, f * 0.7, 0.3, 'sine', 0.14, 50);
+      else { nTone(p, f, f * 1.15, 0.3, 'sine', 0.07, 40, 0, 6); nTone(p, f * 1.15, f, 0.25, 'sine', 0.05, 40, 0.3, 6); }
+      break;
+    }
+    case 'copper_golem':
+      if(mood === 'die') nTone(p, 900, 200, 0.6, 'square', 0.08);
+      else if(mood === 'hurt') nTone(p, 1300, 700, 0.18, 'square', 0.1);
+      else if(!e.statue) { nTone(p, 1500, 1700, 0.06, 'triangle', 0.06); nTone(p, 1800, 1500, 0.06, 'triangle', 0.05, 30, 0.1); }
+      break;
     case 'breeze':
       nNoise(p, mood === 'die' ? 700 : 1300, mood === 'die' ? 1 : 0.45, idle ? 0.12 : 0.22, mood === 'die' ? -500 : 500, 40, 4);
       break;
@@ -11797,6 +12172,8 @@ function updateNetherMob(e, dt){
   if(e.type === 'warden'){ e.atkCd -= dt; wardenThink(e, dt); return; }
   if(e.type === 'wither'){ witherThink(e, dt); return; }
   if(e.type === 'breeze'){ breezeThink(e, dt); return; }
+  if(e.type === 'happy_ghast' || e.type === 'ghastling'){ happyThink(e, dt); return; }
+  if(e.type === 'copper_golem'){ copperThink(e, dt); return; }
   if(e.type === 'creaking'){ e.atkCd -= dt; creakingThink(e, dt); return; }
   if(e.type === 'silverfish' || e.type === 'endermite'){ e.atkCd -= dt; bugThink(e, dt); return; }
   if(e.type === 'phantom'){ phantomThink(e, dt, daylightOf(timeOfDay)); return; }
@@ -12008,6 +12385,8 @@ function animNether(e, dt){
   if(T === 'warden'){ animWarden(e, dt); return; }
   if(T === 'wither'){ animWitherBoss(e, dt); return; }
   if(T === 'breeze'){ animBreeze(e, dt); return; }
+  if(T === 'happy_ghast' || T === 'ghastling'){ animHappy(e, dt); return; }
+  if(T === 'copper_golem'){ animCopper(e, dt); return; }
   if(T === 'creaking'){ animCreaking(e, dt); return; }
   if(T === 'bat' || T === 'parrot' || T === 'allay'){ e.group.position.copy(e.pos); e.group.rotation.y = e.yaw; return; }
   if(e.illager || e.trader){ animIllager(e, dt); return; }
@@ -12101,6 +12480,7 @@ function hurtNether(e, dmg, byPlayer){
   netherVoice(e, 'hurt');
 }
 function killNether(e){
+  if(e.keepId) dropKeeper(e);
   const i = netherMobs.indexOf(e);
   if(i < 0) return;
   dropXP(e.pos.x, e.pos.y + 0.8, e.pos.z, { ghast: 5, blaze: 10, brute: 20, wither: 50, ravager: 20, evoker: 10, vex: 3, wandering_trader: 1, hoglin: 5, strider: 2, magma: e.size || 1, slime: e.size || 1, stormling: 2, wisp: 4 }[e.type] || 5);
@@ -12116,6 +12496,8 @@ function killNether(e){
     case 'wskel': if(Math.random() < 0.33) drop(COALI, 1, 1); drop(BONE, 0, 2); if(Math.random() < 0.05) drop(WITHER_SKULL, 1, 1); break;
     case 'wither': drop(NETHER_STAR, 1, 1); break;
     case 'breeze': drop(BREEZE_ROD, 1, 2); break;
+    case 'happy_ghast': if(e.harness) drop(HARNESS, 1, 1); break;
+    case 'copper_golem': drop(COPPERI, 2, 4); if(e.carry) drop(e.carry.id, e.carry.count, e.carry.count); break;
     case 'wisp': if(Math.random() < 0.3) drop(VOLTITE, 1, 1); break;
     case 'strider': drop(STRING, 2, 5); if(e.saddled) drop(SADDLE, 1, 1); break;
     case 'warden': drop(SCULK_CATALYST, 1, 1); break;
@@ -12144,6 +12526,7 @@ function killNether(e){
   removeEnt(netherMobs, netherMobs.indexOf(e));
 }
 function updateNetherMobs(dt){
+  updateKeepers(dt);
   for(let i = netherMobs.length - 1; i >= 0; i--){
     const e = netherMobs[i];
     if((e.pos.distanceToSquared(player.pos) > 100 * 100 && !e.boss) || e.pos.y < -10){ removeEnt(netherMobs, i); continue; }
@@ -12713,7 +13096,7 @@ function explode(x, y, z, radius, dmgMax, fromNet){
     (edits[ck] = edits[ck] || {})[(bx & 15) + ',' + by + ',' + (bz & 15)] = AIR;
     touched.add(ck);
     if(b === TNT){ if(!fromNet) igniteTNT(bx, by, bz, 0.3 + Math.random() * 0.6, true); }
-    else if(b === CHEST || b === BARREL){
+    else if(b === CHEST || b === COPPER_CHEST || b === BARREL){
       const key = bx + ',' + by + ',' + bz;
       if(chests[key]){
         for(const s of chests[key]) if(s.id && s.count > 0) spawnDropAt(bx + 0.5, by + 0.5, bz + 0.5, s.id, s.count);
@@ -14086,6 +14469,7 @@ function spawnFromEgg(type, x, y, z){
   if(['guardian', 'elder', 'dolphin', 'squid', 'glowsquid', 'pufferfish', 'tadpole'].includes(type)) return spawnSea(type, x, y + 0.3, z);
   if(type === 'bat' || type === 'parrot' || type === 'allay') return spawnNetherMob(type, x, y + 1.2, z);
   if(type === 'vex') return spawnNetherMob(type, x, y + 0.8, z);
+  if(type === 'happy_ghast' || type === 'copper_golem'){ const e = spawnNetherMob(type, x, y + (type === 'happy_ghast' ? 1 : 0), z); if(e) keepMob(e); return e; }
   if(type === 'drowned') return spawnZombie(x, y, z, 'drowned');
   if(type === 'skeleton') return spawnSkeleton(x, y, z);
   if(type === 'creeper') return spawnCreeper(x, y, z);
@@ -14114,6 +14498,7 @@ function useSpecial(o, d, hit, eh){
   if(eh && eh.e.kind === 'animal' && (eh.e.type === 'wolf' || eh.e.type === 'cat') && !eh.e.puppet && (!hit || eh.t < hit.t) && useOnWolf(eh.e)){ triggerViewSwing(); return true; }
   if(eh && (!hit || eh.t < hit.t) && eh.e.kind === 'animal' && RIDE[eh.e.type] && !eh.e.puppet && useRideable(eh.e)){ triggerViewSwing(); return true; }
   if(eh && (!hit || eh.t < hit.t) && eh.e.kind === 'nether' && (eh.e.type === 'parrot' || eh.e.type === 'allay') && !eh.e.puppet && useOnFlyer(eh.e)){ triggerViewSwing(); return true; }
+  if(eh && (!hit || eh.t < hit.t) && eh.e.kind === 'nether' && !eh.e.puppet && (eh.e.type === 'happy_ghast' ? useHappyGhast(eh.e) : eh.e.type === 'copper_golem' ? useCopperGolem(eh.e) : false)){ triggerViewSwing(); return true; }
   if(eh && (!hit || eh.t < hit.t) && useBreed(eh.e)){ triggerViewSwing(); return true; }
   if(eh && (!hit || eh.t < hit.t) && useShears(eh.e)) return true;
   if(useBoneMeal(hit)) return true;
@@ -15664,7 +16049,7 @@ function updateMonsterAmbience(dt){
 
 function matClass(id){
   if(id === GLASS || STAINED.has(id)) return 'glass';
-  if(isLog(id) || ANY_PLANK.includes(id) || id === CRAFTT || id === TORCH || id === CHEST || id === BARREL) return 'wood';
+  if(isLog(id) || ANY_PLANK.includes(id) || id === CRAFTT || id === TORCH || id === CHEST || id === COPPER_CHEST || id === BARREL) return 'wood';
   if(id === SNOW || id === SNOWY_GRASS || id === SNOW_LAYER) return 'snow';
   if(id === SAND) return 'sand';
   if(id === GRASS || id === SAVGRASS || id === DIRT || id === TNT) return 'dirt';
@@ -17793,7 +18178,7 @@ function breakBlock(x, y, z, id){
     if(e && e.item && mode === 'survival') spawnDropAt(x + 0.5, y + 0.5, z + 0.5, e.item, 1);
     frameItems.delete(x + ',' + y + ',' + z); saveFrames();
   }
-  if(id === CHEST || id === BARREL){
+  if(id === CHEST || id === COPPER_CHEST || id === BARREL){
     const key = x + ',' + y + ',' + z;
     const sl = chests[key];
     if(sl){
@@ -17849,7 +18234,7 @@ function doPlace(){
     if(isDoor(hit.id)){ toggleDoor(hit.x, hit.y, hit.z); triggerViewSwing(); return; }
     if(hit.id === TRAPDOOR){ toggleTrap(hit.x, hit.y, hit.z); triggerViewSwing(); return; }
     if(useRS(hit)) return;
-    if(hit.id === CHEST || hit.id === BARREL){ openChest(hit.x, hit.y, hit.z); return; }
+    if(hit.id === CHEST || hit.id === COPPER_CHEST || hit.id === BARREL){ openChest(hit.x, hit.y, hit.z); return; }
     if(hit.id === ENDERCHEST){ openChest(hit.x, hit.y, hit.z, 'ender'); return; }
     if(hit.id === TNT){ igniteTNT(hit.x, hit.y, hit.z); return; }
     if(hit.id === ENCH_TABLE && mode === 'survival'){ openEnchant(hit); return; }
@@ -18807,7 +19192,7 @@ function vrTryPlace(){
     if(isDoor(hit.id)){ toggleDoor(hit.x, hit.y, hit.z); triggerViewSwing(); return; }
     if(hit.id === TRAPDOOR){ toggleTrap(hit.x, hit.y, hit.z); triggerViewSwing(); return; }
     if(useRS(hit)) return;
-    if(hit.id === CHEST || hit.id === BARREL){ openChest(hit.x, hit.y, hit.z); return; }
+    if(hit.id === CHEST || hit.id === COPPER_CHEST || hit.id === BARREL){ openChest(hit.x, hit.y, hit.z); return; }
     if(hit.id === ENDERCHEST){ openChest(hit.x, hit.y, hit.z, 'ender'); return; }
     if(hit.id === TNT){ igniteTNT(hit.x, hit.y, hit.z); return; }
     if(hit.id === ENCH_TABLE && mode === 'survival'){ enchantAt = hit; openCraftVR('enchant'); return; }
@@ -20378,6 +20763,15 @@ function spawnSnowGolem(x, y, z){
 function tryBuildGolem(x, y, z){
   if(dim !== 0 && dim !== 3) return false;
   const b1 = getBlock(x, y - 1, z), b2 = getBlock(x, y - 2, z);
+  if(b1 === COPPERB){                                                   // a pumpkin on a block of copper: a copper golem, and the block becomes its copper chest
+    setBlock(x, y, z, AIR); setBlock(x, y - 1, z, COPPER_CHEST);
+    burstRGB(x + 0.5, y + 0.5, z + 0.5, 0.85, 0.5, 0.3, 16, 0.7);
+    const e = spawnNetherMob('copper_golem', x + 0.5, y + 0.02, z + 0.5);
+    if(e) keepMob(e);
+    tone(1200, 1600, 0.2, 'triangle', 0.08); tone(1600, 2000, 0.2, 'triangle', 0.07, 0.15);
+    flashName('A copper golem! Put things in its copper chest and it sorts them into your chests');
+    return true;
+  }
   if(b1 === SNOW && b2 === SNOW){
     for(const dy of [0, 1, 2]){ setBlock(x, y - dy, z, AIR); burstRGB(x + 0.5, y - dy + 0.5, z + 0.5, 0.95, 0.97, 1, 10, 0.6); }
     registerGolem(spawnSnowGolem(x + 0.5, y - 2, z + 0.5), 'snow');
@@ -22561,7 +22955,7 @@ window.__bc = {
   PART_BASE, WALLS, FENCES, partState, partBoxes, placePartial, stairQuads,
   COLORS, DYE, CONCRETE, POWDER, SGLASS, TERRA16, GLAZED, CARPET, WOOL16, hardenNear,
   playerSees, updatePale, paleState: () => ({ blossomOpen, paleHere }),
-  splashes, sinceRestSet: v => { sinceRest = v; }, updateNightMobs, spawnFromEgg, useOnFlyer, trialDef, trialsNear, nearestTrial, updateTrials, trialState, openVault, windBurst, trialCools: () => trialCools, trySummonWither, placeSkull, beaconLevel, updateBeacons, beams, cycleBeacon, raidState: () => raid, startRaid, spawnPatrol, spawnTrader, outpostsNear, outpostDef, fangs, useTotem, updateIllagers, rideState: () => rideHorse, useRideable, updateHorseRide,
+  splashes, sinceRestSet: v => { sinceRest = v; }, updateNightMobs, spawnFromEgg, useOnFlyer, keepers: () => keepers, updateKeepers, useHappyGhast, useCopperGolem, rideGhastNow: () => rideGhast, updateGhastRide, dryHydration: () => dryHyd, updateDriedGhasts, tryBuildGolem, chestsNearPos, trialDef, trialsNear, nearestTrial, updateTrials, trialState, openVault, windBurst, trialCools: () => trialCools, trySummonWither, placeSkull, beaconLevel, updateBeacons, beams, cycleBeacon, raidState: () => raid, startRaid, spawnPatrol, spawnTrader, outpostsNear, outpostDef, fangs, useTotem, updateIllagers, rideState: () => rideHorse, useRideable, updateHorseRide,
   mountainBiome, jaggedAt, vnoise, deepDarkAt, cityDef, cityBlock, vibrate, summonWarden, sculkState: () => ({ warnLevel, near: sculkNear.length }), netherMobs, spawnNetherMob,
   monumentDef, monumentBlock, conduitFrame, soakSponge, airState: () => air, effectsNow: () => effects, spawnSea, seaLife, deadElders,
   colInfo, continentAt, waterBiome, wreckDef, ruinDef, treasureDef, wrecksNear, ruinsNear, treasuresNear, nearestTreasure, OCEAN, setOldLand, oldLandKeys: () => oldLandKeys, isWet,
