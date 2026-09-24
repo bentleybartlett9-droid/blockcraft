@@ -8490,11 +8490,17 @@ function removeItems(id, count){
   }
   invDirty = true;
 }
+// a search of ~400 blocks: the recipe book asks it for every recipe, so remember the answer for half a second
+const stationSeen = new Map();
 function nearStation(id){
-  const px = Math.floor(player.pos.x), py = Math.floor(player.pos.y), pz = Math.floor(player.pos.z);
-  for(let dy = -2; dy <= 2; dy++) for(let dz = -4; dz <= 4; dz++) for(let dx = -4; dx <= 4; dx++)
-    if(getBlock(px + dx, py + dy, pz + dz) === id) return true;
-  return false;
+  const px = Math.floor(player.pos.x), py = Math.floor(player.pos.y), pz = Math.floor(player.pos.z), now = performance.now();
+  const c = stationSeen.get(id);
+  if(c && now - c.t < 500 && c.x === px && c.y === py && c.z === pz) return c.v;
+  let v = false;
+  for(let dy = -2; dy <= 2 && !v; dy++) for(let dz = -4; dz <= 4 && !v; dz++) for(let dx = -4; dx <= 4; dx++)
+    if(getBlock(px + dx, py + dy, pz + dz) === id){ v = true; break; }
+  stationSeen.set(id, { t: now, x: px, y: py, z: pz, v });
+  return v;
 }
 function stationOk(r){
   return !r.st || (r.st === 'table' ? nearStation(CRAFTT) : r.st === 'brew' ? nearStation(BREWING) : nearStation(FURN));
@@ -8514,7 +8520,7 @@ function doCraft(i){
   for(let k = 0; k < r.out[1]; k++) addItem(r.out[0], true);
   if(r.back) for(const [id, n] of r.back) for(let k = 0; k < n; k++) addItem(id, true);   // the empty buckets come back
   renderHotbar();
-  renderCraft();
+  if(craftOpen) renderCraft();                       // only the on-screen menu needs rebuilding (VR redraws its own)
   craftSfx();
   flashName('+ ' + r.out[1] + ' ' + nameOf(r.out[0]));
   return true;
