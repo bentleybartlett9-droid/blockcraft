@@ -8171,7 +8171,7 @@ function collisionBottomCut(ent,axis){
 }
 function moveAxis(ent, axis, amt){
   if(amt === 0) return;
-  const p = ent.pos, w = ent.w, h = ent.h, e = 1e-4;
+  const p = ent.pos, w = ent.w, h = ent.h, e = 1e-4, top0 = p.y + h;
   if(axis === 0) p.x += amt; else if(axis === 1) p.y += amt; else p.z += amt;
   const x0 = Math.floor(p.x - w + e), x1 = Math.floor(p.x + w - e);
   const y0 = Math.floor(p.y + collisionBottomCut(ent,axis) + e), y1 = Math.floor(p.y + h - e);
@@ -8183,6 +8183,7 @@ function moveAxis(ent, axis, amt){
       let q = null;
       for(const b of partBoxes(block, x, y, z)) if(p.x - w < b[3] && p.x + w > b[0] && p.y < b[4] && p.y + h > b[1] && p.z - w < b[5] && p.z + w > b[2]){ q = b; break; }
       if(!q) continue;
+      if(axis === 1 && amt > 0 && q[1] < top0 - 0.01) continue;
       if(axis === 1){ if(amt > 0) p.y = q[1] - h - 2*e; else { p.y = q[4] + 2*e; ent.onGround = true; } ent.vel.y = 0; return; }
       const rise = q[4] - p.y;
       if(rise > 0 && rise <= 0.55 && ent.wasGround && !isSolid(getBlock(x, Math.floor(q[4] + h), z))){ p.y = q[4] + 2*e; continue; }
@@ -8192,6 +8193,7 @@ function moveAxis(ent, axis, amt){
     }
     if(!isSolid(block) && !(isDoor(block) && !getDoorInfo(x,y,z).open) && !(block === TRAPDOOR && !getTrapInfo(x,y,z).open) &&
        !(axis !== 1 && y === y0 && p.y < y + 0.5 && (isFenceish(getBlock(x, y - 1, z)) && getBlock(x, y - 1, z) !== GATE_OPEN || WALLS.has(getBlock(x, y - 1, z))))) continue;
+    if(axis === 1 && amt > 0 && y < top0 - 0.01) continue;
     if(axis === 0){ p.x = amt > 0 ? x - w - 2*e : x + 1 + w + 2*e; ent.vel.x = 0; }
     else if(axis === 1){
       if(amt > 0) p.y = y - h - 2*e;
@@ -8219,6 +8221,19 @@ function fallDamageForDistance(distance,gorilla=xrActive&&vrMoveMode==='gorilla'
  const protection=1-.12*(armour.boots&&armourEnch.boots?.feather||0);
  if(gorilla)return distance>7.01?Math.floor(Math.max(1,Math.floor(distance-7))*protection):0;
  return distance>3.5?Math.floor((distance-3)*protection):0;
+}
+// Stuck inside a full block at your feet (never true when standing on one): rise to the first
+// gap tall enough to stand in, the way Minecraft pushes you out of the ground.
+function buriedAt(x, y, z){ const b = getBlock(x, y, z); return isSolid(b) && !isPartial(b) && !isLeaf(b); }
+function unburyPlayer(){
+  const p = player.pos, x = Math.floor(p.x), z = Math.floor(p.z), y = Math.floor(p.y + 0.05);
+  if(!buriedAt(x, y, z)) return;
+  const need = Math.ceil(player.h);
+  for(let ty = y + 1; ty < Math.min(HEIGHT, y + 24); ty++){
+    let free = true;
+    for(let k = 0; k < need && free; k++) if(isSolid(getBlock(x, ty + k, z))) free = false;
+    if(free){ p.y = ty + 0.002; player.vel.y = Math.max(0, player.vel.y); fallPeak = p.y; player.onGround = true; return; }
+  }
 }
 let windLaunchY = null, windThrowT = 0;
 let bobT = 0, bobAmt = 0, fov = 72, fallPeak = player.pos.y, stepAcc = 0, cactusT = 0, lavaT = 0;
@@ -8275,6 +8290,7 @@ function physics(dt){
   }
   const sx0 = p.pos.x, sz0 = p.pos.z, fallV = v.y, wasGround = p.onGround;
   stepEntity(p, dt);
+  unburyPlayer();
   if(p.onGround && !wasGround && fallV < -4 && !p.fly && !key('ShiftLeft') &&
      getBlock(Math.floor(p.pos.x), Math.floor(p.pos.y - 0.2), Math.floor(p.pos.z)) === SLIME_BLOCK){
     v.y = -fallV * 0.85; p.onGround = false; fallPeak = p.pos.y;            // boing
