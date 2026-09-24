@@ -15902,6 +15902,7 @@ function animalCall(type,pos,mood='idle'){
  const dx=(pos?.x||0)-player.pos.x,dy=(pos?.y??player.pos.y)-player.pos.y,dz=(pos?.z||0)-player.pos.z,d=Math.hypot(dx,dy,dz);
  if(d>40)return false;const idle=mood==='idle';
  if(idle&&(animalVoices>=3||AC.currentTime<animalIdleAt))return false;
+ if(type==='camel'){ camelVoice(mood,d,dx,dz); if(idle)animalIdleAt=AC.currentTime+.45; return true; }
  const fantasy={donkey:['horse',.85],mule:['horse',.9],skeleton_horse:['horse',1.25],zombie_horse:['horse',.7],camel:['horse',.6],polar_bear:['cow',.55],mooshroom:['cow',1],mossling:['cow',.67],moonhopper:['pigHurt',1.65],crystalback:['wolf',.55],goat:['sheep',.8],axolotl:['chicken',1.7]};
  const spec=fantasy[type];let key=spec?spec[0]:type;
  if(!idle&&type==='pig')key='pigHurt';if(!idle&&type==='wolf')key='wolfHurt';
@@ -15920,6 +15921,43 @@ function animalCall(type,pos,mood='idle'){
  source.onended=()=>{animalVoices=Math.max(0,animalVoices-1);source.disconnect();filter.disconnect();gain.disconnect();pan.disconnect();};source.start(0,0,duration);return true;
 }
 
+/* The camel: not a neigh but Minecraft's deep, gurgling grumble - a low
+   buzzy groan pushed through the throat (two formants), rattled by a fast
+   flutter, with a breathy snort on the end. Hurt, it bleats up sharp; dying,
+   it lets out one long sinking groan. */
+function camelVoice(mood, d, dx, dz){
+  const t = AC.currentTime, idle = mood === 'idle', die = mood === 'die', hurt = !idle && !die;
+  const vol = (idle ? 0.3 : 0.42) / (1 + d * 0.085), dur = die ? 1.5 : hurt ? 0.4 : 0.75 + Math.random() * 0.45;
+  const f0 = (hurt ? 150 : 88) * (0.93 + Math.random() * 0.14);
+  const out = AC.createGain(), pan = AC.createStereoPanner();
+  pan.pan.value = Math.max(-1, Math.min(1, (dx * Math.cos(player.yaw) - dz * Math.sin(player.yaw)) / Math.max(3, d)));
+  out.connect(pan).connect(AC.destination);
+  // the voice: a sawtooth groan whose pitch sags (or, hurt, jumps then falls)
+  const o = AC.createOscillator(); o.type = 'sawtooth';
+  o.frequency.setValueAtTime(hurt ? f0 * 1.35 : f0 * 1.08, t);
+  o.frequency.linearRampToValueAtTime(f0, t + dur * 0.3);
+  o.frequency.exponentialRampToValueAtTime(f0 * (die ? 0.45 : 0.72), t + dur);
+  // gurgle: a fast wobble in loudness, as the sound rattles in its throat
+  const g = AC.createGain(), lfo = AC.createOscillator(), lg = AC.createGain();
+  lfo.frequency.value = idle ? 19 + Math.random() * 8 : 26; lg.gain.value = 0.45; g.gain.value = 0.55;
+  lfo.connect(lg).connect(g.gain);
+  const f1 = AC.createBiquadFilter(), f2 = AC.createBiquadFilter(), mix = AC.createGain();
+  f1.type = 'bandpass'; f1.frequency.value = 380; f1.Q.value = 3;
+  f2.type = 'bandpass'; f2.frequency.value = 880; f2.Q.value = 4;
+  o.connect(g); g.connect(f1).connect(mix); g.connect(f2).connect(mix);
+  const env = AC.createGain();
+  env.gain.setValueAtTime(0.0001, t); env.gain.exponentialRampToValueAtTime(vol, t + 0.06);
+  env.gain.setValueAtTime(vol, t + dur * 0.7); env.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  mix.connect(env).connect(out);
+  o.start(t); lfo.start(t); o.stop(t + dur + 0.05); lfo.stop(t + dur + 0.05);
+  // and a breathy snort through the nose at the end
+  if(!noiseBuf){ noiseBuf = AC.createBuffer(1, AC.sampleRate, AC.sampleRate); const q = noiseBuf.getChannelData(0); for(let i = 0; i < q.length; i++) q[i] = Math.random() * 2 - 1; }
+  const n = AC.createBufferSource(), nf = AC.createBiquadFilter(), ng = AC.createGain(), ts = t + dur * (idle ? 0.8 : 0.6);
+  n.buffer = noiseBuf; nf.type = 'bandpass'; nf.frequency.value = 1300; nf.Q.value = 0.8;
+  ng.gain.setValueAtTime(0.0001, ts); ng.gain.exponentialRampToValueAtTime(vol * 0.6, ts + 0.04); ng.gain.exponentialRampToValueAtTime(0.0001, ts + 0.3);
+  n.connect(nf).connect(ng).connect(out); n.start(ts, Math.random() * 0.5); n.stop(ts + 0.35);
+  setTimeout(() => { out.disconnect(); }, (dur + 1) * 1000);
+}
 // Decoded once with the animal clips; bounded voices keep crowded fights inexpensive.
 const monsterVoices=new Set();let monsterBus=null,monsterIdleAt=0;
 /* ---------------- villager voice ----------------
