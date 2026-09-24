@@ -8529,78 +8529,97 @@ function renderInvGrid(){
 function renderCraft(){
   renderInvGrid();
   recipesEl.innerHTML = '';
-  // Creative mode: show a palette of EVERY block/item; click to load it into the
-  // selected hotbar slot. This replaces the recipe list in creative.
+  const creative = mode === 'creative';
+  if(craftTab === 'eggs' && !creative) craftTab = 'all';
+  // the tab strip, Minecraft style: an icon for each tab, plus a search box
+  const bar = document.createElement('div');
+  bar.style.cssText = 'position:sticky;top:0;z-index:2;background:#c6c6c6;padding:2px 0 6px;display:flex;flex-wrap:wrap;gap:3px;align-items:center';
+  const icons = MC_TAB_ICON();
+  for(const [k, label] of MC_TABS){
+    if(k === 'eggs' && !creative) continue;
+    const t = document.createElement('button');
+    t.title = label;
+    t.style.cssText = 'display:flex;align-items:center;gap:4px;padding:3px 7px;font:12px system-ui;cursor:pointer;border:2px solid ' + (craftTab === k ? '#fff' : '#565656') + ';background:' + (craftTab === k ? '#e0e0d4' : '#8b8b8b') + ';border-radius:3px;color:#222';
+    const cv = document.createElement('canvas'); cv.width = 16; cv.height = 16; cv.style.cssText = 'width:20px;height:20px;image-rendering:pixelated';
+    drawIcon(cv.getContext('2d'), icons[k]);
+    t.append(cv, document.createTextNode(label));
+    t.addEventListener('click', () => { craftTab = k; uiClick(); renderCraft(); });
+    bar.appendChild(t);
+  }
+  const search = document.createElement('input');
+  search.placeholder = 'Search...'; search.value = craftQuery;
+  search.style.cssText = 'flex:1;min-width:120px;padding:5px;font:13px system-ui;border:2px solid #565656;border-radius:3px';
+  search.addEventListener('keydown', e => e.stopPropagation());
+  search.addEventListener('keyup', e => e.stopPropagation());
+  search.addEventListener('input', () => { craftQuery = search.value; renderCraftList(); });
+  bar.appendChild(search);
+  if(!creative){
+    const lab = document.createElement('label'); lab.style.cssText = 'font:12px system-ui;color:#222;display:flex;align-items:center;gap:3px';
+    const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = craftReadyOnly;
+    cb.addEventListener('change', () => { craftReadyOnly = cb.checked; renderCraftList(); });
+    lab.append(cb, document.createTextNode('Only what I can make'));
+    bar.appendChild(lab);
+  }
+  recipesEl.appendChild(bar);
+  const list = document.createElement('div'); list.id = 'craftlist';
+  recipesEl.appendChild(list);
+  renderCraftList();
+}
+function renderCraftList(){
+  const list = document.getElementById('craftlist');
+  if(!list) return;
+  list.innerHTML = '';
+  const tabName = k => (MC_TABS.find(t => t[0] === k) || [k, k])[1];
+  // Creative: every block and item in the tab; click one to hold it
   if(mode === 'creative'){
-    const head = document.createElement('div');
-    head.className = 'rsec';
-    head.innerHTML = 'Creative — every block &amp; item · click to hold';
-    recipesEl.appendChild(head);
-    const pal = document.createElement('div');
-    pal.id = 'palette';
-    pal.style.cssText = 'display:flex;flex-wrap:wrap;gap:4px;padding:4px';
-    let palCat = -1, group = null;
-    for(const id of ALL_CREATIVE){
-      const c = itemCat(id);
-      if(c !== palCat){
-        palCat = c;
-        const h = document.createElement('div'); h.className = 'rsec'; h.style.cssText = 'width:100%;margin-top:6px';
-        h.textContent = CAT_NAMES[c]; pal.appendChild(h);
-        group = document.createElement('div'); group.style.cssText = 'display:flex;flex-wrap:wrap;gap:4px;width:100%'; pal.appendChild(group);
+    const ids = creativeList(craftTab, craftQuery);
+    let cur = null, group = null;
+    for(const id of ids){
+      const c = mcCat(id);
+      if(c !== cur){
+        cur = c;
+        if(craftTab === 'all'){ const h = document.createElement('div'); h.className = 'rsec'; h.textContent = tabName(c); list.appendChild(h); }
+        group = document.createElement('div'); group.style.cssText = 'display:flex;flex-wrap:wrap;gap:4px'; list.appendChild(group);
       }
       const cell = document.createElement('div');
-      cell.className = 'islot';
-      cell.title = nameOf(id);
-      const cv = document.createElement('canvas');
-      cv.width = 16; cv.height = 16;
+      cell.className = 'islot'; cell.title = nameOf(id);
+      const cv = document.createElement('canvas'); cv.width = 16; cv.height = 16;
       drawIcon(cv.getContext('2d'), id);
       cell.appendChild(cv);
-      cell.addEventListener('click', () => {
-        creativeItems[sel] = id;
-        renderHotbar(); selectSlot(sel, true); uiClick();
-      });
+      cell.addEventListener('click', () => { creativeItems[sel] = id; renderHotbar(); selectSlot(sel, true); uiClick(); });
       group.appendChild(cell);
     }
-    recipesEl.appendChild(pal);
+    if(!ids.length){ const p = document.createElement('div'); p.className = 'rsec'; p.textContent = 'Nothing matches.'; list.appendChild(p); }
     return;
   }
-  const sections = [[undefined, 'Basics — craft anywhere', null],
-                    ['table', 'Crafting Table', CRAFTT],
-                    ['furnace', 'Furnace — smelting', FURN],
-                    ['brew', 'Brewing Stand — potions', BREWING]];
-  for(const [st, label, blockId] of sections){
-    const head = document.createElement('div');
-    head.className = 'rsec';
-    const near = !blockId || nearStation(blockId);
-    head.innerHTML = label + (near ? '' : ' <i>— place a ' + BLOCKS[blockId].name + ' nearby to unlock</i>');
-    recipesEl.appendChild(head);
-    const rows = [];
-    RECIPES.forEach((r, i) => { if(r.st === st) rows.push([r, i]); });
-    rows.sort((a, b) => itemCat(a[0].out[0]) - itemCat(b[0].out[0]) || a[0].out[0] - b[0].out[0]);
-    let secCat = -1;
-    for(const [r, i] of rows){
-      const c = itemCat(r.out[0]);
-      if(c !== secCat){ secCat = c; const sub = document.createElement('div'); sub.className = 'rsec'; sub.style.cssText = 'opacity:.7;font-size:12px;margin-left:8px'; sub.textContent = CAT_NAMES[c]; recipesEl.appendChild(sub); }
-      const row = document.createElement('div');
-      row.className = 'recipe';
-      const icon = document.createElement('canvas');
-      icon.width = 16; icon.height = 16;
-      drawIcon(icon.getContext('2d'), r.out[0]);
-      const name = document.createElement('div');
-      name.className = 'rname';
-      name.textContent = nameOf(r.out[0]) + (r.out[1] > 1 ? ' ×' + r.out[1] : '');
-      const cost = document.createElement('div');
-      cost.className = 'rcost';
-      cost.textContent = r.in.map(([id, n]) => n + ' ' + inName(id) + ' (' + invCount(id) + ')').join(' + ');
-      const btn = document.createElement('button');
-      btn.className = 'mcbtn';
-      btn.textContent = 'Craft';
-      btn.disabled = !canCraft(r);
-      btn.addEventListener('click', () => doCraft(i));
-      row.append(icon, name, cost, btn);
-      recipesEl.appendChild(row);
-    }
+  // Survival: the recipe book for the tab, where you can make each thing
+  const rows = recipeList(craftTab, craftReadyOnly, craftQuery);
+  let cur = null;
+  for(const i of rows){
+    const r = RECIPES[i], c = mcCat(r.out[0]);
+    if(c !== cur && craftTab === 'all'){ cur = c; const h = document.createElement('div'); h.className = 'rsec'; h.textContent = tabName(c); list.appendChild(h); }
+    const row = document.createElement('div');
+    row.className = 'recipe';
+    const icon = document.createElement('canvas');
+    icon.width = 16; icon.height = 16;
+    drawIcon(icon.getContext('2d'), r.out[0]);
+    const name = document.createElement('div');
+    name.className = 'rname';
+    name.textContent = nameOf(r.out[0]) + (r.out[1] > 1 ? ' ×' + r.out[1] : '');
+    const cost = document.createElement('div');
+    cost.className = 'rcost';
+    const where = r.st === 'table' ? CRAFTT : r.st === 'furnace' ? FURN : r.st === 'brew' ? BREWING : null;
+    cost.textContent = r.in.map(([id, n]) => n + ' ' + inName(id) + ' (' + invCount(id) + ')').join(' + ') +
+      (where ? (nearStation(where) ? '  · at the ' : '  · needs a ') + BLOCKS[where].name.toLowerCase() + (nearStation(where) ? '' : ' nearby') : '');
+    const btn = document.createElement('button');
+    btn.className = 'mcbtn';
+    btn.textContent = 'Craft';
+    btn.disabled = !canCraft(r);
+    btn.addEventListener('click', () => doCraft(i));
+    row.append(icon, name, cost, btn);
+    list.appendChild(row);
   }
+  if(!rows.length){ const p = document.createElement('div'); p.className = 'rsec'; p.textContent = craftReadyOnly ? 'Nothing you can make yet in this tab.' : 'Nothing matches.'; list.appendChild(p); }
 }
 function openCraft(){
   craftOpen = true;
@@ -18508,6 +18527,91 @@ function itemCat(id){
   return 0;
 }
 ALL_CREATIVE.sort((a, b) => itemCat(a) - itemCat(b) || a - b);   // group the palette (and the VR pages) by category
+/* ---- Minecraft-style tabs for the creative inventory and the recipe book ----
+   Everything is sorted into tabs - wood, stone, wool and colours, nature and
+   so on - and within a tab each family stays together: an oak log, its wood,
+   planks, stairs, slab, fence, door...; every colour of wool in rainbow order. */
+const MC_TABS = [
+  ['all', 'All', 'All'], ['wood', 'Wood', 'Wood'], ['stone', 'Stone & Bricks', 'Stone'], ['colour', 'Wool & Colours', 'Colours'],
+  ['nature', 'Nature', 'Nature'], ['ores', 'Ores & Metals', 'Ores'], ['deco', 'Glass & Decoration', 'Deco'], ['func', 'Functional', 'Useful'],
+  ['redstone', 'Redstone', 'Redstone'], ['tools', 'Tools', 'Tools'], ['combat', 'Combat', 'Combat'], ['food', 'Food & Drink', 'Food'],
+  ['items', 'Ingredients', 'Items'], ['eggs', 'Spawn Eggs', 'Eggs'] ];
+const MC_TAB_ICON = () => ({ all: CRAFTT, wood: LOG, stone: STONE, colour: WOOL, nature: GRASS, ores: DIAMI, deco: GLASS, func: FURN,
+  redstone: REDSTONE, tools: IPICK, combat: ISWORD, food: APPLE, items: STICK, eggs: EGG_BASE });
+const COLOUR_ORDER = ['White', 'Light Gray', 'Gray', 'Black', 'Brown', 'Red', 'Orange', 'Yellow', 'Lime', 'Green', 'Cyan', 'Light Blue', 'Blue', 'Purple', 'Magenta', 'Pink'];
+const COLOUR_THINGS = /^(.*?)\b(Wool|Carpet|Concrete Powder|Concrete|Glazed Terracotta|Terracotta|Stained Glass Pane|Stained Glass|Bed|Banner|Candle|Shulker Box|Dye)$/;
+const WOOD_ORDER = ['Oak', 'Spruce', 'Birch', 'Jungle', 'Acacia', 'Dark Oak', 'Mangrove', 'Cherry', 'Pale Oak', 'Bamboo', 'Crimson', 'Warped'];
+const WOOD_PARTS = ['Log', 'Wood', 'Stem', 'Hyphae', 'Stripped Log', 'Stripped Wood', 'Planks', 'Mosaic', 'Stairs', 'Slab', 'Fence', 'Fence Gate', 'Door', 'Trapdoor', 'Pressure Plate', 'Button', 'Sign', 'Hanging Sign', 'Leaves', 'Sapling'];
+const STONE_PARTS = ['', 'Stairs', 'Slab', 'Wall'];
+let _mcInfo = null, _recipeOrder = null;
+function mcInfoBuild(){
+  _mcInfo = new Map();
+  const names = new Map();
+  for(const id of ALL_CREATIVE) names.set(id, nameOf(id) || '');
+  // the kinds of wood there are: whatever has planks
+  const woods = new Set();
+  for(const n of names.values()){ const m = n.match(/^(.+?) Planks$/); if(m) woods.add(m[1]); }
+  if(names.get(PLANK) === 'Planks' || names.get(PLANK) === 'Wooden Planks') woods.add('Oak');
+  const woodOf = n => { for(const w of [...woods].sort((a, b) => b.length - a.length)) if(n === w || n.startsWith(w + ' ') || n.startsWith('Stripped ' + w + ' ')) return w; return null; };
+  const partOf = (n, parts) => { let best = ''; for(const p of parts) if(p && (n.endsWith(' ' + p) || n === p) && p.length > best.length) best = p; return best; };
+  for(const id of ALL_CREATIVE){
+    const n = names.get(id), it = ITEMS[id];
+    let cat, fam = n, rank = 0;
+    const shapePart = partOf(n, STONE_PARTS.concat(['Fence', 'Fence Gate', 'Door', 'Trapdoor', 'Pressure Plate', 'Button', 'Sign']));
+    const wood = woodOf(n.replace(/^Stripped /, 'Stripped '));
+    const cm = n.match(COLOUR_THINGS);
+    if(/Spawn Egg$/.test(n)) cat = 'eggs';
+    else if(it && it.tool) cat = ['sword', 'trident', 'shield', 'mace'].includes(it.tool.type) ? 'combat' : 'tools';
+    else if(it && it.armour) cat = 'combat';
+    else if(id === BOW || /Arrow|Totem|Wind Charge|Crossbow/.test(n)) cat = 'combat';
+    else if(foodOf(id) || /Potion|Stew|Soup|Milk|Honey Bottle|Water Bottle|Cake|Cookie|Pie$/.test(n)) cat = 'food';
+    else if(/Bucket|Flint and Steel|Compass|Clock|Map$|Spyglass|Brush|Lead$|Name Tag|Saddle|Harness|Fishing Rod|Shears/.test(n) && it) cat = 'tools';
+    else if(/Music Disc|Glass Bottle/.test(n)) cat = 'items';
+    else if(/Flint (and|&) Steel|Boat$|Firework|on a Stick/.test(n)) cat = 'tools';
+    else if((wood || /^(Wood|Fence|Fence Gate|Door|Planks|Log)\b/.test(n)) && /\b(Log|Wood|Stem|Hyphae|Planks|Mosaic|Stairs|Slab|Fence|Fence Gate|Door|Trapdoor|Pressure Plate|Button|Sign)$/.test(n)){
+      cat = 'wood'; const w = wood || 'Oak', wi = WOOD_ORDER.indexOf(w); fam = String(wi < 0 ? 50 : wi).padStart(2, '0') + ':' + w;
+      rank = WOOD_PARTS.indexOf(partOf(n.replace(/^Stripped (.+) (Log|Wood|Stem|Hyphae)$/, 'Stripped $2'), WOOD_PARTS));
+    }
+    else if(cm && (cm[1] === '' || COLOUR_ORDER.includes(cm[1].trim()))){ cat = 'colour'; fam = cm[2]; rank = COLOUR_ORDER.indexOf(cm[1].trim()); }
+    else if(/Redstone(?! Ore)|Repeater|Comparator|Lever|Button|Pressure Plate|Piston|Observer|Hopper|Dispenser|Dropper|Target|Tripwire|Daylight|Redstone Lamp|\bRail\b|Note Block|^TNT$|Sculk Sensor|Lightning Rod|Copper Bulb|Minecart/.test(n)) cat = 'redstone';
+    else if(_oreBlocks.has(id) || /\bOre$|^Raw |^Block of|Ingot$|Nugget$|Netherite|\bCopper\b|^Iron Block|^Gold Block|^Diamond|^Emerald|Lapis|^Coal|Amethyst|^Quartz$|Nether Quartz/.test(n)) cat = 'ores';
+    else if(_natureBlocks.has(id) || isLeaf(id) || isSapling(id) || (typeof FLORA_IDS !== 'undefined' && FLORA_IDS.has(id)) ||
+            /Dirt|Grass|^Sand$|Red Sand|Gravel|^Clay$|Snow|\bIce\b|\bMoss\b|Farmland|^Wheat$|Carrots|Potatoes|^Lava$|^Water$|Cobweb|Mycelium|Podzol|Leaves|Sapling|Flower|Tulip|Poppy|Dandelion|Orchid|Allium|Daisy|Cornflower|Lily|Rose|Mushroom|Coral|Kelp|Seagrass|Vine|Cactus|Sugar Cane|Pumpkin|Melon|Hay|Sculk|Dripstone|Netherrack|Soul Sand|Soul Soil|Nylium|Wart|Fungus|Roots|Shroomlight|Bamboo$|Fern|Bush|Petals|Azalea|Dripleaf|Spore|Pickle|Egg|Seeds|Berries|Honey|Nest|Frogspawn|Mud$|Rooted/.test(n)) cat = 'nature';
+    else if(_utilBlocks.has(id) || /Crafting Table|Furnace|Smoker|Chest|Barrel|Anvil|Grindstone|Stonecutter|Loom|Cartography|Smithing|Fletching|Enchanting|Brewing|Cauldron|Composter|Beacon|Bell$|Lectern|Jukebox|Spawner|Vault|Conduit|Respawn|Lodestone|Beehive|Campfire|Ender Chest|Crafter|Scaffolding|Ladder|End Portal|End Crystal/.test(n)) cat = 'func';
+    else if(_decoBlocks.has(id) || /Glass|Pane|Lantern|Torch|Chain|Bars|Painting|Frame|Flower Pot|Skull|Head$|Froglight|Sea Lantern|Glowstone|End Rod|Candle|Pot$|Carpet/.test(n)) cat = 'deco';
+    else if(it && !BLOCKS[id]) cat = 'items';
+    else {
+      cat = 'stone';
+      const part = partOf(n, STONE_PARTS); rank = STONE_PARTS.indexOf(part);
+      fam = n.slice(0, part ? n.length - part.length : n.length).trim().replace(/Bricks$/, 'Brick').replace(/Tiles$/, 'Tile');
+    }
+    _mcInfo.set(id, { cat, fam, rank });
+  }
+  // families keep the place of their first member
+  const famFirst = new Map();
+  for(const id of ALL_CREATIVE){ const f = _mcInfo.get(id); const key = f.cat + '|' + f.fam; if(!famFirst.has(key) || id < famFirst.get(key)) famFirst.set(key, id); }
+  const tabIx = Object.fromEntries(MC_TABS.map(([k], i) => [k, i]));
+  const key = id => { const f = _mcInfo.get(id); return [tabIx[f.cat], f.cat === 'wood' ? f.fam : famFirst.get(f.cat + '|' + f.fam), f.rank, id]; };
+  ALL_CREATIVE.sort((a, b) => { const A = key(a), B = key(b); for(let i = 0; i < 4; i++){ if(A[i] < B[i]) return -1; if(A[i] > B[i]) return 1; } return 0; });
+  const pos = new Map(ALL_CREATIVE.map((id, i) => [id, i]));
+  _recipeOrder = RECIPES.map((r, i) => i).sort((a, b) => (pos.get(RECIPES[a].out[0]) ?? 1e6) - (pos.get(RECIPES[b].out[0]) ?? 1e6) || a - b);
+}
+function mcCat(id){ if(!_mcInfo) mcInfoBuild(); const f = _mcInfo.get(id); return f ? f.cat : (ITEMS[id] ? 'items' : 'stone'); }
+function creativeList(tab, q){
+  if(!_mcInfo) mcInfoBuild();
+  q = (q || '').trim().toLowerCase();
+  const seen = new Set();                                             // hide the internal variants (open gates, bed heads, lit anchors...)
+  return ALL_CREATIVE.filter(id => { const n = nameOf(id) || '';
+    if(seen.has(n)) return false; seen.add(n);
+    return (tab === 'all' || mcCat(id) === tab) && (!q || n.toLowerCase().includes(q)); });
+}
+function recipeList(tab, readyOnly, q){
+  if(!_mcInfo) mcInfoBuild();
+  q = (q || '').trim().toLowerCase();
+  return _recipeOrder.filter(i => { const r = RECIPES[i];
+    return (tab === 'all' || mcCat(r.out[0]) === tab) && (!readyOnly || canCraft(r)) && (!q || (nameOf(r.out[0]) || '').toLowerCase().includes(q)); });
+}
+let craftTab = 'all', craftQuery = '', craftReadyOnly = false, vrCraftTab = 'all', vrReadyOnly = false;
 let sel = 0;
 const hotbarEl = document.getElementById('hotbar');
 const itemnameEl = document.getElementById('itemname');
@@ -18884,34 +18988,45 @@ function buildCraftPanel(){
     button(35,630,550,55,'Equip held armour',()=>equipArmour(),!!ITEMS[heldId()]?.armour);
     text('You can also equip armour with RIGHT GRIP while holding it.',620,655,21,'#333',760);
   } else if(vrMenuTab==='craft'){
-    const creative=mode==='creative', pageSize=creative?27:8;
-    const total=creative?ALL_CREATIVE.length:RECIPES.length;
-    const pages=Math.max(1,Math.ceil(total/pageSize));vrMenuPage=Math.max(0,Math.min(vrMenuPage,pages-1));
-    button(35,190,180,48,'Previous',()=>{vrMenuPage--;vrRecipe=-1;},vrMenuPage>0);
-    text('Page '+(vrMenuPage+1)+' / '+pages,245,215,24);
-    button(460,190,180,48,'Next',()=>{vrMenuPage++;vrRecipe=-1;},vrMenuPage<pages-1);
+    const creative=mode==='creative';
+    if(vrCraftTab==='eggs'&&!creative)vrCraftTab='all';
+    // the tabs, two rows of them
+    const tabs=MC_TABS.filter(([k])=>creative||k!=='eggs'), per=Math.ceil(tabs.length/2), bw=Math.floor(1370/per)-8;
+    tabs.forEach(([k,,short],i)=>{const r=Math.floor(i/per),c=i%per;
+      button(35+c*(bw+8),180+r*50,bw,44,short,()=>{vrCraftTab=k;vrMenuPage=0;vrRecipe=-1;vrMenuStatus='';},true,vrCraftTab===k);});
+    const list=creative?creativeList(vrCraftTab):recipeList(vrCraftTab,vrReadyOnly);
+    const pageSize=creative?36:24, pages=Math.max(1,Math.ceil(list.length/pageSize));vrMenuPage=Math.max(0,Math.min(vrMenuPage,pages-1));
+    button(35,284,160,44,'Previous',()=>{vrMenuPage--;vrRecipe=-1;},vrMenuPage>0);
+    text('Page '+(vrMenuPage+1)+' / '+pages,212,306,23);
+    button(370,284,160,44,'Next',()=>{vrMenuPage++;vrRecipe=-1;},vrMenuPage<pages-1);
+    if(!creative) button(555,284,290,44,vrReadyOnly?'Showing: can make':'Showing: everything',()=>{vrReadyOnly=!vrReadyOnly;vrMenuPage=0;vrRecipe=-1;},true,vrReadyOnly);
+    text((MC_TABS.find(t=>t[0]===vrCraftTab)||['','All'])[1]+'  -  '+list.length+(creative?' items':' recipes'),870,306,22,'#454545',530);
+    const page=list.slice(vrMenuPage*pageSize,(vrMenuPage+1)*pageSize);
     if(creative){
-      ALL_CREATIVE.slice(vrMenuPage*pageSize,(vrMenuPage+1)*pageSize).forEach((id,j)=>{
-        const x=35+(j%9)*152,y=255+Math.floor(j/9)*130;
-        button(x,y,142,116,'',()=>{vrEquipItem(id);vrMenuStatus='Equipped '+nameOf(id)+' in slot '+(sel+1)+'. Close to build.';},true,heldId()===id);
-        icon(id,x+45,y+10);text(nameOf(id),x+7,y+88,18,'#202020',128);
+      page.forEach((id,j)=>{
+        const x=35+(j%9)*152,y=338+Math.floor(j/9)*92;
+        button(x,y,142,86,'',()=>{vrEquipItem(id);vrMenuStatus='Equipped '+nameOf(id)+' in slot '+(sel+1)+'. Close to build.';},true,heldId()===id);
+        icon(id,x+49,y+6,44);text(nameOf(id),x+6,y+70,15,'#202020',130);
       });
+      if(!page.length) text('Nothing in this tab.',35,380,26,'#454545');
     } else {
-      RECIPES.slice(vrMenuPage*pageSize,(vrMenuPage+1)*pageSize).forEach((r,j)=>{
-        const i=vrMenuPage*pageSize+j,y=250+j*53;
-        button(35,y,630,48,'',()=>{vrRecipe=i;vrMenuStatus='';},true,vrRecipe===i);
-        icon(r.out[0],45,y+5,36);text(nameOf(r.out[0])+' ×'+r.out[1],94,y+24,22,'#202020',425);
-        const ok=canCraft(r); text(ok?'Ready':'Locked',555,y+24,19,ok?'#28572d':'#7c3030',95);
+      page.forEach((i,j)=>{
+        const r=RECIPES[i],x=35+(j%6)*110,y=338+Math.floor(j/6)*92,ok=canCraft(r);
+        button(x,y,104,86,'',()=>{vrRecipe=i;vrMenuStatus='';},true,vrRecipe===i);
+        if(ok){g.fillStyle='#4f9a3a';g.fillRect(x+3,y+80,98,4);}               // green: you can make it now
+        icon(r.out[0],x+32,y+6,40);text(nameOf(r.out[0]),x+5,y+64,13,ok?'#1d3f18':'#303030',95);
+        if(r.out[1]>1)text('×'+r.out[1],x+72,y+16,15);
       });
+      if(!page.length) text(vrReadyOnly?'Nothing you can make yet in this tab.':'Nothing in this tab.',35,380,24,'#454545',640);
       if(vrRecipe>=0){
-        const r=RECIPES[vrRecipe];text(nameOf(r.out[0])+' ×'+r.out[1],710,265,28,'#202020',675);
-        text(r.st==='table'?'Requires nearby crafting table':r.st==='furnace'?'Requires nearby furnace':r.st==='brew'?'Requires nearby brewing stand':'Craft anywhere',710,308,22,stationOk(r)?'#28572d':'#8a2424',675);
-        r.in.forEach(([id,n],i)=>text(inName(id)+': '+invCount(id)+' / '+n,710,352+i*34,22,invCount(id)>=n?'#28572d':'#8a2424',675));
-        if(!spaceOK(r))text('Inventory full: make space first.',710,560,22,'#8a2424',660);
+        const r=RECIPES[vrRecipe];icon(r.out[0],710,338,56);text(nameOf(r.out[0])+' ×'+r.out[1],780,366,27,'#202020',620);
+        text(r.st==='table'?'Needs a crafting table nearby':r.st==='furnace'?'Needs a furnace nearby':r.st==='brew'?'Needs a brewing stand nearby':'Craft anywhere',710,418,22,stationOk(r)?'#28572d':'#8a2424',675);
+        r.in.forEach(([id,n],k)=>{icon(Array.isArray(id)?id[0]:id,710,440+k*32,26);text(inName(id)+': '+invCount(id)+' / '+n,746,453+k*32,21,invCount(id)>=n?'#28572d':'#8a2424',640);});
+        if(!spaceOK(r))text('Inventory full: make space first.',710,630,21,'#8a2424',660);
         const ok=canCraft(r);
-        button(710,602,300,62,'Craft',()=>vrCraftSelected(false),ok);
-        button(1030,602,355,62,'Craft & equip',()=>vrCraftSelected(true),ok);
-      } else text('Select a recipe to see what it needs.',710,325,25,'#454545',670);
+        button(710,648,300,56,'Craft',()=>vrCraftSelected(false),ok);
+        button(1030,648,355,56,'Craft & equip',()=>vrCraftSelected(true),ok);
+      } else text('Select a recipe to see what it needs.',710,380,25,'#454545',670);
     }
   } else if(vrMenuTab==='enchant'){
     drawEnchantVR(g, text, button);
@@ -23252,7 +23367,7 @@ window.__bc = {
   PART_BASE, WALLS, FENCES, partState, partBoxes, placePartial, stairQuads,
   COLORS, DYE, CONCRETE, POWDER, SGLASS, TERRA16, GLAZED, CARPET, WOOL16, hardenNear,
   playerSees, updatePale, paleState: () => ({ blossomOpen, paleHere }),
-  splashes, sinceRestSet: v => { sinceRest = v; }, updateNightMobs, spawnFromEgg, useOnFlyer, setSlot: (i, id, n = 1, ench) => { const q = survInv[i]; q.id = id; q.count = n; q.dur = ITEMS[id] && ITEMS[id].tool ? TIER_DUR[ITEMS[id].tool.tier - 1] : 0; q.ench = ench; invDirty = true; renderHotbar(); }, heldStack: () => survInv[sel], useAnvil, armourEnch: () => armourEnch, armour: () => armour, keepers: () => keepers, updateKeepers, useHappyGhast, useCopperGolem, rideGhastNow: () => rideGhast, updateGhastRide, dryHydration: () => dryHyd, updateDriedGhasts, tryBuildGolem, chestsNearPos, trialDef, trialsNear, nearestTrial, updateTrials, trialState, openVault, windBurst, trialCools: () => trialCools, trySummonWither, placeSkull, beaconLevel, updateBeacons, beams, cycleBeacon, raidState: () => raid, startRaid, spawnPatrol, spawnTrader, outpostsNear, outpostDef, fangs, useTotem, updateIllagers, rideState: () => rideHorse, useRideable, updateHorseRide,
+  splashes, sinceRestSet: v => { sinceRest = v; }, updateNightMobs, spawnFromEgg, useOnFlyer, creativeList, recipeList, mcCat, openCraft, setSlot: (i, id, n = 1, ench) => { const q = survInv[i]; q.id = id; q.count = n; q.dur = ITEMS[id] && ITEMS[id].tool ? TIER_DUR[ITEMS[id].tool.tier - 1] : 0; q.ench = ench; invDirty = true; renderHotbar(); }, heldStack: () => survInv[sel], useAnvil, armourEnch: () => armourEnch, armour: () => armour, keepers: () => keepers, updateKeepers, useHappyGhast, useCopperGolem, rideGhastNow: () => rideGhast, updateGhastRide, dryHydration: () => dryHyd, updateDriedGhasts, tryBuildGolem, chestsNearPos, trialDef, trialsNear, nearestTrial, updateTrials, trialState, openVault, windBurst, trialCools: () => trialCools, trySummonWither, placeSkull, beaconLevel, updateBeacons, beams, cycleBeacon, raidState: () => raid, startRaid, spawnPatrol, spawnTrader, outpostsNear, outpostDef, fangs, useTotem, updateIllagers, rideState: () => rideHorse, useRideable, updateHorseRide,
   mountainBiome, jaggedAt, vnoise, deepDarkAt, cityDef, cityBlock, vibrate, summonWarden, sculkState: () => ({ warnLevel, near: sculkNear.length }), netherMobs, spawnNetherMob,
   monumentDef, monumentBlock, conduitFrame, soakSponge, airState: () => air, effectsNow: () => effects, spawnSea, seaLife, deadElders,
   colInfo, continentAt, waterBiome, wreckDef, ruinDef, treasureDef, wrecksNear, ruinsNear, treasuresNear, nearestTreasure, OCEAN, setOldLand, oldLandKeys: () => oldLandKeys, isWet,
@@ -23270,6 +23385,7 @@ window.__bc = {
                         enabled: vrMenuButtons.filter(x=>x.label).map(x=>[x.label,x.enabled]),
                         trading: !!tradeVillager }),
   setTradeVillager: v => { tradeVillager = v; },
+  vrPress: l => { const x = vrMenuButtons.find(q => q.label === l); if(x && x.enabled){ x.action(); buildCraftPanel(); return true; } return false; },
   vignetteState: () => ({ on: vignetteOn, amt: vignetteAmt, opacity: vignetteMesh.material.opacity }),
   player, getBlock, setBlock, physics, raycast, terrainHeight, biomeAt, treeAt, animals, zombies, drops, RECIPES,
   toggleMusic, musicState: () => ({ on: musicOn, running: !!musicTimer }),
