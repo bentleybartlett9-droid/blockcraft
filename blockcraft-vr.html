@@ -2057,7 +2057,10 @@ BLOCKS[DEEPSLATE_BRICKS]={name:'Deepslate Bricks',all:387};BLOCKS[DEEPSLATE_TILE
 ITEMS[ECHO_SHARD]={name:'Echo Shard',icon:265};
 const PHANTOM_MEMBRANE = 930, ARMADILLO_SCUTE = 931, GLOW_INK_SAC = 932, TOTEM = 935, NETHER_STAR = 936;
 const WITHER_SKULL = 876, BEACON = 877, EMERALD_BLOCK = 878, TRIAL_SPAWNER = 879, VAULT = 880, COPPER_BULB = 881, COPPER_GRATE = 882;
-const DRIED_GHAST = 883, COPPER_CHEST = 884, HARNESS = 943;
+const DRIED_GHAST = 883, COPPER_CHEST = 884, HARNESS = 943, BOOK = 944, ENCHANTED_BOOK = 945;
+ITEMS[BOOK]={name:'Book',icon:389};ITEMS[ENCHANTED_BOOK]={name:'Enchanted Book',icon:390};
+// how likely a loot chest is to hold an enchanted book (Mending and the other treasures only come this way, or from librarians)
+const BOOK_LOOT = { dungeon: 0.35, mine: 0.25, city: 0.55, endcity: 0.5, bastion: 0.3, fortress: 0.2, library: 0.5, ruin: 0.15, 'wreck-treasure': 0.2, outpost: 0.2, trial: 0.2, treasure: 0.15 };
 BLOCKS[DRIED_GHAST]={name:'Dried Ghast',all:708};BLOCKS[COPPER_CHEST]={name:'Copper Chest',top:709,bottom:709,side:710};ITEMS[HARNESS]={name:'Harness',icon:388};
 const TRIAL_KEY = 937, BREEZE_ROD = 938, WIND_CHARGE = 939, HEAVY_CORE = 940, MACE = 941, TRIAL_MAP = 942;
 BLOCKS[TRIAL_SPAWNER]={name:'Trial Spawner',all:704};BLOCKS[VAULT]={name:'Vault',all:705};BLOCKS[COPPER_BULB]={name:'Copper Bulb',all:706};BLOCKS[COPPER_GRATE]={name:'Copper Grate',all:707};
@@ -2386,11 +2389,11 @@ const armourEnch=(()=>{try{return JSON.parse(localStorage.getItem(SAVE_KEY+'-arm
 const saveArmourEnch=()=>{try{localStorage.setItem(SAVE_KEY+'-armourench',JSON.stringify(armourEnch));}catch(e){}};
 ARMOUR_SETS.forEach((set,t)=>ARMOUR_SLOTS.forEach((slot,j)=>{ITEMS[set.base+j]={name:set.name+' '+slot[0].toUpperCase()+slot.slice(1),icon:set.icon+j,armour:{slot,points:set.points[j],color:set.color}};}));
 ITEMS[ELYTRA]={name:'Elytra',icon:94,armour:{slot:'chestplate',points:0,color:0x8a8aa8}};
-function armourProtection(){return Math.min(armour.chestplate>=NETH_ARMOUR&&armour.chestplate<NETH_ARMOUR+4?.85:.8,Object.values(armour).reduce((sum,id)=>sum+(ITEMS[id]?.armour?.points||0),0)*.04
-  +Object.keys(armour).reduce((sum,k)=>sum+(armour[k]&&armourEnch[k]?.protection||0)*.03,0));}
+function armourProtection(){return Math.min(armour.chestplate>=NETH_ARMOUR&&armour.chestplate<NETH_ARMOUR+4?.85:.8,Object.values(armour).reduce((sum,id)=>sum+(ITEMS[id]?.armour?.points||0),0)*.04);}
 function equipArmour(){
  const id=heldId(),info=ITEMS[id]?.armour;if(!info)return false;
  const previous=armour[info.slot],prevEnch=armourEnch[info.slot];let newEnch=null;
+ if(mode==='survival'&&previous&&prevEnch?.binding){flashName('Curse of Binding - your '+nameOf(previous)+' will not come off');return true;}
  if(mode==='survival'){
    const stack=survInv[sel];newEnch=stack.ench||null;
    if(stack.count===1){stack.id=previous;stack.count=previous?1:0;stack.dur=0;stack.ench=prevEnch||undefined;}
@@ -2400,6 +2403,7 @@ function equipArmour(){
 }
 function removeArmour(slot){
  const id=armour[slot];if(!id)return;
+ if(mode==='survival'&&armourEnch[slot]?.binding){flashName('Curse of Binding - it will not come off');return;}
  if(mode==='survival'&&!addItem(id,true)){vrMenuStatus='Inventory full: make space first.';return;}
  const e=armourEnch[slot];if(e&&mode==='survival'){const q=survInv.find(q=>q.id===id&&q.count===1&&!q.ench);if(q)q.ench=e;}armourEnch[slot]=null;saveArmourEnch();
  armour[slot]=0;invDirty=true;updateArmourModel();renderHotbar();saveNow();
@@ -2615,7 +2619,7 @@ const RECIPES = [
   { out: [STAIR_STONE, 4], in: [[STONE, 6]], st: 'table' },
   { out: [STAIR_WOOD, 4], in: [[ANY_PLANK, 6]], st: 'table' },
   { out: [STAIR_BRICK, 4], in: [[BRICK, 6]], st: 'table' },
-  { out: [BOOKSHELF, 1], in: [[ANY_PLANK, 6], [WHEATITEM, 3]], st: 'table' },
+  { out: [BOOKSHELF, 1], in: [[ANY_PLANK, 6], [BOOK, 3]], st: 'table' },
   { out: [CLAY, 1], in: [[SAND, 4]], st: 'table' },
   { out: [MOSSY, 1], in: [[ANY_COBBLE, 1], [SEEDS, 1]], st: 'table' },
   { out: [POLISHED, 4], in: [[STONE, 4]], st: 'table' },
@@ -2739,7 +2743,7 @@ RECIPES.push({out:[BEEHIVE,1],in:[[ANY_PLANK,6],[HONEYCOMB,3]],st:'table'});
 RECIPES.push({out:[LANTERN,1],in:[[IRONI,1],[TORCH,1]],st:'table'},
   {out:[CAMPFIRE,1],in:[[STICK,3],[COALI,1],[[LOG, BIRCHLOG, SPRUCELOG, JUNGLELOG, CHERRYLOG, MAPLELOG, WILLOWLOG, BOAB_LOG],3]],st:'table'});
 RECIPES.push({out:[SLIME_BLOCK,1],in:[[SLIMEBALL,9]]},{out:[SLIMEBALL,9],in:[[SLIME_BLOCK,1]]});
-RECIPES.push({out:[LADDER,3],in:[[STICK,7]],st:'table'},{out:[BOAB_PLANK,4],in:[[BOAB_LOG,1]]},{out:[ENCH_TABLE,1],in:[[DIAMI,2],[OBSIDIAN,4],[BOOKSHELF,1]],st:'table'});
+RECIPES.push({out:[LADDER,3],in:[[STICK,7]],st:'table'},{out:[BOAB_PLANK,4],in:[[BOAB_LOG,1]]},{out:[ENCH_TABLE,1],in:[[DIAMI,2],[OBSIDIAN,4],[BOOK,1]],st:'table'},{out:[BOOK,1],in:[[PAPER,3],[LEATHER,1]]});
 RECIPES.push({out:[BREWING,1],in:[[BLAZEROD,1],[ANY_COBBLE,3]],st:'table'},{out:[GLASS_BOTTLE,3],in:[[GLASS,3]]},
   {out:[AWKWARD,1],in:[[WATER_BOTTLE,1],[NWART,1]],st:'brew'},
   {out:[POT_HEAL,1],in:[[AWKWARD,1],[MELONSLICE,1],[GNUGGET,4]],st:'brew'},{out:[POT_FIRE,1],in:[[AWKWARD,1],[MAGMACREAM,1]],st:'brew'},
@@ -2859,6 +2863,17 @@ itemAtlas.width = 128; itemAtlas.height = 1024;   // 512 icons
     const d = Math.hypot((x - 7.5) * 1.1, (y - 9) * 0.95);
     if(d > 5.6 && !(y < 5 && Math.abs(x - 7.5) < 1.5 && y > 1)) return null;
     return y < 5 ? [30, 90, 96] : d > 4.6 ? [16, 60, 66] : (x + y) % 4 === 0 ? [160, 255, 240] : [60, 200, 190]; });
+  px(389, (x, y) => {                                                   // a book
+    if(x < 3 || x > 12 || y < 2 || y > 13) return null;
+    if(x === 3 || x === 4) return [90, 50, 30];
+    if(y === 13 || x === 12) return [236, 226, 200];
+    return (y + x) % 5 === 0 ? [140, 70, 40] : [160, 84, 48]; });
+  px(390, (x, y) => {                                                   // an enchanted book: purple, with a sparkle
+    if(x < 3 || x > 12 || y < 2 || y > 13) return null;
+    if((x === 9 && y >= 4 && y <= 8) || (y === 6 && x >= 7 && x <= 11)) return [255, 230, 255];
+    if(x === 3 || x === 4) return [70, 30, 90];
+    if(y === 13 || x === 12) return [236, 226, 200];
+    return (y + x) % 5 === 0 ? [120, 60, 170] : [150, 84, 200]; });
   px(388, (x, y) => {                                                   // harness: a padded frame with goggles
     if(y >= 3 && y <= 5 && x >= 1 && x <= 14) return (x + y) % 3 ? [70, 130, 210] : [50, 100, 180];
     if((x <= 2 || x >= 13) && y >= 5 && y <= 12) return [120, 84, 50];
@@ -6870,6 +6885,7 @@ function stockPyramidChest(x, y, z, key){
   ];
   let si = 0;
   for(const [id, n] of loot){ if(n > 0){ slots[si] = { id, count: n, dur: 0 }; si += 2; } }
+  { const bl = typeof kind === 'string' ? BOOK_LOOT[kind] : 0.4; if(bl && Math.random() < bl) slots[Math.min(26, si)] = { id: ENCHANTED_BOOK, count: 1, dur: 0, ench: randomBookEnch(true) }; }
   chests[ck] = slots;
   chestsDirty = true;
 }
@@ -7095,6 +7111,7 @@ function stockLootChest(x, y, z, key, kind){
   }
   let si = 0;
   for(const [id, n] of loot){ if(n > 0){ slots[si] = { id, count: n, dur: 0 }; si += 2; } }
+  { const bl = typeof kind === 'string' ? BOOK_LOOT[kind] : 0.4; if(bl && Math.random() < bl) slots[Math.min(26, si)] = { id: ENCHANTED_BOOK, count: 1, dur: 0, ench: randomBookEnch(true) }; }
   chests[ck] = slots;
   chestsDirty = true;
 }
@@ -8200,7 +8217,7 @@ function physics(dt){
   if(riding) return;                 // vehicle controls the player's position
   const inWater = isWet(getBlock(Math.floor(p.pos.x), Math.floor(p.pos.y + 0.2), Math.floor(p.pos.z)));
   const sprint = key('ShiftLeft') && !p.fly && key('KeyW') && !inWater;
-  const speed = (p.fly ? (key('ShiftRight') ? 26 : 16) : inWater ? 2.6 : sprint ? 7.2 : 4.3) * (effects.speed > 0 && !p.fly ? 1.4 : 1) * (effects.slowness > 0 && !p.fly ? 0.7 : 1);
+  const speed = (p.fly ? (key('ShiftRight') ? 26 : 16) : inWater ? 2.6 * (1 + 0.45 * armEnch('depth_strider')) : sprint ? 7.2 : 4.3) * (effects.speed > 0 && !p.fly ? 1.4 : 1) * (effects.slowness > 0 && !p.fly ? 0.7 : 1);
   if(!xrActive && !gliding){
     let fx = 0, fz = 0;
     if(key('KeyW')) fz -= 1; if(key('KeyS')) fz += 1;
@@ -8254,7 +8271,8 @@ function physics(dt){
   }
   // soul sand drags at your feet
   if(p.onGround && !p.fly && getBlock(Math.floor(p.pos.x), Math.floor(p.pos.y - 0.2), Math.floor(p.pos.z)) === SOULSAND){
-    p.pos.x = sx0 + (p.pos.x - sx0) * 0.45; p.pos.z = sz0 + (p.pos.z - sz0) * 0.45;
+    const ssp = armEnch('soul_speed'), sk = ssp ? 1.05 + 0.1 * ssp : 0.45;   // Soul Speed turns the drag into a rush
+    p.pos.x = sx0 + (p.pos.x - sx0) * sk; p.pos.z = sz0 + (p.pos.z - sz0) * sk;
   }
   updatePlayerEffects(dt);
   if(p.fly || inWater || p.gorillaHold || gliding || levT > 0 || effects.slow > 0 || climbing) fallPeak = p.pos.y;   // hanging on is not falling
@@ -8266,7 +8284,7 @@ function physics(dt){
       const u = getBlock(Math.floor(p.pos.x), Math.floor(p.pos.y - 0.5), Math.floor(p.pos.z));
       if(u && u !== WATER) blockSfx(u, 'land');
     }
-    const fallHit=fallDamageForDistance(d);if(fallHit>0)damage(fallHit);   // Armour and Feather Falling still apply.
+    const fallHit=fallDamageForDistance(d);if(fallHit>0){hurtKind='fall';damage(fallHit);}   // Armour and Feather Falling still apply.
     fallPeak = p.pos.y;
     if(p.vel.y <= 0) windLaunchY = null;
   }
@@ -8629,8 +8647,10 @@ function renderHearts(){
     heartSpans[i].style.opacity = hp >= (i + 1) * 2 ? 1 : hp >= i * 2 + 1 ? 0.55 : 0.15;
 }
 function damage(n, pierce){
+  const kind = hurtKind; hurtKind = '';
   if(dead || n <= 0 || mode !== 'survival') return;
-  hp = Math.max(0, hp - n*(pierce ? 1 : 1-armourProtection()));
+  hp = Math.max(0, hp - n*(pierce ? 1 : 1-armourProtection())*enchGuard(kind));
+  if(!kind && !pierce) thornsBack();
   renderHearts();
   tone(140 * jr(0.15), 45, 0.2, 'sawtooth', 0.22);
   playN({ f: 220, type: 'lowpass', dur: 0.18, vol: 0.2 });
@@ -8655,6 +8675,7 @@ let bedSpawn = null;                       // {x,y,z} or null -> world SPAWN
 try { const bs = JSON.parse(localStorage.getItem(SAVE_KEY + '-bed')); if(bs && typeof bs.x === 'number') bedSpawn = bs; } catch(e){}
 function respawn(){
   xpPoints = 0; xpLevel = 0; saveXP();   // experience is lost on death
+  vanishCursed();                       // Curse of Vanishing: gone for good
   for(const k in effects) effects[k] = 0;
   hp = 20; dead = false; hunger=20;saturation=8;exhaustion=0;starveT=0;invDirty=true;
   renderHearts();
@@ -10863,8 +10884,10 @@ function windBurst(p){
 let maceBonusNow = 0;
 function maceSmash(e){
   const f = fallPeak - player.pos.y;
-  maceBonusNow = 4 * Math.min(3, f) + 2 * Math.min(5, Math.max(0, f - 3)) + Math.max(0, f - 8);
+  maceBonusNow = 4 * Math.min(3, f) + 2 * Math.min(5, Math.max(0, f - 3)) + Math.max(0, f - 8) + 0.5 * heldEnch('density') * f;
   fallPeak = player.pos.y; player.vel.y = Math.max(player.vel.y, 3);
+  const wb = heldEnch('wind_burst');
+  if(wb){ player.vel.y = 8 + 5 * wb; player.onGround = false; windLaunchY = player.pos.y; burstRGB(player.pos.x, player.pos.y, player.pos.z, 0.9, 0.95, 1, 16, 1); }   // Wind Burst: up you go again
   burstRGB(e.pos.x, e.pos.y + 0.2, e.pos.z, 0.55, 0.5, 0.45, 30, 1.6);
   boomSfx(4); nNoise(e.pos, 180, 0.5, 0.4, -80);
   for(const list of [zombies, skeletons, spiders, creepers, netherMobs, animals]) for(const m of list){
@@ -12592,7 +12615,7 @@ function updateFireballs(dt){
       if(!f.byPlayer && Math.abs(f.pos.x - pp.x) < 0.5 + f.w && Math.abs(f.pos.z - pp.z) < 0.5 + f.w && f.pos.y > pp.y - f.w && f.pos.y < pp.y + 1.9 + f.w){
         const from = f.pos.clone().sub(f.vel.clone().normalize().multiplyScalar(3));
         if(shieldBlocks(from)){ if(f.type === 'ghast') f.age = 99; }            // taken on the shield
-        else if(f.type === 'blaze'){ if(mobCtx || !fireproof()) damage(5); setBurn(5); }
+        else if(f.type === 'blaze'){ hurtKind = 'projectile'; if(mobCtx || !fireproof()) damage(5); setBurn(5); }
         else if(f.type === 'spark') damage(3);
         else if(f.type === 'wskull'){ damage(f.blue ? 12 : 8); setWither(10); }
         else if(f.type === 'wind') damage(1);
@@ -12753,7 +12776,7 @@ function updatePlayerEffects(dt){
     fireTouchT = 0.5;
     const b1 = getBlock(Math.floor(p.x), Math.floor(p.y + 0.1), Math.floor(p.z)), b2 = getBlock(Math.floor(p.x), Math.floor(p.y + 1.1), Math.floor(p.z));
     if(!fireproof()){
-      if(isFire(b1) || isFire(b2)){ damage(b1 === SOULFIRE || b2 === SOULFIRE ? 2 : 1); burnT = Math.max(burnT, 4); }
+      if(isFire(b1) || isFire(b2)){ hurtKind = 'fire'; damage(b1 === SOULFIRE || b2 === SOULFIRE ? 2 : 1); burnT = Math.max(burnT, 4); }
       else if(b1 === CAMPFIRE) damage(1);
       if(getBlock(Math.floor(p.x), Math.floor(p.y + 0.2), Math.floor(p.z)) === LAVA) burnT = 8;
     } else burnT = 0;
@@ -12766,7 +12789,7 @@ function updatePlayerEffects(dt){
   }
   if(burnT > 0){
     burnT -= dt; burnTick -= dt;
-    if(burnTick <= 0){ burnTick = 1; damage(1); }
+    if(burnTick <= 0){ burnTick = 1; hurtKind = 'fire'; damage(1); }
     if(Math.random() < dt * 14) burstRGB(p.x + (Math.random() - 0.5) * 0.6, p.y + Math.random() * 1.6, p.z + (Math.random() - 0.5) * 0.6, 1, 0.5 + Math.random() * 0.3, 0.08, 1, 0.25);
   }
   if(witherT > 0){
@@ -13028,7 +13051,7 @@ function updateArrows(dt){
          a.pos.x > p.x - 0.4 && a.pos.x < p.x + 0.4 &&
          a.pos.y > p.y && a.pos.y < p.y + 1.85 &&
          a.pos.z > p.z - 0.4 && a.pos.z < p.z + 0.4){
-        if(!shieldBlocks(a.pos.clone().sub(a.vel.clone().normalize().multiplyScalar(3)))){ damage(a.dmg || 3); if(a.fx === 'slowness') effects.slowness = Math.max(effects.slowness, 30); if(a.fx === 'poison') effects.poison = Math.max(effects.poison, 4); }
+        if(!shieldBlocks(a.pos.clone().sub(a.vel.clone().normalize().multiplyScalar(3)))){ hurtKind = 'projectile'; damage(a.dmg || 3); if(a.fx === 'slowness') effects.slowness = Math.max(effects.slowness, 30); if(a.fx === 'poison') effects.poison = Math.max(effects.poison, 4); }
         const l = Math.hypot(a.vel.x, a.vel.z) || 1;
         player.vel.x += a.vel.x / l * 5;
         player.vel.z += a.vel.z / l * 5;
@@ -13121,7 +13144,7 @@ function explode(x, y, z, radius, dmgMax, fromNet){
                     : Math.hypot(player.pos.x - x, player.pos.y + 0.9 - y, player.pos.z - z);
   if(pd < radius + 2.5){
     const blast = Math.round(dmgMax * Math.max(0, 1 - pd / (radius + 2.5)));
-    damage(shieldBlocks(new THREE.Vector3(x, y, z)) ? Math.floor(blast * 0.25) : blast);
+    hurtKind = 'blast'; damage(shieldBlocks(new THREE.Vector3(x, y, z)) ? Math.floor(blast * 0.25) : blast);
     const l = pd || 1;
     player.vel.x += (player.pos.x - x) / l * 12;
     player.vel.z += (player.pos.z - z) / l * 12;
@@ -13381,7 +13404,8 @@ const VIL_PROF = [
       {in:[[CARROT,20]],out:[EMERALD,1]}, {in:[[EMERALD,2]],out:[HONEYCOMB,3]} ]},
   { id:'librarian', name:'Librarian', robe:0xd6d0c0, badge:0x6d5f8a, hat:0, voice:250, trades:[
       {in:[[STRING,12]],out:[EMERALD,1]}, {in:[[EMERALD,1]],out:[GLASS,6]},
-      {in:[[EMERALD,3]],out:[BOOKSHELF,2]}, {in:[[EMERALD,1]],out:[TORCH,8]} ]},
+      {in:[[EMERALD,3]],out:[BOOKSHELF,2]}, {in:[[EMERALD,1]],out:[TORCH,8]}, {in:[[PAPER,24]],out:[EMERALD,1]},
+      {in:[[EMERALD,1],[BOOK,1]],out:[ENCHANTED_BOOK,1],book:true}, {in:[[EMERALD,1],[BOOK,1]],out:[ENCHANTED_BOOK,1],book:true} ]},
   { id:'toolsmith', name:'Toolsmith', robe:0x4a4a52, badge:0x9c6b3a, hat:0, voice:170, trades:[
       {in:[[COALI,12]],out:[EMERALD,1]}, {in:[[IRONO,4]],out:[EMERALD,1]},
       {in:[[EMERALD,3]],out:[IPICK,1]}, {in:[[EMERALD,4]],out:[ISWORD,1]} ]},
@@ -13452,7 +13476,12 @@ function pickTrades(prof){
   const want = Math.min(3, pool.length);
   for(let i = 0; i < want; i++)
     picks.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
-  return picks;
+  return picks.map(t => t.book ? bookTrade() : t);
+}
+function bookTrade(){                                              // a librarian's enchanted book: dearer the better it is
+  const ench = randomBookEnch(true), [k, lv] = Object.entries(ench)[0];
+  const cost = Math.min(64, 2 + 3 * lv * (ENCH[k].max > 1 ? 5 / ENCH[k].max : 3) + (ENCH[k].treasure ? 10 : 0) + ((Math.random() * 6) | 0));
+  return { in: [[EMERALD, Math.round(cost)], [BOOK, 1]], out: [ENCHANTED_BOOK, 1], ench };
 }
 let tradeVillager = null;
 function tradeOk(t){
@@ -13465,7 +13494,8 @@ function doTrade(i){
   const t = tradeVillager && tradeVillager.trades[i];
   if(!t || !tradeOk(t)) return;
   for(const [id, n] of tradeIn(t)) removeItems(id, n);
-  for(let k = 0; k < t.out[1]; k++) addItem(t.out[0], true);
+  if(t.ench){ if(!giveEnchBook(Object.assign({}, t.ench))) spawnDropAt(player.pos.x, player.pos.y + 1, player.pos.z, BOOK, 1); }
+  else for(let k = 0; k < t.out[1]; k++) addItem(t.out[0], true);
   renderHotbar();
   renderTrade();
   tone(520 * jr(0.1), 780, 0.08, 'sine', 0.14);
@@ -13485,7 +13515,7 @@ function renderTrade(){
     drawIcon(icon.getContext('2d'), t.out[0]);
     const name = document.createElement('div');
     name.className = 'rname';
-    name.textContent = nameOf(t.out[0]) + (t.out[1] > 1 ? ' ×' + t.out[1] : '');
+    name.textContent = (t.ench ? stackName({ id: t.out[0], ench: t.ench }) : nameOf(t.out[0])) + (t.out[1] > 1 ? ' ×' + t.out[1] : '');
     const cost = document.createElement('div');
     cost.className = 'rcost';
     cost.textContent = 'costs ' + tradeIn(t).map(([id, n]) => n + ' ' + nameOf(id) + ' (' + invCount(id) + ')').join(' + ');
@@ -14346,7 +14376,7 @@ function launchShot(kind, o, d){
   const pos = o.clone().addScaledVector(d, 0.6);
   mesh.position.copy(pos); scene.add(mesh);
   const speed = kind === 'arrow' ? 42 : 22;
-  shots.push({ kind, mesh, pos, vel: d.clone().normalize().multiplyScalar(speed), age: 0, power: kind === 'arrow' ? heldEnch('power') : 0 });
+  shots.push({ kind, mesh, pos, vel: d.clone().normalize().multiplyScalar(speed), age: 0, power: kind === 'arrow' ? heldEnch('power') : 0, punch: kind === 'arrow' ? heldEnch('punch') : 0, flame: kind === 'arrow' ? heldEnch('flame') : 0 });
 }
 function updateShots(dt){
   for(let i = shots.length - 1; i >= 0; i--){
@@ -14363,7 +14393,10 @@ function updateShots(dt){
     const gate = getBlock(Math.floor(s.pos.x), Math.floor(s.pos.y), Math.floor(s.pos.z)) === END_GATEWAY;
     if(s.kind === 'pearl' && gate){ scene.remove(s.mesh); shots.splice(i, 1); gatewayJump(); continue; }
     if(eh && (!bh || eh.t < bh.t)){
-      if(s.kind === 'arrow'){ arrowHitNow = true; hitWith(eh.e, Math.max(2, Math.round(s.vel.length() / 6)) + Math.round((s.power || 0) * 1.5)); arrowHitNow = false; }
+      if(s.kind === 'arrow'){ arrowHitNow = true; hitWith(eh.e, Math.max(2, Math.round(s.vel.length() / 6)) + Math.round((s.power || 0) * 1.5));
+        if(s.punch && eh.e.vel){ const l2 = Math.hypot(s.vel.x, s.vel.z) || 1; eh.e.vel.x += s.vel.x / l2 * 5 * s.punch; eh.e.vel.z += s.vel.z / l2 * 5 * s.punch; }
+        if(s.flame) igniteMob(eh.e, 5);
+        arrowHitNow = false; }
       else pearlLand(s.pos.clone().addScaledVector(dir, eh.t));
       scene.remove(s.mesh); shots.splice(i, 1); continue;
     }
@@ -15432,7 +15465,11 @@ function heldId(){
 }
 function heldDamage(){
   if(forcedDamage) return forcedDamage;
-  return heldDamageBase() + (effects.strength > 0 ? 3 : 0) + heldEnch('sharpness') * 1.25;
+  const sh = heldEnch('sharpness'), t = enchTarget;
+  let d = heldDamageBase() + (effects.strength > 0 ? 3 : 0) + (sh ? 0.5 * sh + 0.5 : 0);
+  if(t){ const sm = heldEnch('smite'), bn = heldEnch('bane'), im = heldEnch('impaling');
+    if(sm && isUndead(t)) d += 2.5 * sm; if(bn && isArthropod(t)) d += 2.5 * bn; if(im && isAquatic(t)) d += 2.5 * im; }
+  return d;
 }
 function heldDamageBase(){
   const it = ITEMS[heldId()];
@@ -15446,7 +15483,7 @@ function heldDamageBase(){
   return 3;
 }
 function damageTool(types){
-  if(mode !== 'survival') return;
+  if(mode !== 'survival' || quietHit) return;
   const s = survInv[sel];
   const t = s.count > 0 && ITEMS[s.id] ? ITEMS[s.id].tool : null;
   if(!t || (types && !types.includes(t.type))) return;
@@ -15473,10 +15510,12 @@ function startAnimalPanic(e){
   }
 }
 function punchEntity(e){
+  enchTarget = e;
+  if(!quietHit){ lootLvlNow = heldEnch('looting'); if(lootLvlNow) setTimeout(() => { lootLvlNow = 0; }, 0); }
   maceBonusNow = 0;
-  if(heldId() === MACE && !player.onGround && !mobCtx && e && e.pos && fallPeak - player.pos.y > 1.5) maceSmash(e);
+  if(!quietHit && heldId() === MACE && !player.onGround && !mobCtx && e && e.pos && fallPeak - player.pos.y > 1.5) maceSmash(e);
   if(e && !mobCtx && ['zombie', 'skeleton', 'spider', 'enderman', 'nether'].includes(e.kind)) petTarget = e;
-  if(heldId() === STORMBREAKER && !mobCtx && e.pos && !e.puppet && e.kind !== 'fireball') boltAt(e.pos.x, e.pos.y, e.pos.z, true);   // Stormbreaker calls lightning
+  if(heldId() === STORMBREAKER && !quietHit && !mobCtx && e.pos && !e.puppet && e.kind !== 'fireball') boltAt(e.pos.x, e.pos.y, e.pos.z, true);   // Stormbreaker calls lightning
   if(e.dragon && e.dragon.puppet) e = e.dragon;
   if(e.wyrm && e.wyrm.puppet) e = e.wyrm;
   if(e.puppet && mobsFromHost()){
@@ -15487,7 +15526,7 @@ function punchEntity(e){
     mpBroadcast({ t: 'hit', nid: e.nid, from: MYTAG });
     return;
   }
-  triggerViewSwing();
+  if(!quietHit) triggerViewSwing();
   // the Ender Dragon: no knockback, just damage
   if(e.kind === 'dragon' || e.kind === 'dragonHead' || e.kind === 'dragonBody'){
     const dmg = heldDamage();
@@ -15515,12 +15554,17 @@ function punchEntity(e){
   const dx = e.pos.x - player.pos.x, dz = e.pos.z - player.pos.z, l = Math.hypot(dx, dz) || 1;
   const heavy = e.kind === 'nether' && (e.type === 'ghast' || e.type === 'hoglin');
   const unmoved = e.kind === 'nether' && (e.type === 'warden' || e.type === 'creaking');   // neither can be knocked back
-  if(!unmoved){ e.vel.x += dx / l * (heavy ? 2 : 6); e.vel.z += dz / l * (heavy ? 2 : 6); }
-  if(!unmoved && !(e.kind === 'nether' && e.type === 'ghast')) e.vel.y = 4.5;
+  const kbE = quietHit ? 0 : heldEnch('knockback');
+  if(!unmoved && !quietHit){ e.vel.x += dx / l * ((heavy ? 2 : 6) + kbE * 5); e.vel.z += dz / l * ((heavy ? 2 : 6) + kbE * 5); }
+  if(!unmoved && !quietHit && !(e.kind === 'nether' && e.type === 'ghast')) e.vel.y = 4.5 + kbE;
   playN({ f: 190, type: 'lowpass', dur: 0.08, vol: .05 });
   
   const dmg = heldDamage();
   damageTool(['sword', 'axe']);
+  if(!quietHit){
+    const fa = heldEnch('fire_aspect'); if(fa) igniteMob(e, 4 * fa);
+    const ht = ITEMS[heldId()] && ITEMS[heldId()].tool; if(ht && ht.type === 'sword' && mode === 'survival') sweepAttack(e, dmg);
+  }
   if(e.kind === 'zombie'){
     e.hp -= dmg;
     burstRGB(e.pos.x, e.pos.y + 1.2, e.pos.z, 0.75, 0.15, 0.1, 5, 0.3);
@@ -15695,6 +15739,7 @@ function dropGeo(id){
   return g;
 }
 function spawnDropAt(x, y, z, id, n = 1){
+  if(lootLvlNow && !(ITEMS[id] && ITEMS[id].tool)) n += (Math.random() * (lootLvlNow + 1)) | 0;   // Looting
   if(drops.length >= 80){ scene.remove(drops[0].mesh); drops.shift(); }
   const mat = !!ITEMS[id] ? matItemSolid : isCross(id) ? (id === TORCH || emitsLight(id) ? matGC : matC) : isLeaf(id)||isFenceish(id)?matLeaf:matO;
   const mesh = new THREE.Mesh(dropGeo(id), mat);
@@ -17939,10 +17984,10 @@ function calcMineTime(id){
   let t = handTime(id);
   const it = ITEMS[heldId()];
   const tool = it && it.tool, cls = toolClassOf(id);
-  if(tool && cls && tool.type === cls){ t /= TIER_SPEED[tool.tier - 1]; t /= 1 + 0.35 * heldEnch('efficiency'); }
+  if(tool && cls && tool.type === cls){ t /= TIER_SPEED[tool.tier - 1]; const ef = heldEnch('efficiency'); t /= 1 + 0.3 * ef + 0.06 * ef * ef; }
   if(tool && tool.type === 'shears' && (isLeaf(id) || id === WOOL || id === COBWEB)) t = Math.min(t, 0.12);
   camera.getWorldPosition(_eyeW);
-  if(effects.conduit <= 0 && isWet(getBlock(Math.floor(_eyeW.x), Math.floor(_eyeW.y), Math.floor(_eyeW.z)))) t *= 5;   // digging under water is slow, as in Minecraft
+  if(effects.conduit <= 0 && !armEnch('aqua_affinity') && isWet(getBlock(Math.floor(_eyeW.x), Math.floor(_eyeW.y), Math.floor(_eyeW.z)))) t *= 5;   // digging under water is slow, as in Minecraft
   if(effects.fatigue > 0) t *= 30;
   return t;
 }
@@ -18225,6 +18270,9 @@ function breakBlock(x, y, z, id){
       chestsDirty = true;
     }
   }
+  if(mode === 'survival' && heldEnch('silk_touch') && BLOCKS[id] && harvestOk(id) && id !== SPAWNER && id !== TRIAL_SPAWNER && id !== BED && id !== BEDHEAD && !isDoor(id) && !CROP_GROWING.has(id)){
+    spawnDrop(x, y, z, id); damageTool(); return;                         // Silk Touch: the block itself
+  }
   if(mode === 'survival'){
     if(id === TGRASSB){ if(Math.random() < 0.25) spawnDropAt(x + 0.5, y + 0.4, z + 0.5, SEEDS, 1); return; }
     if(id === RED_MUSH_BLOCK || id === BROWN_MUSH_BLOCK){ if(Math.random() < 0.22) spawnDropAt(x + 0.5, y + 0.4, z + 0.5, id === RED_MUSH_BLOCK ? MUSHROOMR : MUSHROOMB, 1 + (Math.random() < 0.3 ? 1 : 0)); return; }
@@ -18440,7 +18488,7 @@ const ALL_CREATIVE = (() => {
 // ---- item categories (used to group the creative palette and the crafting list) ----
 const CAT_NAMES = ['Building', 'Nature', 'Ores & Minerals', 'Decoration', 'Utility', 'Tools', 'Combat', 'Food', 'Misc'];
 const _oreBlocks = new Set([RAW_IRON_BLOCK, RAW_GOLD_BLOCK, RAW_COPPER_BLOCK, COALO, IRONO, GOLDO, DIAMO, EMERO, COPPERO, REDSTONE_ORE, LAPIS_ORE, QUARTZ_ORE, DEBRIS, ...Object.keys(DEEP_BASE).map(Number)]);
-const _matItems = new Set([TRIAL_KEY, BREEZE_ROD, WIND_CHARGE, HEAVY_CORE, NETHER_STAR, TOTEM, GLOW_INK_SAC, ARMADILLO_SCUTE, PHANTOM_MEMBRANE, ...DYE, COCOA, RESIN_CLUMP, RESIN_BRICK, ECHO_SHARD, HEART_OF_SEA, NAUTILUS, PRISMARINE_SHARD, PRISMARINE_CRYSTALS, INK_SAC, RAW_IRON, RAW_GOLD, RAW_COPPER, REDSTONE, LAPIS, COALI, IRONI, GOLDI, DIAMI, COPPERI, EMERALD, NETHERITE, QUARTZ, AMETHYST_SHARD, GNUGGET, NSCRAP, STICK, STRING, LEATHER, FEATHER, GUNPOWDER, BLAZEROD, BLAZEPOWDER, GHASTTEAR, MAGMACREAM, ENDERPEARL, SLIMEBALL, BONE, BONE_MEAL, HONEYCOMB, PAPER]);
+const _matItems = new Set([BOOK, ENCHANTED_BOOK, TRIAL_KEY, BREEZE_ROD, WIND_CHARGE, HEAVY_CORE, NETHER_STAR, TOTEM, GLOW_INK_SAC, ARMADILLO_SCUTE, PHANTOM_MEMBRANE, ...DYE, COCOA, RESIN_CLUMP, RESIN_BRICK, ECHO_SHARD, HEART_OF_SEA, NAUTILUS, PRISMARINE_SHARD, PRISMARINE_CRYSTALS, INK_SAC, RAW_IRON, RAW_GOLD, RAW_COPPER, REDSTONE, LAPIS, COALI, IRONI, GOLDI, DIAMI, COPPERI, EMERALD, NETHERITE, QUARTZ, AMETHYST_SHARD, GNUGGET, NSCRAP, STICK, STRING, LEATHER, FEATHER, GUNPOWDER, BLAZEROD, BLAZEPOWDER, GHASTTEAR, MAGMACREAM, ENDERPEARL, SLIMEBALL, BONE, BONE_MEAL, HONEYCOMB, PAPER]);
 const _decoBlocks = new Set([...CARPET, SEA_LANTERN, TORCH, SOUL_TORCH, PAINTING, FRAME, FLOWERPOT, LANTERN, JACK_O_LANTERN, CARVED_PUMPKIN, GLOWB, CAMPFIRE]);
 const _utilBlocks = new Set([AQ_CONDUIT, REPEATER, LEVER, BUTTON_STONE, BUTTON_WOOD, PLATE_STONE, PLATE_WOOD, RS_TORCH, LAMP, CHEST, CRAFTT, FURN, BREWING, BARREL, ENDERCHEST, COMPOSTER, GRINDSTONE, NOTEBLOCK, JUKEBOX, ANVIL, SMITHING, CAULDRON, LADDER, FENCE, GATE, GATE_OPEN, BED, BEDHEAD, LIGHTNINGROD, TNT, BOOKSHELF, ENCH_TABLE]);
 const _natureBlocks = new Set([PALE_MOSS, PALE_MOSS_CARPET, PALE_HANGING_MOSS, EYEBLOSSOM_C, PALE_GRASS, CREAKING_HEART, SCULK, SCULK_SENSOR, SCULK_SHRIEKER, SCULK_CATALYST, MYCELIUM, MUSH_STEM, RED_MUSH_BLOCK, BROWN_MUSH_BLOCK, ...OCEAN_PLANTS, ...CORAL_BLOCKS, DEAD_CORALB, ICE, SPONGE, WET_SPONGE, GRASS, DIRT, SAND, REDSAND, GRAVEL, SNOW, PODZOL, CACTUS, DEADBUSH, MUSHROOMR, MUSHROOMB, TGRASSB, POPPYB, DANDB]);
@@ -18489,8 +18537,9 @@ function slotInfo(i){
 }
 function renderHotbar(){
   for(let i = 0; i < 9; i++){
-    const { id, count, dur } = slotInfo(i);
+    const { id, count, dur, ench } = slotInfo(i);
     drawIcon(slots[i].icon.getContext('2d'), id);
+    slots[i].div.style.boxShadow = ench && Object.keys(ench).length ? 'inset 0 0 12px 2px #b070ffcc' : '';
     const tool = id && ITEMS[id] && ITEMS[id].tool;
     slots[i].count.textContent = (!tool && count && count > 0) ? count : '';
     if(tool){
@@ -18949,7 +18998,7 @@ function buildCraftPanel(){
         g.fillStyle='#b9b9b9';g.fillRect(35,y-14,1365,132);
         g.strokeStyle='#8f8f8f';g.lineWidth=2;g.strokeRect(35,y-14,1365,132);
         icon(t.out[0],58,y+14,74);
-        text(nameOf(t.out[0])+(t.out[1]>1?'  x'+t.out[1]:''),156,y+30,30);
+        text((t.ench?stackName({id:t.out[0],ench:t.ench}):nameOf(t.out[0]))+(t.out[1]>1?'  x'+t.out[1]:''),156,y+30,30,undefined,1200);
         const have=tradeIn(t).every(([id,n])=>invCount(id)>=n);
         text('costs '+tradeIn(t).map(([id,n])=>n+' '+nameOf(id)+' ('+invCount(id)+')').join(' + '),
              156,y+74,24,have?'#28572d':'#8a2f2f',880);
@@ -20168,7 +20217,7 @@ function updateAir(dt){
   camera.getWorldPosition(_eyeW);
   const under = dim !== 1 && isWet(getBlock(Math.floor(_eyeW.x), Math.floor(_eyeW.y), Math.floor(_eyeW.z)));
   if(under && mode === 'survival' && !dead && effects.breath <= 0 && effects.conduit <= 0){
-    air -= dt;
+    air -= dt / (1 + armEnch('respiration'));
     if(air <= 0){ air = 0; drownT -= dt; if(drownT <= 0){ drownT = 1; damage(2, true); flashName('Drowning! Swim up for air'); } }
   } else { air = Math.min(15, air + dt * (under ? 0 : 7.5)); drownT = 0; }
   const show = mode === 'survival' && inGame && air < 15;
@@ -20293,6 +20342,7 @@ function summonWarden(s){
   }
 }
 function updateEffects(dt){
+  updateEnchTicks(dt);
   for(const k in effects){
     if(effects[k] <= 0) continue;
     effects[k] -= dt;
@@ -20378,6 +20428,8 @@ function xpLevelOf(points){ let L = 0; while(points >= xpToNext(L)){ points -= x
 let xpLevel = xpLevelOf(xpPoints)[0];
 const ORE_XP = { [REDSTONE_ORE]: [1, 5], [LAPIS_ORE]: [2, 5], [COALO]: [0, 2], [DIAMO]: [3, 7], [EMERO]: [3, 7], [QUARTZ_ORE]: [2, 5], [NGOLD_ORE]: [0, 1], [VOLTITE_ORE]: [4, 8] };
 function addXP(n){
+  n = mendWith(n);
+  if(n <= 0){ tone(1500, 2000, 0.06, 'sine', 0.05); return; }
   const before = xpLevel;
   xpPoints += n;
   xpLevel = xpLevelOf(xpPoints)[0];
@@ -20440,70 +20492,228 @@ function renderXP(){
   xpEl.children[1].textContent = L ? String(L) : '';
 }
 /* ---- enchantments ---- */
+/* Every Minecraft enchantment, at its real top level. The enchanting table
+   (with bookshelves round it, and lapis lazuli to pay) offers the ordinary
+   ones; Mending, Frost Walker, Soul Speed, Wind Burst and the two curses are
+   treasures - found only as books in loot chests or bought from librarians. A
+   book from the table carries its enchantment to an anvil, where it can be
+   put on a tool, a weapon or armour, or two books joined. */
+const DURABLE = ['sword', 'axe', 'pick', 'shovel', 'hoe', 'rod', 'shield', 'shears', 'trident', 'bow', 'mace', 'armour', 'elytra'];
 const ENCH = {
-  sharpness:  { name: 'Sharpness', max: 3, on: ['sword', 'axe'] },
-  efficiency: { name: 'Efficiency', max: 3, on: ['pick', 'axe', 'shovel'] },
-  fortune:    { name: 'Fortune', max: 3, on: ['pick'] },
-  unbreaking: { name: 'Unbreaking', max: 3, on: ['sword', 'axe', 'pick', 'shovel', 'hoe', 'rod', 'shield', 'shears', 'trident'] },
-  power:      { name: 'Power', max: 3, on: ['bow'] },
-  infinity:   { name: 'Infinity', max: 1, on: ['bow'] },
-  protection: { name: 'Protection', max: 3, on: ['armour'] },
-  feather:    { name: 'Feather Falling', max: 3, on: ['boots'] },
-  lure:       { name: 'Lure', max: 3, on: ['rod'] },
-  luck:       { name: 'Luck of the Sea', max: 3, on: ['rod'] },
+  sharpness:  { name: 'Sharpness', max: 5, on: ['sword', 'axe'], w: 10 },
+  smite:      { name: 'Smite', max: 5, on: ['sword', 'axe'], w: 5 },
+  bane:       { name: 'Bane of Arthropods', max: 5, on: ['sword', 'axe'], w: 5 },
+  knockback:  { name: 'Knockback', max: 2, on: ['sword'], w: 5 },
+  fire_aspect:{ name: 'Fire Aspect', max: 2, on: ['sword'], w: 2 },
+  looting:    { name: 'Looting', max: 3, on: ['sword'], w: 2 },
+  sweeping_edge: { name: 'Sweeping Edge', max: 3, on: ['sword'], w: 2 },
+  efficiency: { name: 'Efficiency', max: 5, on: ['pick', 'axe', 'shovel', 'hoe', 'shears'], w: 10 },
+  silk_touch: { name: 'Silk Touch', max: 1, on: ['pick', 'axe', 'shovel', 'hoe'], w: 1 },
+  fortune:    { name: 'Fortune', max: 3, on: ['pick', 'axe', 'shovel', 'hoe'], w: 2 },
+  unbreaking: { name: 'Unbreaking', max: 3, on: DURABLE, w: 5 },
+  mending:    { name: 'Mending', max: 1, on: DURABLE, w: 2, treasure: true },
+  power:      { name: 'Power', max: 5, on: ['bow'], w: 10 },
+  punch:      { name: 'Punch', max: 2, on: ['bow'], w: 2 },
+  flame:      { name: 'Flame', max: 1, on: ['bow'], w: 2 },
+  infinity:   { name: 'Infinity', max: 1, on: ['bow'], w: 1 },
+  loyalty:    { name: 'Loyalty', max: 3, on: ['trident'], w: 5 },
+  impaling:   { name: 'Impaling', max: 5, on: ['trident'], w: 2 },
+  riptide:    { name: 'Riptide', max: 3, on: ['trident'], w: 2 },
+  channeling: { name: 'Channeling', max: 1, on: ['trident'], w: 1 },
+  density:    { name: 'Density', max: 5, on: ['mace'], w: 5 },
+  breach:     { name: 'Breach', max: 4, on: ['mace'], w: 2 },
+  wind_burst: { name: 'Wind Burst', max: 3, on: ['mace'], w: 2, treasure: true },
+  lure:       { name: 'Lure', max: 3, on: ['rod'], w: 2 },
+  luck:       { name: 'Luck of the Sea', max: 3, on: ['rod'], w: 2 },
+  protection: { name: 'Protection', max: 4, on: ['armour'], w: 10 },
+  fire_protection: { name: 'Fire Protection', max: 4, on: ['armour'], w: 5 },
+  blast_protection: { name: 'Blast Protection', max: 4, on: ['armour'], w: 2 },
+  projectile_protection: { name: 'Projectile Protection', max: 4, on: ['armour'], w: 5 },
+  thorns:     { name: 'Thorns', max: 3, on: ['armour'], w: 1 },
+  respiration:{ name: 'Respiration', max: 3, on: ['helmet'], w: 2 },
+  aqua_affinity: { name: 'Aqua Affinity', max: 1, on: ['helmet'], w: 2 },
+  feather:    { name: 'Feather Falling', max: 4, on: ['boots'], w: 5 },
+  depth_strider: { name: 'Depth Strider', max: 3, on: ['boots'], w: 2 },
+  frost_walker: { name: 'Frost Walker', max: 2, on: ['boots'], w: 2, treasure: true },
+  soul_speed: { name: 'Soul Speed', max: 3, on: ['boots'], w: 1, treasure: true },
+  binding:    { name: 'Curse of Binding', max: 1, on: ['armour', 'elytra'], w: 1, treasure: true, curse: true },
+  vanishing:  { name: 'Curse of Vanishing', max: 1, on: DURABLE, w: 1, treasure: true, curse: true },
 };
+// enchantments that can't sit together on one thing
+const ENCH_EXCL = [['sharpness', 'smite', 'bane'], ['silk_touch', 'fortune'], ['infinity', 'mending'], ['riptide', 'loyalty'], ['riptide', 'channeling'],
+                   ['protection', 'fire_protection', 'blast_protection', 'projectile_protection'], ['depth_strider', 'frost_walker'], ['density', 'breach']];
+const enchClash = (a, b) => a !== b && ENCH_EXCL.some(g => g.includes(a) && g.includes(b));
 const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V'];
 function heldEnch(k){ if(mode !== 'survival') return 0; const q = survInv[sel]; return q && q.count > 0 && q.ench ? q.ench[k] || 0 : 0; }
+// the best of an enchantment across the armour you wear (or, for protection, all of it added up)
+function armEnch(k){ if(mode !== 'survival') return 0; let m = 0; for(const sl in armour) if(armour[sl] && armourEnch[sl] && armourEnch[sl][k]) m = Math.max(m, armourEnch[sl][k]); return m; }
+function armEnchSum(k){ if(mode !== 'survival') return 0; let m = 0; for(const sl in armour) if(armour[sl] && armourEnch[sl] && armourEnch[sl][k]) m += armourEnch[sl][k]; return m; }
 function stackName(q){
   if(!q || !q.id) return 'Empty';
-  const e = q.ench ? Object.keys(q.ench).map(k => ENCH[k].name + (ENCH[k].max > 1 ? ' ' + ROMAN[q.ench[k]] : '')) : [];
+  const e = q.ench ? Object.keys(q.ench).filter(k => ENCH[k]).map(k => ENCH[k].name + (ENCH[k].max > 1 ? ' ' + ROMAN[q.ench[k]] : '')) : [];
   return nameOf(q.id) + (e.length ? ' (' + e.join(', ') + ')' : '');
 }
 function enchKinds(id){
+  if(id === BOOK || id === ENCHANTED_BOOK) return ['book'];
   const it = ITEMS[id];
   if(!it) return [];
   if(id === BOW) return ['bow'];
+  if(id === ELYTRA) return ['elytra'];
   if(it.tool) return [it.tool.type];
-  if(it.armour && id !== ELYTRA) return it.armour.slot === 'boots' ? ['armour', 'boots'] : ['armour'];
+  if(it.armour) return ['armour', it.armour.slot];
   return [];
 }
+const enchApplies = (k, kinds) => kinds.includes('book') || ENCH[k].on.some(o => kinds.includes(o));
 function bookshelfPower(t){
   let n = 0;
   for(let dx = -2; dx <= 2; dx++) for(let dz = -2; dz <= 2; dz++) for(let dy = 0; dy <= 1; dy++)
     if((Math.abs(dx) === 2 || Math.abs(dz) === 2) && getBlock(t.x + dx, t.y + dy, t.z + dz) === BOOKSHELF) n++;
   return Math.min(15, n);
 }
+function weightedEnch(keys, R){
+  const tot = keys.reduce((a, k) => a + (ENCH[k].w || 5), 0);
+  let r = R() * tot;
+  for(const k of keys){ if((r -= ENCH[k].w || 5) < 0) return k; }
+  return keys[keys.length - 1];
+}
 // the three offers for the item in your hand; they only change after you enchant something
 function enchantOffers(){
   const q = survInv[sel];
-  if(!q || !q.count || q.count > 1 || q.ench) return [];
+  if(!q || !q.count || q.ench || (q.count > 1 && q.id !== BOOK)) return [];
   const kinds = enchKinds(q.id);
-  if(!kinds.length || !enchantAt) return [];
-  const pool = Object.keys(ENCH).filter(k => ENCH[k].on.some(o => kinds.includes(o)));
+  if(!kinds.length || q.id === ENCHANTED_BOOK || !enchantAt) return [];
+  const pool = Object.keys(ENCH).filter(k => !ENCH[k].treasure && enchApplies(k, kinds));
+  if(!pool.length) return [];
   const shelves = bookshelfPower(enchantAt), R = rngOf(enchSeed + q.id * 7919);
   return [0, 1, 2].map(i => {
     const req = Math.min(30, [1 + (R() * 5 | 0) + (shelves / 3 | 0), 4 + (R() * 8 | 0) + (shelves / 2 | 0), 8 + (R() * 7 | 0) + shelves + (shelves > 12 ? 4 : 0)][i]);
-    const k = pool[(R() * pool.length) | 0];
-    const lvl = Math.max(1, Math.min(ENCH[k].max, 1 + Math.floor(req / 11)));
-    const bonus = req >= 20 && pool.length > 1 && R() < 0.5 ? pool.filter(o => o !== k && !(k === 'infinity' && o === 'power'))[(R() * (pool.length - 1)) | 0] : null;
-    return { req, cost: i + 1, k, lvl, bonus, bonusLvl: bonus ? Math.max(1, Math.min(ENCH[bonus].max, Math.floor(req / 12))) : 0 };
+    const k = weightedEnch(pool, R);
+    const lvl = Math.max(1, Math.min(ENCH[k].max, Math.round(ENCH[k].max * req / 30 + 0.35)));
+    const others = pool.filter(o => o !== k && !enchClash(o, k));
+    const bonus = req >= 15 && others.length && R() < 0.5 ? weightedEnch(others, R) : null;
+    return { req, cost: i + 1, k, lvl, bonus, bonusLvl: bonus ? Math.max(1, Math.min(ENCH[bonus].max, Math.round(ENCH[bonus].max * req / 40))) : 0 };
   });
 }
 const offerText = o => ENCH[o.k].name + (ENCH[o.k].max > 1 ? ' ' + ROMAN[o.lvl] : '') + (o.bonus ? ' + ' + ENCH[o.bonus].name + (ENCH[o.bonus].max > 1 ? ' ' + ROMAN[o.bonusLvl] : '') : '');
+function giveEnchBook(ench){
+  const q = survInv.find(t => !t.id || t.count <= 0);
+  if(!q) return false;
+  q.id = ENCHANTED_BOOK; q.count = 1; q.dur = 0; q.ench = ench;
+  invDirty = true; renderHotbar();
+  return true;
+}
+function randomBookEnch(treasure){
+  const keys = Object.keys(ENCH).filter(k => treasure || !ENCH[k].treasure);
+  const k = weightedEnch(keys, Math.random);
+  return { [k]: 1 + ((Math.random() * ENCH[k].max) | 0) };
+}
 function doEnchant(i){
   const o = enchantOffers()[i];
   if(!o || xpLevel < o.req || xpLevel < o.cost) return false;
+  if(invCount(LAPIS) < o.cost){ flashName('You need ' + o.cost + ' lapis lazuli'); return false; }
   const q = survInv[sel];
-  q.ench = { [o.k]: o.lvl };
-  if(o.bonus) q.ench[o.bonus] = o.bonusLvl;
+  const ench = { [o.k]: o.lvl };
+  if(o.bonus) ench[o.bonus] = o.bonusLvl;
+  if(q.id === BOOK && q.count > 1){
+    if(!survInv.some(t => !t.id || t.count <= 0)){ flashName('Make room for the enchanted book'); return false; }
+    q.count--; giveEnchBook(ench);
+  } else if(q.id === BOOK){ q.id = ENCHANTED_BOOK; q.ench = ench; }
+  else q.ench = ench;
+  removeItems(LAPIS, o.cost);
   spendLevels(o.cost);
   enchSeed = (Math.random() * 1e9) | 0; saveXP();
   invDirty = true; renderHotbar(); saveNow();
   const t = enchantAt;
   if(t) for(let k = 0; k < 24; k++) burstRGB(t.x + 0.5 + (Math.random() - 0.5) * 3, t.y + 1 + Math.random() * 2, t.z + 0.5 + (Math.random() - 0.5) * 3, 0.7, 0.5, 1, 1, 0.2);
   [520, 780, 1040, 1300].forEach((f, j) => tone(f, f * 1.5, 0.25, 'sine', 0.06, j * 0.07));
-  flashName('Enchanted: ' + stackName(q));
+  flashName('Enchanted: ' + stackName(q.id === BOOK ? { id: ENCHANTED_BOOK, ench } : q));
   return true;
+}
+/* ---- what the enchantments do ---- */
+let enchTarget = null, quietHit = false, lootLvlNow = 0, hurtKind = '';
+const isUndead = e => e.kind === 'zombie' || e.kind === 'skeleton' || (e.kind === 'nether' && ['zpiglin', 'wskel', 'zoglin', 'phantom', 'wither'].includes(e.type)) || (e.kind === 'animal' && (e.type === 'skeleton_horse' || e.type === 'zombie_horse'));
+const isArthropod = e => e.kind === 'spider' || e.kind === 'bee' || (e.kind === 'nether' && (e.type === 'silverfish' || e.type === 'endermite'));
+const isAquatic = e => e.kind === 'sea' || (e.kind === 'animal' && (e.type === 'turtle' || e.type === 'axolotl' || e.type === 'frog'));
+// hurt anything, without the swing, the knockback or wear on your tools (sweeps, burning, thorns)
+function hurtAny(m, d){
+  const f = forcedDamage; forcedDamage = d; quietHit = true;
+  try { punchEntity(m); } finally { forcedDamage = f; quietHit = false; }
+}
+const burningMobs = new Set();
+const FIREPROOF_MOBS = new Set(['blaze', 'magma', 'wskel', 'wither', 'strider', 'zpiglin', 'ghast', 'hoglin', 'zoglin', 'piglin', 'brute', 'warden']);
+function igniteMob(e, secs){ if(!e || !e.pos || (e.kind === 'nether' && FIREPROOF_MOBS.has(e.type))) return; e.enchBurn = Math.max(e.enchBurn || 0, secs); burningMobs.add(e); }
+function sweepAttack(e, dmg){
+  const sw = heldEnch('sweeping_edge'), sd = 1 + dmg * (sw / (sw + 1));
+  let hit = false;
+  for(const list of [zombies, skeletons, spiders, creepers, endermen, netherMobs, animals]) for(const m of list){
+    if(m === e || m.tamed || m.keepId || m.boss || !m.pos) continue;
+    if(Math.hypot(m.pos.x - e.pos.x, m.pos.z - e.pos.z) > 1.8 || Math.abs(m.pos.y - e.pos.y) > 1.5) continue;
+    hurtAny(m, sd); hit = true;
+  }
+  if(hit || sw) burstRGB(e.pos.x, e.pos.y + 1, e.pos.z, 0.95, 0.95, 0.95, 8, 0.8);   // the sweep
+}
+function thornsBack(){
+  const lv = armEnch('thorns');
+  if(!lv || Math.random() > 0.15 * lv) return;
+  let best = null, bd = 3;
+  for(const list of [zombies, skeletons, spiders, creepers, endermen, netherMobs]) for(const m of list){
+    if(!m.pos || m.keepId || m.boss) continue;
+    const d = m.pos.distanceTo(player.pos); if(d < bd){ bd = d; best = m; }
+  }
+  if(best){ hurtAny(best, 1 + ((Math.random() * 4) | 0)); burstRGB(best.pos.x, best.pos.y + 1, best.pos.z, 0.4, 0.7, 0.3, 6, 0.4); }
+}
+// how much of a blow your armour's enchantments turn aside (Feather Falling works on the fall itself)
+function enchGuard(kind){
+  let epf = armEnchSum('protection');
+  if(kind === 'fire') epf += 2 * armEnchSum('fire_protection');
+  if(kind === 'blast') epf += 2 * armEnchSum('blast_protection');
+  if(kind === 'projectile') epf += 2 * armEnchSum('projectile_protection');
+  return 1 - Math.min(20, epf) * 0.04;
+}
+// Mending: experience you pick up goes into mending what you hold first
+function mendWith(n){
+  const q = survInv[sel];
+  if(mode !== 'survival' || !q || !q.count || !q.ench || !q.ench.mending) return n;
+  const t = ITEMS[q.id] && ITEMS[q.id].tool;
+  if(!t) return n;
+  const max = TIER_DUR[t.tier - 1], need = max - (q.dur || 0);
+  if(need <= 0) return n;
+  const fix = Math.min(need, n * 2);
+  q.dur = (q.dur || 0) + fix; invDirty = true; renderHotbar();
+  return n - Math.ceil(fix / 2);
+}
+function vanishCursed(){
+  for(const q of survInv) if(q.ench && q.ench.vanishing && q.count > 0){ q.id = 0; q.count = 0; q.dur = 0; q.ench = undefined; }
+  let gone = false;
+  for(const sl in armour) if(armour[sl] && armourEnch[sl] && armourEnch[sl].vanishing){ armour[sl] = 0; armourEnch[sl] = null; gone = true; }
+  if(gone){ saveArmourEnch(); updateArmourModel(); }
+  invDirty = true;
+}
+const frosted = new Map();
+let frostT = 0;
+function updateEnchTicks(dt){
+  // things set burning by Fire Aspect and Flame
+  for(const e of burningMobs){
+    if(!(e.enchBurn > 0) || !(e.hp > 0) || !e.group || !e.group.parent){ burningMobs.delete(e); continue; }
+    e.enchBurn -= dt;
+    if(isWet(getBlock(Math.floor(e.pos.x), Math.floor(e.pos.y + 0.3), Math.floor(e.pos.z)))){ e.enchBurn = 0; continue; }
+    if(Math.random() < dt * 12) burstRGB(e.pos.x + (Math.random() - 0.5) * 0.6, e.pos.y + Math.random() * 1.6, e.pos.z + (Math.random() - 0.5) * 0.6, 1, 0.55, 0.1, 1, 0.3);
+    if((e.burnTick = (e.burnTick ?? 1) - dt) <= 0){ e.burnTick = 1; hurtAny(e, 1); }
+  }
+  // Frost Walker: water freezes under your feet, and thaws again behind you
+  if((frostT -= dt) > 0) return;
+  frostT = 0.2;
+  const now = performance.now();
+  for(const [k, t] of frosted) if(now > t){ const [x, y, z] = k.split(',').map(Number); if(getBlock(x, y, z) === ICE) setBlock(x, y, z, WATER); frosted.delete(k); }
+  const fw = armEnch('frost_walker');
+  if(!fw || player.fly || dead) return;
+  const px = Math.floor(player.pos.x), pz = Math.floor(player.pos.z), fy = Math.floor(player.pos.y - 0.5), r = 2 + fw;
+  if(isWet(getBlock(px, Math.floor(player.pos.y + 0.2), pz))) return;           // not while swimming
+  for(let dx = -r; dx <= r; dx++) for(let dz = -r; dz <= r; dz++){
+    if(dx * dx + dz * dz > r * r) continue;
+    const x = px + dx, z = pz + dz;
+    if(getBlock(x, fy, z) === WATER && getBlock(x, fy + 1, z) === AIR){ setBlock(x, fy, z, ICE); frosted.set(x + ',' + fy + ',' + z, now + 8000 + Math.random() * 6000); }
+  }
 }
 // desktop: a small panel of the three offers
 const enchEl = document.createElement('div');
@@ -20520,13 +20730,13 @@ function renderEnchant(){
   const q = survInv[sel], offers = enchantOffers();
   let h = '<h3 style="margin:0 0 6px;color:#d8b0ff">Enchanting Table</h3>';
   h += '<p style="margin:0 0 10px;color:#ccc">Holding: <b>' + stackName(q) + '</b> &middot; Your level: <b style="color:#8cf06a">' + xpLevel + '</b> &middot; Bookshelves: ' + (enchantAt ? bookshelfPower(enchantAt) : 0) + '/15</p>';
-  if(!offers.length) h += '<p style="color:#f0a0a0">Hold one unenchanted tool, weapon, bow or piece of armour to enchant it.</p>';
+  if(!offers.length) h += '<p style="color:#f0a0a0">Hold one unenchanted tool, weapon, bow or piece of armour - or a book - to enchant it. Each enchantment costs lapis lazuli too.</p>';
   enchEl.innerHTML = h;
   offers.forEach((o, i) => {
     const b = document.createElement('button');
     b.className = 'mcbtn'; b.style.cssText = 'display:block;width:100%;margin:4px 0;text-align:left';
-    b.textContent = offerText(o) + '  -  needs level ' + o.req + ', costs ' + o.cost + ' level' + (o.cost > 1 ? 's' : '');
-    b.disabled = xpLevel < o.req;
+    b.textContent = offerText(o) + '  -  needs level ' + o.req + ', costs ' + o.cost + ' level' + (o.cost > 1 ? 's' : '') + ' and ' + o.cost + ' lapis';
+    b.disabled = xpLevel < o.req || invCount(LAPIS) < o.cost;
     b.onclick = () => { if(doEnchant(i)) renderEnchant(); };
     enchEl.appendChild(b);
   });
@@ -20540,9 +20750,9 @@ function drawEnchantVR(g, text, button){
   text('ENCHANTING TABLE', 35, 205, 28, '#4a2a6a');
   text('Holding: ' + stackName(q), 35, 250, 24, '#202020', 1300);
   text('Your level: ' + xpLevel + '     Bookshelves around the table: ' + (enchantAt ? bookshelfPower(enchantAt) : 0) + ' / 15', 35, 290, 24, '#2b5a1f', 1300);
-  if(!offers.length) text('Select one unenchanted tool, weapon, bow or armour piece on your hotbar, then come back.', 35, 360, 24, '#8a2424', 1320);
+  if(!offers.length) text('Select one unenchanted tool, weapon, bow, armour piece or a book on your hotbar, then come back. It costs lapis too.', 35, 360, 24, '#8a2424', 1320);
   offers.forEach((o, i) => {
-    button(35, 330 + i * 110, 1340, 95, offerText(o) + '   -   needs level ' + o.req + ', costs ' + o.cost, () => { doEnchant(i); }, xpLevel >= o.req);
+    button(35, 330 + i * 110, 1340, 95, offerText(o) + '   -   needs level ' + o.req + ', costs ' + o.cost + ' + ' + o.cost + ' lapis', () => { doEnchant(i); }, xpLevel >= o.req && invCount(LAPIS) >= o.cost);
   });
 }
 /* ---- shearing: wool comes off, and grows back once the sheep has grazed ---- */
@@ -21169,9 +21379,36 @@ function takeMat(m){
   for(const id of ids) if(invCount(id) > 0){ removeItems(id, 1); return true; }
   return false;
 }
+// hold something and carry an enchanted book: the book's enchantments go onto it (or two books become one)
+function anvilBook(hit){
+  const s = survInv[sel];
+  if(!s || !s.count || s.count > 1) return false;
+  const kinds = enchKinds(s.id);
+  if(!kinds.length || s.id === BOOK) return false;
+  const bi = survInv.findIndex((q, i) => i !== sel && q.id === ENCHANTED_BOOK && q.count > 0 && q.ench);
+  if(bi < 0) return false;
+  const book = survInv[bi], cur = Object.assign({}, s.ench || {});
+  let cost = 0, added = 0;
+  for(const [k, lv] of Object.entries(book.ench)){
+    if(!ENCH[k] || !enchApplies(k, kinds) || Object.keys(cur).some(o => enchClash(o, k))) continue;
+    const nl = cur[k] === lv ? Math.min(ENCH[k].max, lv + 1) : Math.max(cur[k] || 0, lv);
+    if(nl === (cur[k] || 0)) continue;
+    cur[k] = nl; cost += nl * (ENCH[k].treasure ? 2 : 1); added++;
+  }
+  if(!added){ flashName('That book can\'t go on this'); return true; }
+  cost = Math.min(39, Math.max(1, cost + Object.keys(s.ench || {}).length));
+  if(xpLevel < cost){ flashName('Needs ' + cost + ' levels'); return true; }
+  s.ench = cur;
+  book.id = 0; book.count = 0; book.dur = 0; book.ench = undefined;
+  spendLevels(cost); invDirty = true; renderHotbar();
+  tone(1200, 900, 0.25, 'triangle', 0.14); tone(620, 500, 0.3, 'square', 0.05); burstRGB(hit.x + 0.5, hit.y + 1.1, hit.z + 0.5, 0.8, 0.5, 1, 10, 0.4); triggerViewSwing();
+  flashName('Enchanted: ' + stackName(s) + ' (' + cost + ' level' + (cost > 1 ? 's' : '') + ')');
+  return true;
+}
 function useAnvil(hit){
   if(!hit || hit.id !== ANVIL) return false;
   if(mode !== 'survival'){ flashName('Anvils mend tools in survival'); return true; }
+  if(anvilBook(hit)) return true;
   const s = survInv[sel], it = s.count > 0 && ITEMS[s.id], t = it && it.tool;
   if(!t){ flashName('Hold a worn tool to mend it'); return true; }
   const max = TIER_DUR[t.tier - 1];
@@ -21458,6 +21695,15 @@ function makeTridentMesh(){
   return g;
 }
 function throwTrident(o, d){
+  const rip = heldEnch('riptide');
+  if(rip){                                                              // Riptide: it throws you instead
+    const wetNow = isWet(getBlock(Math.floor(player.pos.x), Math.floor(player.pos.y + 0.2), Math.floor(player.pos.z)));
+    if(!wetNow && !(rainAmt > 0.3 && dim === 0 && skyExposed(Math.floor(player.pos.x), Math.ceil(player.pos.y + 2), Math.floor(player.pos.z)))){ flashName('Riptide only works in water or rain'); return true; }
+    player.vel.copy(d).normalize().multiplyScalar(12 + 6 * rip); player.onGround = false; fallPeak = player.pos.y; windLaunchY = player.pos.y;
+    damageTool(['trident']); nNoise(player.pos, 700, 0.6, 0.35, 900); burstRGB(player.pos.x, player.pos.y + 1, player.pos.z, 0.5, 0.8, 1, 20, 1.2);
+    triggerViewSwing(); return true;
+  }
+  const tEnch = mode !== 'creative' && survInv[sel].ench ? survInv[sel].ench : {};
   let stack = null;
   if(mode !== 'creative'){
     const s = survInv[sel];
@@ -21466,7 +21712,7 @@ function throwTrident(o, d){
   }
   const mesh = makeTridentMesh(), pos = o.clone().addScaledVector(d, 0.7);
   mesh.position.copy(pos); scene.add(mesh);
-  shots.push({ kind: 'trident', mesh, pos, vel: d.clone().normalize().multiplyScalar(32), age: 0, stack, slot: sel });
+  shots.push({ kind: 'trident', mesh, pos, vel: d.clone().normalize().multiplyScalar(32), age: 0, stack, slot: sel, ench: tEnch });
   playN({ f: 900, type: 'bandpass', dur: 0.3, vol: 0.2, slide: -500 });
   triggerViewSwing();
   if(xrActive) hapticPulse('right', 0.5, 40);
@@ -21493,14 +21739,20 @@ function updateTrident(s, dt){
     s.mesh.position.copy(s.pos); s.mesh.lookAt(s.pos.clone().sub(s.vel));        // comes back handle first
     return false;
   }
-  if(s.stuck){ if(s.age > 0.6){ s.returning = true; s.age = 0; playN({ f: 500, type: 'bandpass', dur: 0.4, vol: 0.12, slide: 600 }); } return false; }
+  if(s.stuck){
+    const loy = (s.ench && s.ench.loyalty) || 0;
+    if(loy || !s.stack){ if(s.age > (loy ? 0.9 / loy : 0.6)){ s.returning = true; s.age = 0; playN({ f: 500, type: 'bandpass', dur: 0.4, vol: 0.12, slide: 600 }); } return false; }
+    if(player.pos.distanceTo(s.pos) < 1.8){ giveTridentBack(s); return true; }   // no Loyalty: it waits where it struck for you to pick it up
+    return false;
+  }
   const wet = isWet(getBlock(Math.floor(s.pos.x), Math.floor(s.pos.y), Math.floor(s.pos.z)));
   s.vel.y -= (wet ? 2 : 10) * dt;
   if(wet) s.vel.multiplyScalar(1 - dt * 0.4);
   const step = s.vel.length() * dt, dir = s.vel.clone().normalize();
   const eh = rayEntity(s.pos, dir, step), bh = raycast(s.pos, dir, step);
   if(eh && (!bh || eh.t < bh.t)){
-    hitWith(eh.e, 8);
+    hitWith(eh.e, 8 + (s.ench && s.ench.impaling && isAquatic(eh.e) ? 2.5 * s.ench.impaling : 0));
+    if(s.ench && s.ench.channeling && stormAmt > 0.5 && dim === 0 && eh.e.pos && skyExposed(Math.floor(eh.e.pos.x), Math.ceil(eh.e.pos.y + 2), Math.floor(eh.e.pos.z))) boltAt(eh.e.pos.x, eh.e.pos.y, eh.e.pos.z, true);   // Channeling
     grantAdv('trident');
     s.pos.addScaledVector(dir, eh.t); s.stuck = true; s.age = 0;
     playN({ f: 300, type: 'lowpass', dur: 0.15, vol: 0.3 });
@@ -22993,7 +23245,7 @@ window.__bc = {
   PART_BASE, WALLS, FENCES, partState, partBoxes, placePartial, stairQuads,
   COLORS, DYE, CONCRETE, POWDER, SGLASS, TERRA16, GLAZED, CARPET, WOOL16, hardenNear,
   playerSees, updatePale, paleState: () => ({ blossomOpen, paleHere }),
-  splashes, sinceRestSet: v => { sinceRest = v; }, updateNightMobs, spawnFromEgg, useOnFlyer, keepers: () => keepers, updateKeepers, useHappyGhast, useCopperGolem, rideGhastNow: () => rideGhast, updateGhastRide, dryHydration: () => dryHyd, updateDriedGhasts, tryBuildGolem, chestsNearPos, trialDef, trialsNear, nearestTrial, updateTrials, trialState, openVault, windBurst, trialCools: () => trialCools, trySummonWither, placeSkull, beaconLevel, updateBeacons, beams, cycleBeacon, raidState: () => raid, startRaid, spawnPatrol, spawnTrader, outpostsNear, outpostDef, fangs, useTotem, updateIllagers, rideState: () => rideHorse, useRideable, updateHorseRide,
+  splashes, sinceRestSet: v => { sinceRest = v; }, updateNightMobs, spawnFromEgg, useOnFlyer, setSlot: (i, id, n = 1, ench) => { const q = survInv[i]; q.id = id; q.count = n; q.dur = ITEMS[id] && ITEMS[id].tool ? TIER_DUR[ITEMS[id].tool.tier - 1] : 0; q.ench = ench; invDirty = true; renderHotbar(); }, heldStack: () => survInv[sel], useAnvil, armourEnch: () => armourEnch, armour: () => armour, keepers: () => keepers, updateKeepers, useHappyGhast, useCopperGolem, rideGhastNow: () => rideGhast, updateGhastRide, dryHydration: () => dryHyd, updateDriedGhasts, tryBuildGolem, chestsNearPos, trialDef, trialsNear, nearestTrial, updateTrials, trialState, openVault, windBurst, trialCools: () => trialCools, trySummonWither, placeSkull, beaconLevel, updateBeacons, beams, cycleBeacon, raidState: () => raid, startRaid, spawnPatrol, spawnTrader, outpostsNear, outpostDef, fangs, useTotem, updateIllagers, rideState: () => rideHorse, useRideable, updateHorseRide,
   mountainBiome, jaggedAt, vnoise, deepDarkAt, cityDef, cityBlock, vibrate, summonWarden, sculkState: () => ({ warnLevel, near: sculkNear.length }), netherMobs, spawnNetherMob,
   monumentDef, monumentBlock, conduitFrame, soakSponge, airState: () => air, effectsNow: () => effects, spawnSea, seaLife, deadElders,
   colInfo, continentAt, waterBiome, wreckDef, ruinDef, treasureDef, wrecksNear, ruinsNear, treasuresNear, nearestTreasure, OCEAN, setOldLand, oldLandKeys: () => oldLandKeys, isWet,
