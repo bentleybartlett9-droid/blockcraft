@@ -1267,7 +1267,7 @@ function stampOutpost(o, set, cx, cz){
    wells, igloos (half of them over a secret basement), swamp huts with a witch
    and her black cat, jungle temples with an arrow trap and a lever puzzle,
    ruined portals, and fossils buried under deserts and swamps. Only ever on new land. */
-const SUS_SAND = 4099, WHITE_CARPET = 719, SPRUCE_SLAB = 810;
+const SUS_SAND = 4099, SUS_GRAVEL = 4100, WHITE_CARPET = 719, SPRUCE_SLAB = 810;
 const LAND_KINDS = {
   mansion: { cell: 480, seed: 6701, chance: 0.8, r: 18, biomes: ['dark-forest'] },
   well:   { cell: 128, seed: 6601, chance: 0.6,  r: 3,  biomes: ['desert'] },
@@ -1275,6 +1275,7 @@ const LAND_KINDS = {
   hut:    { cell: 208, seed: 6621, chance: 0.75, r: 5,  biomes: ['swamp', 'willow-marsh'] },
   temple: { cell: 272, seed: 6631, chance: 0.7,  r: 10, biomes: ['jungle'] },
   portal: { cell: 320, seed: 6641, chance: 0.45, r: 7,  biomes: null },
+  trail:  { cell: 288, seed: 6661, chance: 0.6,  r: 11, biomes: ['taiga', 'jungle', 'birch', 'forest', 'snowy', 'frostvale', 'maple-woods', 'cherry-grove'] },
   fossil: { cell: 128, seed: 6651, chance: 0.35, r: 9,  biomes: ['desert', 'swamp', 'willow-marsh', 'badlands', 'outback'] },
 };
 for(const k in LAND_KINDS) LAND_KINDS[k].cache = new Map();
@@ -1295,7 +1296,7 @@ function landDef(kind, gx, gz){ const K = LAND_KINDS[kind], S = K.seed; return c
   for(const [dx, dz] of [[-K.r, -K.r], [K.r, -K.r], [-K.r, K.r], [K.r, K.r], [0, -K.r], [0, K.r], [-K.r, 0], [K.r, 0]]){ const h = terrainHeight(x + dx, z + dz); lo = Math.min(lo, h); hi = Math.max(hi, h); }
   if(kind !== 'fossil'){
     if(kind === 'hut' ? y < SEA - 4 : y <= SEA + 1) return null;
-    if(hi - lo > (kind === 'mansion' ? 9 : kind === 'temple' ? 5 : kind === 'hut' ? 5 : 3)) return null;   // a fairly level site
+    if(hi - lo > (kind === 'trail' ? 6 : kind === 'mansion' ? 9 : kind === 'temple' ? 5 : kind === 'hut' ? 5 : 3)) return null;   // a fairly level site
     for(const v of villagesNear(x, z)) if(Math.hypot(v.cx - x, v.cz - z) < 80) return null;
     for(const o of outpostsNear(x, z)) if(Math.hypot(o.x - x, o.z - z) < 40) return null;
     for(const p of pyramidsNear(x, z)) if(Math.hypot(p.cx - x, p.cz - z) < 30) return null;
@@ -1338,7 +1339,7 @@ function stampLands(set, data, cx, cz){
     const K = LAND_KINDS[kind];
     for(const L of landsNear(kind, mx, mz)){
       if(Math.abs(L.x - mx) > K.r + 9 || Math.abs(L.z - mz) > K.r + 9) continue;
-      ({ mansion: stampMansion, well: stampWell, igloo: stampIgloo, hut: stampHut, temple: stampTemple, portal: stampRuinedPortal, fossil: stampFossil })[kind](L, put, get, inC);
+      ({ trail: stampTrail, mansion: stampMansion, well: stampWell, igloo: stampIgloo, hut: stampHut, temple: stampTemple, portal: stampRuinedPortal, fossil: stampFossil })[kind](L, put, get, inC);
     }
   }
 }
@@ -1428,6 +1429,36 @@ function stampMansion(L, put){
     } else if(r.type === 'hall'){
       for(const kk of zs) for(let i = -1; i <= 1; i++) P(i, 1, kk, RED_CARPET);
     }
+  }
+}
+/* Trail ruins, as in Minecraft: the buried remains of an old town of terracotta,
+   brick and mud brick. Only broken wall tops and a tumbledown tower show above
+   the ground; dig down and the rooms are choked with gravel - some of it
+   suspicious, holding pottery sherds and odds and ends for a brush to uncover. */
+function stampTrail(L, put){
+  const X = L.x, Z = L.z, Y = L.y, F = Y - 7;
+  const MATS = [TERRACOTTA, 676, 687, 683, BRICK, 2002, 2002, TERRACOTTA];   // plain, orange, brown and light grey terracotta, bricks, mud bricks
+  const mat = (wx, y, wz) => MATS[Math.floor(hash3(wx, y, wz, 6662) * MATS.length)];
+  for(let i = -6; i <= 6; i++) for(let k = -6; k <= 6; k++){
+    const wx = X + i, wz = Z + k, th = terrainHeight(wx, wz), wall = i % 6 === 0 || k % 6 === 0;
+    put(wx, F, wz, (i + k) % 2 ? 2002 : TERRACOTTA);                        // the old floor
+    if(wall){
+      const top = Y - 2 + Math.floor(hash(wx, wz, 6663) * 4);               // broken off at different heights
+      for(let y = F + 1; y <= top; y++) put(wx, y, wz, mat(wx, y, wz));
+      for(let y = top + 1; y < th; y++) put(wx, y, wz, GRAVEL);
+    } else for(let y = F + 1; y < th; y++) put(wx, y, wz, hash3(wx, y, wz, 6664) < 0.07 ? SUS_GRAVEL : y > th - 3 ? DIRT : GRAVEL);   // choked with gravel
+  }
+  for(let i = 6; i <= 10; i++) for(let k = 6; k <= 10; k++){                  // a tumbledown tower
+    const wx = X + i, wz = Z + k, th = terrainHeight(wx, wz), edge = i === 6 || i === 10 || k === 6 || k === 10;
+    put(wx, F, wz, TERRACOTTA);
+    const top = Y + 1 + Math.floor(hash(wx, wz, 6665) * 4);
+    for(let y = F + 1; y <= (edge ? top : th - 1); y++) put(wx, y, wz, edge ? mat(wx, y, wz) : y < th - 2 && hash3(wx, y, wz, 6666) < 0.08 ? SUS_GRAVEL : GRAVEL);
+    if(edge) for(let y = top + 1; y <= Y + 6; y++) put(wx, y, wz, AIR);
+  }
+  for(let n = -16; n <= -7; n++){                                            // the old road leading off
+    const wx = X + n, wz = Z + Math.round(Math.sin(n * 0.4) * 1.5);
+    for(const d of [0, 1]) put(wx, F + 2, wz + d, 2002);
+    if(hash(wx, wz, 6667) < 0.3) put(wx, F + 3, wz, SUS_GRAVEL);
   }
 }
 function stampWell(L, put){
@@ -2399,6 +2430,11 @@ BLOCKS[TRIAL_SPAWNER]={name:'Trial Spawner',all:704};BLOCKS[VAULT]={name:'Vault'
 ITEMS[TRIAL_KEY]={name:'Trial Key',icon:382};ITEMS[BREEZE_ROD]={name:'Breeze Rod',icon:383};ITEMS[WIND_CHARGE]={name:'Wind Charge',icon:384};
 ITEMS[HEAVY_CORE]={name:'Heavy Core',icon:385};ITEMS[MACE]={name:'Mace',icon:386,tool:{type:'mace',tier:4}};ITEMS[TRIAL_MAP]={name:'Trial Explorer Map',icon:387};
 const MANSION_MAP = 946; ITEMS[MANSION_MAP] = { name: 'Woodland Explorer Map', icon: 391 };
+const BRUSH = 947, SHERD0 = 948;
+const SHERD_NAMES = ['Arms Up', 'Brewer', 'Archer', 'Prize', 'Skull', 'Friend', 'Heart', 'Howl'];
+ITEMS[BRUSH] = { name: 'Brush', icon: 392 };
+SHERD_NAMES.forEach((n, i) => { ITEMS[SHERD0 + i] = { name: n + ' Pottery Sherd', icon: 393 + i }; });
+
 BLOCKS[WITHER_SKULL]={name:'Wither Skeleton Skull',all:700};BLOCKS[BEACON]={name:'Beacon',all:702};BLOCKS[EMERALD_BLOCK]={name:'Block of Emerald',all:703};
 ITEMS[NETHER_STAR]={name:'Nether Star',icon:381};
 ITEMS[TOTEM]={name:'Totem of Undying',icon:380};
@@ -2936,6 +2972,7 @@ const RECIPES = [
   { out: [DPICK, 1],  in: [[DIAMI, 3], [STICK, 2]], st: 'table' },
   { out: [WAXE, 1],   in: [[ANY_PLANK, 3], [STICK, 2]], st: 'table' },
   { out: [SAXE, 1],   in: [[ANY_COBBLE, 3], [STICK, 2]], st: 'table' },
+  { out: [BRUSH, 1],  in: [[FEATHER, 1], [COPPERI, 1], [STICK, 1]], st: 'table' },
   { out: [IAXE, 1],   in: [[IRONI, 3], [STICK, 2]], st: 'table' },
   { out: [DAXE, 1],   in: [[DIAMI, 3], [STICK, 2]], st: 'table' },
   { out: [WSHOV, 1],  in: [[ANY_PLANK, 1], [STICK, 2]], st: 'table' },
@@ -3243,6 +3280,21 @@ itemAtlas.width = 128; itemAtlas.height = 1024;   // 512 icons
     if(Math.hypot(x - 10.5, y - 5) < 3.4) return (x + y) % 3 === 0 ? [90, 90, 100] : [170, 170, 182];
     if(Math.abs((x - 2) + (y - 14)) < 1.1 && x >= 2 && x <= 9) return [120, 80, 44];
     return null; });
+  px(392, (x, y) => {                                                   // brush: a stick, a copper band, soft bristles
+    if(y <= 6 && x >= 8 && x <= 13 && x - 8 >= (6 - y) * 0.2) return (x + y) % 2 ? [236, 226, 206] : [214, 200, 176];
+    if(y >= 7 && y <= 8 && x >= 8 && x <= 12) return [214, 130, 80];
+    if(Math.abs(x - 10 + (y - 9) * 0.6) < 1 && y >= 9 && y <= 15) return [140, 96, 56];
+    return null; });
+  const SHERD_GLYPH = [
+    ['..#..', '#.#.#', '.###.', '..#..', '.#.#.'], ['.###.', '..#..', '.###.', '#####', '.###.'],
+    ['#...#', '.#.#.', '..#..', '.#.#.', '#...#'], ['..#..', '.###.', '#####', '.###.', '..#..'],
+    ['.###.', '#.#.#', '#####', '.#.#.', '.###.'], ['#...#', '.....', '#...#', '.#.#.', '..#..'],
+    ['.#.#.', '#####', '#####', '.###.', '..#..'], ['#...#', '##.##', '#####', '.###.', '..#..']];
+  for(let n = 0; n < 8; n++) px(393 + n, (x, y) => {                   // pottery sherds: a curved piece of clay with a picture
+    const d = Math.abs(x - 7.5) + Math.abs(y - 7.5) * 1.15; if(d > 7.5) return null;
+    const gx = x - 5, gy = y - 5;
+    if(gx >= 0 && gx < 5 && gy >= 0 && gy < 5 && SHERD_GLYPH[n][gy][gx] === '#') return [70, 40, 28];
+    return d > 6.5 ? [120, 64, 40] : (x + y) % 5 === 0 ? [168, 92, 58] : [186, 104, 66]; });
   px(391, (x, y) => {                                                   // woodland explorer map: a dark house on green
     if(x < 1 || x > 14 || y < 2 || y > 13) return null;
     if(x === 1 || x === 14 || y === 2 || y === 13) return [150, 110, 70];
@@ -15085,8 +15137,37 @@ function useSpawnEgg(hit){
   triggerViewSwing();
   return true;
 }
+// Archaeology: brush suspicious sand or gravel, a few strokes at a time, and whatever was buried in it comes out.
+const brushWork = new Map();
+function brushLoot(x, z){
+  const R = Math.random(), sh = i => [SHERD0 + i, 1];
+  if(landsNear('trail', x, z).some(t => Math.hypot(t.x - x, t.z - z) < 24)){
+    if(R < 0.3) return sh(5 + ((Math.random() * 3) | 0));
+    return [[EMERALD, 1], [WHEATITEM, 2], [COALI, 1], [DYE[(Math.random() * 16) | 0], 1], [GNUGGET, 2], [STRING, 1], [BRICK, 1], [GLASS, 1]][(Math.random() * 8) | 0];
+  }
+  if(landsNear('well', x, z).some(t => Math.hypot(t.x - x, t.z - z) < 8)) return R < 0.4 ? sh((Math.random() * 2) | 0) : [[EMERALD, 1], [STICK, 1], [BRICK, 1], [WHEATITEM, 1]][(Math.random() * 4) | 0];
+  if(R < 0.35) return sh(2 + ((Math.random() * 3) | 0));
+  return [[EMERALD, 1], [GOLDI, 1], [GUNPOWDER, 1], [DIAMI, 1], [TNT, 1], [IRONI, 1]][(Math.random() * (Math.random() < 0.2 ? 6 : 3)) | 0];
+}
+function useBrush(hit){
+  if(heldId() !== BRUSH || !hit || (hit.id !== SUS_SAND && hit.id !== SUS_GRAVEL)) return false;
+  const k = hit.x + ',' + hit.y + ',' + hit.z, n = (brushWork.get(k) || 0) + 1, sandy = hit.id === SUS_SAND;
+  const fx = hit.x + 0.5 + hit.face[0] * 0.55, fy = hit.y + 0.5 + hit.face[1] * 0.55, fz = hit.z + 0.5 + hit.face[2] * 0.55;
+  brushWork.set(k, n); triggerViewSwing();
+  burstRGB(fx, fy, fz, sandy ? 0.86 : 0.55, sandy ? 0.78 : 0.53, sandy ? 0.56 : 0.5, 5, 0.5);
+  playN({ f: 2600 + Math.random() * 600, type: 'bandpass', dur: 0.12, vol: 0.07 });
+  if(n < 6) return true;
+  brushWork.delete(k);
+  setBlock(hit.x, hit.y, hit.z, sandy ? SAND : GRAVEL);
+  const [id, cnt] = brushLoot(hit.x, hit.z);
+  spawnDropAt(fx + hit.face[0] * 0.3, fy + hit.face[1] * 0.3, fz + hit.face[2] * 0.3, id, cnt);
+  tone(700, 1100, 0.12, 'triangle', 0.05);
+  grantAdv('brush');
+  return true;
+}
 function useSpecial(o, d, hit, eh){
   const held = heldId();
+  if(useBrush(hit)) return true;
   if(hit && hit.id === VAULT && (!eh || hit.t <= eh.t)){ openVault(hit.x, hit.y, hit.z); triggerViewSwing(); return true; }
   if(hit && hit.id === BEACON && (!eh || hit.t <= eh.t) && !(held && !ITEMS[held] && player.crouching)){ cycleBeacon(hit.x, hit.y, hit.z); triggerViewSwing(); return true; }
   if(eh && eh.e.kind === 'animal' && (eh.e.type === 'wolf' || eh.e.type === 'cat') && !eh.e.puppet && (!hit || eh.t < hit.t) && useOnWolf(eh.e)){ triggerViewSwing(); return true; }
@@ -23437,6 +23518,7 @@ const ADVANCEMENTS = [
   { ch: 'Overworld', id: 'breed', title: 'The Parrots and the Bats', how: 'Feed two animals their favourite food (wheat for cows and sheep, carrots for pigs, seeds for chickens) and watch.', icon: WHEATITEM, check: () => false },
   { ch: 'Overworld', id: 'trident', title: 'A Throwaway Joke', how: 'Get a trident from a drowned (they rise out of deep water at night) and throw it at something.', icon: TRIDENT, check: () => false },
   { ch: 'Overworld', id: 'juke', title: 'Sound of Music', how: 'Craft a jukebox (8 planks, 1 diamond) and play a music disc from a dungeon chest or a creeper.', icon: JUKEBOX, check: () => false },
+  { ch: 'Overworld', id: 'brush', title: 'Respecting the Remnants', how: 'Craft a brush (a feather, a copper ingot and a stick) and brush suspicious sand or gravel - at a desert well, or down in trail ruins.', icon: BRUSH, check: () => false },
   { ch: 'Overworld', id: 'pot', title: 'Green Thumb', how: 'Pot a plant in a flower pot (3 bricks).', icon: FLOWERPOT, check: () => false },
   { ch: 'Overworld', id: 'frame', title: 'On Display', how: 'Mount something in an item frame (8 sticks + leather) on a wall.', icon: FRAME, check: () => false },
   { ch: 'Overworld', id: 'note', title: 'Note Worthy', how: 'Play a note block (8 planks + redstone). The block underneath sets the instrument.', icon: NOTEBLOCK, check: () => false },
@@ -23968,7 +24050,7 @@ window.__bc = {
   PART_BASE, WALLS, FENCES, partState, partBoxes, placePartial, stairQuads,
   COLORS, DYE, CONCRETE, POWDER, SGLASS, TERRA16, GLAZED, CARPET, WOOL16, hardenNear,
   playerSees, updatePale, paleState: () => ({ blossomOpen, paleHere }),
-  landDef, landsNear, LAND_KINDS, nearestMansion, MANSION_MAP, updateLandmarks, templeLever, stampLands,
+  landDef, landsNear, LAND_KINDS, nearestMansion, MANSION_MAP, BRUSH, SHERD0, useBrush, brushLoot, updateLandmarks, templeLever, stampLands,
   splashes, sinceRestSet: v => { sinceRest = v; }, updateNightMobs, spawnFromEgg, useOnFlyer, creativeList, recipeList, mcCat, openCraft, setSlot: (i, id, n = 1, ench) => { const q = survInv[i]; q.id = id; q.count = n; q.dur = ITEMS[id] && ITEMS[id].tool ? TIER_DUR[ITEMS[id].tool.tier - 1] : 0; q.ench = ench; invDirty = true; renderHotbar(); }, heldStack: () => survInv[sel], useAnvil, armourEnch: () => armourEnch, armour: () => armour, keepers: () => keepers, updateKeepers, useHappyGhast, useCopperGolem, rideGhastNow: () => rideGhast, updateGhastRide, dryHydration: () => dryHyd, updateDriedGhasts, tryBuildGolem, chestsNearPos, trialDef, trialsNear, nearestTrial, updateTrials, trialState, openVault, windBurst, trialCools: () => trialCools, trySummonWither, placeSkull, beaconLevel, updateBeacons, beams, cycleBeacon, raidState: () => raid, startRaid, spawnPatrol, spawnTrader, outpostsNear, outpostDef, fangs, useTotem, updateIllagers, rideState: () => rideHorse, useRideable, updateHorseRide,
   mountainBiome, jaggedAt, vnoise, deepDarkAt, cityDef, cityBlock, vibrate, summonWarden, sculkState: () => ({ warnLevel, near: sculkNear.length }), netherMobs, spawnNetherMob,
   monumentDef, monumentBlock, conduitFrame, soakSponge, airState: () => air, effectsNow: () => effects, spawnSea, seaLife, deadElders,
