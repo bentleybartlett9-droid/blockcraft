@@ -933,6 +933,72 @@ function biomeAt(x, z){
   }
   return best.biome;
 }
+/* Biome variants, as in Minecraft: some cells of a biome come out as one of its
+   variants. biomeAt() still names the base biome, so the creatures and weather
+   that live there are unchanged; the land itself is shaped from the variant.
+   Never next to land that was built on before they came. */
+const VARIANTS = { plains: [['sunflower-plains', 0.22]], taiga: [['old-growth-taiga', 0.3], ['snowy-taiga', 0.25]], jungle: [['bamboo-jungle', 0.32]],
+  swamp: [['mangrove-swamp', 0.45]], badlands: [['wooded-badlands', 0.3], ['eroded-badlands', 0.3]], savanna: [['savanna-plateau', 0.3]] };
+const variantCache = new Map();
+function biomeVariant(x, z){
+  if(GEN_V < 4) return null;
+  const key = x * 262144 + z;
+  if(variantCache.has(key)) return variantCache.get(key);
+  let v = null;
+  const base = biomeAt(x, z);
+  if((VARIANTS[base] || base === 'forest') && oldLandFade(x, z) === 0 && !builtNear(x, z)){
+    const wx = x + (vnoise(x * 0.006, z * 0.006, 91) - 0.5) * 110 + (vnoise(x * 0.02, z * 0.02, 95) - 0.5) * 24;
+    const wz = z + (vnoise(x * 0.006 + 77, z * 0.006 - 31, 93) - 0.5) * 110 + (vnoise(x * 0.02 + 9, z * 0.02 + 3, 97) - 0.5) * 24;
+    const gx = Math.floor(wx / BIOME_CELL), gz = Math.floor(wz / BIOME_CELL);
+    let best = null, bd = Infinity;
+    for(let a = -1; a <= 1; a++) for(let b = -1; b <= 1; b++){ const c = biomeCell(gx + a, gz + b), d = (c.x - wx) ** 2 + (c.z - wz) ** 2; if(d < bd){ bd = d; best = c; } }
+    if(base === 'forest'){ const f = hash(Math.floor(best.x), Math.floor(best.z), 8711); if(f >= 0.68 && f < 0.84) v = 'flower-forest'; }   // the forests left over from the dark and pale ones
+    else {
+      let f = hash(Math.floor(best.x), Math.floor(best.z), 8733);
+      for(const [name, p] of VARIANTS[base]){ if(f < p){ v = name; break; } f -= p; }
+    }
+  }
+  if(variantCache.size > 200000) variantCache.clear();
+  variantCache.set(key, v);
+  return v;
+}
+function variantGround(v, wx, wz, y, h){
+  if(v === 'mangrove-swamp') return y > h - 3 ? MUD_BLOCK : 0;
+  if(y !== h) return 0;
+  if(v === 'snowy-taiga') return SNOWY_GRASS;
+  if(v === 'old-growth-taiga'){ const n = vnoise(wx * 0.08, wz * 0.08, 8742); return n > 0.62 ? COARSEDIRT : n > 0.3 ? PODZOL : GRASS; }
+  if(v === 'bamboo-jungle') return vnoise(wx * 0.09, wz * 0.09, 8745) > 0.58 ? PODZOL : GRASS;
+  if(v === 'wooded-badlands' && h > SEA + 12) return hash(wx, wz, 8746) < 0.35 ? COARSEDIRT : GRASS;
+  return 0;
+}
+// the variant's own plants; undefined means "as the base biome"
+function variantPlant(v, pr, patch, wx, wz, h, lx, lz, set, data){
+  const air = y => y < HEIGHT && data[(y << 8) | (lz << 4) | lx] === AIR;
+  if(v === 'flower-forest'){
+    if(pr < 0.5) return FOREST_FLOWERS[Math.floor(vnoise(wx * 0.06, wz * 0.06, 8744) * FOREST_FLOWERS.length * 0.999 + pr * 3) % FOREST_FLOWERS.length];
+    return pr < 0.62 ? TGRASSB : 0;
+  }
+  if(v === 'sunflower-plains'){
+    if(pr < 0.11 && patch > 0.35) return SUNFLOWER;
+    if(pr < 0.15) return [OXEYE, BLUET, TULIP_RED, TULIP_PINK][Math.floor(pr * 100) % 4];
+    return undefined;
+  }
+  if(v === 'bamboo-jungle' && patch > 0.38 && pr < 0.34){
+    const n = 4 + Math.floor(hash(wx, wz, 8747) * 10);
+    for(let k = 1; k <= n && air(h + k); k++) set(lx, h + k, lz, BAMBOO);
+    return 0;
+  }
+  if(v === 'eroded-badlands'){
+    const n = vnoise(wx * 0.07, wz * 0.07, 8751);
+    if(n > 0.68){ const top = Math.floor((n - 0.68) * 90 * (0.7 + 0.3 * hash(wx, wz, 8752))); for(let k = 1; k <= top && air(h + k); k++) set(lx, h + k, lz, terraBand(h + k - YS)); return 0; }   // clay spires
+    return undefined;
+  }
+  if(v === 'snowy-taiga') return pr < 0.06 ? FERN : SNOW_LAYER;
+  if(v === 'old-growth-taiga') return pr < 0.22 ? FERN : pr < 0.26 ? MUSHROOMB : pr < 0.29 ? LILY_VALLEY : undefined;
+  if(v === 'mangrove-swamp') return pr < 0.14 ? REEDS : pr < 0.17 ? BLUEBELL : 0;
+  if(v === 'wooded-badlands' && h > SEA + 12) return pr < 0.12 ? TGRASSB : 0;
+  return undefined;
+}
 function biomeAtOld(x, z){
   // low-frequency smooth fields -> large contiguous regions; domain warp -> organic borders
   const wx = x + (vnoise(x * 0.004, z * 0.004, 91) - 0.5) * 160;
@@ -1006,6 +1072,8 @@ function treeAt(x, z){
   if(h <= SEA + 1 || h >= SNOW_H + 6 || surfaceCarved(x,z,h)) return null;
   const b = biomeAt(x, z);
   if(h >= SNOW_H - 4 && b !== 'grove') return null;
+  const vb = VARIANTS[b] || b === 'forest' ? biomeVariant(x, z) : null;
+  if(vb) return variantTree(vb, x, z, h, r);
   const open = b === 'dark-forest' || b === 'pale-garden' ? 1 : clearing(x, z, WOODED.has(b) ? 2 : TREED.has(b) ? 1 : 0);   // the dark forest is roofed right over
   if(open <= 0) return null;
   const v3 = GEN_V >= 3;
@@ -1030,6 +1098,19 @@ function treeAt(x, z){
              type === 'savanna' ? 4 + Math.floor(hash(x, z, 778) * 2) :
              4 + Math.floor(hash(x, z, 778) * 3) + (type === 'spruce' ? 1 : 0);
   return { h, th, type };
+}
+// the trees of the variants: giant spruces, mangroves, oaks on the badlands' tops...
+function variantTree(v, x, z, h, r){
+  const hr = hash(x, z, 8712), H = n => Math.floor(hash(x, z, 778) * n);
+  const open = clearing(x, z, v === 'sunflower-plains' || v === 'wooded-badlands' || v === 'savanna-plateau' ? 1 : 2);
+  const p = v === 'old-growth-taiga' ? 0.024 : v === 'snowy-taiga' ? 0.022 : v === 'mangrove-swamp' ? 0.026 : v === 'bamboo-jungle' ? 0.01 : v === 'flower-forest' ? 0.012 :
+            v === 'wooded-badlands' ? (h > SEA + 12 ? 0.02 : 0) : v === 'savanna-plateau' ? 0.012 : v === 'sunflower-plains' ? TREE_P : 0;
+  if(r >= p * Math.max(open, v === 'wooded-badlands' ? 1 : 0)) return null;
+  if(v === 'old-growth-taiga' && hr < 0.45) return { h, th: 14 + H(8), type: 'megaspruce' };
+  if(v === 'mangrove-swamp') return { h, th: 6 + H(4), type: 'mangrove' };
+  const type = v === 'old-growth-taiga' || v === 'snowy-taiga' ? 'spruce' : v === 'bamboo-jungle' ? 'jungle' : v === 'savanna-plateau' ? 'savanna' :
+               v === 'flower-forest' ? (hr < 0.3 ? 'birch' : 'oak') : 'oak';
+  return { h, th: type === 'jungle' ? 7 + H(4) : type === 'savanna' ? 4 + H(2) : 4 + H(3) + (type === 'spruce' ? 1 : 0), type };
 }
 const daylightOf = t => Math.max(0, Math.min(1, Math.cos((t - 0.5) * Math.PI * 2) * 0.5 + 0.5));
 
@@ -1290,7 +1371,7 @@ function landDef(kind, gx, gz){ const K = LAND_KINDS[kind], S = K.seed; return c
   }
   if(!ok) return null;
   const R = K.r + 2;
-  for(const [dx, dz] of [[0, 0], [-R, -R], [R, -R], [-R, R], [R, R]]) if(oldLandFade(x + dx, z + dz) > 0) return null;   // never where you've lived
+  for(const [dx, dz] of [[0, 0], [-R, -R], [R, -R], [-R, R], [R, R]]) if(oldLandFade(x + dx, z + dz) > 0 || builtNear(x + dx, z + dz)) return null;   // never where you've lived
   const y = terrainHeight(x, z);
   let lo = y, hi = y;
   for(const [dx, dz] of [[-K.r, -K.r], [K.r, -K.r], [-K.r, K.r], [K.r, K.r], [0, -K.r], [0, K.r], [-K.r, 0], [K.r, 0]]){ const h = terrainHeight(x + dx, z + dz); lo = Math.min(lo, h); hi = Math.max(hi, h); }
@@ -2263,6 +2344,11 @@ EXTRA_WOODS.forEach(w=>{ SAPLING_OF[w.leaves]=w.sapling; SAPLING_FOR_LOG[w.log]=
 const isSapling=id=>id===SAP_PALE||id===SAP_DARK||id===SAP_OAK||id===SAP_BIRCH||id===SAP_SPRUCE||id===SAP_JUNGLE||EXTRA_SAPS.includes(id);
 for(const [id,name,tile] of [[MARBLE,'Marble',134],[MARBLEBRICK,'Marble Bricks',135],[BASALT,'Basalt',136],[BASALTBRICK,'Basalt Bricks',137],[MOSAIC,'Mosaic Tiles',138],[AMBERLAMP,'Amber Lantern',139]])BLOCKS[id]={name,all:tile};
 FLORA.forEach((f,i)=>BLOCKS[f.id]={name:f.name,all:145+i});
+const SUNFLOWER = 885, LILAC = 886, ROSE_BUSH = 887, PEONY = 888, TULIP_RED = 889, ALLIUM = 890, CORNFLOWER = 891, LILY_VALLEY = 892, OXEYE = 893, BLUET = 894, BAMBOO = 895, TULIP_PINK = 896;
+const NEW_FLORA = [[SUNFLOWER, 'Sunflower'], [LILAC, 'Lilac'], [ROSE_BUSH, 'Rose Bush'], [PEONY, 'Peony'], [TULIP_RED, 'Red Tulip'], [ALLIUM, 'Allium'], [CORNFLOWER, 'Cornflower'],
+  [LILY_VALLEY, 'Lily of the Valley'], [OXEYE, 'Oxeye Daisy'], [BLUET, 'Azure Bluet'], [BAMBOO, 'Bamboo'], [TULIP_PINK, 'Pink Tulip']];
+NEW_FLORA.forEach(([id, name], i) => { BLOCKS[id] = { name, all: 711 + i }; FLORA_IDS.add(id); });
+const FOREST_FLOWERS = [TULIP_RED, ALLIUM, OXEYE, BLUET, LILY_VALLEY, CORNFLOWER, LILAC, ROSE_BUSH, PEONY, TULIP_PINK, POPPYB, DANDB];
 BLOCKS[COARSEDIRT]={name:'Coarse Dirt',all:143};
 BLOCKS[DEEPSLATE]={name:'Deepslate',all:144};
 BLOCKS[SAP_OAK]   ={name:'Oak Sapling',    all:160};
@@ -4799,6 +4885,24 @@ const tileAvg = [];
      g.fillStyle='rgb('+base.map(c=>Math.max(0,Math.min(255,c+shade))).join(',')+')';g.fillRect(ox+x,oy+y,1,1);
    }
  }
+ { // the variants' plants
+   const px2 = (t, x, y, w, h, c) => { g.fillStyle = c; g.fillRect(t % 8 * 16 + x, Math.floor(t / 8) * 16 + y, w, h); };
+   const stem = (t, top = 5, c = '#3f7a34') => { px2(t, 7, top, 2, 16 - top, c); px2(t, 4, 12, 3, 2, c); px2(t, 9, 10, 3, 2, c); };
+   const T = i => 711 + i;
+   for(let i = 0; i < 12; i++){ const t = T(i); g.clearRect(t % 8 * 16, Math.floor(t / 8) * 16, 16, 16); }
+   stem(T(0), 6); for(let a = 0; a < 12; a++){ const r = 4.2, x = 8 + Math.cos(a / 12 * 6.283) * r, y = 4 + Math.sin(a / 12 * 6.283) * r * 0.8; px2(T(0), Math.round(x) - 1, Math.round(y) - 1, 2, 2, '#f6cf2a'); } px2(T(0), 6, 2, 4, 4, '#6a4a1c');   // sunflower
+   stem(T(1), 4); for(let j = 0; j < 6; j++) px2(T(1), 5 + (j % 2), 1 + j * 1.6, 5, 2, j % 2 ? '#c69be0' : '#b07bd2');           // lilac
+   for(const [x, y] of [[2, 6], [9, 4], [5, 9], [11, 9], [7, 12]]) px2(T(2), x, y, 5, 5, '#2f6a2a'); for(const [x, y] of [[4, 5], [10, 8], [6, 10], [12, 11]]) px2(T(2), x, y, 2, 2, '#d0222e');   // rose bush
+   for(const [x, y] of [[2, 7], [9, 5], [5, 10], [11, 10]]) px2(T(3), x, y, 5, 5, '#3f7a34'); for(const [x, y] of [[4, 4], [9, 3], [7, 7]]) px2(T(3), x, y, 4, 3, '#eaa2d8');   // peony
+   stem(T(4), 7); px2(T(4), 5, 3, 6, 5, '#e0302a'); px2(T(4), 6, 2, 1, 2, '#e0302a'); px2(T(4), 9, 2, 1, 2, '#e0302a');           // red tulip
+   stem(T(11), 7); px2(T(11), 5, 3, 6, 5, '#f2a2c6'); px2(T(11), 6, 2, 1, 2, '#f2a2c6'); px2(T(11), 9, 2, 1, 2, '#f2a2c6');       // pink tulip
+   stem(T(5), 6); for(let x = 4; x < 12; x++) for(let y = 1; y < 8; y++) if(Math.hypot(x - 7.5, y - 4) < 3.4) px2(T(5), x, y, 1, 1, (x + y) % 3 ? '#b169d8' : '#d69cf0');   // allium
+   stem(T(6), 7); px2(T(6), 4, 4, 8, 3, '#4d6ee8'); px2(T(6), 6, 2, 4, 7, '#4d6ee8'); px2(T(6), 7, 5, 2, 1, '#2a3aa0');              // cornflower
+   stem(T(7), 4); for(const [x, y] of [[4, 5], [10, 4], [5, 9], [10, 8]]){ px2(T(7), x, y, 3, 3, '#f4f4ec'); px2(T(7), x, y + 3, 3, 1, '#c8e0c0'); }   // lily of the valley
+   stem(T(8), 7); px2(T(8), 3, 4, 10, 3, '#f6f6f0'); px2(T(8), 6, 1, 4, 9, '#f6f6f0'); px2(T(8), 7, 4, 2, 3, '#e6b83a');              // oxeye daisy
+   stem(T(9), 8); for(const [x, y] of [[3, 5], [8, 3], [10, 7], [5, 8]]){ px2(T(9), x, y, 3, 3, '#e6ecf4'); px2(T(9), x + 1, y + 1, 1, 1, '#f2d64a'); }   // azure bluet
+   px2(T(10), 6, 0, 4, 16, '#6fae3c'); px2(T(10), 6, 0, 1, 16, '#8fcc56'); for(const y of [3, 8, 13]) px2(T(10), 6, y, 4, 1, '#4e8a2a'); px2(T(10), 10, 4, 4, 2, '#5aa032'); px2(T(10), 2, 9, 4, 2, '#5aa032');   // bamboo
+ }
  FLORA.forEach((f,i)=>{
    const ox=(145+i)%8*16,oy=Math.floor((145+i)/8)*16;g.clearRect(ox,oy,16,16);
    const rect=(x,y,w,h,color)=>{g.fillStyle=color;g.fillRect(ox+x,oy+y,w,h);};
@@ -5966,6 +6070,28 @@ while(survInv.length < 36) survInv.push({ id: 0, count: 0, dur: 0 });   // 9 hot
     setOldLand(JSON.parse(localStorage.getItem(LIST) || '[]'));
   } catch(e){ setOldLand([]); }
 })();
+/* The new structures and biome variants came later still. The chunks you had built
+   in by then (and your bed's) are remembered once too, with a margin of three
+   chunks; none of the new things are ever made there. */
+const builtKeys = new Set();
+(function keepBuiltLand(){
+  if(GEN_V < 4) return;
+  const MARK = SAVE_KEY + '-landmarks', LIST = SAVE_KEY + '-builtland';
+  try {
+    if(!localStorage.getItem(MARK)){
+      const keys = Object.keys(overworldEdits).filter(k => overworldEdits[k] && Object.keys(overworldEdits[k]).length);
+      try { const bs = JSON.parse(localStorage.getItem(SAVE_KEY + '-bed') || 'null');
+            if(bs && typeof bs.x === 'number'){ const k = (bs.x >> 4) + ',' + (bs.z >> 4); if(!keys.includes(k)) keys.push(k); } } catch(e){}
+      localStorage.setItem(LIST, JSON.stringify(keys));
+      localStorage.setItem(MARK, '1');
+    }
+    for(const k of JSON.parse(localStorage.getItem(LIST) || '[]')){
+      const [cx, cz] = String(k).split(',').map(Number);
+      if(Number.isFinite(cx) && Number.isFinite(cz)) for(let a = -3; a <= 3; a++) for(let b = -3; b <= 3; b++) builtKeys.add((cx + a) + ',' + (cz + b));
+    }
+  } catch(e){}
+})();
+function builtNear(x, z){ return builtKeys.size > 0 && builtKeys.has((Math.floor(x) >> 4) + ',' + (Math.floor(z) >> 4)); }
 document.getElementById('backupBtn').addEventListener('click', () => { saveNow(); exportWorld(); });
 document.getElementById('restoreBtn').addEventListener('click', () => document.getElementById('restoreFile').click());
 document.getElementById('restoreFile').addEventListener('change', e => { if(e.target.files[0]) importWorld(e.target.files[0]); });
@@ -7022,6 +7148,7 @@ function* genChunkSteps(cx, cz){
     const h = terrainHeight(wx, wz);
     const beach = h <= SEA + 1;
     const biome = biomeAt(wx, wz);
+    const variant = VARIANTS[biome] || biome === 'forest' ? biomeVariant(wx, wz) : null;
     const badlands = biome === 'badlands', outback = biome === 'outback';
     const floorMat = seaFloor(biome, wx, wz), stony = biome === 'stony-shore';
     const sandy = beach || biome === 'desert' || biome === 'beach' || biome === 'snowy-beach';
@@ -7048,6 +7175,7 @@ function* genChunkSteps(cx, cz){
       else if(MOUNTAIN_BIOMES.has(biome) && y > h - 4) b = mountainSurface(biome, wx, y, wz, h, steep);
       else if(stony && y > h - 5) b = STONE;
       else if((steep || alpine) && y > h - 4) b = y < h ? STONE : snowyTop ? SNOW : steep ? STONE : GRASS;
+      else if(variant && variantGround(variant, wx, wz, y, h)) b = variantGround(variant, wx, wz, y, h);
       else if(y === h) b = biome === 'pale-garden' ? (vnoise(wx * .1, wz * .1, 1631) > .55 ? PALE_MOSS : PALE_GRASS) : biome === 'mushroom-fields' ? MYCELIUM : badlands ? terraBand(y - YS) : outback ? REDSAND
                          : biome === 'amberfield' ? AMBERGRASS
                          : biome === 'frostvale' ? FROSTGRASS
@@ -7105,7 +7233,8 @@ function* genChunkSteps(cx, cz){
     if(biome === 'beach' || biome === 'snowy-beach' || stony) continue;              // bare sand and rock
     if(h+2<HEIGHT && h>=SEA && getLocal(data,lx,h+1,lz)===AIR){
       const pr=hash(wx,wz,606),patch=vnoise(wx*.075,wz*.075,994);
-      let plant=biomePlant(biome,pr,patch,snowyTop,beach);
+      let plant=variant?variantPlant(variant,pr,patch,wx,wz,h,lx,lz,set,data):undefined;
+      if(plant===undefined)plant=biomePlant(biome,pr,patch,snowyTop,beach);
       if(biome==='taiga' && vnoise(wx*.13, wz*.13, 851) > .78 && pr < .3){
         set(lx, h+1, lz, MOSSY);                       // boulder field
         if(pr < .12 && h+2 < HEIGHT) set(lx, h+2, lz, MOSSY);
@@ -7124,8 +7253,8 @@ function* genChunkSteps(cx, cz){
     if((tx+8)%8===0)yield;
     const wx=cx*16+tx,wz=cz*16+tz,t=treeAt(wx,wz);if(!t)continue;
     const extra=EXTRA_WOODS.find(w=>w.name.toLowerCase()===t.type);
-    const log=t.type==='paleoak'?PALE_LOG:t.type==='darkoak'?DARK_LOG:t.type==='hugered'||t.type==='hugebrown'?MUSH_STEM:t.type==='boab'?BOAB_LOG:t.type==='redgum'?REDGUM_LOG:extra?extra.log:t.type==='spruce'?SPRUCELOG:t.type==='birch'?BIRCHLOG:t.type==='jungle'?JUNGLELOG:LOG;
-    const leaf=t.type==='paleoak'?PALE_LEAVES:t.type==='darkoak'?DARK_LEAVES:t.type==='hugered'?RED_MUSH_BLOCK:t.type==='hugebrown'?BROWN_MUSH_BLOCK:t.type==='boab'?GUMLEAVES:t.type==='redgum'?REDGUM_LEAVES:extra?extra.leaves:t.type==='spruce'?SPRUCELEAVES:LEAVES;
+    const log=t.type==='megaspruce'?SPRUCELOG:t.type==='mangrove'?4007:t.type==='paleoak'?PALE_LOG:t.type==='darkoak'?DARK_LOG:t.type==='hugered'||t.type==='hugebrown'?MUSH_STEM:t.type==='boab'?BOAB_LOG:t.type==='redgum'?REDGUM_LOG:extra?extra.log:t.type==='spruce'?SPRUCELOG:t.type==='birch'?BIRCHLOG:t.type==='jungle'?JUNGLELOG:LOG;
+    const leaf=t.type==='megaspruce'?SPRUCELEAVES:t.type==='mangrove'?4012:t.type==='paleoak'?PALE_LEAVES:t.type==='darkoak'?DARK_LEAVES:t.type==='hugered'?RED_MUSH_BLOCK:t.type==='hugebrown'?BROWN_MUSH_BLOCK:t.type==='boab'?GUMLEAVES:t.type==='redgum'?REDGUM_LEAVES:extra?extra.leaves:t.type==='spruce'?SPRUCELEAVES:LEAVES;
     const crown=(ox,oy,oz,rx,ry,rz)=>{
       for(let dx=-Math.ceil(rx);dx<=rx;dx++)for(let dy=-Math.ceil(ry);dy<=ry;dy++)for(let dz=-Math.ceil(rz);dz<=rz;dz++){
         const shape=dx*dx/(rx*rx)+dy*dy/(ry*ry)+dz*dz/(rz*rz);
@@ -7143,7 +7272,23 @@ function* genChunkSteps(cx, cz){
       set(tx + hx, t.h + t.th - 2, tz + hz, BEEHIVE);                                  // a hive hanging off the trunk
     }
     const turn=hash(wx,wz,991)<.5?-1:1;
-    if(t.type==='spruce'){
+    if(t.type==='megaspruce'){
+      // a giant spruce of the old growth taiga: a 2x2 trunk, and a tall narrow spire of needles
+      for(let k=1;k<=t.th;k++){set(tx+1,t.h+k,tz,log);set(tx,t.h+k,tz+1,log);set(tx+1,t.h+k,tz+1,log);}
+      const base=Math.floor(t.th*0.45);
+      for(let dy=base;dy<=t.th+2;dy++){
+        const r=(t.th+2-dy)/(t.th+2-base)*4.2*(dy%3===0?0.75:1);
+        for(let dx=-5;dx<=6;dx++)for(let dz=-5;dz<=6;dz++)if(Math.hypot(dx-0.5,dz-0.5)<=r+0.3)set(tx+dx,t.h+dy,tz+dz,leaf,true);
+      }
+      set(tx,t.h+t.th+1,tz,leaf,true);set(tx,t.h+t.th+2,tz,leaf,true);
+    }else if(t.type==='mangrove'){
+      // a mangrove: the trunk raised on arching roots, and a broad low crown
+      for(const [rx,rz] of [[2,0],[-2,0],[0,2],[0,-2],[2,2],[-2,-2]]){
+        if(hash(wx+rx,wz+rz,8761)<0.25)continue;
+        for(let q=0;q<=3;q++)set(tx+Math.round(rx*q/3),t.h+3-q,tz+Math.round(rz*q/3),4014);
+      }
+      crown(0,t.th,0,3,1.6,3);crown(0,t.th+1,0,2,1.2,2);
+    }else if(t.type==='spruce'){
       for(let dy=2;dy<=t.th+1;dy++){
         const r=dy===t.th+1?0:Math.min(2,Math.ceil((t.th+1-dy)/2))-(dy%2===0?.35:0);
         for(let dx=-2;dx<=2;dx++)for(let dz=-2;dz<=2;dz++)if(Math.abs(dx)+Math.abs(dz)<=r+1 && Math.max(Math.abs(dx),Math.abs(dz))<=r)set(tx+dx,t.h+dy,tz+dz,leaf,true);
@@ -19747,8 +19892,8 @@ function buildCraftPanel(){
     drawEnchantVR(g, text, button);
   } else if(vrMenuTab==='tp'){
     text('TELEPORT  -  pick a biome to go to the nearest one',35,215,27,'#202020');
-    TP_BIOMES.forEach((bio,i)=>{ const x=35+(i%4)*345, y=250+Math.floor(i/4)*95;
-      button(x,y,325,80,biomeLabel(bio),()=>{ if(teleportToBiome(bio)) closeCraftVR(); },mode==='creative'&&dim===0);
+    TP_BIOMES.forEach((bio,i)=>{ const x=35+(i%5)*276, y=250+Math.floor(i/5)*84;
+      button(x,y,262,76,biomeLabel(bio),()=>{ if(teleportToBiome(bio)) closeCraftVR(); },mode==='creative'&&dim===0);
     });
     if(dim!==0) text('Biomes are in the Overworld.',35,1032,20,'#8a2424');
   } else if(vrMenuTab==='guide'){
@@ -23570,7 +23715,8 @@ function updateFishing(dt){
 const TP_BIOMES = ['plains', 'forest', 'birch', 'jungle', 'taiga', 'snowy', 'swamp', 'savanna', 'desert', 'badlands', 'outback',
                    'cherry-grove', 'maple-woods', 'willow-marsh', 'duskhollow', 'frostvale', 'amberfield', 'bushland',
                    'beach', 'river', 'ocean', 'warm-ocean', 'frozen-ocean', 'deep-ocean', 'dark-forest', 'mushroom-fields',
-                   'meadow', 'grove', 'snowy-slopes', 'jagged-peaks', 'frozen-peaks', 'stony-peaks', 'pale-garden'];
+                   'meadow', 'grove', 'snowy-slopes', 'jagged-peaks', 'frozen-peaks', 'stony-peaks', 'pale-garden',
+                   'flower-forest', 'sunflower-plains', 'old-growth-taiga', 'snowy-taiga', 'bamboo-jungle', 'mangrove-swamp', 'wooded-badlands', 'eroded-badlands', 'savanna-plateau'];
 const biomeLabel = b => b.split('-').map(w => w[0].toUpperCase() + w.slice(1)).join(' ');
 // what the HUD shows: high ground is snow-capped on screen, so name it that way even in a warm climate
 function hudBiome(x, z){
@@ -23582,6 +23728,7 @@ function hudBiome(x, z){
   }
   const b = biomeAt(x, z);
   if(b === 'snowy' || b === 'frostvale' || MOUNTAIN_BIOMES.has(b)) return b;
+  const v = biomeVariant(x, z); if(v) return v;
   if(terrainHeight(x, z) >= SNOW_H - 6) return 'snowy peaks';
   return b;
 }
@@ -23592,7 +23739,8 @@ function findBiome(name){
     for(let i = 0; i < steps; i++){
       const a = i / steps * Math.PI * 2, x = Math.round(px + Math.cos(a) * r), z = Math.round(pz + Math.sin(a) * r);
       // well inside it, not on the border
-      if(biomeAt(x, z) === name && biomeAt(x + 24, z) === name && biomeAt(x - 24, z) === name && biomeAt(x, z + 24) === name && biomeAt(x, z - 24) === name)
+      const isB = (a, c) => biomeAt(a, c) === name || biomeVariant(a, c) === name;
+      if(isB(x, z) && isB(x + 24, z) && isB(x - 24, z) && isB(x, z + 24) && isB(x, z - 24))
         return [x, z];
     }
   }
@@ -24192,6 +24340,7 @@ window.__bc = {
   COLORS, DYE, CONCRETE, POWDER, SGLASS, TERRA16, GLAZED, CARPET, WOOL16, hardenNear,
   playerSees, updatePale, paleState: () => ({ blossomOpen, paleHere }),
   potInfo, POT_KINDS, SPLASH0, LINGER0, TIPPED0, potionBurst, potClouds, applyPotion, potionOnMob, effectsNow2: () => effects,
+  biomeVariant, builtNear, VARIANTS, SUNFLOWER, BAMBOO,
   landDef, landsNear, LAND_KINDS, nearestMansion, MANSION_MAP, BRUSH, SHERD0, useBrush, brushLoot, updateLandmarks, templeLever, stampLands,
   splashes, sinceRestSet: v => { sinceRest = v; }, updateNightMobs, spawnFromEgg, useOnFlyer, creativeList, recipeList, mcCat, openCraft, setSlot: (i, id, n = 1, ench) => { const q = survInv[i]; q.id = id; q.count = n; q.dur = ITEMS[id] && ITEMS[id].tool ? TIER_DUR[ITEMS[id].tool.tier - 1] : 0; q.ench = ench; invDirty = true; renderHotbar(); }, heldStack: () => survInv[sel], useAnvil, armourEnch: () => armourEnch, armour: () => armour, keepers: () => keepers, updateKeepers, useHappyGhast, useCopperGolem, rideGhastNow: () => rideGhast, updateGhastRide, dryHydration: () => dryHyd, updateDriedGhasts, tryBuildGolem, chestsNearPos, trialDef, trialsNear, nearestTrial, updateTrials, trialState, openVault, windBurst, trialCools: () => trialCools, trySummonWither, placeSkull, beaconLevel, updateBeacons, beams, cycleBeacon, raidState: () => raid, startRaid, spawnPatrol, spawnTrader, outpostsNear, outpostDef, fangs, useTotem, updateIllagers, rideState: () => rideHorse, useRideable, updateHorseRide,
   mountainBiome, jaggedAt, vnoise, deepDarkAt, cityDef, cityBlock, vibrate, summonWarden, sculkState: () => ({ warnLevel, near: sculkNear.length }), netherMobs, spawnNetherMob,
