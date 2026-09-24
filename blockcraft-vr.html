@@ -1269,6 +1269,7 @@ function stampOutpost(o, set, cx, cz){
    ruined portals, and fossils buried under deserts and swamps. Only ever on new land. */
 const SUS_SAND = 4099, WHITE_CARPET = 719, SPRUCE_SLAB = 810;
 const LAND_KINDS = {
+  mansion: { cell: 480, seed: 6701, chance: 0.8, r: 18, biomes: ['dark-forest'] },
   well:   { cell: 128, seed: 6601, chance: 0.6,  r: 3,  biomes: ['desert'] },
   igloo:  { cell: 176, seed: 6611, chance: 0.7,  r: 8,  biomes: ['snowy', 'snowy-slopes', 'grove', 'frostvale'] },
   hut:    { cell: 208, seed: 6621, chance: 0.75, r: 5,  biomes: ['swamp', 'willow-marsh'] },
@@ -1294,7 +1295,7 @@ function landDef(kind, gx, gz){ const K = LAND_KINDS[kind], S = K.seed; return c
   for(const [dx, dz] of [[-K.r, -K.r], [K.r, -K.r], [-K.r, K.r], [K.r, K.r], [0, -K.r], [0, K.r], [-K.r, 0], [K.r, 0]]){ const h = terrainHeight(x + dx, z + dz); lo = Math.min(lo, h); hi = Math.max(hi, h); }
   if(kind !== 'fossil'){
     if(kind === 'hut' ? y < SEA - 4 : y <= SEA + 1) return null;
-    if(hi - lo > (kind === 'temple' ? 5 : kind === 'hut' ? 5 : 3)) return null;   // a fairly level site
+    if(hi - lo > (kind === 'mansion' ? 9 : kind === 'temple' ? 5 : kind === 'hut' ? 5 : 3)) return null;   // a fairly level site
     for(const v of villagesNear(x, z)) if(Math.hypot(v.cx - x, v.cz - z) < 80) return null;
     for(const o of outpostsNear(x, z)) if(Math.hypot(o.x - x, o.z - z) < 40) return null;
     for(const p of pyramidsNear(x, z)) if(Math.hypot(p.cx - x, p.cz - z) < 30) return null;
@@ -1305,6 +1306,18 @@ function landDef(kind, gx, gz){ const K = LAND_KINDS[kind], S = K.seed; return c
   }
   const L = { kind, x, z, y, key: kind + ':' + gx + ',' + gz, h: n => hash(gx, gz, S + 10 + n) };
   if(kind === 'igloo') L.basement = L.h(0) < 0.5;
+  if(kind === 'mansion'){
+    const TYPES = ['bedroom', 'library', 'storage', 'dining', 'jail', 'bedroom', 'library', 'storage'];
+    L.rooms = [];
+    for(let f = 0; f < 2; f++) for(const sd of [-1, 1]) for(let c = -12; c <= 12; c += 6){
+      const n = L.rooms.length;
+      const type = c === 0 ? (f === 0 ? (sd < 0 ? 'hall' : 'stairs') : (sd > 0 ? 'landing' : 'bedroom')) : TYPES[Math.floor(L.h(40 + n) * TYPES.length)];
+      L.rooms.push({ f, s: sd, c, type });
+    }
+    const odd = L.rooms.filter(r => r.c !== 0);
+    odd[Math.floor(L.h(90) * odd.length)].type = 'secret';                  // one room has no door at all
+    for(const r of L.rooms) if(r.type === 'jail') r.cage = [x + r.c, y + 5 * r.f + 1, z + r.s * 10];
+  }
   if(kind === 'hut') L.fh = Math.max(y, SEA) + 3;
   if(kind === 'temple'){
     let c = Math.floor(L.h(1) * 7) + 1; L.combo = [c & 1, c & 2, c & 4].map(Boolean);
@@ -1325,7 +1338,95 @@ function stampLands(set, data, cx, cz){
     const K = LAND_KINDS[kind];
     for(const L of landsNear(kind, mx, mz)){
       if(Math.abs(L.x - mx) > K.r + 9 || Math.abs(L.z - mz) > K.r + 9) continue;
-      ({ well: stampWell, igloo: stampIgloo, hut: stampHut, temple: stampTemple, portal: stampRuinedPortal, fossil: stampFossil })[kind](L, put, get, inC);
+      ({ mansion: stampMansion, well: stampWell, igloo: stampIgloo, hut: stampHut, temple: stampTemple, portal: stampRuinedPortal, fossil: stampFossil })[kind](L, put, get, inC);
+    }
+  }
+}
+/* Woodland mansions, as in Minecraft: a great two-storey house of dark oak on a
+   cobblestone ground floor, deep in the dark forest. A red-carpeted corridor
+   runs its length with rooms either side - bedrooms, libraries, storerooms,
+   dining rooms, jail cells with allays shut inside - stairs up to the second
+   floor, and one room with no door at all. Vindicators and evokers live there. */
+const DARK_SLAB = 816, DARK_FENCE = 863, RED_CARPET = 733, DIAMOND_BLOCK = 20;
+function stampMansion(L, put){
+  const X = L.x, Z = L.z, Y = L.y, CENT = [-12, -6, 0, 6, 12], PART = [-9, -3, 3, 9];
+  for(let i = -18; i <= 18; i++) for(let k = -15; k <= 15; k++){
+    const wx = X + i, wz = Z + k, ai = Math.abs(i), ak = Math.abs(k);
+    for(let y = Y + 1; y <= Y + 18; y++) put(wx, y, wz, AIR);             // clear the forest off the site
+    if(ai > 15 || ak > 12) continue;
+    for(let y = Math.min(terrainHeight(wx, wz), Y - 1); y < Y; y++) put(wx, y, wz, COBBLE);   // the footing
+    const outer = ai === 15 || ak === 12;
+    const pillar = outer && ((ak === 12 && [-15, -9, -3, 3, 9, 15].includes(i)) || (ai === 15 && [-12, -7, -2, 2, 7, 12].includes(k)));
+    for(let dy = 0; dy <= 10; dy++){
+      let id = AIR;
+      if(outer){
+        if(pillar || dy === 5 || dy === 10) id = DARK_LOG;
+        else if(dy <= 1) id = COBBLE;
+        else {
+          const win = (dy === 2 || dy === 3 || dy === 7 || dy === 8) && (ak === 12 ? CENT.some(c => Math.abs(i - c) <= 1) : ak >= 6 && ak <= 8);
+          id = win ? GLASS : dy < 5 ? COBBLE : DARK_PLANK;
+        }
+      } else if(dy === 0 || dy === 5) id = BPLANK;
+      else if(dy === 10) id = DARK_PLANK;
+      else if(ak === 2 || (PART.includes(i) && ak > 2)) id = DARK_PLANK;     // corridor walls and the walls between rooms
+      put(wx, Y + dy, wz, id);
+    }
+  }
+  for(let n = 0; n <= 6; n++){                                              // a stepped roof
+    const hx = 16 - n, hz = 13 - n;
+    for(let i = -hx; i <= hx; i++) for(let k = -hz; k <= hz; k++){
+      const ring = Math.abs(i) === hx || Math.abs(k) === hz;
+      if(n === 6) put(X + i, Y + 16, Z + k, ring ? DARK_SLAB : DARK_PLANK);
+      else if(ring) put(X + i, Y + 10 + n, Z + k, n === 0 ? DARK_SLAB : DARK_PLANK);
+    }
+  }
+  for(let i = -1; i <= 1; i++) for(let y = Y + 1; y <= Y + 3; y++) put(X + i, y, Z - 12, AIR);   // the front door
+  for(let i = -2; i <= 2; i++) for(const k of [-13, -14]){
+    const top = k === -13 ? Y : Y - 1;
+    for(let y = Math.min(terrainHeight(X + i, Z + k), top); y <= top; y++) put(X + i, y, Z + k, COBBLE);
+  }
+  for(let f = 0; f < 2; f++){
+    const fy = Y + 5 * f;
+    for(let i = -14; i <= 14; i++) put(X + i, fy + 1, Z, RED_CARPET);     // the long corridor
+    for(const [i, k] of [[-14, 1], [14, -1], [0, 1]]) put(X + i, fy + 1, Z + k, LANTERN);
+  }
+  for(const r of L.rooms){
+    const fy = Y + 5 * r.f, c = r.c, sd = r.s, near = sd * 3, far = sd * 11;
+    const at = (i, dy, kk) => [X + c + i, fy + dy, Z + kk];
+    const P = (i, dy, kk, id) => put(X + c + i, fy + dy, Z + kk, id);
+    const zs = []; for(let kk = near; kk !== far + sd; kk += sd) zs.push(kk);
+    if(r.type !== 'secret') for(let dy = 1; dy <= 2; dy++) P(0, dy, sd * 2, AIR);   // its door
+    if(r.type !== 'secret' && r.type !== 'stairs') P(2, 1, near, TORCH);
+    const key = L.key + ':' + r.f + ',' + sd + ',' + c;
+    if(r.type === 'bedroom'){
+      const col = 719 + Math.floor(L.h(50 + r.f * 20 + c + sd) * 16);
+      for(const kk of zs) for(let i = -2; i <= 2; i++) P(i, 1, kk, col);
+      for(const i of [-1, 1]){ P(i, 1, far - sd, BED); P(i, 1, far, BEDHEAD); }
+      P(2, 1, far, CHEST); stockLootChest(...at(2, 1, far), key, 'mansion');
+    } else if(r.type === 'library'){
+      for(const kk of zs) for(const i of [-2, 2]) for(let dy = 1; dy <= 3; dy++) if(kk !== near) P(i, dy, kk, BOOKSHELF);
+      for(let i = -1; i <= 1; i++) for(let dy = 1; dy <= 3; dy++) P(i, dy, far, BOOKSHELF);
+      for(const kk of zs) P(0, 1, kk, RED_CARPET);
+    } else if(r.type === 'storage'){
+      P(-2, 1, far, CHEST); stockLootChest(...at(-2, 1, far), key, 'mansion');
+      P(2, 1, far, CHEST); stockLootChest(...at(2, 1, far), key + 'b', 'mansion');
+      P(0, 1, far, BARREL); P(-2, 1, far - sd, BARREL); P(-2, 2, far, BARREL); P(2, 1, far - 2 * sd, 4086);   // barrels and hay
+    } else if(r.type === 'dining'){
+      for(let n = 2; n <= 6; n++){ const kk = sd * (3 + n); P(0, 1, kk, DARK_FENCE); P(0, 2, kk, PLATE_WOOD); P(-1, 1, kk, 817); P(1, 1, kk, 817); }
+    } else if(r.type === 'jail'){
+      for(const [i, kk] of [[-1, 10], [1, 10], [0, 9], [0, 11]]) for(let dy = 1; dy <= 2; dy++) P(i, dy, sd * kk, IRONBARS);   // a barred cell
+      P(0, 3, sd * 10, DARK_PLANK); P(-2, 1, far, COBWEB); P(2, 3, sd * 6, COBWEB);
+    } else if(r.type === 'secret'){
+      for(const kk of zs) for(let i = -2; i <= 2; i++) if(L.h(60 + i + kk) < 0.25) P(i, 3, kk, COBWEB);
+      P(0, 1, far, CHEST); stockLootChest(...at(0, 1, far), key, 'mansion-secret');
+      P(0, 1, far - sd, DIAMOND_BLOCK);
+    } else if(r.type === 'stairs'){
+      for(let n = 0; n <= 4; n++) for(let i = -1; i <= 1; i++) for(let dy = 1; dy <= n + 1; dy++) P(i, dy, sd * (5 + n), DARK_PLANK);
+    } else if(r.type === 'landing'){
+      for(let n = 0; n <= 3; n++) for(let i = -1; i <= 1; i++) P(i, 0, sd * (5 + n), AIR);   // the stairwell
+      for(let i = -1; i <= 1; i++) P(i, 1, sd * 4, DARK_FENCE);
+    } else if(r.type === 'hall'){
+      for(const kk of zs) for(let i = -1; i <= 1; i++) P(i, 1, kk, RED_CARPET);
     }
   }
 }
@@ -2291,12 +2392,13 @@ const WITHER_SKULL = 876, BEACON = 877, EMERALD_BLOCK = 878, TRIAL_SPAWNER = 879
 const DRIED_GHAST = 883, COPPER_CHEST = 884, HARNESS = 943, BOOK = 944, ENCHANTED_BOOK = 945;
 ITEMS[BOOK]={name:'Book',icon:389};ITEMS[ENCHANTED_BOOK]={name:'Enchanted Book',icon:390};
 // how likely a loot chest is to hold an enchanted book (Mending and the other treasures only come this way, or from librarians)
-const BOOK_LOOT = { jungle: 0.35, dungeon: 0.35, mine: 0.25, city: 0.55, endcity: 0.5, bastion: 0.3, fortress: 0.2, library: 0.5, ruin: 0.15, 'wreck-treasure': 0.2, outpost: 0.2, trial: 0.2, treasure: 0.15 };
+const BOOK_LOOT = { mansion: 0.3, 'mansion-secret': 0.8, jungle: 0.35, dungeon: 0.35, mine: 0.25, city: 0.55, endcity: 0.5, bastion: 0.3, fortress: 0.2, library: 0.5, ruin: 0.15, 'wreck-treasure': 0.2, outpost: 0.2, trial: 0.2, treasure: 0.15 };
 BLOCKS[DRIED_GHAST]={name:'Dried Ghast',all:708};BLOCKS[COPPER_CHEST]={name:'Copper Chest',top:709,bottom:709,side:710};ITEMS[HARNESS]={name:'Harness',icon:388};
 const TRIAL_KEY = 937, BREEZE_ROD = 938, WIND_CHARGE = 939, HEAVY_CORE = 940, MACE = 941, TRIAL_MAP = 942;
 BLOCKS[TRIAL_SPAWNER]={name:'Trial Spawner',all:704};BLOCKS[VAULT]={name:'Vault',all:705};BLOCKS[COPPER_BULB]={name:'Copper Bulb',all:706};BLOCKS[COPPER_GRATE]={name:'Copper Grate',all:707};
 ITEMS[TRIAL_KEY]={name:'Trial Key',icon:382};ITEMS[BREEZE_ROD]={name:'Breeze Rod',icon:383};ITEMS[WIND_CHARGE]={name:'Wind Charge',icon:384};
 ITEMS[HEAVY_CORE]={name:'Heavy Core',icon:385};ITEMS[MACE]={name:'Mace',icon:386,tool:{type:'mace',tier:4}};ITEMS[TRIAL_MAP]={name:'Trial Explorer Map',icon:387};
+const MANSION_MAP = 946; ITEMS[MANSION_MAP] = { name: 'Woodland Explorer Map', icon: 391 };
 BLOCKS[WITHER_SKULL]={name:'Wither Skeleton Skull',all:700};BLOCKS[BEACON]={name:'Beacon',all:702};BLOCKS[EMERALD_BLOCK]={name:'Block of Emerald',all:703};
 ITEMS[NETHER_STAR]={name:'Nether Star',icon:381};
 ITEMS[TOTEM]={name:'Totem of Undying',icon:380};
@@ -3141,6 +3243,11 @@ itemAtlas.width = 128; itemAtlas.height = 1024;   // 512 icons
     if(Math.hypot(x - 10.5, y - 5) < 3.4) return (x + y) % 3 === 0 ? [90, 90, 100] : [170, 170, 182];
     if(Math.abs((x - 2) + (y - 14)) < 1.1 && x >= 2 && x <= 9) return [120, 80, 44];
     return null; });
+  px(391, (x, y) => {                                                   // woodland explorer map: a dark house on green
+    if(x < 1 || x > 14 || y < 2 || y > 13) return null;
+    if(x === 1 || x === 14 || y === 2 || y === 13) return [150, 110, 70];
+    if(x >= 8 && x <= 12 && y >= 5 && y <= 8) return y === 5 ? [60, 40, 30] : [90, 60, 40];
+    return (x * 3 + y) % 5 === 0 ? [110, 150, 90] : [150, 186, 120]; });
   px(387, (x, y) => {                                                   // trial explorer map
     if(x < 1 || x > 14 || y < 2 || y > 13) return null;
     if(x === 1 || x === 14 || y === 2 || y === 13) return [150, 110, 70];
@@ -7338,6 +7445,11 @@ function stockLootChest(x, y, z, key, kind){
     loot = [[ARROW_I, 2 + ((R()*7)|0)], [WHEATITEM, 3 + ((R()*3)|0)], [CARROT, R() < 0.5 ? 2 + ((R()*4)|0) : 0], [POTATO, R() < 0.5 ? 2 + ((R()*4)|0) : 0],
             [DARK_LOG, 2 + ((R()*2)|0)], [STRING, R() < 0.5 ? 1 + ((R()*5)|0) : 0], [IRONI, R() < 0.4 ? 1 + ((R()*3)|0) : 0], [BOW, R() < 0.3 ? 1 : 0],
             [EMERALD, R() < 0.35 ? 1 + ((R()*2)|0) : 0]];
+  } else if(kind === 'mansion'){
+    loot = [[IRONI, R() < 0.6 ? 1 + ((R()*4)|0) : 0], [GOLDI, R() < 0.5 ? 1 + ((R()*4)|0) : 0], [REDSTONE, R() < 0.5 ? 2 + ((R()*4)|0) : 0], [BREAD, 1 + ((R()*4)|0)],
+            [WHEATITEM, R() < 0.5 ? 2 + ((R()*4)|0) : 0], [DISC_1 + ((R()*4)|0), R() < 0.15 ? 1 : 0], [GOLDEN_APPLE, R() < 0.12 ? 1 : 0], [PAPER, R() < 0.4 ? 1 + ((R()*5)|0) : 0]];
+  } else if(kind === 'mansion-secret'){
+    loot = [[DIAMI, 1 + ((R()*3)|0)], [GOLDEN_APPLE, 1], [EMERALD, 2 + ((R()*4)|0)], [209, R() < 0.4 ? 1 : 0], [GOLDI, 2 + ((R()*4)|0)]];
   } else if(kind === 'jungle'){
     loot = [[BONE, 2 + ((R()*5)|0)], [ROTTEN, 3 + ((R()*5)|0)], [GOLDI, R() < 0.6 ? 2 + ((R()*5)|0) : 0], [IRONI, R() < 0.6 ? 1 + ((R()*4)|0) : 0],
             [EMERALD, R() < 0.5 ? 1 + ((R()*3)|0) : 0], [DIAMI, R() < 0.25 ? 1 + ((R()*2)|0) : 0], [SADDLE, R() < 0.2 ? 1 : 0]];
@@ -12011,6 +12123,14 @@ function spawnTrader(){
   return e;
 }
 let illT = 2, patrolT = 300 + Math.random() * 300, traderT = 90;
+let mansionAim = null;
+function nearestMansion(x, z){
+  if(mansionAim && Math.abs(mansionAim.fx - x) < 64 && Math.abs(mansionAim.fz - z) < 64) return mansionAim.t;
+  let best = null, bd = Infinity;
+  for(const t of landsNear('mansion', x, z, 5)){ const d = Math.hypot(t.x - x, t.z - z); if(d < bd){ bd = d; best = t; } }
+  mansionAim = { fx: x, fz: z, t: best };
+  return best;
+}
 function templeLever(x, y, z){
   for(const t of landsNear('temple', x, z)){
     if(!t.levers.some(l => l[0] === x && l[1] === y && l[2] === z)) continue;
@@ -12053,6 +12173,16 @@ function updateLandmarks(dt){
       if(w){ w.hut = L.key; w.home = [L.x, L.z]; }
       if(first){ catPalForce = 2; spawnAnimal('cat', L.x - 0.5, L.fh + 1.05, L.z + 1.5); catPalForce = -1; }
     }
+  }
+  // the mansion: vindicators pace its corridors, evokers keep to the upper rooms, allays sit in its cells
+  for(const L of landsNear('mansion', px, pz)){
+    if(landSeen.has(L.key) || Math.hypot(L.x - px, L.z - pz) > 80 || getBlock(L.x, L.y + 1, L.z) !== RED_CARPET) continue;
+    landSeen.add(L.key);
+    const add = (type, x, y, z) => { const m = spawnNetherMob(type, x + 0.5, y + 0.05, z + 0.5); if(m){ m.home = [L.x, L.z]; m.mansion = L.key; } return m; };
+    for(const [i, f] of [[-12, 0], [6, 0], [12, 0], [-6, 1], [12, 1]]) add('vindicator', L.x + i, L.y + 1 + 5 * f, L.z);
+    const ev = L.rooms.filter(r => r.f === 1 && (r.type === 'bedroom' || r.type === 'library' || r.type === 'dining'));
+    for(const r of ev.slice(0, 2)) add('evoker', L.x + r.c, L.y + 6, L.z + r.s * 4);
+    for(const r of L.rooms) if(r.cage){ const al = spawnNetherMob('allay', r.cage[0] + 0.5, r.cage[1] + 0.3, r.cage[2] + 0.5); if(al) al.caged = r.cage.slice(); }
   }
   // the igloo's basement: a villager and a zombie villager shut in their cells
   for(const L of landsNear('igloo', px, pz)){
@@ -12182,7 +12312,7 @@ function flyerThink(e, dt){
     flapAnim(e, dt, 18);
     if(e.caged){                                      // shut in an outpost's cage until you break it open
       const [cx, cy, cz] = e.caged;
-      if([[1, 0], [-1, 0], [0, 1], [0, -1]].every(([dx, dz]) => isFenceish(getBlock(cx + dx, cy, cz + dz)))){
+      if([[1, 0], [-1, 0], [0, 1], [0, -1]].every(([dx, dz]) => { const b = getBlock(cx + dx, cy, cz + dz); return isFenceish(b) || b === IRONBARS; })){
         e.vel.set(0, 0, 0); e.pos.set(cx + 0.5, cy + 0.35 + Math.sin(e.wingT * 0.15) * 0.1, cz + 0.5); return;
       }
       e.caged = null; flashName('You set the allay free'); tone(1500, 2100, 0.2, 'sine', 0.06); tone(1900, 2500, 0.2, 'sine', 0.05, 0.12);
@@ -13828,6 +13958,9 @@ const VIL_PROF = [
   { id:'butcher', name:'Butcher', robe:0xe0ddd2, badge:0xa83a34, hat:0, voice:195, trades:[
       {in:[[PORK,7]],out:[EMERALD,1]}, {in:[[BEEF,7]],out:[EMERALD,1]},
       {in:[[EMERALD,1]],out:[PORKC,5]}, {in:[[EMERALD,1]],out:[BEEFC,4]} ]},
+  { id:'cartographer', name:'Cartographer', robe:0xe6dcc0, badge:0x3a5a9a, hat:0, voice:220, trades:[
+      {in:[[PAPER,24]],out:[EMERALD,1]}, {in:[[EMERALD,1]],out:[MAP,1]},
+      {in:[[EMERALD,8]],out:[TRIAL_MAP,1]}, {in:[[EMERALD,14]],out:[MANSION_MAP,1]} ]},
   { id:'cleric', name:'Cleric', robe:0x7a4a9c, badge:0xe2c85a, hat:0, voice:230, trades:[
       {in:[[GOLDO,3]],out:[EMERALD,1]},
       {in:[[EMERALD,2]],out:[GLOWB,4]}, {in:[[EMERALD,6]],out:[DIAMI,1]} ]},
@@ -22078,7 +22211,7 @@ function toggleWaypoint(){
 }
 let treasureNote = null;
 function updateMap(dt){
-  const heldMap = heldId(), holding = inGame && !dead && (heldMap === MAP || ((heldMap === TREASURE_MAP || heldMap === TRIAL_MAP) && dim === 0)) && dim !== 1;
+  const heldMap = heldId(), holding = inGame && !dead && (heldMap === MAP || ((heldMap === TREASURE_MAP || heldMap === TRIAL_MAP || heldMap === MANSION_MAP) && dim === 0)) && dim !== 1;
   if(xrActive){
     if(!mapVRAttached && rightCtrl){ rightCtrl.add(mapVR); mapVR.position.set(0, 0.04, -0.14); mapVR.rotation.set(-1.1, 0, 0); mapVRAttached = true; }
     mapVR.visible = holding; mapFlat.visible = false;
@@ -22103,8 +22236,8 @@ function updateMap(dt){
   msx.drawImage(mapBase, 0, 0);
   if(bedSpawn) mapDot(bedSpawn.x, bedSpawn.z, '#e03030', 2);
   for(const w of mapWaypoints) if(w.dim===dim) mapDot(w.x,w.z,w.color||'#ffcc32',2);
-  if(heldMap === TREASURE_MAP || heldMap === TRIAL_MAP){   // X marks the spot - or, off the edge, a red pointer toward it
-    const t = heldMap === TRIAL_MAP ? nearestTrial(cx, cz) : nearestTreasure(cx, cz);
+  if(heldMap === TREASURE_MAP || heldMap === TRIAL_MAP || heldMap === MANSION_MAP){   // X marks the spot - or, off the edge, a red pointer toward it
+    const t = heldMap === MANSION_MAP ? nearestMansion(cx, cz) : heldMap === TRIAL_MAP ? nearestTrial(cx, cz) : nearestTreasure(cx, cz);
     if(t){
       let mx = t.x - mapCx + MAP_N / 2, my = t.z - mapCz + MAP_N / 2;
       const inside = mx >= 4 && my >= 4 && mx < MAP_N - 4 && my < MAP_N - 4;
@@ -22112,7 +22245,7 @@ function updateMap(dt){
       msx.strokeStyle = '#b01818'; msx.lineWidth = inside ? 2.5 : 2; msx.beginPath();
       const r = inside ? 4 : 2.5;
       msx.moveTo(mx - r, my - r); msx.lineTo(mx + r, my + r); msx.moveTo(mx + r, my - r); msx.lineTo(mx - r, my + r); msx.stroke();
-      if(treasureNote !== t.key){ treasureNote = t.key; flashName('X marks the spot - ' + Math.round(Math.hypot(t.x - cx, t.z - cz)) + (heldMap === TRIAL_MAP ? ' blocks away - the trial chambers lie deep underground' : ' blocks away. Dig under the beach!')); }
+      if(treasureNote !== t.key){ treasureNote = t.key; flashName('X marks the spot - ' + Math.round(Math.hypot(t.x - cx, t.z - cz)) + (heldMap === MANSION_MAP ? ' blocks away - a woodland mansion, deep in the dark forest' : heldMap === TRIAL_MAP ? ' blocks away - the trial chambers lie deep underground' : ' blocks away. Dig under the beach!')); }
     } else if(treasureNote !== 'none'){ treasureNote = 'none'; flashName('This map shows no treasure near here'); }
   }
   for(const a of animals) if(a.tamed) mapDot(a.pos.x, a.pos.z, '#f0c040', 1);
@@ -23835,7 +23968,7 @@ window.__bc = {
   PART_BASE, WALLS, FENCES, partState, partBoxes, placePartial, stairQuads,
   COLORS, DYE, CONCRETE, POWDER, SGLASS, TERRA16, GLAZED, CARPET, WOOL16, hardenNear,
   playerSees, updatePale, paleState: () => ({ blossomOpen, paleHere }),
-  landDef, landsNear, LAND_KINDS, updateLandmarks, templeLever, stampLands,
+  landDef, landsNear, LAND_KINDS, nearestMansion, MANSION_MAP, updateLandmarks, templeLever, stampLands,
   splashes, sinceRestSet: v => { sinceRest = v; }, updateNightMobs, spawnFromEgg, useOnFlyer, creativeList, recipeList, mcCat, openCraft, setSlot: (i, id, n = 1, ench) => { const q = survInv[i]; q.id = id; q.count = n; q.dur = ITEMS[id] && ITEMS[id].tool ? TIER_DUR[ITEMS[id].tool.tier - 1] : 0; q.ench = ench; invDirty = true; renderHotbar(); }, heldStack: () => survInv[sel], useAnvil, armourEnch: () => armourEnch, armour: () => armour, keepers: () => keepers, updateKeepers, useHappyGhast, useCopperGolem, rideGhastNow: () => rideGhast, updateGhastRide, dryHydration: () => dryHyd, updateDriedGhasts, tryBuildGolem, chestsNearPos, trialDef, trialsNear, nearestTrial, updateTrials, trialState, openVault, windBurst, trialCools: () => trialCools, trySummonWither, placeSkull, beaconLevel, updateBeacons, beams, cycleBeacon, raidState: () => raid, startRaid, spawnPatrol, spawnTrader, outpostsNear, outpostDef, fangs, useTotem, updateIllagers, rideState: () => rideHorse, useRideable, updateHorseRide,
   mountainBiome, jaggedAt, vnoise, deepDarkAt, cityDef, cityBlock, vibrate, summonWarden, sculkState: () => ({ warnLevel, near: sculkNear.length }), netherMobs, spawnNetherMob,
   monumentDef, monumentBlock, conduitFrame, soakSponge, airState: () => air, effectsNow: () => effects, spawnSea, seaLife, deadElders,
