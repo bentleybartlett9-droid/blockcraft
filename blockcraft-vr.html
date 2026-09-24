@@ -2516,6 +2516,46 @@ BLOCKS[TRIAL_SPAWNER]={name:'Trial Spawner',all:704};BLOCKS[VAULT]={name:'Vault'
 ITEMS[TRIAL_KEY]={name:'Trial Key',icon:382};ITEMS[BREEZE_ROD]={name:'Breeze Rod',icon:383};ITEMS[WIND_CHARGE]={name:'Wind Charge',icon:384};
 ITEMS[HEAVY_CORE]={name:'Heavy Core',icon:385};ITEMS[MACE]={name:'Mace',icon:386,tool:{type:'mace',tier:4}};ITEMS[TRIAL_MAP]={name:'Trial Explorer Map',icon:387};
 const MANSION_MAP = 946; ITEMS[MANSION_MAP] = { name: 'Woodland Explorer Map', icon: 391 };
+/* Armour trims, as in Minecraft: smithing templates found in the world's
+   structures. At a smithing table, a template and a trim material (iron,
+   copper, gold, lapis, emerald, diamond, netherite, redstone, amethyst or
+   quartz) put a pattern on a piece of armour - it shows on you. The trim is
+   kept with the piece's enchantments, under _trim. */
+const TRIM0 = 5400;
+const TRIM_NAMES = ['Sentry', 'Dune', 'Coast', 'Wild', 'Ward', 'Eye', 'Vex', 'Tide', 'Snout', 'Rib', 'Spire', 'Wayfinder', 'Raiser', 'Shaper', 'Host', 'Silence', 'Flow', 'Bolt'];
+TRIM_NAMES.forEach((n, i) => { ITEMS[TRIM0 + i] = { name: n + ' Armour Trim', icon: 458 + i }; });
+const TRIM_MATS = [['Iron', IRONI, '#d4dce4'], ['Copper', COPPERI, '#d8784a'], ['Gold', GOLDI, '#f6d23e'], ['Lapis', LAPIS, '#2f55c8'], ['Emerald', EMERALD, '#2ed06a'],
+  ['Diamond', DIAMI, '#6cecdf'], ['Netherite', NETHERITE, '#3c3238'], ['Redstone', REDSTONE, '#c81c1c'], ['Amethyst', AMETHYST_SHARD, '#a268dc'], ['Quartz', QUARTZ, '#f0ebe2']];
+function trimMask(p, x, y){
+  const h = Math.hypot(x - 7.5, y - 7.5), ax = Math.abs(x - 7.5);
+  switch(p){
+    case 0: return y === 3 || y === 12 || ((x === 7 || x === 8) && y > 3 && y < 12);
+    case 1: return Math.abs((x + y) % 8 - 4) === 0;
+    case 2: return y === Math.round(8 + 3 * Math.sin(x * 0.8)) || y === Math.round(3 + 2 * Math.sin(x * 0.8 + 1));
+    case 3: return x % 4 === 1 && (x + y) % 3 !== 0;
+    case 4: return x === 1 || x === 14 || y === 1 || y === 14;
+    case 5: return Math.abs(h - 4.5) < 0.8 || h < 1.6;
+    case 6: return Math.abs(y - ax * 1.6 - 2) < 1;
+    case 7: return y % 4 === 0 && (x + (y >> 2)) % 4 < 2;
+    case 8: return Math.hypot(x - 5, y - 9) < 1.9 || Math.hypot(x - 10, y - 9) < 1.9;
+    case 9: return x % 3 === 0 && y > 2 && y < 13;
+    case 10: return ax < y * 0.5 && ax > y * 0.5 - 1.3;
+    case 11: return x === 7 || x === 8 || y === 7 || y === 8;
+    case 12: return (y + ax) % 6 < 1;
+    case 13: return x % 6 < 2 && y % 6 < 2;
+    case 14: return Math.abs(x - y) < 1 || Math.abs(x + y - 15) < 1;
+    case 15: return (x * 7 + y * 13) % 11 === 0;
+    case 16: return Math.floor(Math.atan2(y - 7.5, x - 7.5) * 1.6 + h * 0.9) % 3 === 0;
+    case 17: return Math.abs(x - (6 + ((y / 3 | 0) % 2) * 3)) < 1.2;
+  }
+  return false;
+}
+const TRIM_LOOT = { jungle: [['Wild', 0.33]], outpost: [['Sentry', 0.25]], mansion: [['Vex', 0.08]], 'mansion-secret': [['Vex', 1]], trial: [['Flow', 0.08], ['Bolt', 0.08]],
+  fortress: [['Rib', 0.12]], bastion: [['Snout', 0.15]], city: [['Ward', 0.1], ['Silence', 0.03]], endcity: [['Spire', 0.1]], stronghold: [['Eye', 0.12]], ruin: [['Tide', 0.1]],
+  'wreck-supply': [['Coast', 0.3]], 'wreck-treasure': [['Coast', 0.3]], 'wreck-map': [['Coast', 0.3]] };
+const realEnch = e => !!e && Object.keys(e).some(k => ENCH[k]);
+function trimOf(e){ if(!e || typeof e._trim !== 'string') return null; const [p, m] = e._trim.split(':').map(Number); return TRIM_NAMES[p] && TRIM_MATS[m] ? { p, m } : null; }
+
 const BRUSH = 947, SHERD0 = 948;
 const SHERD_NAMES = ['Arms Up', 'Brewer', 'Archer', 'Prize', 'Skull', 'Friend', 'Heart', 'Howl'];
 ITEMS[BRUSH] = { name: 'Brush', icon: 392 };
@@ -2852,13 +2892,23 @@ Object.assign(POTIONS, {
   [POT_SLOWNESS]: { name: 'Potion of Slowness', fx: 'slowness', t: 90, col: '#5a6c81' },
 });
 const POT_KINDS = [POT_HEAL, POT_FIRE, POT_STR, POT_SPEED, POT_REGEN, POT_NIGHT, POT_SLOW, POT_BREATH, POT_INVIS, POT_LEAP, POT_WEAK, POT_POISON, POT_HARM, POT_TURTLE, POT_SLOWNESS];
-const SPLASH0 = 5000, LINGER0 = 5100, TIPPED0 = 5200;
+const SPLASH0 = 5000, LINGER0 = 5100, TIPPED0 = 5200, POT_BASE_N = POT_KINDS.length;
+// stronger (II, with glowstone dust) and longer (with redstone) versions, as in Minecraft
+const POT_MODS = [];
+{ let nid = 5320;
+  for(const b of [POT_HEAL, POT_STR, POT_SPEED, POT_REGEN, POT_LEAP, POT_POISON, POT_HARM, POT_TURTLE, POT_SLOWNESS]){
+    const B = POTIONS[b]; POTIONS[nid] = Object.assign({}, B, { name: B.name + (b === POT_SLOWNESS ? ' IV' : ' II'), t: Math.round(B.t / 2), amp: b === POT_SLOWNESS ? 4 : 2, base: b });
+    POT_KINDS.push(nid); POT_MODS.push([nid, b, 'II']); nid++; }
+  for(const b of [POT_FIRE, POT_STR, POT_SPEED, POT_REGEN, POT_NIGHT, POT_SLOW, POT_BREATH, POT_INVIS, POT_LEAP, POT_WEAK, POT_POISON, POT_TURTLE, POT_SLOWNESS]){
+    const B = POTIONS[b]; POTIONS[nid] = Object.assign({}, B, { name: 'Long ' + B.name, t: Math.round(B.t * 8 / 3), base: b });
+    POT_KINDS.push(nid); POT_MODS.push([nid, b, 'long']); nid++; } }
+const potBaseK = k => POT_KINDS.indexOf(POTIONS[POT_KINDS[k]].base || POT_KINDS[k]);
 POT_KINDS.forEach((pid, k) => {
-  const n = POTIONS[pid].name;
-  if(pid >= POT_INVIS) ITEMS[pid] = { name: n, icon: 401 + (pid - POT_INVIS) };
-  ITEMS[SPLASH0 + k] = { name: 'Splash ' + n, icon: 408 + k };
-  ITEMS[LINGER0 + k] = { name: 'Lingering ' + n, icon: 423 + k };
-  ITEMS[TIPPED0 + k] = { name: n.replace('Potion of the ', 'Arrow of the ').replace('Potion of ', 'Arrow of '), icon: 438 + k };
+  const n = POTIONS[pid].name, bk = potBaseK(k), base = POT_KINDS[bk];
+  if(pid >= POT_INVIS) ITEMS[pid] = { name: n, icon: base >= POT_INVIS ? 401 + (base - POT_INVIS) : ITEMS[base].icon };
+  ITEMS[SPLASH0 + k] = { name: 'Splash ' + n, icon: 408 + bk };
+  ITEMS[LINGER0 + k] = { name: 'Lingering ' + n, icon: 423 + bk };
+  ITEMS[TIPPED0 + k] = { name: n.replace('Potion of the ', 'Arrow of the ').replace('Potion of ', 'Arrow of '), icon: 438 + bk };
 });
 ITEMS[SPIDER_EYE] = { name: 'Spider Eye', icon: 453 }; ITEMS[FERMENTED_EYE] = { name: 'Fermented Spider Eye', icon: 454 };
 ITEMS[RABBIT_FOOT] = { name: "Rabbit's Foot", icon: 455 }; ITEMS[TURTLE_SCUTE] = { name: 'Turtle Scute', icon: 456 }; ITEMS[DRAGON_BREATH] = { name: "Dragon's Breath", icon: 457 };
@@ -3092,6 +3142,7 @@ const RECIPES = [
   { out: [WAXE, 1],   in: [[ANY_PLANK, 3], [STICK, 2]], st: 'table' },
   { out: [SAXE, 1],   in: [[ANY_COBBLE, 3], [STICK, 2]], st: 'table' },
   { out: [BRUSH, 1],  in: [[FEATHER, 1], [COPPERI, 1], [STICK, 1]], st: 'table' },
+  ...TRIM_NAMES.map((n, i) => ({ out: [TRIM0 + i, 2], in: [[TRIM0 + i, 1], [DIAMI, 7], [ANY_COBBLE, 1]], st: 'table' })),
   { out: [IAXE, 1],   in: [[IRONI, 3], [STICK, 2]], st: 'table' },
   { out: [DAXE, 1],   in: [[DIAMI, 3], [STICK, 2]], st: 'table' },
   { out: [WSHOV, 1],  in: [[ANY_PLANK, 1], [STICK, 2]], st: 'table' },
@@ -3256,6 +3307,7 @@ RECIPES.push({out:[BREWING,1],in:[[BLAZEROD,1],[ANY_COBBLE,3]],st:'table'},{out:
   {out:[POT_WEAK,1],in:[[WATER_BOTTLE,1],[FERMENTED_EYE,1]],st:'brew'},{out:[POT_SLOWNESS,1],in:[[POT_SPEED,1],[FERMENTED_EYE,1]],st:'brew'},
   {out:[POT_SLOWNESS,1],in:[[POT_LEAP,1],[FERMENTED_EYE,1]],st:'brew'},{out:[POT_HARM,1],in:[[POT_HEAL,1],[FERMENTED_EYE,1]],st:'brew'},
   {out:[POT_HARM,1],in:[[POT_POISON,1],[FERMENTED_EYE,1]],st:'brew'});
+for(const [nid, b, m] of POT_MODS) RECIPES.push({ out: [nid, 1], in: [[b, 1], [m === 'II' ? GLOWDUST : REDSTONE, 1]], st: 'brew' });
 POT_KINDS.forEach((pid, k) => RECIPES.push(
   { out: [SPLASH0 + k, 1], in: [[pid, 1], [GUNPOWDER, 1]], st: 'brew' },
   { out: [LINGER0 + k, 1], in: [[SPLASH0 + k, 1], [DRAGON_BREATH, 1]], st: 'brew' },
@@ -3432,7 +3484,7 @@ itemAtlas.width = 128; itemAtlas.height = 1024;   // 512 icons
       if(d > 5) return null;
       if(d > 4.1) return [200, 220, 232];
       return x < 6 && y < 9 ? [255, 255, 255] : y >= 8 ? c : [214, 230, 240]; };
-    POT_KINDS.forEach((pid, k) => {
+    POT_KINDS.slice(0, POT_BASE_N).forEach((pid, k) => {
       const c = rgb(POTIONS[pid].col);
       px(408 + k, flask(c, [106, 74, 42]));
       px(423 + k, flask(c, [150, 90, 200]));
@@ -3451,6 +3503,10 @@ itemAtlas.width = 128; itemAtlas.height = 1024;   // 512 icons
     px(456, (x, y) => { const d = Math.abs(x - 7.5) + Math.abs(y - 7.5) * 1.4; if(d > 7) return null; return d > 5.6 ? [40, 100, 40] : (x + y) % 4 === 0 ? [70, 150, 60] : [92, 176, 80]; });   // scute
     px(457, flask([200, 106, 216], [230, 170, 240]));                   // dragon's breath
   }
+  for(let i = 0; i < 18; i++) px(458 + i, (x, y) => {                  // smithing templates: a slate tablet with the pattern on it
+    if(x < 2 || x > 13 || y < 1 || y > 14) return null;
+    if(x === 2 || x === 13 || y === 1 || y === 14) return [52, 56, 66];
+    return trimMask(i, (x - 2) * 1.36 | 0, (y - 1) * 1.15 | 0) ? [150, 226, 232] : (x + y) % 5 === 0 ? [84, 92, 104] : [98, 106, 120]; });
   px(391, (x, y) => {                                                   // woodland explorer map: a dark house on green
     if(x < 1 || x > 14 || y < 2 || y > 13) return null;
     if(x === 1 || x === 14 || y === 2 || y === 13) return [150, 110, 70];
@@ -7502,6 +7558,7 @@ function stockPyramidChest(x, y, z, key){
     [SEEDS, 2 + Math.floor(Math.random() * 4)],
     [GUNPOWDER, 1 + Math.floor(Math.random() * 4)],
     [DISC_1 + ((Math.random() * 4) | 0), Math.random() < 0.35 ? 1 : 0],
+    [TRIM0 + 1, Math.random() < 0.15 ? 1 : 0],                            // the Dune trim
   ];
   // The spawner-side chest is the hidden mineshaft vault. It receives a
   // second high-tier roll so exploring a dangerous branch has a real payoff.
@@ -7753,6 +7810,7 @@ function stockLootChest(x, y, z, key, kind){
     loot = [[DIAMI, 2 + ((R()*3)|0)], [EMERALD, 2 + ((R()*4)|0)], [GOLDI, 3 + ((R()*4)|0)],
             [IRONI, 4 + ((R()*6)|0)], [BREAD, 2 + ((R()*3)|0)], [OBSIDIAN, 2 + ((R()*4)|0)]];
   }
+  for(const [n, p] of TRIM_LOOT[kind] || []) if(Math.random() < p){ loot.push([TRIM0 + TRIM_NAMES.indexOf(n), 1]); break; }
   let si = 0;
   for(const [id, n] of loot){ if(n > 0){ slots[si] = { id, count: n, dur: 0 }; si += 2; } }
   { const bl = typeof kind === 'string' ? BOOK_LOOT[kind] : 0.4; if(bl && Math.random() < bl) slots[Math.min(26, si)] = { id: ENCHANTED_BOOK, count: 1, dur: 0, ench: randomBookEnch(true) }; }
@@ -8877,7 +8935,7 @@ function physics(dt){
   if(riding) return;                 // vehicle controls the player's position
   const inWater = isWet(getBlock(Math.floor(p.pos.x), Math.floor(p.pos.y + 0.2), Math.floor(p.pos.z)));
   const sprint = key('ShiftLeft') && !p.fly && key('KeyW') && !inWater;
-  const speed = (p.fly ? (key('ShiftRight') ? 26 : 16) : inWater ? 2.6 * (1 + 0.45 * armEnch('depth_strider')) : sprint ? 7.2 : 4.3) * (effects.speed > 0 && !p.fly ? 1.4 : 1) * (effects.slowness > 0 && !p.fly ? 0.7 : 1);
+  const speed = (p.fly ? (key('ShiftRight') ? 26 : 16) : inWater ? 2.6 * (1 + 0.45 * armEnch('depth_strider')) : sprint ? 7.2 : 4.3) * (p.fly ? 1 : effSpeedMul());
   if(!xrActive && !gliding){
     let fx = 0, fz = 0;
     if(key('KeyW')) fz -= 1; if(key('KeyS')) fz += 1;
@@ -8911,7 +8969,7 @@ function physics(dt){
     else if(effects.slow > 0 && v.y < 0){ v.y -= 28 * dt * 0.12; if(v.y < -2.2) v.y = -2.2; }   // slow falling
     else if(!p.gorillaHold) v.y -= (xrActive && vrMoveMode === 'gorilla' ? GORILLA_G : 28) * dt;
     if(v.y < -55) v.y = -55;
-    if(key('Space') && p.onGround) v.y = effects.jump > 0 ? 10.6 : 8.6;   // Leaping: about two blocks
+    if(key('Space') && p.onGround) v.y = 8.6 + 2 * eL('jump');   // Leaping: about two blocks
   }
   const climbing = !p.fly && !inWater && !gliding && onLadder(p.pos);
   if(climbing){
@@ -9390,7 +9448,7 @@ function renderHearts(){
 function damage(n, pierce){
   const kind = hurtKind; hurtKind = '';
   if(dead || n <= 0 || mode !== 'survival') return;
-  hp = Math.max(0, hp - n*(pierce ? 1 : 1-armourProtection())*enchGuard(kind)*(effects.turtle > 0 ? 0.4 : 1));   // the Turtle Master's resistance
+  hp = Math.max(0, hp - n*(pierce ? 1 : 1-armourProtection())*enchGuard(kind)*(effects.turtle > 0 ? (eL('turtle') > 1 ? 0.2 : 0.4) : 1));   // the Turtle Master's resistance
   if(!kind && !pierce) thornsBack();
   renderHearts();
   tone(140 * jr(0.15), 45, 0.2, 'sawtooth', 0.22);
@@ -15361,6 +15419,7 @@ const brushWork = new Map();
 function brushLoot(x, z){
   const R = Math.random(), sh = i => [SHERD0 + i, 1];
   if(landsNear('trail', x, z).some(t => Math.hypot(t.x - x, t.z - z) < 24)){
+    if(Math.random() < 0.06) return [TRIM0 + 11 + ((Math.random() * 4) | 0), 1];   // Wayfinder, Raiser, Shaper or Host
     if(R < 0.3) return sh(5 + ((Math.random() * 3) | 0));
     return [[EMERALD, 1], [WHEATITEM, 2], [COALI, 1], [DYE[(Math.random() * 16) | 0], 1], [GNUGGET, 2], [STRING, 1], [BRICK, 1], [GLASS, 1]][(Math.random() * 8) | 0];
   }
@@ -16338,7 +16397,7 @@ function heldId(){
 function heldDamage(){
   if(forcedDamage) return forcedDamage;
   const sh = heldEnch('sharpness'), t = enchTarget;
-  let d = heldDamageBase() + (effects.strength > 0 ? 3 : 0) + (sh ? 0.5 * sh + 0.5 : 0);
+  let d = heldDamageBase() + 3 * eL('strength') + (sh ? 0.5 * sh + 0.5 : 0);
   if(t){ const sm = heldEnch('smite'), bn = heldEnch('bane'), im = heldEnch('impaling');
     if(sm && isUndead(t)) d += 2.5 * sm; if(bn && isArthropod(t)) d += 2.5 * bn; if(im && isAquatic(t)) d += 2.5 * im; }
   if(effects.weak > 0) d = Math.max(0.5, d - 4);                         // Weakness
@@ -19499,7 +19558,7 @@ function renderHotbar(){
   for(let i = 0; i < 9; i++){
     const { id, count, dur, ench } = slotInfo(i);
     drawIcon(slots[i].icon.getContext('2d'), id);
-    slots[i].div.style.boxShadow = ench && Object.keys(ench).length ? 'inset 0 0 12px 2px #b070ffcc' : '';
+    slots[i].div.style.boxShadow = realEnch(ench) ? 'inset 0 0 12px 2px #b070ffcc' : '';
     const tool = id && ITEMS[id] && ITEMS[id].tool;
     slots[i].count.textContent = (!tool && count && count > 0) ? count : '';
     if(tool){
@@ -20091,8 +20150,18 @@ for(const [w,h,d,x,y,z] of [[.48,.08,.42,0,.23,.03],[.07,.25,.32,-.23,.09,.07],[
 }
 vrBody.add(helmetModel);
 const bootMeshes=[-1,1].map(side=>{const mesh=new THREE.Mesh(new THREE.BoxGeometry(.19,.2,.26),armourMaterials[0]);mesh.position.set(side*.11,-1.62,-.02);vrBody.add(mesh);return mesh;});
+const trimMats = new Map();
+function trimmedMat(set, tr){
+  const k = set + ':' + tr.p + ':' + tr.m;
+  if(trimMats.has(k)) return trimMats.get(k);
+  const cv = document.createElement('canvas'); cv.width = cv.height = 16;
+  const g = cv.getContext('2d'), base = '#' + ARMOUR_SETS[set].color.toString(16).padStart(6, '0');
+  for(let y = 0; y < 16; y++) for(let x = 0; x < 16; x++){ g.fillStyle = trimMask(tr.p, x, y) ? TRIM_MATS[tr.m][2] : base; g.fillRect(x, y, 1, 1); }
+  const tex = new THREE.CanvasTexture(cv); tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter; tex.colorSpace = THREE.SRGBColorSpace;
+  const m = new THREE.MeshBasicMaterial({ map: tex }); trimMats.set(k, m); return m;
+}
 function updateArmourModel(){
- const mat=slot=>armourMaterials[armourSetOf(armour[slot])];
+ const mat=slot=>{const set=armourSetOf(armour[slot]),tr=set>=0&&trimOf(armourEnch[slot]);return tr?trimmedMat(set,tr):armourMaterials[set];};
  torso.material=armL.material=armR.material=mat('chestplate')||shirtMat;
  legL.material=legR.material=mat('leggings')||pantsMat;
  helmetModel.visible=!!armour.helmet;helmetModel.children.forEach(m=>m.material=mat('helmet')||armourMaterials[0]);
@@ -20639,7 +20708,7 @@ function updateVR(dt){
   if(sprintPressed&&!vrSprintWas)vrSprint=!vrSprint;
   vrSprintWas=sprintPressed;
   if(!stickEnabled)vrSprint=false;
-  const speed = (player.fly ? (vrSprint?26:16) : swimming?2.6:vrSprint?7.2:4.3) * (effects.speed > 0 && !player.fly ? 1.4 : 1) * (effects.slowness > 0 && !player.fly ? 0.7 : 1);
+  const speed = (player.fly ? (vrSprint?26:16) : swimming?2.6:vrSprint?7.2:4.3) * (player.fly ? 1 : effSpeedMul());
   const fwdX = -Math.sin(yaw), fwdZ = -Math.cos(yaw);
   const rgtX =  Math.cos(yaw), rgtZ = -Math.sin(yaw);
   const magnitude=Math.max(1,Math.hypot(dx,dz));
@@ -20667,7 +20736,7 @@ function updateVR(dt){
   if(jumpDown && !vrJumpWasDown){
     if(riding){ dismountVehicle(); }
     else if(player.fly){ player.vel.y = speed; }
-    else if(player.onGround){ player.vel.y = effects.jump > 0 ? 10.2 : 8.2; tone(300, 380, 0.05, 'triangle', 0.05); }
+    else if(player.onGround){ player.vel.y = 8.2 + 2 * eL('jump'); tone(300, 380, 0.05, 'triangle', 0.05); }
   }
   if(player.fly && rb && rb[5] && rb[5].pressed) player.vel.y = -speed;   // B = fly down
   if(player.fly)player.vel.y=jumpDown?speed:rb?.[5]?.pressed?-speed:0;
@@ -21166,6 +21235,9 @@ function updateAmbience(dt){
 const effects = { fire: 0, strength: 0, speed: 0, regen: 0, night: 0, slow: 0, breath: 0, conduit: 0, fatigue: 0, darkness: 0, slowness: 0, poison: 0, omen: 0, hero: 0, invis: 0, jump: 0, weak: 0, turtle: 0 };
 const EFFECT_NAMES = { fire: 'Fire Resistance', strength: 'Strength', speed: 'Swiftness', regen: 'Regeneration', night: 'Night Vision', slow: 'Slow Falling', breath: 'Water Breathing', conduit: 'Conduit Power', fatigue: 'Mining Fatigue', darkness: 'Darkness', slowness: 'Slowness', poison: 'Poison', omen: 'Bad Omen', hero: 'Hero of the Village', invis: 'Invisibility', jump: 'Leaping', weak: 'Weakness', turtle: 'Resistance' };
 let regenTick = 0, xpT = 0, poisonTick = 0;
+const effLvl = {};                                                        // the level of each effect: Swiftness II, Slowness IV...
+const eL = fx => effects[fx] > 0 ? (effLvl[fx] || 1) : 0;
+function effSpeedMul(){ const sp = eL('speed'), sl = eL('slowness'); return (sp ? 1.1 + 0.3 * sp : 1) * (sl ? Math.max(0.2, 0.85 - 0.15 * sl) : 1); }
 const fireproof = () => effects.fire > 0;
 function drinkPotion(id){
   const P = POTIONS[id];
@@ -21182,11 +21254,17 @@ function drinkPotion(id){
 }
 
 function applyPotion(P, scale = 1){
-  if(P.fx === 'heal'){ hp = Math.min(20, hp + Math.max(1, Math.round(8 * scale))); renderHearts(); return; }
-  if(P.fx === 'harm'){ damage(Math.max(1, Math.round(6 * scale)), true); return; }
+  const amp = P.amp || 1;
+  if(P.fx === 'heal'){ hp = Math.min(20, hp + Math.max(1, Math.round(8 * amp * scale))); renderHearts(); return; }
+  if(P.fx === 'harm'){ damage(Math.max(1, Math.round(6 * amp * scale)), true); return; }
   const t = Math.max(1, Math.round(P.t * scale));
-  effects[P.fx] = Math.max(effects[P.fx] || 0, t);
-  if(P.fx === 'turtle') effects.slowness = Math.max(effects.slowness, t);   // slow, but very hard to hurt
+  const setFx = (fx, lv) => {                                            // a stronger dose replaces a weaker one; a weaker one never cuts a stronger short
+    const cur = effects[fx] > 0 ? (effLvl[fx] || 1) : 0;
+    if(lv < cur) return;
+    if(lv > cur) effects[fx] = 0;
+    effLvl[fx] = lv; effects[fx] = Math.max(effects[fx] || 0, t); };
+  setFx(P.fx, amp);
+  if(P.fx === 'turtle') setFx('slowness', amp > 1 ? 6 : 4);             // slow, but very hard to hurt
   if(P.fx === 'fire') burnT = 0;
 }
 // a potion on a creature: harming and healing (the other way round for the undead), and poison
@@ -21195,8 +21273,8 @@ function potionOnMob(m, P, scale){
   if(!m || !m.pos || m.puppet || m.hp == null) return;
   const und = isUndead(m);
   if(P.fx === 'harm' || P.fx === 'heal'){
-    if((P.fx === 'harm') !== und) hurtAny(m, Math.max(1, 6 * scale));
-    else m.hp += 4 * scale;
+    if((P.fx === 'harm') !== und) hurtAny(m, Math.max(1, 6 * (P.amp || 1) * scale));
+    else m.hp += 4 * (P.amp || 1) * scale;
   } else if(P.fx === 'poison' && !und) mobPoison.set(m, Math.max(mobPoison.get(m) || 0, Math.min(12, P.t * scale)));
 }
 const POT_TARGETS = () => [zombies, skeletons, spiders, creepers, endermen, netherMobs, animals];
@@ -21394,8 +21472,8 @@ function updateEffects(dt){
     if(effects[k] <= 0){ effects[k] = 0; if(k !== 'conduit' && k !== 'darkness') flashName(EFFECT_NAMES[k] + ' has worn off'); }
     else if(effects[k] < 10 && effects[k] + dt >= 10 && k !== 'conduit' && k !== 'darkness') flashName(EFFECT_NAMES[k] + ' is wearing off');
   }
-  if(effects.poison > 0 && !dead){ poisonTick -= dt; if(poisonTick <= 0){ poisonTick = 1.25; if(hp > 1) damage(1, true); } }   // poison wears you down, never below half a heart
-  if(effects.regen > 0 && !dead){ regenTick -= dt; if(regenTick <= 0){ regenTick = 2.5; if(hp < 20){ hp = Math.min(20, hp + 1); renderHearts(); } } }
+  if(effects.poison > 0 && !dead){ poisonTick -= dt; if(poisonTick <= 0){ poisonTick = 1.25 / eL('poison'); if(hp > 1) damage(1, true); } }   // poison wears you down, never below half a heart
+  if(effects.regen > 0 && !dead){ regenTick -= dt; if(regenTick <= 0){ regenTick = 2.5 / eL('regen'); if(hp < 20){ hp = Math.min(20, hp + 1); renderHearts(); } } }
   // a thin coloured shimmer around you shows an effect is on
   if(Math.random() < dt * 3){
     const on = Object.keys(effects).filter(k => effects[k] > 0);
@@ -21596,7 +21674,8 @@ function armEnchSum(k){ if(mode !== 'survival') return 0; let m = 0; for(const s
 function stackName(q){
   if(!q || !q.id) return 'Empty';
   const e = q.ench ? Object.keys(q.ench).filter(k => ENCH[k]).map(k => ENCH[k].name + (ENCH[k].max > 1 ? ' ' + ROMAN[q.ench[k]] : '')) : [];
-  return nameOf(q.id) + (e.length ? ' (' + e.join(', ') + ')' : '');
+  const tr = trimOf(q.ench);
+  return nameOf(q.id) + (e.length ? ' (' + e.join(', ') + ')' : '') + (tr ? ' - ' + TRIM_NAMES[tr.p] + ' trim, ' + TRIM_MATS[tr.m][0] : '');
 }
 function enchKinds(id){
   if(id === BOOK || id === ENCHANTED_BOOK) return ['book'];
@@ -21624,7 +21703,7 @@ function weightedEnch(keys, R){
 // the three offers for the item in your hand; they only change after you enchant something
 function enchantOffers(){
   const q = survInv[sel];
-  if(!q || !q.count || q.ench || (q.count > 1 && q.id !== BOOK)) return [];
+  if(!q || !q.count || realEnch(q.ench) || (q.count > 1 && q.id !== BOOK)) return [];
   const kinds = enchKinds(q.id);
   if(!kinds.length || q.id === ENCHANTED_BOOK || !enchantAt) return [];
   const pool = Object.keys(ENCH).filter(k => !ENCH[k].treasure && enchApplies(k, kinds));
@@ -21663,7 +21742,7 @@ function doEnchant(i){
     if(!survInv.some(t => !t.id || t.count <= 0)){ flashName('Make room for the enchanted book'); return false; }
     q.count--; giveEnchBook(ench);
   } else if(q.id === BOOK){ q.id = ENCHANTED_BOOK; q.ench = ench; }
-  else q.ench = ench;
+  else q.ench = q.ench && q.ench._trim ? Object.assign(ench, { _trim: q.ench._trim }) : ench;
   removeItems(LAPIS, o.cost);
   spendLevels(o.cost);
   enchSeed = (Math.random() * 1e9) | 0; saveXP();
@@ -22284,13 +22363,13 @@ function useGrindstone(hit){
   const s = survInv[sel], it = s.count > 0 && ITEMS[s.id], t = it && (it.tool || s.id === BOW || it.armour);
   if(!t){ flashName('Hold an enchanted or worn tool'); return true; }
   const max = it.tool ? TIER_DUR[it.tool.tier - 1] : 0;
-  const hasEnch = s.ench && Object.keys(s.ench).length;
+  const hasEnch = realEnch(s.ench);
   const worn = max && (s.dur || 0) < max;
   if(!hasEnch && !worn){ flashName('Nothing to grind off'); return true; }
   const sparks = () => { for(let i = 0; i < 8; i++) burstRGB(hit.x + 0.5 + (Math.random() - 0.5) * 0.4, hit.y + 0.9, hit.z + 0.5 + (Math.random() - 0.5) * 0.4, 1, 0.85, 0.4, 1, 0.4); tone(1400, 700, 0.25, 'sawtooth', 0.08); tone(2000, 1200, 0.2, 'sawtooth', 0.05, 0.05); };
   if(hasEnch){
-    const refund = Object.values(s.ench).reduce((a, lv) => a + lv, 0) * 3;
-    s.ench = undefined;
+    const refund = Object.keys(s.ench).filter(k => ENCH[k]).reduce((a, k) => a + s.ench[k], 0) * 3;
+    s.ench = s.ench._trim ? { _trim: s.ench._trim } : undefined;       // the grindstone takes enchantments, not trims
     if(max) s.dur = max;                                   // and it comes off the wheel like new
     addXP(refund);
     sparks(); invDirty = true; renderHotbar();
@@ -22349,7 +22428,21 @@ function useSmithing(hit){
   if(!hit || hit.id !== SMITHING) return false;
   if(mode !== 'survival'){ flashName('Smithing works in survival'); return true; }
   const s = survInv[sel], up = s.count > 0 && SMITH_UP[s.id];
-  if(!up){ flashName('Hold diamond gear to upgrade'); return true; }
+  const tpl = survInv.find(q => q.count > 0 && q.id >= TRIM0 && q.id < TRIM0 + TRIM_NAMES.length);
+  if(s.count > 0 && ITEMS[s.id] && ITEMS[s.id].armour && s.id !== ELYTRA && tpl){
+    const mat = survInv.find(q => q.count > 0 && TRIM_MATS.some(m => m[1] === q.id));
+    if(!mat){ flashName('Needs a trim material: iron, copper, gold, lapis, emerald, diamond, netherite, redstone, amethyst or quartz'); return true; }
+    const p = tpl.id - TRIM0, m = TRIM_MATS.findIndex(q => q[1] === mat.id);
+    removeItems(tpl.id, 1); removeItems(mat.id, 1);
+    s.ench = Object.assign({}, s.ench || {}, { _trim: p + ':' + m });
+    invDirty = true; renderHotbar();
+    const c = new THREE.Color(TRIM_MATS[m][2]);
+    for(let i = 0; i < 12; i++) burstRGB(hit.x + 0.5 + (Math.random() - 0.5) * 0.5, hit.y + 1 + Math.random() * 0.4, hit.z + 0.5 + (Math.random() - 0.5) * 0.5, c.r, c.g, c.b, 1, 0.4);
+    tone(900, 1300, 0.15, 'triangle', 0.07); tone(1500, 1800, 0.15, 'sine', 0.05, 0.1);
+    triggerViewSwing(); flashName(nameOf(s.id) + ': ' + TRIM_NAMES[p] + ' trim in ' + TRIM_MATS[m][0]); grantAdv('trim');
+    return true;
+  }
+  if(!up){ flashName(tpl ? 'Hold a piece of armour to trim it' : 'Hold diamond gear to upgrade, or armour with a trim template in your pack'); return true; }
   if(invCount(NETHERITE) < 1){ flashName('Needs a netherite ingot'); return true; }
   removeItems(NETHERITE, 1);
   const it = ITEMS[up], keepEnch = s.ench, frac = it.tool ? (s.dur || 0) / TIER_DUR[ITEMS[s.id].tool.tier - 1] : 0;
@@ -23806,6 +23899,7 @@ const ADVANCEMENTS = [
   { ch: 'Overworld', id: 'breed', title: 'The Parrots and the Bats', how: 'Feed two animals their favourite food (wheat for cows and sheep, carrots for pigs, seeds for chickens) and watch.', icon: WHEATITEM, check: () => false },
   { ch: 'Overworld', id: 'trident', title: 'A Throwaway Joke', how: 'Get a trident from a drowned (they rise out of deep water at night) and throw it at something.', icon: TRIDENT, check: () => false },
   { ch: 'Overworld', id: 'juke', title: 'Sound of Music', how: 'Craft a jukebox (8 planks, 1 diamond) and play a music disc from a dungeon chest or a creeper.', icon: JUKEBOX, check: () => false },
+  { ch: 'Overworld', id: 'trim', title: 'Crafting a New Look', how: 'Find an armour trim template in a structure, then hold a piece of armour at a smithing table with the template and a trim material (an ingot, gem or shard) in your pack.', icon: TRIM0, check: () => false },
   { ch: 'Overworld', id: 'brush', title: 'Respecting the Remnants', how: 'Craft a brush (a feather, a copper ingot and a stick) and brush suspicious sand or gravel - at a desert well, or down in trail ruins.', icon: BRUSH, check: () => false },
   { ch: 'Overworld', id: 'pot', title: 'Green Thumb', how: 'Pot a plant in a flower pot (3 bricks).', icon: FLOWERPOT, check: () => false },
   { ch: 'Overworld', id: 'frame', title: 'On Display', how: 'Mount something in an item frame (8 sticks + leather) on a wall.', icon: FRAME, check: () => false },
@@ -24341,6 +24435,7 @@ window.__bc = {
   playerSees, updatePale, paleState: () => ({ blossomOpen, paleHere }),
   potInfo, POT_KINDS, SPLASH0, LINGER0, TIPPED0, potionBurst, potClouds, applyPotion, potionOnMob, effectsNow2: () => effects,
   biomeVariant, builtNear, VARIANTS, SUNFLOWER, BAMBOO,
+  TRIM0, TRIM_NAMES, TRIM_MATS, trimOf, POT_MODS, eL, effSpeedMul, useSmithing, stackName, updateArmourModel,
   landDef, landsNear, LAND_KINDS, nearestMansion, MANSION_MAP, BRUSH, SHERD0, useBrush, brushLoot, updateLandmarks, templeLever, stampLands,
   splashes, sinceRestSet: v => { sinceRest = v; }, updateNightMobs, spawnFromEgg, useOnFlyer, creativeList, recipeList, mcCat, openCraft, setSlot: (i, id, n = 1, ench) => { const q = survInv[i]; q.id = id; q.count = n; q.dur = ITEMS[id] && ITEMS[id].tool ? TIER_DUR[ITEMS[id].tool.tier - 1] : 0; q.ench = ench; invDirty = true; renderHotbar(); }, heldStack: () => survInv[sel], useAnvil, armourEnch: () => armourEnch, armour: () => armour, keepers: () => keepers, updateKeepers, useHappyGhast, useCopperGolem, rideGhastNow: () => rideGhast, updateGhastRide, dryHydration: () => dryHyd, updateDriedGhasts, tryBuildGolem, chestsNearPos, trialDef, trialsNear, nearestTrial, updateTrials, trialState, openVault, windBurst, trialCools: () => trialCools, trySummonWither, placeSkull, beaconLevel, updateBeacons, beams, cycleBeacon, raidState: () => raid, startRaid, spawnPatrol, spawnTrader, outpostsNear, outpostDef, fangs, useTotem, updateIllagers, rideState: () => rideHorse, useRideable, updateHorseRide,
   mountainBiome, jaggedAt, vnoise, deepDarkAt, cityDef, cityBlock, vibrate, summonWarden, sculkState: () => ({ warnLevel, near: sculkNear.length }), netherMobs, spawnNetherMob,
