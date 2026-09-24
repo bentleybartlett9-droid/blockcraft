@@ -19590,6 +19590,7 @@ function vrCrouchDropForMode(crouching){
  return (vrMoveMode==='gorilla' && !player.fly) ? GORILLA_BASE_DROP : (crouching ? .45 : 0);
 }
 function vrStickLocomotionEnabled(){return vrMoveMode!=='gorilla';}
+function vrJumpLocomotionEnabled(swimming){return !gorillaActive(swimming);}
 // Where the Gorilla palms sit. The gorilla is short (its eyes at GORILLA_EYE_H),
 // and its hands come down with its head by half as much, plus a little more,
 // so the ground is an easy reach: standing, arms hanging, it is a slight bend
@@ -19800,7 +19801,9 @@ function updateVR(dt){
   updateAvatarArms();
   // ---- jump (right A/X button, index 4) & fly-up ----
   const rb = readButtons('right');
-  const jumpDown = !!(rb && rb[4] && rb[4].pressed);
+  // A is locomotion too: while Gorilla Arms is active, hand motion is the
+  // only way to jump, so Quest button mapping cannot shove the body into a block.
+  const jumpDown = vrJumpLocomotionEnabled(swimming) && !!(rb && rb[4] && rb[4].pressed);
   if(jumpDown && !vrJumpWasDown){
     if(riding){ dismountVehicle(); }
     else if(player.fly){ player.vel.y = speed; }
