@@ -160,6 +160,7 @@
   <button class="mcbtn" id="btnCreative">Creative Mode</button>
   <button class="mcbtn" id="btnWorlds">Worlds</button>
   <button class="mcbtn" id="btnMp">Multiplayer</button>
+  <button class="mcbtn small" id="btnDifficultyTitle">Difficulty: Normal</button>
   <button class="mcbtn small" id="resetBtn">Reset This World</button>
   <button class="mcbtn small" id="backupBtn">Back Up World</button>
   <button class="mcbtn small" id="restoreBtn">Restore Backup</button>
@@ -181,6 +182,7 @@
   <button class="mcbtn" id="btnRender">Render Distance: 5</button>
   <button class="mcbtn" id="btnVignette">VR Comfort: On</button>
   <button class="mcbtn" id="btnMove">VR Gorilla Arms: Off</button>
+  <button class="mcbtn" id="btnDifficulty">Difficulty: Normal</button>
   <button class="mcbtn" id="btnQuit">Save &amp; Quit to Title</button>
   <div class="ctrl">
     <div><b>W A S D</b> move</div><div><b>Mouse</b> look</div>
@@ -8325,6 +8327,41 @@ function physics(dt){
 
 /* ========================= game state / menus ======================= */
 let mode = 'creative', inGame = false, locked = false, craftOpen = false, worldsOpen = false, createOpen = false, tradeOpen = false, mpOpen = false, chestOpen = false;
+const DIFFICULTIES=['peaceful','easy','normal','hard'];
+let difficulty=DIFFICULTIES.includes(localStorage.getItem('blockcraft-difficulty'))?localStorage.getItem('blockcraft-difficulty'):'normal';
+const DIFFICULTY={peaceful:{damage:0,detect:.65,spread:2.2},easy:{damage:.55,detect:.8,spread:1.35},normal:{damage:1,detect:1,spread:.75},hard:{damage:1.5,detect:1.25,spread:.22}};
+function difficultyRules(){return DIFFICULTY[difficulty]||DIFFICULTY.normal;}
+function monsterDamage(n,kind='monster'){if(difficulty==='peaceful')return;hurtKind=kind;damage(Math.max(1,Math.round(n*difficultyRules().damage)));}
+function playerNoiseRadius(){
+ const speed=Math.hypot(player.vel.x,player.vel.z);let r=speed>6?18:speed>2?11:4;
+ if((typeof mouseHeld!=='undefined'&&mouseHeld[0])||(typeof vrBreakHeld!=='undefined'&&vrBreakHeld))r=Math.max(r,16);
+ return r;
+}
+function mobLineOfSight(from,to){const d=to.clone().sub(from),dist=d.length();if(dist<.01)return true;const hit=raycast(from,d.multiplyScalar(1/dist),dist);return !hit||hit.t>=dist-.45;}
+function combatHunt(e,range,dt){
+ const d=Math.hypot(player.pos.x-e.pos.x,player.pos.z-e.pos.z),rules=difficultyRules();
+ if(mode!=='survival'||dead||difficulty==='peaceful')return null;
+ const eye=new THREE.Vector3(e.pos.x,e.pos.y+Math.min(e.h||1.8,1.5),e.pos.z),target=new THREE.Vector3(player.pos.x,player.pos.y+1.2,player.pos.z);
+ const seen=d<range*rules.detect&&mobLineOfSight(eye,target),heard=d<playerNoiseRadius();
+ if(seen||heard){e.lastSeen=player.pos.clone();e.searchT=(difficulty==='hard'?10:6);return player;}
+ e.searchT=Math.max(0,(e.searchT||0)-dt);
+ if(e.searchT>0&&e.lastSeen){if(e.pos.distanceTo(e.lastSeen)<1.1)e.searchT=0;else return {pos:e.lastSeen,searching:true};}
+ return null;
+}
+function skeletonShotVelocity(s){
+ const rules=difficultyRules(),origin=new THREE.Vector3(s.pos.x,s.pos.y+1.4,s.pos.z),flat=Math.hypot(player.pos.x-origin.x,player.pos.z-origin.z),speed=17,t=Math.max(.12,flat/speed);
+ const lead=Math.min(.65,t),aim=player.pos.clone().addScaledVector(player.vel,lead);aim.y+=1.25;
+ const spread=rules.spread,dx=aim.x-origin.x,dz=aim.z-origin.z,dl=Math.hypot(dx,dz)||1;
+ return new THREE.Vector3(dx/dl*speed+(Math.random()-.5)*spread,(aim.y-origin.y+.5*18*t*t)/t+(Math.random()-.5)*spread,dz/dl*speed+(Math.random()-.5)*spread);
+}
+function zombieDoorBreak(z,dt,active){
+ if(difficulty!=='hard'||!active){z.doorBreak=0;return false;}
+ const fx=-Math.sin(z.yaw),fz=-Math.cos(z.yaw),x=Math.floor(z.pos.x+fx*.7),y=Math.floor(z.pos.y),zz=Math.floor(z.pos.z+fz*.7);
+ let ly=-1;for(let yy=y;yy<=y+1;yy++)if(isDoor(getBlock(x,yy,zz))&&!getDoorInfo(x,yy,zz).open){ly=getDoorLowerY(x,yy,zz);break;}
+ if(ly<0){z.doorBreak=0;return false;}z.doorBreak=(z.doorBreak||0)+dt;
+ if(z.doorBreak<2.6){if(Math.floor(z.doorBreak*4)!==Math.floor((z.doorBreak-dt)*4))blockSfx(PLANK,'break');return true;}
+ setBlock(x,ly,zz,AIR);setBlock(x,ly+1,zz,AIR);doorState.delete(doorKey(x,ly,zz));z.doorBreak=0;burstRGB(x+.5,ly+1,zz+.5,.55,.32,.14,16,.5);return true;
+}
 const titleEl = document.getElementById('overlay');
 const pauseEl = document.getElementById('pause');
 const deathEl = document.getElementById('death');
@@ -9510,6 +9547,7 @@ function spawnZombie(x, y, z, variant){
 }
 let zSpawnT = 3;
 function updateZombieSpawns(dt, daylight){
+  if(difficulty==='peaceful')return;
   zSpawnT -= dt;
   if(zSpawnT > 0) return;
   zSpawnT = 1.2;
@@ -12872,8 +12910,7 @@ function updateZombies(dt, daylight){
     }
     if(z.hp <= 0){ killZombie(i); continue; }
     const distP = Math.hypot(player.pos.x - z.pos.x, player.pos.z - z.pos.z);
-    let tgt = null, tdist = 24;
-    if(mode === 'survival' && !dead && distP < tdist){ tgt = player; tdist = distP; }
+    let tgt = combatHunt(z,24,dt), tdist = tgt ? Math.hypot(tgt.pos.x-z.pos.x,tgt.pos.z-z.pos.z) : 24;
     for(const vg of villagers){
       const d = Math.hypot(vg.pos.x - z.pos.x, vg.pos.z - z.pos.z);
       if(d < tdist){ tgt = vg; tdist = d; }
@@ -12893,7 +12930,7 @@ function updateZombies(dt, daylight){
         z.atkCd = 1.1;
         monsterCall(z,'attack');
         if(tgt === player){
-          if(!shieldBlocks(z.pos)){ damage(3); if(z.husk && mode === 'survival'){ hunger = Math.max(0, hunger - 2); } }   // a husk's blow leaves you hungry
+          if(!shieldBlocks(z.pos)){ monsterDamage(3); if(z.husk && mode === 'survival'){ hunger = Math.max(0, hunger - 2); } }   // a husk's blow leaves you hungry
           player.vel.x += dx / l * 7;
           player.vel.z += dz / l * 7;
           player.vel.y = Math.max(player.vel.y, 4);
@@ -12935,7 +12972,7 @@ function updateZombies(dt, daylight){
       z.vel.z += (-Math.cos(z.yaw) * sp - z.vel.z) * Math.min(1, dt * 4);
       z.vel.y += (Math.max(-2, Math.min(2.4, dy * 1.5)) - z.vel.y) * Math.min(1, dt * 3);
       stepEntity(z, dt);
-    } else stepMob(z, dt, 26);
+    } else { zombieDoorBreak(z,dt,!!tgt); stepMob(z, dt, 26); }
     animMob(z, dt);
     for(let j = 0; j < z.arms.length; j++)
       z.arms[j].position.y = 1.32 + Math.sin(z.anim * 2 + j * 2.1) * 0.04;
@@ -13003,20 +13040,18 @@ function updateSkeletons(dt, daylight){
     const dx = player.pos.x - s.pos.x, dz = player.pos.z - s.pos.z;
     const distP = Math.hypot(dx, dz);
     s.atkCd -= dt;
-    if(mode === 'survival' && !dead && distP < 20){
-      const l = distP || 1;
-      s.yaw = Math.atan2(-dx / l, -dz / l);                        // face the player
-      if(distP > 13) s.speed = 2;
-      else if(distP < 7){ s.yaw += Math.PI; s.speed = 2; }         // back away
+    const hunt=combatHunt(s,20,dt);
+    if(hunt){
+      const hdx=hunt.pos.x-s.pos.x,hdz=hunt.pos.z-s.pos.z,hdist=Math.hypot(hdx,hdz),l=hdist||1;
+      s.yaw = Math.atan2(-hdx / l, -hdz / l);                     // face remembered or visible target
+      if(hdist > 13) s.speed = 2;
+      else if(hdist < 7 && hunt === player){ s.yaw += Math.PI; s.speed = 2; }
       else s.speed = 0;
-      if(s.atkCd <= 0 && distP <= 18){
+      if(hunt === player && s.atkCd <= 0 && hdist <= 18){
         s.atkCd = (s.bogged ? 3.5 : 2.1) + Math.random() * 0.6;      // the bogged draws slower
         bowTwang();
-        const dy = (player.pos.y + 1.3) - (s.pos.y + 1.4);
-        const sp = 15;
-        const spread = () => (Math.random() - 0.5) * 1.4;
-        spawnArrow(s.pos.x, s.pos.y + 1.4, s.pos.z,
-                   dx / l * sp + spread(), dy / l * sp * 0.9 + distP * 0.42 + spread(), dz / l * sp + spread());
+        const shot=skeletonShotVelocity(s);
+        spawnArrow(s.pos.x,s.pos.y+1.4,s.pos.z,shot.x,shot.y,shot.z);
         if(s.stray) arrows[arrows.length - 1].fx = 'slowness';       // a stray's arrows slow you
         if(s.bogged) arrows[arrows.length - 1].fx = 'poison';        // a bogged's arrows poison you
       }
@@ -13070,7 +13105,7 @@ function updateArrows(dt){
          a.pos.x > p.x - 0.4 && a.pos.x < p.x + 0.4 &&
          a.pos.y > p.y && a.pos.y < p.y + 1.85 &&
          a.pos.z > p.z - 0.4 && a.pos.z < p.z + 0.4){
-        if(!shieldBlocks(a.pos.clone().sub(a.vel.clone().normalize().multiplyScalar(3)))){ hurtKind = 'projectile'; damage(a.dmg || 3); if(a.fx === 'slowness') effects.slowness = Math.max(effects.slowness, 30); if(a.fx === 'poison') effects.poison = Math.max(effects.poison, 4); }
+        if(!shieldBlocks(a.pos.clone().sub(a.vel.clone().normalize().multiplyScalar(3)))){ monsterDamage(a.dmg || 3,'projectile'); if(a.fx === 'slowness') effects.slowness = Math.max(effects.slowness, 30); if(a.fx === 'poison') effects.poison = Math.max(effects.poison, 4); }
         const l = Math.hypot(a.vel.x, a.vel.z) || 1;
         player.vel.x += a.vel.x / l * 5;
         player.vel.z += a.vel.z / l * 5;
@@ -13358,6 +13393,7 @@ function killSpider(i){
 }
 let crawlerSpawnTimer=4;
 function updateCrystalCrawlers(dt){
+ if(difficulty==='peaceful')return;
  crawlerSpawnTimer-=dt;if(crawlerSpawnTimer>0)return;crawlerSpawnTimer=5;
  if(dim!==0||mode!=='survival'||player.pos.y>terrainHeight(player.pos.x,player.pos.z)-7||spiders.length>=10||spiders.filter(s=>s.crystal).length>=3)return;
  for(let attempt=0;attempt<8;attempt++){
@@ -13387,7 +13423,7 @@ function updateSpiders(dt, daylight){
         s.atkCd = 1.0;
         monsterCall(s,'attack');
         if(tgt === player){
-          if(!shieldBlocks(s.pos)) damage(2);
+          if(!shieldBlocks(s.pos)) monsterDamage(2);
           player.vel.x += dx / l * 6; player.vel.z += dz / l * 6;
           player.vel.y = Math.max(player.vel.y, 4);
         } else {
@@ -16831,7 +16867,13 @@ function flushCtx(c){
   if(c.drops.length) mpBroadcast({ t: 'loot', to: c.tag, items: c.drops });
   c.hurt = 0; c.vel.set(0, 0, 0); c.drops = [];
 }
+function clearPeacefulHostiles(){
+ for(const list of [zombies,skeletons,creepers,spiders,endermen])for(let i=list.length-1;i>=0;i--)removeEnt(list,i);
+ for(let i=netherMobs.length-1;i>=0;i--)if(netherMobs[i].type!=='strider')removeEnt(netherMobs,i);
+ for(const list of [arrows,fireballs])for(let i=list.length-1;i>=0;i--){if(list[i].mesh)scene.remove(list[i].mesh);list.splice(i,1);}
+}
 function runMobsFor(dt, daylight){
+  if(difficulty==='peaceful')clearPeacefulHostiles();
   if(dim === 0){
     updateAnimalSpawns(dt);
     updateZombieSpawns(dt, daylight);
@@ -16839,11 +16881,11 @@ function runMobsFor(dt, daylight){
     updateGolemSpawns(dt);
     updateCaveSpawns(dt);
   } else if(dim === 1){
-    updateNetherSpawns(dt);
+    if(difficulty!=='peaceful')updateNetherSpawns(dt);
   } else if(dim === 2){
-    updateEndSpawns(dt);
+    if(difficulty!=='peaceful')updateEndSpawns(dt);
   } else if(dim === 3){
-    updateStormSpawns(dt);
+    if(difficulty!=='peaceful')updateStormSpawns(dt);
   }
   updateAnimals(dt);
   updateZombies(dt, daylight);
@@ -16855,8 +16897,8 @@ function runMobsFor(dt, daylight){
   updateVillagers(dt);
   updateGolems(dt);
   updateEndermen(dt);
-  updateEndermanSpawns(dt, daylight);
-  updateSpawners(dt);
+  if(difficulty!=='peaceful')updateEndermanSpawns(dt, daylight);
+  if(difficulty!=='peaceful')updateSpawners(dt);
   updateNetherMobs(dt);
   updateFireballs(dt);
   updateDragons(dt);
@@ -22622,6 +22664,7 @@ function shieldStack(){
   return null;
 }
 function headForward(){ const d = camera.getWorldDirection(new THREE.Vector3()); d.y = 0; return d.lengthSq() ? d.normalize() : new THREE.Vector3(0, 0, -1); }
+function shieldFacing(){if(xrActive&&leftCtrl){const head=camera.getWorldPosition(new THREE.Vector3()),hand=leftCtrl.getWorldPosition(new THREE.Vector3()),d=hand.sub(head);d.y=0;if(d.lengthSq()>.01)return d.normalize();}return headForward();}
 function updateShield(dt){
   const has = !!shieldStack() && inGame && !dead;
   if(xrActive){
@@ -22648,7 +22691,7 @@ function shieldBlocks(from){
   if(mobCtx || !shieldUp || !from || mode !== 'survival') return false;
   const to = from.clone().sub(player.pos); to.y = 0;
   if(to.lengthSq() < 1e-4) return false;
-  if(to.normalize().dot(headForward()) < 0.25) return false;          // only what comes at you from the front
+  if(to.normalize().dot(shieldFacing()) < 0.45) return false;       // actual shield side in VR; view direction on flat screen
   const q = shieldStack();
   if(q && !q.creative){
     const unb = q.ench && q.ench.unbreaking || 0;
@@ -23222,6 +23265,11 @@ document.getElementById('btnMove').addEventListener('click', () => {
   setVrMoveMode(vrMoveMode === 'gorilla' ? 'stick' : 'gorilla');
   uiClick();
 });
+const btnDifficulty=document.getElementById('btnDifficulty'),btnDifficultyTitle=document.getElementById('btnDifficultyTitle');
+function renderDifficulty(){const text='Difficulty: '+difficulty[0].toUpperCase()+difficulty.slice(1);btnDifficulty.textContent=text;btnDifficultyTitle.textContent=text;}
+renderDifficulty();
+function cycleDifficulty(){difficulty=DIFFICULTIES[(DIFFICULTIES.indexOf(difficulty)+1)%DIFFICULTIES.length];localStorage.setItem('blockcraft-difficulty',difficulty);renderDifficulty();if(difficulty==='peaceful')clearPeacefulHostiles();flashName(btnDifficulty.textContent);uiClick();}
+btnDifficulty.addEventListener('click',cycleDifficulty);btnDifficultyTitle.addEventListener('click',cycleDifficulty);
 
 /* world selector */
 const worldsEl = document.getElementById('worlds');
