@@ -1786,7 +1786,7 @@ const T = {GRASS_TOP:0,GRASS_SIDE:1,DIRT:2,STONE:3,SAND:4,LOG_SIDE:5,LOG_TOP:6,L
            ENDSTONE_T:84,ENDPORTAL_T:85,DRAGONEGG_T:86,ENDCRYSTAL_T:87,
             SPAWNER_T:88,RAIL_T:89,COBWEB_T:90,CRACKED_T:91,MOSSYBRICK_T:92,IRONBARS_T:93};
 const SNOW_SIDE_TILE = 342;
-const ATLAS_COLS = 8, ATLAS_W = 128, ATLAS_H = 2048;   // 1024 tiles; architecture pack uses slots 900-995
+const ATLAS_COLS = 8, ATLAS_W = 128, ATLAS_H = 4096;   // 2048 tiles; Minecraft-only pack uses slots 1100-1227
 const BLOCKS = {
   [GRASS]:{name:'Grass',  top:T.GRASS_TOP, bottom:T.DIRT, side:T.GRASS_SIDE},
   [DIRT] :{name:'Dirt',   all:T.DIRT},
@@ -2215,6 +2215,144 @@ const STAINED = new Set(SGLASS), CARPETS = new Set(CARPET), POWDERS = new Set(PO
 const COLOR_STONE = new Set([...CONCRETE, ...TERRA16, ...GLAZED, GRANITE, P_GRANITE, DIORITE, P_DIORITE, ANDESITE, P_ANDESITE]);
 const OCEAN_PLANTS = new Set([SEAGRASS, KELP, SEA_PICKLE, ...CORALS, ...FANS]);
 const isWet = id => id === WATER || OCEAN_PLANTS.has(id);   // water, or a plant standing in it
+/* Minecraft-only expansion: 128 official blocks, IDs 4000-4127. */
+const MC_BLOCKS=[
+  [4000,"Acacia Log",1100,LOG,"log",[101,76,51],"axe",false,false],
+  [4001,"Acacia Wood",1101,LOG,"bark",[101,76,51],"axe",false,false],
+  [4002,"Stripped Acacia Log",1102,LOG,"log",[151,89,48],"axe",false,false],
+  [4003,"Stripped Acacia Wood",1103,LOG,"bark",[151,89,48],"axe",false,false],
+  [4004,"Acacia Planks",1104,LOG,"planks",[151,89,48],"axe",false,false],
+  [4005,"Acacia Leaves",1105,LOG,"leaves",[111,145,64],"hoe",false,true],
+  [4006,"Acacia Sapling",1106,LOG,"leaves",[111,145,64],"hoe",false,true],
+  [4007,"Mangrove Log",1107,LOG,"log",[92,45,39],"axe",false,false],
+  [4008,"Mangrove Wood",1108,LOG,"bark",[92,45,39],"axe",false,false],
+  [4009,"Stripped Mangrove Log",1109,LOG,"log",[118,54,47],"axe",false,false],
+  [4010,"Stripped Mangrove Wood",1110,LOG,"bark",[118,54,47],"axe",false,false],
+  [4011,"Mangrove Planks",1111,LOG,"planks",[118,54,47],"axe",false,false],
+  [4012,"Mangrove Leaves",1112,LOG,"leaves",[75,120,66],"hoe",false,true],
+  [4013,"Mangrove Propagule",1113,LOG,"leaves",[83,137,72],"hoe",false,true],
+  [4014,"Mangrove Roots",1114,LOG,"roots",[91,67,51],"axe",false,true],
+  [4015,"Muddy Mangrove Roots",1115,LOG,"roots",[86,64,51],"shovel",false,false],
+  [4016,"Block of Bamboo",1116,STICK,"bamboo",[189,179,67],"axe",false,false],
+  [4017,"Block of Stripped Bamboo",1117,STICK,"bamboo",[205,192,83],"axe",false,false],
+  [4018,"Bamboo Planks",1118,STICK,"planks",[194,181,78],"axe",false,false],
+  [4019,"Bamboo Mosaic",1119,STICK,"mosaic",[178,163,62],"axe",false,false],
+  [4020,"Oak Wood",1120,LOG,"bark",[174,139,84],"axe",false,false],
+  [4021,"Stripped Oak Log",1121,LOG,"log",[194,159,104],"axe",false,false],
+  [4022,"Stripped Oak Wood",1122,LOG,"bark",[188,153,98],"axe",false,false],
+  [4023,"Birch Wood",1123,BIRCHLOG,"bark",[207,190,143],"axe",false,false],
+  [4024,"Stripped Birch Log",1124,BIRCHLOG,"log",[227,210,163],"axe",false,false],
+  [4025,"Stripped Birch Wood",1125,BIRCHLOG,"bark",[221,204,157],"axe",false,false],
+  [4026,"Spruce Wood",1126,SPRUCELOG,"bark",[111,78,47],"axe",false,false],
+  [4027,"Stripped Spruce Log",1127,SPRUCELOG,"log",[131,98,67],"axe",false,false],
+  [4028,"Stripped Spruce Wood",1128,SPRUCELOG,"bark",[125,92,61],"axe",false,false],
+  [4029,"Jungle Wood",1129,JUNGLELOG,"bark",[171,123,77],"axe",false,false],
+  [4030,"Stripped Jungle Log",1130,JUNGLELOG,"log",[191,143,97],"axe",false,false],
+  [4031,"Stripped Jungle Wood",1131,JUNGLELOG,"bark",[185,137,91],"axe",false,false],
+  [4032,"Dark Oak Wood",1132,DARK_LOG,"bark",[77,51,34],"axe",false,false],
+  [4033,"Stripped Dark Oak Log",1133,DARK_LOG,"log",[97,71,54],"axe",false,false],
+  [4034,"Stripped Dark Oak Wood",1134,DARK_LOG,"bark",[91,65,48],"axe",false,false],
+  [4035,"Cherry Wood",1135,CHERRYLOG,"bark",[216,151,149],"axe",false,false],
+  [4036,"Stripped Cherry Log",1136,CHERRYLOG,"log",[236,171,169],"axe",false,false],
+  [4037,"Stripped Cherry Wood",1137,CHERRYLOG,"bark",[230,165,163],"axe",false,false],
+  [4038,"Pale Oak Wood",1138,PALE_LOG,"bark",[207,202,194],"axe",false,false],
+  [4039,"Stripped Pale Oak Log",1139,PALE_LOG,"log",[227,222,214],"axe",false,false],
+  [4040,"Stripped Pale Oak Wood",1140,PALE_LOG,"bark",[221,216,208],"axe",false,false],
+  [4041,"Crimson Hyphae",1141,CRIM_STEM,"bark",[132,55,79],"axe",false,false],
+  [4042,"Stripped Crimson Stem",1142,CRIM_STEM,"log",[152,75,99],"axe",false,false],
+  [4043,"Stripped Crimson Hyphae",1143,CRIM_STEM,"bark",[146,69,93],"axe",false,false],
+  [4044,"Warped Hyphae",1144,WARP_STEM,"bark",[49,130,126],"axe",false,false],
+  [4045,"Stripped Warped Stem",1145,WARP_STEM,"log",[69,150,146],"axe",false,false],
+  [4046,"Stripped Warped Hyphae",1146,WARP_STEM,"bark",[63,144,140],"axe",false,false],
+  [4047,"Exposed Copper",1147,COPPERB,"copper",[151,126,83],"pick",false,false],
+  [4048,"Exposed Chiseled Copper",1148,CHISELED_COPPER,"chiseled",[151,126,83],"pick",false,false],
+  [4049,"Exposed Copper Grate",1149,COPPER_GRATE,"grate",[151,126,83],"pick",false,true],
+  [4050,"Exposed Copper Bulb",1150,COPPER_BULB,"bulb",[151,126,83],"pick",true,false],
+  [4051,"Weathered Copper",1151,COPPERB,"copper",[91,139,111],"pick",false,false],
+  [4052,"Weathered Chiseled Copper",1152,CHISELED_COPPER,"chiseled",[91,139,111],"pick",false,false],
+  [4053,"Weathered Copper Grate",1153,COPPER_GRATE,"grate",[91,139,111],"pick",false,true],
+  [4054,"Weathered Copper Bulb",1154,COPPER_BULB,"bulb",[91,139,111],"pick",true,false],
+  [4055,"Oxidized Copper",1155,COPPERB,"copper",[53,132,115],"pick",false,false],
+  [4056,"Oxidized Chiseled Copper",1156,CHISELED_COPPER,"chiseled",[53,132,115],"pick",false,false],
+  [4057,"Oxidized Copper Grate",1157,COPPER_GRATE,"grate",[53,132,115],"pick",false,true],
+  [4058,"Oxidized Copper Bulb",1158,COPPER_BULB,"bulb",[53,132,115],"pick",true,false],
+  [4059,"Waxed Copper",1159,COPPERB,"copper",[190,108,70],"pick",false,false],
+  [4060,"Waxed Cut Copper",1160,CUT_COPPER,"tile",[190,108,70],"pick",false,false],
+  [4061,"Waxed Chiseled Copper",1161,CHISELED_COPPER,"chiseled",[190,108,70],"pick",false,false],
+  [4062,"Waxed Copper Grate",1162,COPPER_GRATE,"grate",[190,108,70],"pick",false,true],
+  [4063,"Waxed Copper Bulb",1163,COPPER_BULB,"bulb",[190,108,70],"pick",true,false],
+  [4064,"Waxed Exposed Copper",1164,COPPERB,"copper",[151,126,83],"pick",false,false],
+  [4065,"Waxed Exposed Cut Copper",1165,CUT_COPPER,"tile",[151,126,83],"pick",false,false],
+  [4066,"Waxed Exposed Chiseled Copper",1166,CHISELED_COPPER,"chiseled",[151,126,83],"pick",false,false],
+  [4067,"Waxed Exposed Copper Grate",1167,COPPER_GRATE,"grate",[151,126,83],"pick",false,true],
+  [4068,"Waxed Exposed Copper Bulb",1168,COPPER_BULB,"bulb",[151,126,83],"pick",true,false],
+  [4069,"Waxed Weathered Copper",1169,COPPERB,"copper",[91,139,111],"pick",false,false],
+  [4070,"Waxed Weathered Cut Copper",1170,CUT_COPPER,"tile",[91,139,111],"pick",false,false],
+  [4071,"Waxed Weathered Chiseled Copper",1171,CHISELED_COPPER,"chiseled",[91,139,111],"pick",false,false],
+  [4072,"Waxed Weathered Copper Grate",1172,COPPER_GRATE,"grate",[91,139,111],"pick",false,true],
+  [4073,"Waxed Weathered Copper Bulb",1173,COPPER_BULB,"bulb",[91,139,111],"pick",true,false],
+  [4074,"Waxed Oxidized Copper",1174,COPPERB,"copper",[53,132,115],"pick",false,false],
+  [4075,"Waxed Oxidized Cut Copper",1175,CUT_COPPER,"tile",[53,132,115],"pick",false,false],
+  [4076,"Waxed Oxidized Chiseled Copper",1176,CHISELED_COPPER,"chiseled",[53,132,115],"pick",false,false],
+  [4077,"Waxed Oxidized Copper Grate",1177,COPPER_GRATE,"grate",[53,132,115],"pick",false,true],
+  [4078,"Waxed Oxidized Copper Bulb",1178,COPPER_BULB,"bulb",[53,132,115],"pick",true,false],
+  [4079,"Honey Block",1179,HONEYCOMB,"honey",[219,145,35],"hand",false,true],
+  [4080,"Honeycomb Block",1180,HONEYCOMB,"honeycomb",[229,143,25],"hand",false,false],
+  [4081,"Bee Nest",1181,BEEHIVE,"hive",[193,151,79],"axe",false,false],
+  [4082,"Ochre Froglight",1182,GLOWSTONE,"froglight",[224,198,116],"hand",true,false],
+  [4083,"Verdant Froglight",1183,GLOWSTONE,"froglight",[162,205,157],"hand",true,false],
+  [4084,"Pearlescent Froglight",1184,GLOWSTONE,"froglight",[215,166,191],"hand",true,false],
+  [4085,"Dried Kelp Block",1185,KELP,"kelp",[38,72,42],"hoe",false,false],
+  [4086,"Hay Bale",1186,WHEATITEM,"hay",[196,167,45],"hoe",false,false],
+  [4087,"Lodestone",1187,NETHERITE,"lodestone",[93,94,99],"pick",false,false],
+  [4088,"Smoker",1188,FURN,"machine",[88,77,65],"pick",false,false],
+  [4089,"Blast Furnace",1189,FURN,"machine",[91,91,91],"pick",false,false],
+  [4090,"Stonecutter",1190,STONE,"machine",[128,128,124],"pick",false,false],
+  [4091,"Cartography Table",1191,CRAFTT,"machine",[110,83,56],"axe",false,false],
+  [4092,"Fletching Table",1192,CRAFTT,"machine",[129,105,72],"axe",false,false],
+  [4093,"Lectern",1193,BOOKSHELF,"machine",[113,78,42],"axe",false,false],
+  [4094,"Crafter",1194,CRAFTT,"machine",[113,96,72],"pick",false,false],
+  [4095,"Chiseled Bookshelf",1195,BOOKSHELF,"books",[129,94,57],"axe",false,false],
+  [4096,"Blue Ice",1196,PACKEDICE,"ice",[85,140,224],"pick",false,false],
+  [4097,"Powder Snow",1197,SNOW,"snow",[238,246,250],"shovel",false,false],
+  [4098,"Rooted Dirt",1198,DIRT,"roots",[112,80,54],"shovel",false,false],
+  [4099,"Suspicious Sand",1199,SAND,"suspicious",[214,194,140],"shovel",false,false],
+  [4100,"Suspicious Gravel",1200,GRAVEL,"suspicious",[119,114,107],"shovel",false,false],
+  [4101,"Decorated Pot",1201,BRICK,"pot",[165,92,55],"pick",false,false],
+  [4102,"Sniffer Egg",1202,MOSS,"egg",[61,119,111],"hand",false,false],
+  [4103,"Sculk Vein",1203,SCULK,"sculk",[12,54,57],"hoe",true,true],
+  [4104,"Calibrated Sculk Sensor",1204,SCULK_SENSOR,"sculk",[18,75,79],"hoe",true,false],
+  [4105,"Glow Lichen",1205,GLOWSTONE,"lichen",[91,120,105],"hoe",true,true],
+  [4106,"Block of Coal",1206,COALI,"storage",[25,25,27],"pick",false,false],
+  [4107,"Block of Netherite",1207,NETHERITE,"storage",[67,61,65],"pick",false,false],
+  [4108,"Smooth Basalt",1208,BASALT_N,"pillar",[73,72,76],"pick",false,false],
+  [4109,"Soul Campfire",1209,CAMPFIRE,"soul",[64,84,79],"axe",true,false],
+  [4110,"Soul Lantern",1210,LANTERN,"soul",[62,115,113],"pick",true,false],
+  [4111,"Tinted Glass",1211,GLASS,"glass",[47,42,55],"pick",false,true],
+  [4112,"White Shulker Box",1212,CHEST,"shulker",[221,224,224],"pick",false,false],
+  [4113,"Orange Shulker Box",1213,CHEST,"shulker",[219,112,32],"pick",false,false],
+  [4114,"Magenta Shulker Box",1214,CHEST,"shulker",[169,61,169],"pick",false,false],
+  [4115,"Light Blue Shulker Box",1215,CHEST,"shulker",[58,149,190],"pick",false,false],
+  [4116,"Yellow Shulker Box",1216,CHEST,"shulker",[202,171,35],"pick",false,false],
+  [4117,"Lime Shulker Box",1217,CHEST,"shulker",[103,166,36],"pick",false,false],
+  [4118,"Pink Shulker Box",1218,CHEST,"shulker",[201,105,134],"pick",false,false],
+  [4119,"Gray Shulker Box",1219,CHEST,"shulker",[63,68,72],"pick",false,false],
+  [4120,"Light Gray Shulker Box",1220,CHEST,"shulker",[137,137,128],"pick",false,false],
+  [4121,"Cyan Shulker Box",1221,CHEST,"shulker",[36,115,125],"pick",false,false],
+  [4122,"Purple Shulker Box",1222,CHEST,"shulker",[125,55,158],"pick",false,false],
+  [4123,"Blue Shulker Box",1223,CHEST,"shulker",[49,55,152],"pick",false,false],
+  [4124,"Brown Shulker Box",1224,CHEST,"shulker",[109,70,42],"pick",false,false],
+  [4125,"Green Shulker Box",1225,CHEST,"shulker",[82,106,32],"pick",false,false],
+  [4126,"Red Shulker Box",1226,CHEST,"shulker",[151,41,36],"pick",false,false],
+  [4127,"Black Shulker Box",1227,CHEST,"shulker",[29,30,34],"pick",false,false]
+];
+MC_BLOCKS.forEach(([id,name,tile])=>BLOCKS[id]={name,all:tile});
+const MC_BLOCK_SET=new Set(MC_BLOCKS.map(b=>b[0]));
+const MC_WOOD_BLOCKS=new Set(MC_BLOCKS.filter(b=>b[6]==='axe').map(b=>b[0]));
+const MC_SOFT_BLOCKS=new Set(MC_BLOCKS.filter(b=>b[6]==='shovel').map(b=>b[0]));
+const MC_HOE_BLOCKS=new Set(MC_BLOCKS.filter(b=>b[6]==='hoe'||b[6]==='hand').map(b=>b[0]));
+const MC_LIGHT_BLOCKS=new Set(MC_BLOCKS.filter(b=>b[7]).map(b=>b[0]));
+const MC_TRANSPARENT_BLOCKS=new Set(MC_BLOCKS.filter(b=>b[8]).map(b=>b[0]));
 // Deepslate ores: the ores found below Y 0, set in deepslate. Same drops and tools as the plain ore, slower to mine.
 const DEEP_BASE = { [DS_COAL]: COALO, [DS_IRON]: IRONO, [DS_COPPER]: COPPERO, [DS_GOLD]: GOLDO, [DS_REDSTONE]: REDSTONE_ORE, [DS_LAPIS]: LAPIS_ORE, [DS_DIAMOND]: DIAMO, [DS_EMERALD]: EMERO };
 const DEEP_ORE = {}, DEEP_TILE = [320, 321, 324, 325, 326, 327, 328, 329];
@@ -2283,10 +2421,10 @@ const partialTile = id => {
   return T.STONE;
 };
 const isDoor    = id => id === DOOR || id === DOORTOP;
-const isOpaque = id => id !== ICE && id !== WITHER_SKULL && !STAINED.has(id) && !WALLS.has(id) && !isFenceish(id) && id !== TRAPDOOR && id !== ANVIL && id !== COMPOSTER && id !== GRINDSTONE && id !== CAULDRON && id !== LIGHTNINGROD && id !== AIR && id !== WATER && id !== GLASS && id !== LAVA && id !== PORTAL && id !== ENDPORTAL && id !== END_GATEWAY && id !== STORM_PORTAL && !isCross(id) && !isPartial(id) && !isDoor(id) && !isFlat(id);
+const isOpaque = id => !MC_TRANSPARENT_BLOCKS.has(id) && id !== ICE && id !== WITHER_SKULL && !STAINED.has(id) && !WALLS.has(id) && !isFenceish(id) && id !== TRAPDOOR && id !== ANVIL && id !== COMPOSTER && id !== GRINDSTONE && id !== CAULDRON && id !== LIGHTNINGROD && id !== AIR && id !== WATER && id !== GLASS && id !== LAVA && id !== PORTAL && id !== ENDPORTAL && id !== END_GATEWAY && id !== STORM_PORTAL && !isCross(id) && !isPartial(id) && !isDoor(id) && !isFlat(id);
 const isSolid  = id => id !== TRAPDOOR && id !== GATE_OPEN && id !== AIR && id !== WATER && id !== LAVA && id !== PORTAL && id !== ENDPORTAL && id !== END_GATEWAY && id !== STORM_PORTAL && !isCross(id) && !isDoor(id) && !isFlat(id);
 const isLiquid = id => id === WATER || id === LAVA;
-const emitsLight = id => id === BEACON || id === COPPER_BULB || id === TRIAL_SPAWNER || id === CREAKING_HEART_ON || id === SCULK_CATALYST || id === SCULK_SENSOR || id === SEA_LANTERN || id === AQ_CONDUIT || id === SEA_PICKLE || id === RS_TORCH || id === LAMP_ON || id===GLOWCRYSTAL || id === ENDERCHEST || id === JACK_O_LANTERN || id === LANTERN || id === CAMPFIRE || id === STORM_PORTAL || id === CONDUIT_LIT || id === VOLTITE_ORE || id === END_ROD || id === END_GATEWAY || id === CRYING_OBSIDIAN || id === ANCHOR_LIT || id === SHROOMLIGHT || id === MAGMA || isFire(id) || id === SOUL_TORCH || id === GLOWVINE || id === AMETHYST_C || id === AMBERLAMP || id === GLOWB || id === GLOWSTONE || id === LAVA || id === PORTAL || id === ENDPORTAL || id === ENDCRYSTAL;
+const emitsLight = id => MC_LIGHT_BLOCKS.has(id) || id === BEACON || id === COPPER_BULB || id === TRIAL_SPAWNER || id === CREAKING_HEART_ON || id === SCULK_CATALYST || id === SCULK_SENSOR || id === SEA_LANTERN || id === AQ_CONDUIT || id === SEA_PICKLE || id === RS_TORCH || id === LAMP_ON || id===GLOWCRYSTAL || id === ENDERCHEST || id === JACK_O_LANTERN || id === LANTERN || id === CAMPFIRE || id === STORM_PORTAL || id === CONDUIT_LIT || id === VOLTITE_ORE || id === END_ROD || id === END_GATEWAY || id === CRYING_OBSIDIAN || id === ANCHOR_LIT || id === SHROOMLIGHT || id === MAGMA || isFire(id) || id === SOUL_TORCH || id === GLOWVINE || id === AMETHYST_C || id === AMBERLAMP || id === GLOWB || id === GLOWSTONE || id === LAVA || id === PORTAL || id === ENDPORTAL || id === ENDCRYSTAL;
 const occl     = id => isOpaque(id);
 function tileFor(id, face){
   const d = BLOCKS[id];
@@ -2294,6 +2432,7 @@ function tileFor(id, face){
   return face === 3 ? d.top : face === 2 ? d.bottom : d.side;
 }
 function faceVisible(b, n){
+  if(MC_TRANSPARENT_BLOCKS.has(b)) return n !== b && !isOpaque(n);
   if(b === WATER && (OCEAN_PLANTS.has(n) || n === AQ_CONDUIT)) return false;   // the plant stands in the water
   if(n === AIR || isCross(n)) return true;
   if(b === WATER) return n === GLASS;
@@ -2307,6 +2446,10 @@ function faceVisible(b, n){
 const dropOf = id => id===CREAKING_HEART_ON?CREAKING_HEART:id===PALE_GRASS?DIRT:id===EYEBLOSSOM_O?EYEBLOSSOM_C:id===MYCELIUM?DIRT:id===SEA_LANTERN?PRISMARINE_CRYSTALS:CORALB_SET.has(id)?DEAD_CORALB:id===RS_WIRE?REDSTONE:id===RS_TORCH_OFF?RS_TORCH:id===LAMP_ON?LAMP:DEEP_BASE[id] ? dropOf(DEEP_BASE[id]) : id===IRONO?RAW_IRON:id===GOLDO?RAW_GOLD:id===COPPERO?RAW_COPPER:id===REDSTONE_ORE?REDSTONE:id===LAPIS_ORE?LAPIS:id===STONE?COBBLE:id===BEDHEAD?BED:id===BEEHIVE_FULL?BEEHIVE:id===GATE_OPEN?GATE:id===SKYGRASS?STORMSTONE:id===VOLTITE_ORE?VOLTITE:id===CONDUIT_LIT?CONDUIT:id===CHORUS_PLANT?CHORUS_FRUIT:id===ANCHOR_LIT?ANCHOR:id===CRIM_NYL||id===WARP_NYL?NETHERRACK:id===QUARTZ_ORE?QUARTZ:id===NGOLD_ORE?GNUGGET:id===GILDED?(Math.random()<.1?GNUGGET:GILDED):id===SNOWY_GRASS?DIRT:id===GLOWVINE?BERRIES:id===AMETHYST_C||id===BUDDING?AMETHYST_SHARD:id===DRIP_DOWN?DRIP_UP:id===BERRYBUSH?BERRIES:id===CRYSTALORE||id===GLOWCRYSTAL?CRYSTALSHARD:id === GRASS || id === SAVGRASS || id === FARMLAND ? DIRT : id === COALO ? COALI : id === DIAMO ? DIAMI :
                      id === EMERO ? EMERALD : id === DEADBUSH ? STICK : id;
 function toolClassOf(id){
+  if(MC_WOOD_BLOCKS.has(id)) return 'axe';
+  if(MC_SOFT_BLOCKS.has(id)) return 'shovel';
+  if(MC_HOE_BLOCKS.has(id)) return 'hoe';
+  if(MC_BLOCK_SET.has(id)) return 'pick';
   if(id === MUD_BLOCK) return 'shovel';
   if(ARCHITECTURE_BLOCKS.has(id)) return 'pick';
   if(PART_BASE[id] !== undefined) return toolClassOf(PART_BASE[id]);
@@ -2353,6 +2496,9 @@ function toolClassOf(id){
   return null;
 }
 function handTime(id){
+  if(MC_WOOD_BLOCKS.has(id)) return 2.0;
+  if(MC_SOFT_BLOCKS.has(id)||MC_HOE_BLOCKS.has(id)) return 0.8;
+  if(MC_BLOCK_SET.has(id)) return 3.0;
   if(id === MUD_BLOCK) return 0.7;
   if(id === PACKED_MUD) return 1.1;
   if(MUD_BUILDING.has(id)) return 2.0;
@@ -2641,6 +2787,8 @@ RECIPES.push(
 );
 for(const [id,name,tile,source] of ARCH_BLOCKS.slice(2))
   RECIPES.push({out:[id,4],in:[[source,4]],st:'table'});
+// All Minecraft-only expansion blocks are obtainable in survival.
+for(const [id,name,tile,source] of MC_BLOCKS) RECIPES.push({out:[id,1],in:[[source,1]],st:'table'});
 /* ========================= texture atlases ========================== */
 function mulberry32(a){
   return () => { a |= 0; a = a + 0x6D2B79F5 | 0;
@@ -3242,6 +3390,31 @@ itemAtlas.width = 128; itemAtlas.height = 1024;   // 512 icons
       return tone(c,grain + (((x+y+salt)%11===0)?10:0));
     };
     ARCH_BLOCKS.forEach(([id,name,tile,source,style,color],i)=>put(tile,archPx(style,color,1900+i*17)));
+  }
+  { // Minecraft-only expansion textures, tiles 1100-1227
+    const clamp=v=>Math.max(0,Math.min(255,v)), tone=(c,n,a=1)=>[clamp(c[0]+n),clamp(c[1]+n),clamp(c[2]+n),a];
+    const mcPx=(style,c,salt)=>(x,y,r)=>{ const g=(r()-.5)*14, edge=[c[0]-35,c[1]-35,c[2]-35], h=hash(x,y,salt);
+      if(style==='log'||style==='pillar') return tone(c,g+(x%4===0?-22:0));
+      if(style==='bark') return tone(c,g+(h<.18?-28:0));
+      if(style==='planks') return y%4===0?tone(edge,2):tone(c,g);
+      if(style==='leaves') return h<.18?[0,0,0,0]:tone(c,g,1);
+      if(style==='roots') return (x+y)%5===0?tone(edge,-5):tone(c,g);
+      if(style==='bamboo') return x%5===0?tone(edge,4):tone(c,g);
+      if(style==='mosaic') return ((x+y)%8===0||(x-y+32)%8===0)?tone(edge,5):tone(c,g);
+      if(style==='copper'||style==='storage') return tone(c,g+(h<.08?18:0));
+      if(style==='tile'||style==='chiseled') return (x%4===0||y%4===0||style==='chiseled'&&(Math.abs(x-7.5)>5||Math.abs(y-7.5)>5))?tone(edge,4):tone(c,g);
+      if(style==='grate'){ const bar=x%5<2||y%5<2; return bar?tone(c,g,1):[0,0,0,0]; }
+      if(style==='bulb') return (x>3&&x<12&&y>3&&y<12)?tone([245,184,80],g,1):tone(edge,g,1);
+      if(style==='honey') return tone(c,g,0.72);
+      if(style==='honeycomb'||style==='froglight') return ((x%6===0)||(y%6===0))?tone(edge,4):tone(c,g);
+      if(style==='hive'||style==='hay'||style==='kelp'||style==='books') return y%4===0?tone(edge,2):tone(c,g);
+      if(style==='machine'||style==='lodestone') return (x===0||y===0||x===15||y===15||x%7===0)?tone(edge,5):tone(c,g);
+      if(style==='ice'||style==='glass') return (x===0||y===0||x===15||y===15)?tone(edge,8,.85):tone(c,g,.48);
+      if(style==='snow'||style==='suspicious') return tone(c,g+(h<.14?-18:0));
+      if(style==='pot'||style==='egg'||style==='sculk'||style==='lichen'||style==='soul') return tone(c,g+(h<.15?-22:0),style==='lichen'?0.7:1);
+      if(style==='shulker'){ const seam=y===7||y===8, rim=x<2||x>13||y<2||y>13; return seam?tone(edge,-5):rim?tone(edge,8):tone(c,g); }
+      return tone(c,g); };
+    MC_BLOCKS.forEach(([id,name,tile,source,style,color],i)=>put(tile,mcPx(style,color,2400+i*13)));
   }
   { // the deep dark
     const q = r => Math.floor((r() - 0.5) * 14);
