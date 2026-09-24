@@ -2528,8 +2528,15 @@ BLOCKS[DROPPER] = { name: 'Dropper', top: 734, bottom: 734, side: MT.drop };
 BLOCKS[OBSERVER] = { name: 'Observer', top: MT.obsSide, bottom: MT.obsSide, side: MT.obs };
 const MACH_FACED = new Set([PISTON, STICKY_PISTON, DISPENSER, DROPPER, OBSERVER]);
 const isPistonHead = id => id === PISTON_HEAD || id === STICKY_HEAD;
-const isContainerBlock = id => id === CHEST || id === COPPER_CHEST || id === BARREL || id === DISPENSER || id === DROPPER;
+const isContainerBlock = id => id === CHEST || id === COPPER_CHEST || id === BARREL || id === DISPENSER || id === DROPPER || id === SHULKER_BOX;
 let mechReady = false, mechMoving = false;
+
+/* Everyday things from Minecraft: name tags, leads, the compass, the clock,
+   the spyglass, and shulker boxes that keep what's in them when broken. */
+const NAME_TAG = 5600, LEAD = 5601, COMPASS = 5602, CLOCK = 5603, SPYGLASS = 5604, SHULKER_BOX = 5507;
+ITEMS[NAME_TAG] = { name: 'Name Tag', icon: 476 }; ITEMS[LEAD] = { name: 'Lead', icon: 477 }; ITEMS[COMPASS] = { name: 'Compass', icon: 478 };
+ITEMS[CLOCK] = { name: 'Clock', icon: 479 }; ITEMS[SPYGLASS] = { name: 'Spyglass', icon: 480 };
+BLOCKS[SHULKER_BOX] = { name: 'Shulker Box', top: 736, bottom: 736, side: 735 };
 
 /* Armour trims, as in Minecraft: smithing templates found in the world's
    structures. At a smithing table, a template and a trim material (iron,
@@ -2994,6 +3001,7 @@ const emitsLight = id => MC_LIGHT_BLOCKS.has(id) || id === BEACON || id === COPP
 const occl     = id => isOpaque(id);
 function tileFor(id, face){
   const d = BLOCKS[id];
+  if(!d) return BLOCKS[STONE].all ?? 0;                                   // a block this version doesn't know: draw it as stone, never stop the world meshing
   if(d.all !== undefined) return d.all;
   return face === 3 ? d.top : face === 2 ? d.bottom : d.side;
 }
@@ -3162,6 +3170,11 @@ const RECIPES = [
   { out: [DISPENSER, 1], in: [[ANY_COBBLE, 7], [BOW, 1], [REDSTONE, 1]], st: 'table' },
   { out: [DROPPER, 1], in: [[ANY_COBBLE, 7], [REDSTONE, 1]], st: 'table' },
   { out: [OBSERVER, 1], in: [[ANY_COBBLE, 6], [REDSTONE, 2], [QUARTZ, 1]], st: 'table' },
+  { out: [COMPASS, 1], in: [[IRONI, 4], [REDSTONE, 1]], st: 'table' },
+  { out: [CLOCK, 1], in: [[GOLDI, 4], [REDSTONE, 1]], st: 'table' },
+  { out: [SPYGLASS, 1], in: [[COPPERI, 2], [AMETHYST_SHARD, 1]], st: 'table' },
+  { out: [LEAD, 2], in: [[STRING, 4], [SLIMEBALL, 1]], st: 'table' },
+  { out: [SHULKER_BOX, 1], in: [[SHULKER_SHELL, 2], [CHEST, 1]], st: 'table' },
   ...TRIM_NAMES.map((n, i) => ({ out: [TRIM0 + i, 2], in: [[TRIM0 + i, 1], [DIAMI, 7], [ANY_COBBLE, 1]], st: 'table' })),
   { out: [IAXE, 1],   in: [[IRONI, 3], [STICK, 2]], st: 'table' },
   { out: [DAXE, 1],   in: [[DIAMI, 3], [STICK, 2]], st: 'table' },
@@ -3523,6 +3536,22 @@ itemAtlas.width = 128; itemAtlas.height = 1024;   // 512 icons
     px(456, (x, y) => { const d = Math.abs(x - 7.5) + Math.abs(y - 7.5) * 1.4; if(d > 7) return null; return d > 5.6 ? [40, 100, 40] : (x + y) % 4 === 0 ? [70, 150, 60] : [92, 176, 80]; });   // scute
     px(457, flask([200, 106, 216], [230, 170, 240]));                   // dragon's breath
   }
+  px(476, (x, y) => {                                                   // name tag
+    if(Math.hypot(x - 4, y - 4) < 1.2) return null;
+    if(x + y < 5 || x < 2 || y < 2 || x > 13 || y > 13 || x + y > 24) return null;
+    return (x + y) % 6 === 0 ? [190, 160, 110] : [214, 188, 140]; });
+  px(477, (x, y) => { const d = Math.hypot(x - 7.5, y - 8); return (Math.abs(d - 4.5) < 1.1 || (x > 9 && y > 10 && Math.abs(x - y) < 1.2)) ? ((x + y) % 3 ? [150, 110, 66] : [120, 84, 46]) : null; });   // lead
+  px(478, (x, y) => {                                                   // compass
+    const d = Math.hypot(x - 7.5, y - 7.5); if(d > 6.4) return null; if(d > 5.3) return [110, 112, 120];
+    if(Math.abs(x - 7.5) < 1 && y < 8 && y > 2) return [220, 40, 40]; if(Math.abs(x - 7.5) < 1 && y >= 8 && y < 13) return [236, 236, 236];
+    return [60, 62, 70]; });
+  px(479, (x, y) => {                                                   // clock
+    const d = Math.hypot(x - 7.5, y - 7.5); if(d > 6.4) return null; if(d > 5.3) return [210, 170, 50];
+    if(y < 8) return Math.hypot(x - 7.5, y - 4) < 1.6 ? [255, 230, 90] : [90, 150, 230];
+    return Math.hypot(x - 7.5, y - 11) < 1.4 ? [230, 230, 240] : [30, 34, 70]; });
+  px(480, (x, y) => {                                                   // spyglass
+    const t = Math.abs((x - 2) - (13 - y)); if(t > 2 || x < 2 || x > 13) return null;
+    if(x > 11) return [120, 200, 230]; return x % 4 === 0 ? [150, 90, 50] : [206, 120, 70]; });
   for(let i = 0; i < 18; i++) px(458 + i, (x, y) => {                  // smithing templates: a slate tablet with the pattern on it
     if(x < 2 || x > 13 || y < 1 || y > 14) return null;
     if(x === 2 || x === 13 || y === 1 || y === 14) return [52, 56, 66];
@@ -5800,6 +5829,8 @@ scene.fog = new THREE.Fog(0x87b5e5, RD * 16 * 0.55, RD * 16 * 0.95);
   copy(CB, MT.obsBack); rect(MT.obsBack, 6, 6, 4, 4, '#3a1212');
   copy(CB, MT.obsOn); rect(MT.obsOn, 6, 6, 4, 4, '#ff2a2a'); rect(MT.obsOn, 7, 7, 1, 1, '#ffb0b0');
   copy(CB, MT.obsSide); rect(MT.obsSide, 7, 2, 2, 12, '#707070'); rect(MT.obsSide, 5, 4, 6, 2, '#707070');
+  for(const t of [735, 736]){ const [ox, oy] = at(t); g.clearRect(ox, oy, 16, 16); for(let y = 0; y < 16; y++) for(let x = 0; x < 16; x++){ g.fillStyle = (x * 3 + y * 5) % 7 === 0 ? '#7a4e8a' : '#94629e'; g.fillRect(ox + x, oy + y, 1, 1); } }
+  rect(735, 0, 6, 16, 2, '#5c3a6a'); rect(736, 3, 3, 10, 10, '#a576ae'); rect(736, 6, 6, 4, 4, '#5c3a6a');   // shulker box: lid seam, and its top
 }
 const tex = new THREE.CanvasTexture(atlas);
 tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter;
@@ -7849,6 +7880,7 @@ function stockLootChest(x, y, z, key, kind){
     loot = [[DIAMI, 2 + ((R()*3)|0)], [EMERALD, 2 + ((R()*4)|0)], [GOLDI, 3 + ((R()*4)|0)],
             [IRONI, 4 + ((R()*6)|0)], [BREAD, 2 + ((R()*3)|0)], [OBSIDIAN, 2 + ((R()*4)|0)]];
   }
+  if(['dungeon', 'mine', 'mansion', 'city', 'fortress', 'ruin', 'outpost', 'jungle'].includes(kind)){ if(Math.random() < 0.22) loot.push([NAME_TAG, 1]); if(Math.random() < 0.2) loot.push([LEAD, 1 + ((Math.random() * 2) | 0)]); }
   for(const [n, p] of TRIM_LOOT[kind] || []) if(Math.random() < p){ loot.push([TRIM0 + TRIM_NAMES.indexOf(n), 1]); break; }
   let si = 0;
   for(const [id, n] of loot){ if(n > 0){ slots[si] = { id, count: n, dur: 0 }; si += 2; } }
@@ -9095,7 +9127,7 @@ function physics(dt){
   } else stepAcc = 1.7;
   bobAmt += (((p.onGround && hs > 0.5) ? 1 : 0) - bobAmt) * Math.min(1, dt * 8);
   bobT += dt * hs * 1.8;
-  const tf = sprint && hs > 3 ? 80 : 72;
+  const tf = spyZoom() ? 12 : sprint && hs > 3 ? 80 : 72;
   fov += (tf - fov) * Math.min(1, dt * 8);
   if(Math.abs(camera.fov - fov) > 0.05){ camera.fov = fov; camera.updateProjectionMatrix(); }
 }
@@ -11364,7 +11396,7 @@ function updateKeepers(dt){
     const c = chunks.get((Math.floor(r.x) >> 4) + ',' + (Math.floor(r.z) >> 4));
     if(!c || !c.built) continue;
     const n = spawnNetherMob(r.type, r.x, r.y + 0.05, r.z);
-    if(n){ n.keepId = r.id; applyKeeper(n, r.d); }
+    if(n){ n.keepId = r.id; applyKeeper(n, r.d); if(r.name) nameMob(n, r.name, true); }
   }
   if(keepers.length) saveKeepers();
 }
@@ -13484,7 +13516,7 @@ function updateNetherMobs(dt){
   updateKeepers(dt);
   for(let i = netherMobs.length - 1; i >= 0; i--){
     const e = netherMobs[i];
-    if((e.pos.distanceToSquared(player.pos) > 100 * 100 && !e.boss) || e.pos.y < -10){ removeEnt(netherMobs, i); continue; }
+    if((e.pos.distanceToSquared(player.pos) > 100 * 100 && !e.boss && !e.nameTag) || e.pos.y < -10){ removeEnt(netherMobs, i); continue; }
     if(e.remove){ removeEnt(netherMobs, i); continue; }      // a warden that dug back down
     if(e.hp <= 0 && e.type === 'creaking') e.hp = 1;      // nothing but its heart can end it
     if(e.hp <= 0){ killNether(e); continue; }
@@ -13769,7 +13801,7 @@ function killZombie(i){
 function updateZombies(dt, daylight){
   for(let i = zombies.length - 1; i >= 0; i--){
     const z = zombies[i];
-    if(z.pos.distanceToSquared(player.pos) > 110 * 110){ removeEnt(zombies, i); continue; }
+    if(z.pos.distanceToSquared(player.pos) > 110 * 110 && !z.nameTag){ removeEnt(zombies, i); continue; }
     const zWet = z.drowned && isWet(getBlock(Math.floor(z.pos.x), Math.floor(z.pos.y + 0.9), Math.floor(z.pos.z)));
     if(daylight > 0.5 && !z.husk){                 // husks don't burn in the sun
       z.skyT -= dt;
@@ -13898,7 +13930,7 @@ function killSkeleton(i){
 function updateSkeletons(dt, daylight){
   for(let i = skeletons.length - 1; i >= 0; i--){
     const s = skeletons[i];
-    if(s.pos.distanceToSquared(player.pos) > 110 * 110){ removeEnt(skeletons, i); continue; }
+    if(s.pos.distanceToSquared(player.pos) > 110 * 110 && !s.nameTag){ removeEnt(skeletons, i); continue; }
     if(daylight > 0.5){
       s.skyT -= dt;
       if(s.skyT <= 0){ s.skyT = 0.5; s.exposed = skyExposed(Math.floor(s.pos.x), Math.ceil(s.pos.y + s.h), Math.floor(s.pos.z)); }
@@ -14172,7 +14204,7 @@ function killCreeper(i, exploded){
 function updateCreepers(dt){
   for(let i = creepers.length - 1; i >= 0; i--){
     const c = creepers[i];
-    if(c.pos.distanceToSquared(player.pos) > 110 * 110){ removeEnt(creepers, i); continue; }
+    if(c.pos.distanceToSquared(player.pos) > 110 * 110 && !c.nameTag){ removeEnt(creepers, i); continue; }
     if(c.hp <= 0){ killCreeper(i); continue; }
     const dx = player.pos.x - c.pos.x, dz = player.pos.z - c.pos.z;
     const distP = Math.hypot(dx, dz);
@@ -14280,7 +14312,7 @@ function updateCrystalCrawlers(dt){
 function updateSpiders(dt, daylight){
   for(let i = spiders.length - 1; i >= 0; i--){
     const s = spiders[i];
-    if(s.pos.distanceToSquared(player.pos) > 110 * 110){ removeEnt(spiders, i); continue; }
+    if(s.pos.distanceToSquared(player.pos) > 110 * 110 && !s.nameTag){ removeEnt(spiders, i); continue; }
     if(s.hp <= 0){ killSpider(i); continue; }
     const distP = Math.hypot(player.pos.x - s.pos.x, player.pos.z - s.pos.z);
     // spiders stay hostile at night, neutral in daylight unless provoked
@@ -14345,7 +14377,7 @@ const VIL_PROF = [
       {in:[[EMERALD,1]],out:[PORKC,5]}, {in:[[EMERALD,1]],out:[BEEFC,4]} ]},
   { id:'cartographer', name:'Cartographer', robe:0xe6dcc0, badge:0x3a5a9a, hat:0, voice:220, trades:[
       {in:[[PAPER,24]],out:[EMERALD,1]}, {in:[[EMERALD,1]],out:[MAP,1]},
-      {in:[[EMERALD,8]],out:[TRIAL_MAP,1]}, {in:[[EMERALD,14]],out:[MANSION_MAP,1]} ]},
+      {in:[[EMERALD,8]],out:[TRIAL_MAP,1]}, {in:[[EMERALD,14]],out:[MANSION_MAP,1]}, {in:[[EMERALD,6]],out:[COMPASS,1]}, {in:[[EMERALD,20]],out:[NAME_TAG,1]} ]},
   { id:'cleric', name:'Cleric', robe:0x7a4a9c, badge:0xe2c85a, hat:0, voice:230, trades:[
       {in:[[GOLDO,3]],out:[EMERALD,1]},
       {in:[[EMERALD,2]],out:[GLOWB,4]}, {in:[[EMERALD,6]],out:[DIAMI,1]} ]},
@@ -15504,6 +15536,7 @@ function useBrush(hit){
 function useSpecial(o, d, hit, eh){
   const held = heldId();
   if(useBrush(hit)) return true;
+  if(useLeadsAndTags(hit, eh, held, mode === 'survival')) return true;
   if(hit && hit.id === VAULT && (!eh || hit.t <= eh.t)){ openVault(hit.x, hit.y, hit.z); triggerViewSwing(); return true; }
   if(hit && hit.id === BEACON && (!eh || hit.t <= eh.t) && !(held && !ITEMS[held] && player.crouching)){ cycleBeacon(hit.x, hit.y, hit.z); triggerViewSwing(); return true; }
   if(eh && eh.e.kind === 'animal' && (eh.e.type === 'wolf' || eh.e.type === 'cat') && !eh.e.puppet && (!hit || eh.t < hit.t) && useOnWolf(eh.e)){ triggerViewSwing(); return true; }
@@ -18347,6 +18380,7 @@ function placeDoor(x,y,z){
   blockSfx(PLANK,'place');triggerViewSwing();consumePlacedItem();return true;
 }
 function consumePlacedItem(){
+  fillPlacedBox(survInv[sel]);
   if(mode!=='survival')return;
   const item=survInv[sel];item.count--;
   if(item.count<=0){item.id=0;item.count=0;item.dur=0;}
@@ -18572,6 +18606,7 @@ function mechChanged(x, y, z, oldId, id){
     rsParts.delete(key); rsDirty = true;
   }
   if(MACH_FACED.has(id) && !mechMoving && !netApplying && !rsParts.has(key)) rsSetPart(x, y, z, { face: placeFace(id), on: false, ext: false });
+  if(id === SHULKER_BOX && !mechMoving) lastBoxKey = x + ',' + y + ',' + z;
   observeAt(x, y, z);
 }
 // an observer watching (x, y, z) sees it change and gives a short pulse out of its back
@@ -18591,7 +18626,7 @@ function observeAt(x, y, z){
   }
 }
 const PISTON_FIXED = () => new Set([OBSIDIAN, CRYING_OBSIDIAN, BEDROCK, CHEST, COPPER_CHEST, BARREL, ENDERCHEST, FURN, BREWING, ENCH_TABLE, SPAWNER, BEACON, ANVIL, CAULDRON,
-  JUKEBOX, NOTEBLOCK, HOPPER, DISPENSER, DROPPER, VAULT, TRIAL_SPAWNER, END_FRAME, REINFORCED, ANCHOR, BED, BEDHEAD, PISTON_HEAD, STICKY_HEAD, FRAME, CRAFTT]);
+  JUKEBOX, NOTEBLOCK, HOPPER, DISPENSER, DROPPER, SHULKER_BOX, VAULT, TRIAL_SPAWNER, END_FRAME, REINFORCED, ANCHOR, BED, BEDHEAD, PISTON_HEAD, STICKY_HEAD, FRAME, CRAFTT]);
 let pistonFixed = null;
 function pistonMovable(b, x, y, z){
   pistonFixed = pistonFixed || PISTON_FIXED();
@@ -18695,6 +18730,151 @@ function dispense(x, y, z){
   if(item === TNT && (front === AIR || isCross(front))){ take(); setBlock(fx, fy, fz, TNT); igniteTNT(fx, fy, fz); click(); return; }
   if(typeof eggMob === 'function' && eggMob(item) && (front === AIR || isCross(front))){ take(); spawnFromEgg(eggMob(item), fx + 0.5, fy + 0.05, fz + 0.5); click(); return; }
   spit();
+}
+
+/* ---- name tags, leads, the compass, the clock, the spyglass, shulker boxes ---- */
+const PET_NAMES = ['Biscuit', 'Pickles', 'Nugget', 'Mochi', 'Pebble', 'Dusty', 'Maple', 'Clover', 'Rusty', 'Waffles', 'Bean', 'Ziggy', 'Luna', 'Toast', 'Muffin',
+  'Noodle', 'Sprout', 'Pip', 'Ginger', 'Tofu', 'Shadow', 'Captain', 'Duke', 'Bubbles', 'Coco', 'Pumpkin', 'Sparky', 'Fern', 'Sir Oinks', 'Nibbles'];
+// a name: typed on a keyboard, or (in VR, with no keyboard) picked for you
+function askName(cur){
+  if(xrActive) return PET_NAMES[(Math.random() * PET_NAMES.length) | 0];
+  const r = window.prompt('Name:', cur || '');
+  return r == null ? null : r.trim().slice(0, 30) || null;
+}
+function nameMob(e, n, quiet){
+  if(!e || !e.group) return;
+  e.nameTag = n;
+  if(e.nameSprite){ e.group.remove(e.nameSprite); e.nameSprite.material.map.dispose(); e.nameSprite.material.dispose(); }
+  const cv = document.createElement('canvas'); cv.width = 256; cv.height = 64;
+  const g = cv.getContext('2d'); g.font = 'bold 32px sans-serif';
+  const w = Math.min(250, g.measureText(n).width + 24);
+  g.fillStyle = 'rgba(0,0,0,0.45)'; g.fillRect(128 - w / 2, 10, w, 44);
+  g.fillStyle = '#fff'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(n, 128, 33);
+  const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthWrite: false }));
+  const sc = e.group.scale.y || 1;
+  sp.scale.set(1.5 / sc, 0.375 / sc, 1); sp.position.set(0, ((e.h || 1.5) + 0.5) / sc, 0);
+  e.group.add(sp); e.nameSprite = sp;
+  if(e.kind === 'animal' && !e.tamed){ keepAnimal(e); const r = herd.find(q => q.id === e.keepId); if(r){ r.name = n; saveHerd(); } }
+  else if(e.kind === 'nether' && e.keepId){ const r = keepers.find(q => q.id === e.keepId); if(r){ r.name = n; saveKeepers(); } }
+  if(!quiet){ flashName('Named ' + n); tone(900, 1200, 0.12, 'triangle', 0.05); }
+}
+// leads: an animal on a lead follows your hand; use a fence to tie it up, use the fence again to take it back
+const playerLeads = [];
+function leadAnchor(q){
+  if(q.post) return new THREE.Vector3(q.post[0] + 0.5, q.post[1] + 0.7, q.post[2] + 0.5);
+  if(xrActive && rightCtrl) return rightCtrl.getWorldPosition(new THREE.Vector3());
+  return new THREE.Vector3(player.pos.x, player.pos.y + 1.2, player.pos.z);
+}
+function leadAnimal(e){
+  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 0, 0, 0], 3));
+  const line = new THREE.Line(geo, leashMat); line.frustumCulled = false; scene.add(line);
+  playerLeads.push({ a: e, line, post: null });
+  playN({ f: 500, type: 'bandpass', dur: 0.1, vol: 0.1 });
+}
+function unlead(i, give){
+  const q = playerLeads[i]; scene.remove(q.line); q.line.geometry.dispose(); playerLeads.splice(i, 1);
+  if(give && mode === 'survival' && !addItem(LEAD)) spawnDropAt(player.pos.x, player.pos.y + 1, player.pos.z, LEAD, 1);
+}
+function updatePlayerLeads(){
+  for(let i = playerLeads.length - 1; i >= 0; i--){
+    const q = playerLeads[i], a = q.a;
+    if(!animals.includes(a)){ unlead(i, false); continue; }
+    const P = leadAnchor(q), dx = P.x - a.pos.x, dz = P.z - a.pos.z, d = Math.hypot(dx, dz), slack = q.post ? 3 : 2.5;
+    if(!q.post && d > 12){ unlead(i, false); if(mode === 'survival') spawnDropAt(a.pos.x, a.pos.y + 1, a.pos.z, LEAD, 1); flashName('The lead snapped'); continue; }
+    if(d > slack){ const k = Math.min(0.25, (d - slack) * 0.08); a.pos.x += dx * k / d * Math.min(d, 3); a.pos.z += dz * k / d * Math.min(d, 3); a.yaw = Math.atan2(-dx, -dz); if(d > slack + 2 && a.onGround && P.y > a.pos.y + 1.2) a.vel.y = 6; }
+    const at = q.line.geometry.attributes.position;
+    at.setXYZ(0, P.x, P.y, P.z); at.setXYZ(1, a.pos.x, a.pos.y + (a.h || 1) * 0.8, a.pos.z); at.needsUpdate = true;
+  }
+}
+function useLeadsAndTags(hit, eh, held, survival){
+  if(eh && (!hit || eh.t < hit.t) && !eh.e.puppet){
+    const e = eh.e;
+    if(held === NAME_TAG && e.group && e.pos){ const n = askName(e.nameTag); if(n){ nameMob(e, n); if(survival) consumePlacedItem(); } triggerViewSwing(); return true; }
+    if(e.kind === 'animal'){
+      const li = playerLeads.findIndex(q => q.a === e);
+      if(li >= 0 && !playerLeads[li].post){ unlead(li, true); triggerViewSwing(); return true; }
+      if(held === LEAD){ if(li >= 0) unlead(li, false); leadAnimal(e); if(survival) consumePlacedItem(); triggerViewSwing(); return true; }
+    }
+  }
+  if(hit && isFenceish(hit.id) && (!eh || hit.t <= eh.t)){
+    const mine = playerLeads.filter(q => !q.post), tied = playerLeads.filter(q => q.post && q.post[0] === hit.x && q.post[1] === hit.y && q.post[2] === hit.z);
+    if(mine.length){ for(const q of mine){ q.post = [hit.x, hit.y, hit.z]; keepAnimal(q.a); } flashName('Tied to the fence'); triggerViewSwing(); return true; }
+    if(tied.length){ for(const q of tied) q.post = null; flashName('Untied'); triggerViewSwing(); return true; }
+  }
+  return held === SPYGLASS || held === COMPASS || held === CLOCK;   // nothing to place
+}
+// the compass and the clock draw their faces on the map you'd hold
+function drawDial(which){
+  const N = MAP_N, c = N / 2, R = N / 2 - 4, now = performance.now() / 1000;
+  msx.clearRect(0, 0, N, N);
+  msx.fillStyle = which === CLOCK ? '#d2aa32' : '#6e7078'; msx.beginPath(); msx.arc(c, c, R + 3, 0, Math.PI * 2); msx.fill();
+  if(which === COMPASS){
+    msx.fillStyle = '#34363e'; msx.beginPath(); msx.arc(c, c, R - 3, 0, Math.PI * 2); msx.fill();
+    msx.fillStyle = '#b8bac2'; msx.font = 'bold 12px sans-serif'; msx.textAlign = 'center'; msx.textBaseline = 'middle';
+    const look = camera.getWorldDirection(new THREE.Vector3()), heading = Math.atan2(look.x, -look.z);
+    const t = dim === 0 ? SPAWN : null, a = t ? Math.atan2(t.x - player.pos.x, -(t.z - player.pos.z)) - heading : now * 7;   // it spins where there's no spawn to point at
+    msx.save(); msx.translate(c, c); msx.rotate(a);
+    msx.fillStyle = '#d83030'; msx.beginPath(); msx.moveTo(0, -R + 8); msx.lineTo(6, 0); msx.lineTo(-6, 0); msx.closePath(); msx.fill();
+    msx.fillStyle = '#e8e8ec'; msx.beginPath(); msx.moveTo(0, R - 8); msx.lineTo(6, 0); msx.lineTo(-6, 0); msx.closePath(); msx.fill();
+    msx.restore();
+    if(t) msx.fillText(Math.round(Math.hypot(t.x - player.pos.x, t.z - player.pos.z)) + ' to spawn', c, N - 14);
+  } else {
+    // the clock's dial turns with the day: the sun rides over the top at noon, the moon at midnight
+    const a = dim === 0 ? (timeOfDay - 0.5) * Math.PI * 2 : now * 5;
+    msx.save(); msx.beginPath(); msx.arc(c, c, R - 3, 0, Math.PI * 2); msx.clip();
+    msx.translate(c, c); msx.rotate(-a);
+    msx.fillStyle = '#5a9ae6'; msx.fillRect(-R, -R, R * 2, R);
+    msx.fillStyle = '#1c2250'; msx.fillRect(-R, 0, R * 2, R);
+    msx.fillStyle = '#ffe050'; msx.beginPath(); msx.arc(0, -R * 0.55, R * 0.22, 0, Math.PI * 2); msx.fill();
+    msx.fillStyle = '#e6e6f0'; msx.beginPath(); msx.arc(0, R * 0.55, R * 0.18, 0, Math.PI * 2); msx.fill();
+    msx.restore();
+    msx.fillStyle = '#2a1a0a'; msx.fillRect(c - 2, 4, 4, 14);            // the marker at the top
+  }
+}
+// the spyglass: on a screen it zooms while you hold right-click; in VR a scope in your hand shows the view
+let spyRT = null, spyCam = null, spyMesh = null, spyFrame = 0, spyEl = null;
+const spyZoom = () => !xrActive && inGame && heldId() === SPYGLASS && mouseHeld[2];
+function updateSpyglass(){
+  const on = spyZoom();
+  if(!spyEl && on){ spyEl = document.createElement('div'); spyEl.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:15;background:radial-gradient(circle at 50% 50%,transparent 36%,#000 38%)'; document.body.appendChild(spyEl); }
+  if(spyEl) spyEl.style.display = on ? 'block' : 'none';
+  const vr = xrActive && inGame && !dead && heldId() === SPYGLASS && rightCtrl;
+  if(!vr){ if(spyMesh) spyMesh.visible = false; return; }
+  try {
+    if(!spyRT){
+      spyRT = new THREE.WebGLRenderTarget(256, 256); spyCam = new THREE.PerspectiveCamera(10, 1, 0.1, 500);
+      spyMesh = new THREE.Mesh(new THREE.CircleGeometry(0.045, 28), new THREE.MeshBasicMaterial({ map: spyRT.texture }));
+      spyMesh.position.set(0, 0.07, -0.06); rightCtrl.add(spyMesh);
+    }
+    spyMesh.visible = true;
+    if((spyFrame++ & 1) === 0){
+      rightCtrl.getWorldPosition(spyCam.position); rightCtrl.getWorldQuaternion(spyCam.quaternion);
+      const xrOn = renderer.xr.enabled, prev = renderer.getRenderTarget();
+      spyMesh.visible = false; renderer.xr.enabled = false;
+      renderer.setRenderTarget(spyRT); renderer.render(scene, spyCam); renderer.setRenderTarget(prev);
+      renderer.xr.enabled = xrOn; spyMesh.visible = true;
+    }
+  } catch(err){ if(spyMesh) spyMesh.visible = false; }
+}
+// a shulker box keeps what's in it: broken, it goes into your pack full; placed, it's full again
+let lastBoxKey = null;
+function breakShulkerBox(x, y, z){
+  const key = x + ',' + y + ',' + z, sl = chests[key];
+  delete chests[key]; chestsDirty = true;
+  const box = sl && sl.some(q => q.id && q.count > 0) ? sl.map(q => q.id && q.count > 0 ? [q.id, q.count, q.dur || 0] : 0) : null;
+  if(mode !== 'survival') return;
+  const e = survInv.find(q => !q.id || q.count <= 0);
+  if(e){ e.id = SHULKER_BOX; e.count = 1; e.dur = 0; e.ench = box ? { _box: box } : undefined; invDirty = true; renderHotbar(); flashName(box ? 'Shulker Box (full)' : 'Shulker Box'); return; }
+  if(sl) for(const q of sl) if(q.id && q.count > 0) spawnDropAt(x + 0.5, y + 0.6, z + 0.5, q.id, q.count);
+  spawnDropAt(x + 0.5, y + 0.5, z + 0.5, SHULKER_BOX, 1);
+}
+function fillPlacedBox(item){
+  if(item.id !== SHULKER_BOX || !lastBoxKey) return;
+  const key = lastBoxKey; lastBoxKey = null;
+  if(!item.ench || !item.ench._box) return;
+  chests[key] = Array.from({ length: 27 }, (_, i) => { const r = item.ench._box[i]; return r ? { id: r[0], count: r[1], dur: r[2] } : { id: 0, count: 0, dur: 0 }; });
+  chestsDirty = true;
 }
 // a torch flicked more than 8 times in 3 s burns out for a while (Minecraft's torch burnout)
 function rsTorchFlip(x, y, z){
@@ -19409,6 +19589,7 @@ function breakBlock(x, y, z, id){
     if(e && e.item && mode === 'survival') spawnDropAt(x + 0.5, y + 0.5, z + 0.5, e.item, 1);
     frameItems.delete(x + ',' + y + ',' + z); saveFrames();
   }
+  if(id === SHULKER_BOX){ breakShulkerBox(x, y, z); return; }
   if(isContainerBlock(id) || id===HOPPER){
     const key = id===HOPPER?'hopper:'+dim+':'+x+','+y+','+z:x + ',' + y + ',' + z;
     const sl = chests[key];
@@ -21891,7 +22072,7 @@ function stackName(q){
   if(!q || !q.id) return 'Empty';
   const e = q.ench ? Object.keys(q.ench).filter(k => ENCH[k]).map(k => ENCH[k].name + (ENCH[k].max > 1 ? ' ' + ROMAN[q.ench[k]] : '')) : [];
   const tr = trimOf(q.ench);
-  return nameOf(q.id) + (e.length ? ' (' + e.join(', ') + ')' : '') + (tr ? ' - ' + TRIM_NAMES[tr.p] + ' trim, ' + TRIM_MATS[tr.m][0] : '');
+  return (q.ench && q.ench._name ? '"' + q.ench._name + '" ' : '') + nameOf(q.id) + (e.length ? ' (' + e.join(', ') + ')' : '') + (tr ? ' - ' + TRIM_NAMES[tr.p] + ' trim, ' + TRIM_MATS[tr.m][0] : '');
 }
 function enchKinds(id){
   if(id === BOOK || id === ENCHANTED_BOOK) return ['book'];
@@ -22763,6 +22944,13 @@ function useAnvil(hit){
   if(!hit || hit.id !== ANVIL) return false;
   if(mode !== 'survival'){ flashName('Anvils mend tools in survival'); return true; }
   if(anvilBook(hit)) return true;
+  { const q = survInv[sel];
+    if(q.count > 0 && (player.crouching || key('ShiftLeft') || !(ITEMS[q.id] && ITEMS[q.id].tool))){   // rename it (a worn tool is mended instead, unless you crouch)
+      if(xpLevel < 1){ flashName('Renaming costs 1 level'); return true; }
+      const n = askName(q.ench && q.ench._name);
+      if(n){ q.ench = Object.assign({}, q.ench || {}, { _name: n }); spendLevels(1); saveXP(); invDirty = true; renderHotbar(); tone(1200, 900, 0.25, 'triangle', 0.14); flashName('Renamed: ' + n); triggerViewSwing(); }
+      return true;
+    } }
   const s = survInv[sel], it = s.count > 0 && ITEMS[s.id], t = it && it.tool;
   if(!t){ flashName('Hold a worn tool to mend it'); return true; }
   const max = TIER_DUR[t.tier - 1];
@@ -22886,7 +23074,7 @@ function toggleWaypoint(){
 }
 let treasureNote = null;
 function updateMap(dt){
-  const heldMap = heldId(), holding = inGame && !dead && (heldMap === MAP || ((heldMap === TREASURE_MAP || heldMap === TRIAL_MAP || heldMap === MANSION_MAP) && dim === 0)) && dim !== 1;
+  const heldMap = heldId(), holding = inGame && !dead && (heldMap === MAP || heldMap === COMPASS || heldMap === CLOCK || ((heldMap === TREASURE_MAP || heldMap === TRIAL_MAP || heldMap === MANSION_MAP) && dim === 0)) && dim !== 1;
   if(xrActive){
     if(!mapVRAttached && rightCtrl){ rightCtrl.add(mapVR); mapVR.position.set(0, 0.04, -0.14); mapVR.rotation.set(-1.1, 0, 0); mapVRAttached = true; }
     mapVR.visible = holding; mapFlat.visible = false;
@@ -22896,6 +23084,7 @@ function updateMap(dt){
     if(vmMesh) vmMesh.visible = !holding;
   }
   if(!holding) return;
+  if(heldMap === COMPASS || heldMap === CLOCK){ drawDial(heldMap); mapTex.needsUpdate = true; return; }
   const cx = Math.floor(player.pos.x), cz = Math.floor(player.pos.z);
   if(mapCx === null || Math.abs(cx - mapCx) > MAP_N / 2 || Math.abs(cz - mapCz) > MAP_N / 2){ mapCx = cx; mapCz = cz; mapRow = 0; mapRows(MAP_N / 4); }
   else if(cx !== mapCx || cz !== mapCz){
@@ -23668,7 +23857,8 @@ function updateHerd(dt){
     spawnAnimal(r.type, r.x, r.y + 0.2, r.z);
     if(animals.length > n){ const e = animals[animals.length - 1]; e.keepId = r.id; if(r.baby > 0) makeBaby(e, r.baby);
       if(r.tam) e.horseTamed = true; if(r.sad && RIDE[e.type]){ e.saddled = true; addSaddle(e); }
-      if(r.shorn){ e.shorn = true; for(const f of e.group.userData.fleece || []) f.visible = false; } }
+      if(r.shorn){ e.shorn = true; for(const f of e.group.userData.fleece || []) f.visible = false; }
+      if(r.name) nameMob(e, r.name, true); }
   }
   herdSaveT -= 2;
   if(herdSaveT <= 0){ herdSaveT = 10; saveHerd(); }
@@ -24310,6 +24500,8 @@ function animate(){
   if(inGame && !dead){ updateEffects(dt); updateAir(dt); updateConduits(dt); updateSculk(dt); updatePale(dt); updateNightMobs(dt); }
   updateXPOrbs(dt);
   if(inGame) updatePotions(dt);
+  if(inGame) updatePlayerLeads();
+  updateSpyglass();
   updateFishing(dt);
   updateShield(dt);
   if(inGame) updatePetsWorld(dt);
@@ -24651,6 +24843,7 @@ window.__bc = {
   playerSees, updatePale, paleState: () => ({ blossomOpen, paleHere }),
   potInfo, POT_KINDS, SPLASH0, LINGER0, TIPPED0, potionBurst, potClouds, applyPotion, potionOnMob, effectsNow2: () => effects,
   biomeVariant, builtNear, VARIANTS, SUNFLOWER, BAMBOO,
+  NAME_TAG, LEAD, COMPASS, CLOCK, SPYGLASS, SHULKER_BOX, nameMob, playerLeads, useLeadsAndTags, drawDial, breakShulkerBox,
   PISTON, STICKY_PISTON, PISTON_HEAD, STICKY_HEAD, DISPENSER, DROPPER, OBSERVER, pistonAct, dispense, observeAt, machineTile, rsPartAt: (x, y, z) => rsPart(x, y, z), rsSetPartAt: (x, y, z, p) => rsSetPart(x, y, z, p), chestSlotsAt: k => chestSlots(k),
   TRIM0, TRIM_NAMES, TRIM_MATS, trimOf, POT_MODS, eL, effSpeedMul, useSmithing, stackName, updateArmourModel,
   landDef, landsNear, LAND_KINDS, nearestMansion, MANSION_MAP, BRUSH, SHERD0, useBrush, brushLoot, updateLandmarks, templeLever, stampLands,
