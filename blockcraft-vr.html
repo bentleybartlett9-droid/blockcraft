@@ -19458,7 +19458,9 @@ function setVrMoveMode(m){
 const GORILLA_G = 16;
 const GORILLA_THROW = 1.18, GORILLA_MAX = 9, GORILLA_STEP = .35;
 const GORILLA_FLOOR = .15, GORILLA_BODY_H = 1.2, GORILLA_EYE_H = .95, GORILLA_BASE_DROP = .25, GORILLA_HAND_DROP = .2, GORILLA_PALM = .065, GORILLA_MEMORY = .12;
-const GORILLA_RELEASE_GAP = .018, GORILLA_PRESS_SPEED = .03, GORILLA_DRAG_LIMIT = .18;
+const GORILLA_RELEASE_GAP = .04, GORILLA_RELEASE_SPEED = .45, GORILLA_DRAG_LIMIT = .18, GORILLA_SETTLE = .006;
+// World collision is intentionally limited to the player's body capsule and these two palm points.
+const GORILLA_COLLIDER_SCOPE = 'body-and-palms';
 const gHands = Array.from({length:2},()=>({prev:null,localPrev:null,anchor:null,n:null,cell:null,tapT:0,releaseT:0,source:null}));
 const gHist=[];
 let gYaw=0,gWasHolding=false,gBodyPrev=null,gPrevDt=0;
@@ -19565,14 +19567,15 @@ function gorillaStep(dt){
    const separation=cur.clone().sub(h.anchor),gap=separation.dot(h.n),outSpeed=physicalDelta.dot(h.n)/dt;
    const sideways=separation.clone().addScaledVector(h.n,-gap).length();
    if(!support){unsafe=true;h.anchor=null;}
-   // A palm is a collision surface, not a grab: keep contact only while the real hand presses inward.
-   else if(outSpeed>-GORILLA_PRESS_SPEED||gap>GORILLA_RELEASE_GAP||(sideways>GORILLA_DRAG_LIMIT&&gap>-.025)||separation.length()>.55){h.anchor=null;h.releaseT=.05;}
+   // Resting on a surface is stable. Release only after a deliberate lift away; tiny
+   // controller jitter must not detach/re-catch the palm and bounce the player.
+   else if(gap>GORILLA_RELEASE_GAP||(outSpeed>GORILLA_RELEASE_SPEED&&gap>-.006)||(sideways>GORILLA_DRAG_LIMIT&&gap>-.025)||separation.length()>.55){h.anchor=null;h.releaseT=.07;}
   }
   if(!h.anchor&&h.releaseT<=0){
    const hit=handSweep(h.prev,cur);
    if(hit){h.anchor=hit.point;h.n=hit.n;h.cell=hit.cell;hapticPulse(hand,.3,20);if(h.tapT<=0){blockSfx(hit.id,'step');h.tapT=.15;}}
   }
-  if(h.anchor){const correction=h.anchor.clone().sub(cur);if(correction.length()>.0025)push.add(correction);holds++;}
+  if(h.anchor){const correction=h.anchor.clone().sub(cur);if(correction.length()>GORILLA_SETTLE)push.add(correction);holds++;}
    h.prev=cur;h.localPrev=local;
  });
  // A hard landing on the palms counts too; catching a wall still arrests a fall.
@@ -19643,7 +19646,10 @@ function updateVR(dt){
   xrRig.rotation.y = vrYawOffset;
   xrRig.updateMatrixWorld(true);
   // Stick mode moves with the left thumbstick. Gorilla mode uses hand motion only.
-  const la = readAxes('left');
+  const stickEnabled = vrStickLocomotionEnabled();
+  // Do not even sample locomotion axes in Gorilla mode. Some Quest controller
+  // mappings report stick presses alongside other values; none may affect the body.
+  const la = stickEnabled ? readAxes('left') : null;
   let mvx = 0, mvz = 0;
   if(la){ mvx = la[2] || 0; mvz = la[3] || 0; }
   const dz = Math.abs(mvz) > 0.15 ? mvz : 0, dx = Math.abs(mvx) > 0.15 ? mvx : 0;
@@ -19653,9 +19659,10 @@ function updateVR(dt){
   const yaw = e.y + vrYawOffset;
   player.yaw = yaw;                              // keep player.yaw synced for other systems
   const swimming=isWet(getBlock(Math.floor(player.pos.x),Math.floor(player.pos.y+.2),Math.floor(player.pos.z)));
-  const sprintPressed=!!readButtons('left')?.[3]?.pressed;
+  const sprintPressed=stickEnabled&&!!readButtons('left')?.[3]?.pressed;
   if(sprintPressed&&!vrSprintWas)vrSprint=!vrSprint;
   vrSprintWas=sprintPressed;
+  if(!stickEnabled)vrSprint=false;
   const speed = (player.fly ? (vrSprint?26:16) : swimming?2.6:vrSprint?7.2:4.3) * (effects.speed > 0 && !player.fly ? 1.4 : 1) * (effects.slowness > 0 && !player.fly ? 0.7 : 1);
   const fwdX = -Math.sin(yaw), fwdZ = -Math.cos(yaw);
   const rgtX =  Math.cos(yaw), rgtZ = -Math.sin(yaw);
@@ -19667,12 +19674,12 @@ function updateVR(dt){
     updateVignette(dt,false);
   } else {
     gorillaReset();
-    if(vrStickLocomotionEnabled()&&!gliding){
+    if(stickEnabled&&!gliding){
       player.vel.x += (wishX * speed * crouchMul - player.vel.x) * Math.min(1, dt * 10);
       player.vel.z += (wishZ * speed * crouchMul - player.vel.z) * Math.min(1, dt * 10);
     }
     // comfort: tunnel vision while the stick is driving us, ease it off when we stop
-    updateVignette(dt,vrStickLocomotionEnabled()&&(dx!==0||dz!==0));
+    updateVignette(dt,stickEnabled&&(dx!==0||dz!==0));
   }
 
   updateAvatarArms();
@@ -19693,7 +19700,7 @@ function updateVR(dt){
 
   // ---- crouch (left Y button, index 5) : slows; lowers normal VR ----
   const lb = readButtons('left');
-  vrCrouch = !!(lb && lb[5] && lb[5].pressed);
+  vrCrouch = stickEnabled && !!(lb && lb[5] && lb[5].pressed);
   player.crouching = vrCrouch;
   // Gorilla mode starts at its former crouched height; Y cannot lower it twice.
   const crouchDrop = vrCrouchDropForMode(vrCrouch);
