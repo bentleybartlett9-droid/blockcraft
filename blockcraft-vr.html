@@ -9227,11 +9227,12 @@ function combatHunt(e,range,dt){
  return null;
 }
 function skeletonShotVelocity(s,origin=new THREE.Vector3(s.pos.x,s.pos.y+1.4,s.pos.z),tp=player.pos,tv=player.vel,aimUp=1.25){
- // like Minecraft: aimed where you are now (keep moving and they miss), with a scatter that shrinks on harder difficulties
+ // they aim ahead of where you're heading - but by a different amount each shot, so moving makes you harder (not impossible) to hit
  const flat=Math.hypot(tp.x-origin.x,tp.z-origin.z),speed=20,t=Math.max(.1,flat/speed);
- const aim=tp.clone();aim.y+=aimUp;
- const spread=({peaceful:5,easy:4.5,normal:3.2,hard:2})[difficulty]??3.2,dx=aim.x-origin.x,dz=aim.z-origin.z,dl=Math.hypot(dx,dz)||1;
- return new THREE.Vector3(dx/dl*speed+(Math.random()-.5)*spread,(aim.y-origin.y+.5*18*t*t)/t+(Math.random()-.5)*spread,dz/dl*speed+(Math.random()-.5)*spread);
+ const [lo,hi,spread]=({peaceful:[.1,.6,5],easy:[.2,.9,4],normal:[.4,1.1,3],hard:[.6,1.1,2]})[difficulty]||[.4,1.1,3];
+ const lead=t*(lo+Math.random()*(hi-lo)),aim=tp.clone();if(tv){aim.x+=tv.x*lead;aim.z+=tv.z*lead;}aim.y+=aimUp;
+ const dx=aim.x-origin.x,dz=aim.z-origin.z,dl=Math.hypot(dx,dz)||1,T=Math.max(.1,dl/speed);
+ return new THREE.Vector3(dx/dl*speed+(Math.random()-.5)*spread,(aim.y-origin.y+.5*18*T*T)/T+(Math.random()-.5)*spread,dz/dl*speed+(Math.random()-.5)*spread);
 }
 function zombieDoorBreak(z,dt,active){
  if(difficulty!=='hard'||!active){z.doorBreak=0;return false;}
