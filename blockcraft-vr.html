@@ -11165,7 +11165,7 @@ const NETHER_TYPES = {
    beats with the souls inside, faster the angrier it gets, and the dark
    pulses around it. Left alone for a minute, it digs back into the ground. */
 function buildWarden(g, e){
-  const skin = entMat(0x0f3b45), dark = entMat(0x072229);
+  const skin = entMat(0x0f3b45, 'hide'), dark = entMat(0x072229, 'hide');
   const glow = new THREE.MeshBasicMaterial({ color: 0x40e8e8 }); e.glowMat = glow;
   for(const sx of [-0.3, 0.3]){ const lg = new THREE.Group(); lg.position.set(sx, 0.82, 0); g.add(lg); box(0.38, 0.82, 0.38, skin, 0, -0.41, 0, lg); e.legs.push(lg); }
   box(1.12, 1.2, 0.66, skin, 0, 1.42, 0, g);                                   // torso
@@ -11184,7 +11184,7 @@ function buildWarden(g, e){
    closer; look back and it freezes mid-step. Blows can't hurt it: break its
    heart in the pale oak trunk and it crumbles. It crumbles at dawn too. */
 function buildCreaking(g, e){
-  const bark = entMat(0x5d5147), dark = entMat(0x3a312a), moss = entMat(0x9aa18c);
+  const bark = entMat(0x5d5147, 'fur'), dark = entMat(0x3a312a, 'fur'), moss = entMat(0x9aa18c, 'fur');
   e.eyeMat = new THREE.MeshBasicMaterial({ color: 0xff8a20 });
   for(const sx of [-0.13, 0.13]){ const lg = new THREE.Group(); lg.position.set(sx, 1.2, 0); g.add(lg); box(0.18, 1.2, 0.2, bark, 0, -0.6, 0, lg); e.legs.push(lg); }
   box(0.46, 1.0, 0.3, bark, 0, 1.7, 0, g);
@@ -11304,9 +11304,9 @@ function buildBug(g, e, cols, n){
   e.segs = [];
   for(let i = 0; i < n; i++){
     const w = 0.26 - Math.abs(i - 1) * 0.05;
-    e.segs.push(box(w, 0.2 - i * 0.02, 0.16, entMat(cols[i % cols.length]), 0, 0.1, -0.18 + i * 0.15, g));
+    e.segs.push(box(w, 0.2 - i * 0.02, 0.16, entMat(cols[i % cols.length], 'chitin'), 0, 0.1, -0.18 + i * 0.15, g));
   }
-  box(0.08, 0.04, 0.04, entMat(0x202020), -0.08, 0.14, -0.27, g); box(0.08, 0.04, 0.04, entMat(0x202020), 0.08, 0.14, -0.27, g);   // feelers
+  box(0.08, 0.04, 0.04, entMat(0x202020, 'chitin'), -0.08, 0.14, -0.27, g); box(0.08, 0.04, 0.04, entMat(0x202020, 'chitin'), 0.08, 0.14, -0.27, g);   // feelers
 }
 function buildSilverfish(g, e){ buildBug(g, e, [0x8a8a8a, 0x7a7a7a, 0x6a6a6a, 0x5a5a5a], 4); }
 function buildEndermite(g, e){ buildBug(g, e, [0x2a1a3a, 0x3a2050, 0x2a1a3a], 3); box(0.04, 0.04, 0.02, new THREE.MeshBasicMaterial({ color: 0xc070ff }), 0, 0.2, -0.26, g); }
@@ -11319,7 +11319,7 @@ function bugThink(e, dt){
 }
 // phantoms: they come for anyone who hasn't slept in three days, circling high and swooping down
 function buildPhantom(g, e){
-  const skin = entMat(0x43518a), belly = entMat(0x5f6fa8);
+  const skin = entMat(0x43518a, 'scale'), belly = entMat(0x5f6fa8, 'scale');
   box(0.5, 0.18, 0.9, skin, 0, 0.25, 0, g);
   box(0.4, 0.12, 0.7, belly, 0, 0.18, 0, g);
   box(0.4, 0.16, 0.3, skin, 0, 0.26, -0.55, g);                                 // head
@@ -12878,7 +12878,7 @@ function flapAnim(e, dt, rate){
   if(e.wings) e.wings.forEach((w, j) => { w.rotation.z = (j ? -1 : 1) * Math.sin(e.wingT) * 0.7; });
 }
 function buildBat(g, e){
-  const fur = entMat(0x4a3a2a), wing = entMat(0x2a2018);
+  const fur = entMat(0x4a3a2a, 'fur'), wing = entMat(0x2a2018, 'fur');
   box(0.2, 0.26, 0.18, fur, 0, 0.22, 0, g); box(0.2, 0.16, 0.18, fur, 0, 0.42, 0, g);
   box(0.05, 0.08, 0.02, fur, -0.07, 0.53, 0, g); box(0.05, 0.08, 0.02, fur, 0.07, 0.53, 0, g);
   e.wings = [];
@@ -12887,11 +12887,11 @@ function buildBat(g, e){
 const PARROT_COLS = [[0xd02020, 0x2a6ad0, 0xf0c020], [0x2a6ad0, 0xf0c020, 0x2a6ad0], [0x40b040, 0xd02020, 0x2a6ad0], [0x40c0d0, 0xf0c020, 0x2a6ad0], [0xa0a0a0, 0xe06020, 0xd0d0d0]];
 function buildParrot(g, e){
   e.col = e.col ?? ((Math.random() * PARROT_COLS.length) | 0);
-  const [c0, c1, c2] = PARROT_COLS[e.col], body = entMat(c0), wing = entMat(c1), tail = entMat(c2), beak = entMat(0x3a3a3a);
+  const [c0, c1, c2] = PARROT_COLS[e.col], body = entMat(c0, 'feather'), wing = entMat(c1, 'feather'), tail = entMat(c2, 'feather'), beak = entMat(0x3a3a3a);
   box(0.2, 0.32, 0.2, body, 0, 0.3, 0.02, g);
   box(0.18, 0.18, 0.18, body, 0, 0.53, -0.04, g);
   box(0.06, 0.1, 0.08, beak, 0, 0.5, -0.16, g);
-  box(0.04, 0.04, 0.02, entMat(0x101010), -0.09, 0.56, -0.08, g); box(0.04, 0.04, 0.02, entMat(0x101010), 0.09, 0.56, -0.08, g);
+  box(0.04, 0.04, 0.02, entMat(0x101010, 'feather'), -0.09, 0.56, -0.08, g); box(0.04, 0.04, 0.02, entMat(0x101010, 'feather'), 0.09, 0.56, -0.08, g);
   const tl = box(0.1, 0.22, 0.04, tail, 0, 0.12, 0.14, g); tl.rotation.x = 0.3;
   for(const lx of [-0.05, 0.05]) box(0.04, 0.1, 0.04, beak, lx, 0.09, 0.02, g);
   e.wings = [];
@@ -24627,11 +24627,11 @@ function buildSea(e){
   if(T === 'guardian' || T === 'elder'){
     // a guardian: a spiked box with one great eye and a tail; the elder is bigger and pale
     const big = T === 'elder' ? 2.35 : 1, sz = 0.75 * big, cy = sz / 2 + 0.05;
-    const skin = entMat(T === 'elder' ? 0xcfc8b4 : 0x5f9c8c), belly = entMat(T === 'elder' ? 0xa9a290 : 0x467a6a), spike = entMat(T === 'elder' ? 0xe0d8c8 : 0xd8894a);
+    const skin = entMat(T === 'elder' ? 0xcfc8b4 : 0x5f9c8c, 'scale'), belly = entMat(T === 'elder' ? 0xa9a290 : 0x467a6a, 'scale'), spike = entMat(T === 'elder' ? 0xe0d8c8 : 0xd8894a, 'scale');
     e.body = box(sz, sz, sz, skin, 0, cy, 0, g);
     box(sz * 0.92, sz * 0.12, sz * 0.92, belly, 0, 0.05 + sz * 0.06, 0, g);
     box(sz * 0.4, sz * 0.4, 0.02, white, 0, cy, -sz / 2 - 0.01, g);
-    e.eye = box(sz * 0.16, sz * 0.16, 0.02, entMat(T === 'elder' ? 0x8a3a9a : 0xe07830), 0, cy, -sz / 2 - 0.022, g);
+    e.eye = box(sz * 0.16, sz * 0.16, 0.02, entMat(T === 'elder' ? 0x8a3a9a : 0xe07830, 'scale'), 0, cy, -sz / 2 - 0.022, g);
     const L = 0.3 * big, t = 0.05 * big;
     for(const [ax, ay, az, dx, dy, dz] of [[1,0,0, 1,0.25,0.25],[1,0,0, 1,-0.25,-0.25],[-1,0,0, -1,0.25,-0.25],[-1,0,0, -1,-0.25,0.25],
                                            [0,1,0, 0.25,1,0.25],[0,1,0, -0.25,1,-0.25],[0,-1,0, 0.25,-1,-0.25],[0,-1,0, -0.25,-1,0.25],[0,0,1, 0.3,0.3,1],[0,0,1, -0.3,-0.3,1]])
@@ -24642,7 +24642,7 @@ function buildSea(e){
     box(sz * 0.12, sz * 0.4, sz * 0.36, spike, 0, 0, sz * 1.1, e.tail);
   } else if(T === 'pufferfish'){
     // a pufferfish: small and yellow - it swells into a spiky ball when you come near
-    const y = entMat(0xe8c040), o = entMat(0xe07830), wht = entMat(0xf0f0e0);
+    const y = entMat(0xe8c040, 'scale'), o = entMat(0xe07830, 'scale'), wht = entMat(0xf0f0e0, 'scale');
     box(0.28, 0.24, 0.3, y, 0, 0.15, 0, g); box(0.26, 0.06, 0.28, wht, 0, 0.05, 0, g);
     box(0.04, 0.05, 0.02, eye, -0.1, 0.2, -0.16, g); box(0.04, 0.05, 0.02, eye, 0.1, 0.2, -0.16, g);
     e.tail = pivot(0, 0.15, 0.15); box(0.02, 0.14, 0.12, o, 0, 0, 0.06, e.tail);
@@ -24652,19 +24652,19 @@ function buildSea(e){
       box(0.04, 0.04, 0.04, o, x, yy, z, e.puffG);
   } else if(T === 'tadpole'){
     // a tadpole: a speck of a body and a wriggling tail; it grows into a frog
-    const bd = entMat(0x4a3a2a);
+    const bd = entMat(0x4a3a2a, 'scale');
     box(0.14, 0.1, 0.14, bd, 0, 0.07, 0, g);
-    e.tail = pivot(0, 0.07, 0.07); box(0.02, 0.07, 0.16, entMat(0x6a5a4a), 0, 0, 0.08, e.tail);
+    e.tail = pivot(0, 0.07, 0.07); box(0.02, 0.07, 0.16, entMat(0x6a5a4a, 'scale'), 0, 0, 0.08, e.tail);
   } else if(T === 'squid' || T === 'glowsquid'){
     const glow = T === 'glowsquid';                                 // a glow squid shines in the dark water
-    const m = glow ? new THREE.MeshBasicMaterial({ color: 0x2ad1c0 }) : entMat(0x2a4478), d = glow ? new THREE.MeshBasicMaterial({ color: 0x1a8a90 }) : entMat(0x1c2e56);
+    const m = glow ? new THREE.MeshBasicMaterial({ color: 0x2ad1c0 }) : entMat(0x2a4478, 'scale'), d = glow ? new THREE.MeshBasicMaterial({ color: 0x1a8a90 }) : entMat(0x1c2e56, 'scale');
     e.body = box(0.62, 0.86, 0.62, m, 0, 1.0, 0, g);
     box(0.12, 0.12, 0.02, white, -0.17, 0.78, -0.32, g); box(0.12, 0.12, 0.02, white, 0.17, 0.78, -0.32, g);
     box(0.06, 0.06, 0.02, eye, -0.17, 0.78, -0.335, g); box(0.06, 0.06, 0.02, eye, 0.17, 0.78, -0.335, g);
     e.tent = [];
     for(let i = 0; i < 8; i++){ const a = i / 8 * Math.PI * 2; e.tent.push([limb(0.1, 0.72, 0.1, d, Math.sin(a) * 0.2, 0.6, Math.cos(a) * 0.2, g), a]); }
   } else if(T === 'dolphin'){
-    const m = entMat(0x7a889c), l = entMat(0xc8d0dc);
+    const m = entMat(0x7a889c, 'scale'), l = entMat(0xc8d0dc, 'scale');
     box(0.5, 0.42, 1.2, m, 0, 0.3, 0, g);
     box(0.44, 0.1, 1.0, l, 0, 0.1, -0.05, g);
     box(0.18, 0.14, 0.34, m, 0, 0.24, -0.76, g);                       // the beak
@@ -24676,7 +24676,7 @@ function buildSea(e){
     box(0.56, 0.06, 0.2, m, 0, 0, 0.36, e.tail);
   } else {
     const big = T === 'salmon' ? 1.3 : 1, col = T === 'cod' ? [0x9c8a64, 0xc8b690] : T === 'salmon' ? [0xa8423a, 0x56684c] : [TROP_COLS[(Math.random() * TROP_COLS.length) | 0], TROP_COLS[(Math.random() * TROP_COLS.length) | 0]];
-    const a = entMat(col[0]), b = entMat(col[1]);
+    const a = entMat(col[0], 'scale'), b = entMat(col[1], 'scale');
     const w = (T === 'tropical' ? 0.1 : 0.18) * big, h = (T === 'tropical' ? 0.26 : 0.24) * big, len = (T === 'tropical' ? 0.3 : 0.52) * big;
     box(w, h, len, a, 0, h / 2 + 0.03, 0, g);
     if(T === 'tropical') box(w + 0.01, h + 0.01, len * 0.25, b, 0, h / 2 + 0.03, 0, g);               // a bright stripe
@@ -25980,6 +25980,9 @@ btnVignette.addEventListener('click', () => {
   set(spiderMats, 'chitin'); set(caveSpiderMats, 'chitin'); set(crawlerMats, 'chitin');
   set(golemMats, 'metal');
   set(sgMats, 'wool');
+  for(const [k, m] of Object.entries(ILL)) if(m.userData.skin === 'grain' && !keep.test(k)){ const kind = k === 'skin' ? 'skin' : /Jacket|Shirt|Pants|Robe|Trim|banner/.test(k) ? 'cloth' : k === 'wood' ? 'fur' : 'grain'; m.userData.skin = kind; if(mobSkinsOn){ m.map = mobSkinTex(kind); m.needsUpdate = true; } }   // illagers
+  set(VEXM, 'skin'); set(RAV, 'hide'); set(WTM, 'cloth'); set(TLM, 'cloth');
+  set(CG_MATS, 'metal'); set(CG_DARK, 'metal');
   for(const [k, m] of Object.entries(vilMats)) if(/robe|arm/i.test(k) && m.userData.skin === 'skin'){ m.userData.skin = 'cloth'; if(mobSkinsOn){ m.map = mobSkinTex('cloth'); m.needsUpdate = true; } }   // villagers' robes are cloth
 })();
 /* mob textures on or off */
