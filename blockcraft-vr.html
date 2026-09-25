@@ -181,6 +181,7 @@
   <button class="mcbtn" id="btnMusic">Music: On</button>
   <button class="mcbtn" id="btnRender">Render Distance: 5</button>
   <button class="mcbtn" id="btnVignette">VR Comfort: On</button>
+  <button class="mcbtn" id="btnSkins">Mob Textures: On</button>
   <button class="mcbtn" id="btnMove">VR Gorilla Arms: Off</button>
   <button class="mcbtn" id="btnDifficulty">Difficulty: Normal</button>
   <button class="mcbtn" id="btnQuit">Save &amp; Quit to Title</button>
@@ -9849,11 +9850,42 @@ function updateSleep(){
 
 /* ====================== shared entity helpers ======================= */
 const entMats = [];
-function entMat(color){
+/* Mob skins: a creature's colours carry a pixel texture at Minecraft's scale -
+   16 texels to a block, the same on every box - so mobs look pixel-drawn rather
+   than flat. A grey pattern multiplies the colour, so tints (a creeper's flash,
+   night) still work. Switch it off in the pause menu. */
+const SKIN_ON_KEY = 'bc-mobskins', SKIN_TEX = {};
+let mobSkinsOn = localStorage.getItem(SKIN_ON_KEY) !== '0';
+function mobSkinTex(kind){
+  if(SKIN_TEX[kind]) return SKIN_TEX[kind];
+  const cv = document.createElement('canvas'); cv.width = cv.height = 16;
+  const g = cv.getContext('2d'), S = kind.length * 131 + kind.charCodeAt(0);
+  for(let y = 0; y < 16; y++) for(let x = 0; x < 16; x++){
+    const r = hash(x, y, S), c = hash(x >> 1, y >> 1, S + 7), c4 = hash(x >> 2, y >> 2, S + 11);
+    let v;
+    if(kind === 'creeper') v = r < 0.08 ? 120 : [165, 200, 232, 255][Math.min(3, Math.floor(c * 3.2 + r * 0.8))];   // the mottled greens
+    else if(kind === 'bone') v = r < 0.06 ? 200 : 236 + r * 19;
+    else if(kind === 'wool') v = 212 + c * 30 + r * 13;                                                          // tufts
+    else if(kind === 'cloth') v = (y % 4 === 3 ? 212 : 236) + r * 16 + (c4 < 0.2 ? -14 : 0);                    // weave and wear
+    else v = r < 0.07 ? 208 : 232 + r * 23 + (c4 - 0.5) * 8;                                                       // hide, fur, skin
+    v = Math.max(0, Math.min(255, Math.round(v)));
+    g.fillStyle = 'rgb(' + v + ',' + v + ',' + v + ')'; g.fillRect(x, y, 1, 1);
+  }
+  const t = new THREE.CanvasTexture(cv);
+  t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; t.generateMipmaps = false;
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace;
+  return SKIN_TEX[kind] = t;
+}
+function entMat(color, skin = 'grain'){
   const m = new THREE.MeshBasicMaterial({ color, vertexColors:true });
   m.userData.base = new THREE.Color(color);
+  if(skin){ m.userData.skin = skin; if(mobSkinsOn) m.map = mobSkinTex(skin); }
   entMats.push(m);
   return m;
+}
+function setMobSkins(on){
+  mobSkinsOn = on; localStorage.setItem(SKIN_ON_KEY, on ? '1' : '0');
+  for(const m of entMats) if(m.userData.skin){ m.map = on ? mobSkinTex(m.userData.skin) : null; m.needsUpdate = true; }
 }
 function box(w, h, d, mat, x, y, z, parent){
   const geo=new THREE.BoxGeometry(w,h,d),normals=geo.attributes.normal,colors=[];
@@ -9863,6 +9895,11 @@ function box(w, h, d, mat, x, y, z, parent){
     colors.push(shade,shade,shade);
   }
   geo.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
+  if(Array.isArray(mat) ? mat.every(q => q.userData.skin) : mat && mat.userData.skin){
+    // texels stay one-sixteenth of a block whatever the box's size, from a random spot on the pattern
+    const uv = geo.attributes.uv, dims = [[d, h], [d, h], [w, d], [w, d], [w, h], [w, h]], ox = Math.random(), oy = Math.random();
+    for(let f = 0; f < 6; f++) for(let k = 0; k < 4; k++){ const i = f * 4 + k; uv.setXY(i, uv.getX(i) * dims[f][0] + ox, uv.getY(i) * dims[f][1] + oy); }
+  }
   const m = new THREE.Mesh(geo, mat);
   m.position.set(x, y, z);
   parent.add(m);
@@ -9882,7 +9919,7 @@ function removeEnt(list, i){
 /* ============================ animals =============================== */
 const animals = [];
 const pigMats = { body: entMat(0xe89aa4), belly: entMat(0xd07f8a), head: entMat(0xeba6b0), snout: entMat(0xcf6f7d), nostril: entMat(0x8f4b57), ear: entMat(0xd98d98), leg: entMat(0xc9757f), hoof: entMat(0x6b4046), eye: entMat(0x2a1518) };
-const sheepMats = { wool: entMat(0xefefe8), woolSh: entMat(0xd8d8ce), head: entMat(0x2f2a24), leg: entMat(0x2a2620), eye: entMat(0x120f0c) };
+const sheepMats = { wool: entMat(0xefefe8, 'wool'), woolSh: entMat(0xd8d8ce, 'wool'), head: entMat(0x2f2a24), leg: entMat(0x2a2620), eye: entMat(0x120f0c) };
 const mooMats = { body: entMat(0xa3201c), spot: entMat(0xdcd6cc), head: entMat(0xa8261f), snout: entMat(0xd8b0a0), leg: entMat(0x8e1c18), hoof: entMat(0x1f1712),
                   horn: entMat(0xd8d0be), eye: entMat(0x150d0a), udder: entMat(0xe6a3a8), stem: entMat(0xe8e0d0), cap: entMat(0xc41c18) };
 const cowMats = { body: entMat(0x4b3226), spot: entMat(0xe9e4d6), head: entMat(0x5a4030), snout: entMat(0xc7a58f), leg: entMat(0x3a2820), hoof: entMat(0x1f1712), horn: entMat(0xd8d0be), eye: entMat(0x150d0a), udder: entMat(0xe6a3a8) };
@@ -10510,7 +10547,7 @@ function animMob(e, dt){
 
 /* ============================ zombies =============================== */
 const zombies = [];
-const zMats = { skin: entMat(0x70a858), shirt: entMat(0x2c7874), pants: entMat(0x463f99) };
+const zMats = { skin: entMat(0x70a858), shirt: entMat(0x2c7874, 'cloth'), pants: entMat(0x463f99, 'cloth') };
 const huskMats = { skin: entMat(0x8f7d57), shirt: entMat(0x6b5b3c), pants: entMat(0x4c4332) };
 const zvMats = { skin: entMat(0x5f8f4a), shirt: entMat(0x5a3f2a), pants: entMat(0x3f3222), nose: entMat(0x4f7a3c) };
 const dMats = { skin: entMat(0x5aa39a), shirt: entMat(0x3f6f68), pants: entMat(0x44587a), weed: entMat(0x3c7a3a) };
@@ -14054,8 +14091,8 @@ function updateZombies(dt, daylight){
 }
 /* =========================== skeletons ============================== */
 const skeletons = [];
-const skelMats = { bone: entMat(0xdcdcd6), dark: entMat(0xa8a8a0), bow: entMat(0x8a6b3a), eye: entMat(0x1c1c1c) };
-const strayMats = { bone: entMat(0xb8c4c6), dark: entMat(0x8a9a9c), rag: entMat(0x6d8a92) };
+const skelMats = { bone: entMat(0xdcdcd6, 'bone'), dark: entMat(0xa8a8a0, 'bone'), bow: entMat(0x8a6b3a), eye: entMat(0x1c1c1c, null) };
+const strayMats = { bone: entMat(0xb8c4c6, 'bone'), dark: entMat(0x8a9a9c, 'bone'), rag: entMat(0x6d8a92, 'cloth') };
 const boggedMats = { bone: entMat(0xb4b88f), dark: entMat(0x6f7a4c), moss: entMat(0x4e6b2c), cap: entMat(0x9a2a24) };
 const helmMats = [null, entMat(0x8b5a2b), entMat(0xf3d34a), entMat(0x8f8f8f), entMat(0xd8d8d8)];   // leather, gold, chain, iron
 /* arrows you can see properly: a shaft, a stone head, white fletching */
@@ -14495,7 +14532,7 @@ function updateTNT(dt){
 }
 /* creepers */
 const creepers = [];
-const creepMats = { skin: entMat(0x54b04a), dark: entMat(0x3d8a36), foot: entMat(0x3a6e34), face: entMat(0x0f1712) };
+const creepMats = { skin: entMat(0x54b04a, 'creeper'), dark: entMat(0x3d8a36, 'creeper'), foot: entMat(0x3a6e34, 'creeper'), face: entMat(0x0f1712, null) };
 function spawnCreeper(x, y, z){
   const g = new THREE.Group();
   const legs = [];
@@ -25919,6 +25956,11 @@ btnVignette.addEventListener('click', () => {
   uiClick();
 });
 
+/* mob textures on or off */
+const btnSkins = document.getElementById('btnSkins');
+btnSkins.textContent = 'Mob Textures: ' + (mobSkinsOn ? 'On' : 'Off');
+btnSkins.addEventListener('click', () => { setMobSkins(!mobSkinsOn); btnSkins.textContent = 'Mob Textures: ' + (mobSkinsOn ? 'On' : 'Off'); uiClick(); });
+
 /* VR gorilla arms: on top of the thumbstick */
 document.getElementById('btnMove').textContent = 'VR Gorilla Arms: ' + (vrMoveMode === 'gorilla' ? 'On' : 'Off');
 document.getElementById('btnMove').addEventListener('click', () => {
@@ -26084,6 +26126,7 @@ window.__bc = {
   COMPARATOR, TARGET, TRIPWIRE_HOOK, TRIPWIRE, DAYLIGHT, containerSignal, tripAt, hitTarget, updateRedstoneReaders, placeRSAt: (x, y, z, id, hit) => placeRS(x, y, z, id, hit),
   bowState: () => ({ bowDraw, crossLoad, crossWait }), startBowDraw, fireBow, useCrossbow, fireCrossbow, finishCrossLoad, updateArchery, bowPower, skelShoot, rocketBlast, makeBowModel, setBowPull,
   CROSSBOW, CROSSBOW_ARROW, CROSSBOW_ROCKET, BOW, ARROW_I,
+  setMobSkins, mobSkinTex,
   DECO: { decoKey, setDeco, decoPlaced, useCandle, usePot, CANDLE0, CANDLE_LIT0, BANNER0, DECO_POT, SCAFFOLD, ARMOR_STAND, LOOM, decoState, useDecorations, armourStands, spawnStand, openLoom, closeLoom, loomApply, scaffDistances, scaffComponent, placeScaffold, breakDeco, BANNER_PATS, drawBanner, bannerCloths, updateDeco, hitStand, inScaffold, setBannerPats },
   NAME_TAG, LEAD, COMPASS, CLOCK, SPYGLASS, SHULKER_BOX, nameMob, playerLeads, useLeadsAndTags, drawDial, breakShulkerBox,
   PISTON, STICKY_PISTON, PISTON_HEAD, STICKY_HEAD, DISPENSER, DROPPER, OBSERVER, pistonAct, dispense, observeAt, machineTile, rsPartAt: (x, y, z) => rsPart(x, y, z), rsSetPartAt: (x, y, z, p) => rsSetPart(x, y, z, p), chestSlotsAt: k => chestSlots(k),
