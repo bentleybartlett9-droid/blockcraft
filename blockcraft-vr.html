@@ -2743,6 +2743,21 @@ COLORS.forEach((c, i) => {
   BLOCKS[CARPET[i]] = { name: c + ' Carpet', all: -1 };                    // tile set below, from its wool
   ITEMS[DYE[i]] = { name: c + ' Dye', icon: 268 + i };
 });
+/* Decorations from Minecraft: candles you light and group up to four, banners
+   patterned on the loom, decorated pots with sherds on their sides, scaffolding
+   to climb, and armour stands to dress. */
+const CANDLE0 = 5514, CANDLE_LIT0 = 5531, BANNER0 = 5548, DECO_POT = 5564, SCAFFOLD = 5565, ARMOR_STAND = 5608;
+['', ...COLORS].forEach((c, i) => {
+  BLOCKS[CANDLE0 + i] = { name: (c ? c + ' ' : '') + 'Candle', all: 746 + i };
+  BLOCKS[CANDLE_LIT0 + i] = { name: (c ? c + ' ' : '') + 'Candle', all: 746 + i, hidden: true };
+});
+COLORS.forEach((c, i) => { BLOCKS[BANNER0 + i] = { name: c + ' Banner', all: 781 + i }; });
+BLOCKS[DECO_POT] = { name: 'Decorated Pot', all: 798 };
+BLOCKS[SCAFFOLD] = { name: 'Scaffolding', top: 809, bottom: 809, side: 810 };
+ITEMS[ARMOR_STAND] = { name: 'Armour Stand', icon: 484 };
+const isCandle = id => id >= CANDLE0 && id < CANDLE0 + 34, candleLit = id => id >= CANDLE_LIT0 && id < CANDLE_LIT0 + 17, candleCol = id => (id - CANDLE0) % 17;
+const isBanner = id => id >= BANNER0 && id < BANNER0 + 16;
+const isDecoBlock = id => id >= CANDLE0 && id <= SCAFFOLD;
 BLOCKS[GRANITE]={name:'Granite',all:497};BLOCKS[P_GRANITE]={name:'Polished Granite',all:498};BLOCKS[DIORITE]={name:'Diorite',all:499};
 BLOCKS[P_DIORITE]={name:'Polished Diorite',all:500};BLOCKS[ANDESITE]={name:'Andesite',all:501};BLOCKS[P_ANDESITE]={name:'Polished Andesite',all:502};
 ITEMS[COCOA]={name:'Cocoa Beans',icon:284};
@@ -2992,7 +3007,7 @@ const isPlant  = id => isSapling(id) || FLORA_IDS.has(id) || id === TGRASSB || i
                        id === MUSHROOMR || id === MUSHROOMB || id === EYEBLOSSOM_C || id === EYEBLOSSOM_O ||
                        id === WHEAT0 || id === WHEAT1 || id === WHEAT2 || id === WHEAT3 || (id >= CARROT0 && id <= POTATO3) || FARM_CROP_BLOCKS.has(id) || CAVE_PLANTS.has(id) || NETHER_PLANTS.has(id);
 const isCross  = id => id === PALE_HANGING_MOSS || OCEAN_PLANTS.has(id) || id === AQ_CONDUIT || id === RS_TORCH || id === RS_TORCH_OFF || id===GLOWCRYSTAL || isPlant(id) || id === TORCH || id === COBWEB || id === IRONBARS || CAVE_CROSS.has(id) || NETHER_CROSS.has(id);
-const isFlat   = id => id === COMPARATOR || id === TRIPWIRE || id === TRIPWIRE_HOOK || CARPETS.has(id) || id === PALE_MOSS_CARPET || (id >= LEVER && id <= PLATE_WOOD) || id === RS_WIRE || id === REPEATER || id === BED || id === BEDHEAD || id === RAIL || id === SNOW_LAYER || id === LADDER || id === PAINTING || id === FRAME || id === FLOWERPOT || isCake(id) || id === LANTERN || id === CAMPFIRE;   // thin plate on the ground (or, for a ladder, on a wall)
+const isFlat   = id => (id >= 5514 && id <= 5565) || id === COMPARATOR || id === TRIPWIRE || id === TRIPWIRE_HOOK || CARPETS.has(id) || id === PALE_MOSS_CARPET || (id >= LEVER && id <= PLATE_WOOD) || id === RS_WIRE || id === REPEATER || id === BED || id === BEDHEAD || id === RAIL || id === SNOW_LAYER || id === LADDER || id === PAINTING || id === FRAME || id === FLOWERPOT || isCake(id) || id === LANTERN || id === CAMPFIRE;   // thin plate on the ground (or, for a ladder, on a wall)
 const isSlab   = id => SLABS.has(id) || id === SLAB_STONE || id === SLAB_WOOD || id === SLAB_BRICK || id === SLAB_SAND || id === SLAB_NBRICK;
 const isStair  = id => STAIRS.has(id) || id === STAIR_STONE || id === STAIR_WOOD || id === STAIR_BRICK || id === STAIR_SAND || id === STAIR_NBRICK;
 const isPartial = id => isSlab(id) || isStair(id);   // custom-geometry, non-full blocks
@@ -3030,7 +3045,7 @@ function faceVisible(b, n){
   if(b === GLASS) return n === WATER;
   return !isOpaque(n);
 }
-const dropOf = id => id===TRIPWIRE?STRING:id===PISTON_HEAD?PISTON:id===STICKY_HEAD?STICKY_PISTON:id===CREAKING_HEART_ON?CREAKING_HEART:id===PALE_GRASS?DIRT:id===EYEBLOSSOM_O?EYEBLOSSOM_C:id===MYCELIUM?DIRT:id===SEA_LANTERN?PRISMARINE_CRYSTALS:CORALB_SET.has(id)?DEAD_CORALB:id===RS_WIRE?REDSTONE:id===RS_TORCH_OFF?RS_TORCH:id===LAMP_ON?LAMP:DEEP_BASE[id] ? dropOf(DEEP_BASE[id]) : id===IRONO?RAW_IRON:id===GOLDO?RAW_GOLD:id===COPPERO?RAW_COPPER:id===REDSTONE_ORE?REDSTONE:id===LAPIS_ORE?LAPIS:id===STONE?COBBLE:id===BEDHEAD?BED:id===BEEHIVE_FULL?BEEHIVE:id===GATE_OPEN?GATE:id===SKYGRASS?STORMSTONE:id===VOLTITE_ORE?VOLTITE:id===CONDUIT_LIT?CONDUIT:id===CHORUS_PLANT?CHORUS_FRUIT:id===ANCHOR_LIT?ANCHOR:id===CRIM_NYL||id===WARP_NYL?NETHERRACK:id===QUARTZ_ORE?QUARTZ:id===NGOLD_ORE?GNUGGET:id===GILDED?(Math.random()<.1?GNUGGET:GILDED):id===SNOWY_GRASS?DIRT:id===GLOWVINE?BERRIES:id===AMETHYST_C||id===BUDDING?AMETHYST_SHARD:id===DRIP_DOWN?DRIP_UP:id===BERRYBUSH?BERRIES:id===CRYSTALORE||id===GLOWCRYSTAL?CRYSTALSHARD:id === GRASS || id === SAVGRASS || id === FARMLAND ? DIRT : id === COALO ? COALI : id === DIAMO ? DIAMI :
+const dropOf = id => id>=5531&&id<=5547?id-17:id===TRIPWIRE?STRING:id===PISTON_HEAD?PISTON:id===STICKY_HEAD?STICKY_PISTON:id===CREAKING_HEART_ON?CREAKING_HEART:id===PALE_GRASS?DIRT:id===EYEBLOSSOM_O?EYEBLOSSOM_C:id===MYCELIUM?DIRT:id===SEA_LANTERN?PRISMARINE_CRYSTALS:CORALB_SET.has(id)?DEAD_CORALB:id===RS_WIRE?REDSTONE:id===RS_TORCH_OFF?RS_TORCH:id===LAMP_ON?LAMP:DEEP_BASE[id] ? dropOf(DEEP_BASE[id]) : id===IRONO?RAW_IRON:id===GOLDO?RAW_GOLD:id===COPPERO?RAW_COPPER:id===REDSTONE_ORE?REDSTONE:id===LAPIS_ORE?LAPIS:id===STONE?COBBLE:id===BEDHEAD?BED:id===BEEHIVE_FULL?BEEHIVE:id===GATE_OPEN?GATE:id===SKYGRASS?STORMSTONE:id===VOLTITE_ORE?VOLTITE:id===CONDUIT_LIT?CONDUIT:id===CHORUS_PLANT?CHORUS_FRUIT:id===ANCHOR_LIT?ANCHOR:id===CRIM_NYL||id===WARP_NYL?NETHERRACK:id===QUARTZ_ORE?QUARTZ:id===NGOLD_ORE?GNUGGET:id===GILDED?(Math.random()<.1?GNUGGET:GILDED):id===SNOWY_GRASS?DIRT:id===GLOWVINE?BERRIES:id===AMETHYST_C||id===BUDDING?AMETHYST_SHARD:id===DRIP_DOWN?DRIP_UP:id===BERRYBUSH?BERRIES:id===CRYSTALORE||id===GLOWCRYSTAL?CRYSTALSHARD:id === GRASS || id === SAVGRASS || id === FARMLAND ? DIRT : id === COALO ? COALI : id === DIAMO ? DIAMI :
                      id === EMERO ? EMERALD : id === DEADBUSH ? STICK : id;
 function toolClassOf(id){
   if(MC_WOOD_BLOCKS.has(id)) return 'axe';
@@ -3093,6 +3108,7 @@ function handTime(id){
   if(PART_BASE[id] !== undefined) return handTime(PART_BASE[id]);
   if(WALL_BASE[id] !== undefined) return handTime(WALL_BASE[id]);
   if(FENCES.has(id)) return 2.0;
+  if(id >= 5514 && id <= 5565) return id >= 5548 && id < 5564 ? 0.4 : 0.05;
   if((id >= LEVER && id <= RS_WIRE) || id === REPEATER || id === COMPARATOR || id === TRIPWIRE || id === TRIPWIRE_HOOK) return 0.05;       // redstone bits snap off
   if(id === LAMP || id === LAMP_ON) return 0.45;
   if(DEEP_BASE[id]) return handTime(DEEP_BASE[id]) * 1.5;   // deepslate ores are harder, as in Minecraft
@@ -3580,6 +3596,15 @@ itemAtlas.width = 128; itemAtlas.height = 1024;   // 512 icons
       if(load === 'r'){ line(5, 10, 10, 5, [205, 55, 42]); line(6, 10, 11, 5, [170, 40, 30]); put(11, 4, [232, 222, 200]); }
       px(tile, (x, y) => P.get(x + ',' + y) || null); };
     cb(481, null); cb(482, 'a'); cb(483, 'r'); }
+  px(484, (x, y) => {                                                   // armour stand
+    const W = [156, 122, 74];
+    if(y >= 14 && x >= 3 && x <= 12) return [150, 150, 150];
+    if(x >= 7 && x <= 8 && y >= 1 && y < 14) return W;
+    if(y >= 4 && y <= 5 && x >= 3 && x <= 12) return W;
+    if((x === 3 || x === 12) && y >= 6 && y <= 10) return W;
+    if(y === 9 && x >= 5 && x <= 10) return W;
+    if((x === 5 || x === 10) && y >= 10 && y < 14) return W;
+    return null; });
   px(480, (x, y) => {                                                   // spyglass
     const t = Math.abs((x - 2) - (13 - y)); if(t > 2 || x < 2 || x > 13) return null;
     if(x > 11) return [120, 200, 230]; return x % 4 === 0 ? [150, 90, 50] : [206, 120, 70]; });
@@ -5870,6 +5895,34 @@ scene.fog = new THREE.Fog(0x87b5e5, RD * 16 * 0.55, RD * 16 * 0.95);
     cr(743, 'rgba(0,0,0,0)'); { const [ox, oy] = at(743); g.clearRect(ox, oy, 16, 16); } rect(743, 0, 7, 16, 2, '#e8e8e8'); }
   copy(PL, 744); rect(744, 2, 3, 12, 8, '#d8d0c0'); for(let i = 0; i < 6; i++) rect(744, 3 + i * 2, 3, 1, 8, '#b0a898');   // the loom: warp threads on a frame
   copy(PL, 745); rect(745, 3, 3, 10, 10, '#e2dacb'); rect(745, 3, 7, 10, 1, '#9a8a70');
+  { // decorations: candles, banners, the decorated pot, scaffolding
+    const clr = t => { const [ox, oy] = at(t); g.clearRect(ox, oy, 16, 16); };
+    const rgb = (c, k = 1) => 'rgb(' + c.map(v => Math.max(0, Math.min(255, Math.round(v * k)))).join(',') + ')';
+    [[232, 214, 170], ...DYE_RGB].forEach((c, i) => {
+      clr(746 + i); rect(746 + i, 6, 5, 4, 10, rgb(c)); rect(746 + i, 6, 5, 1, 10, rgb(c, 1.15)); rect(746 + i, 9, 5, 1, 10, rgb(c, 0.75)); rect(746 + i, 7, 2, 2, 3, '#2a2a2a');   // a candle and its wick
+      clr(763 + i); rect(763 + i, 0, 0, 16, 16, rgb(c)); for(let x = 0; x < 16; x += 4) rect(763 + i, x, 0, 1, 16, rgb(c, 0.88)); rect(763 + i, 0, 0, 16, 3, rgb(c, 1.1));   // its wax
+    });
+    clr(780); rect(780, 0, 0, 16, 16, '#ffb43a'); rect(780, 4, 0, 8, 10, '#fff2a8'); rect(780, 0, 10, 16, 6, '#ff7a1e');                                               // flame
+    DYE_RGB.forEach((c, i) => { const t = 781 + i; clr(t); rect(t, 7, 1, 2, 15, '#6b4a2a'); rect(t, 3, 1, 10, 2, '#6b4a2a'); rect(t, 4, 3, 8, 11, rgb(c)); rect(t, 4, 3, 1, 11, rgb(c, 0.8)); });   // banners
+    const POT = [150, 82, 58];
+    const potSide = t => { clr(t); for(let y = 0; y < 16; y++) for(let x = 0; x < 16; x++) rect(t, x, y, 1, 1, rgb(POT, 0.9 + hash(x, y, 9120) * 0.16)); rect(t, 0, 0, 16, 1, rgb(POT, 0.7)); rect(t, 0, 15, 16, 1, rgb(POT, 0.7)); };
+    potSide(799);
+    const PICS = [
+      ['....XX....', '....XX....', 'X...XX...X', '.X.XXXX.X.', '..X.XX.X..', '....XX....', '....XX....', '...X..X...', '..X....X..', '..X....X..'],   // arms up
+      ['....XX....', '....XX....', '...XXXX...', '..X....X..', '.X......X.', '.X.XXXX.X.', '.XXXXXXXX.', '.XXXXXXXX.', '..XXXXXX..', '..........'],   // brewer
+      ['..XX......', '..X.X....X', '..X..X..X.', '..X...XX..', 'XXXXXXXXXX', '..X...XX..', '..X..X..X.', '..X.X....X', '..XX......', '..........'],   // archer
+      ['..........', '..XXXXXX..', '.X.X..X.X.', 'XXXXXXXXXX', '.X..XX..X.', '..X.XX.X..', '...X..X...', '....XX....', '..........', '..........'],   // prize
+      ['..XXXXXX..', '.XXXXXXXX.', '.X..XX..X.', '.X..XX..X.', '.XXXXXXXX.', '..XX..XX..', '..XXXXXX..', '..X.X.X...', '..........', '..........'],   // skull
+      ['.XX....XX.', '.XX....XX.', '..........', 'XXXX..XXXX', '.XX.XX.XX.', '.XX....XX.', '.XX....XX.', '.X.X..X.X.', '.X.X..X.X.', '..........'],   // friend
+      ['..........', '.XX....XX.', 'XXXX..XXXX', 'XXXXXXXXXX', 'XXXXXXXXXX', '.XXXXXXXX.', '..XXXXXX..', '...XXXX...', '....XX....', '..........'],   // heart
+      ['.X......X.', '.XX....XX.', '.XXXXXXXX.', 'XXXXXXXXXX', 'XX.XXXX.XX', 'XXXXXXXXXX', '.XXXXXXXX.', '..XX..XX..', '...XXXX...', '....XX....'],   // howl
+    ];
+    PICS.forEach((pic, i) => { const t = 800 + i; potSide(t); pic.forEach((row, y) => [...row].forEach((ch, x) => { if(ch === 'X') rect(t, 3 + x, 3 + y, 1, 1, '#4a2616'); })); });
+    clr(808); rect(808, 0, 0, 16, 16, rgb(POT, 0.8)); rect(808, 4, 4, 8, 8, '#3a1e12');                                                                         // the pot's rim and mouth
+    clr(798); rect(798, 3, 7, 10, 8, rgb(POT)); rect(798, 4, 15, 8, 1, rgb(POT, 0.8)); rect(798, 5, 5, 6, 2, rgb(POT, 0.85)); rect(798, 4, 3, 8, 2, rgb(POT, 1.05)); rect(798, 5, 9, 6, 4, '#6a3420');
+    clr(809); rect(809, 0, 0, 16, 16, '#c9a94e'); for(const k of [0, 15]){ rect(809, k, 0, 1, 16, '#8c7330'); rect(809, 0, k, 16, 1, '#8c7330'); } for(let y = 3; y < 15; y += 4) rect(809, 1, y, 14, 1, '#a88a3a');   // scaffolding deck
+    clr(810); rect(810, 0, 0, 16, 16, '#d8b95a'); rect(810, 0, 0, 16, 1, '#a88a3a'); for(let y = 4; y < 16; y += 5) rect(810, 0, y, 16, 1, '#b8993f');                // bamboo
+  }
   rect(735, 0, 6, 16, 2, '#5c3a6a'); rect(736, 3, 3, 10, 10, '#a576ae'); rect(736, 6, 6, 4, 4, '#5c3a6a');   // shulker box: lid seam, and its top
 }
 const tex = new THREE.CanvasTexture(atlas);
@@ -8226,6 +8279,7 @@ const LW = 18, LSTRIDE = LW * LW;   // 18x18 columns
 const NETHER_AMBIENT = 6;           // how bright the Nether's gloom is, with no torch nearby
 const LIGHT_EMIT = { };   // filled after ids exist
 function emitLevel(id){
+  if(id >= 5531 && id <= 5547) return 9;           // a lit candle
   if(id === RS_TORCH) return 7;
   if(id === LAMP_ON) return 15;
   if(id === SEA_PICKLE) return 6;
@@ -8406,6 +8460,41 @@ function* buildChunkSteps(c,reuseLight=false){
     if(isDoor(b)){ pushDoor(O, lx, y, lz, b, wx0 + lx, wz0 + lz, light); continue; }
     if(b === LADDER){ pushLadder(O, lx, y, lz, gb, light); continue; }
     if(b === WITHER_SKULL){ pushSkull(O, lx, y, lz, wx0 + lx, wz0 + lz, light); continue; }
+    if(isCandle(b)){                                       // one to four candles; a lit one has a flame
+      const st = decoState.get(dim + ':' + (wx0 + lx) + ',' + y + ',' + (wz0 + lz)), n = Math.min(4, Math.max(1, (st && st.n) || 1)), ci = candleCol(b), lit = candleLit(b);
+      const llC = light ? 0.3 + (sampleLight(light, lx, y, lz) / 15) * 0.7 : 1;
+      for(const [cx, cz, h] of CANDLE_SPOTS[n - 1]){
+        const X = lx + cx, Z = lz + cz;
+        pushBox(O, 763 + ci, X - 0.0625, y, Z - 0.0625, X + 0.0625, y + h, Z + 0.0625, llC);
+        pushBox(O, 780, X - 0.012, y + h, Z - 0.012, X + 0.012, y + h + 0.06, Z + 0.012, 0.2);
+        if(lit) pushBox(G, 780, X - 0.028, y + h + 0.05, Z - 0.028, X + 0.028, y + h + 0.15, Z + 0.028, 1);
+      }
+      continue;
+    }
+    if(b === DECO_POT){                                     // a sherd on each side, or plain terracotta
+      const st = decoState.get(dim + ':' + (wx0 + lx) + ',' + y + ',' + (wz0 + lz)), sh = (st && st.s) || [-1, -1, -1, -1], side = i => sh[i] >= 0 ? 800 + sh[i] : 799;
+      const llP = light ? 0.25 + (sampleLight(light, lx, y, lz) / 15) * 0.75 : 1;
+      pushBoxTiles(O, [side(0), side(1), side(2), side(3), 808, 799], lx + 0.125, y, lz + 0.125, lx + 0.875, y + 0.8, lz + 0.875, llP);
+      pushBox(O, 799, lx + 0.3125, y + 0.8, lz + 0.3125, lx + 0.6875, y + 0.88, lz + 0.6875, llP * 0.9);
+      pushBoxTiles(O, [799, 799, 799, 799, 808, 799], lx + 0.25, y + 0.88, lz + 0.25, lx + 0.75, y + 1, lz + 0.75, llP);
+      continue;
+    }
+    if(isBanner(b)){                                        // the pole and crossbar; the cloth itself is drawn apart, with its patterns
+      const st = decoState.get(dim + ':' + (wx0 + lx) + ',' + y + ',' + (wz0 + lz)) || { f: 0 }, [nx, nz] = BAN_DIRS[st.f | 0], tx = Math.abs(nz), tz = Math.abs(nx), PT = tileFor(PLANK, 0);
+      const llB = light ? 0.25 + (sampleLight(light, lx, y, lz) / 15) * 0.75 : 1;
+      const bar = (cx, cz, yb) => pushBox(O, PT, cx - 0.47 * tx - 0.03 * tz, yb, cz - 0.47 * tz - 0.03 * tx, cx + 0.47 * tx + 0.03 * tz, yb + 0.07, cz + 0.47 * tz + 0.03 * tx, llB);
+      if(st.w) bar(lx + 0.5 - nx * 0.44, lz + 0.5 - nz * 0.44, y + 0.9);
+      else { pushBox(O, PT, lx + 0.45, y, lz + 0.45, lx + 0.55, y + 1.92, lz + 0.55, llB); bar(lx + 0.5 + nx * 0.07, lz + 0.5 + nz * 0.07, y + 1.84); }
+      continue;
+    }
+    if(b === SCAFFOLD){                                     // four bamboo posts, a deck on top, rails along the bottom
+      const llS = light ? 0.25 + (sampleLight(light, lx, y, lz) / 15) * 0.75 : 1, t = 0.125, S = 810;
+      for(const [px, pz] of [[0, 0], [1 - t, 0], [0, 1 - t], [1 - t, 1 - t]]) pushBox(O, S, lx + px, y, lz + pz, lx + px + t, y + 1, lz + pz + t, llS);
+      pushBox(O, 809, lx, y + 0.9375, lz, lx + 1, y + 1, lz + 1, llS);
+      pushBox(O, S, lx + t, y + 0.06, lz, lx + 1 - t, y + 0.16, lz + 0.06, llS); pushBox(O, S, lx + t, y + 0.06, lz + 0.94, lx + 1 - t, y + 0.16, lz + 1, llS);
+      pushBox(O, S, lx, y + 0.06, lz + t, lx + 0.06, y + 0.16, lz + 1 - t, llS); pushBox(O, S, lx + 0.94, y + 0.06, lz + t, lx + 1, y + 0.16, lz + 1 - t, llS);
+      continue;
+    }
     if(b === FLOWERPOT){
       const llF = light ? 0.2 + (sampleLight(light, lx, y, lz) / 15) * 0.8 : 1;
       pushBox(O, 308, lx + 0.34, y, lz + 0.34, lx + 0.66, y + 0.06, lz + 0.66, llF);
@@ -9024,6 +9113,10 @@ function moveAxis(ent, axis, amt){
   const z0 = Math.floor(p.z - w + e), z1 = Math.floor(p.z + w - e);
   for(let y = y0; y <= y1; y++) for(let z = z0; z <= z1; z++) for(let x = x0; x <= x1; x++){
     const block=getBlock(x,y,z);
+    if(block === SCAFFOLD){                                  // you stand on scaffolding (sneak to go down through it) but walk through its sides
+      if(axis === 1 && amt < 0 && p.y - amt >= y + 1 - 0.02 && !(ent === player && scaffSneak())){ p.y = y + 1 + 2*e; ent.onGround = true; ent.vel.y = 0; return; }
+      continue;
+    }
     if(isPartial(block)){
       // slabs and stairs collide as their real halves; a low one you walk into, you step up onto
       let q = null;
@@ -9133,6 +9226,11 @@ function physics(dt){
     const hold = key('ShiftLeft') || (xrActive && readButtons('right')?.[5]?.pressed);
     v.y = up ? 3.2 : hold ? 0 : Math.max(v.y, -2.4);
     const hs = Math.hypot(v.x, v.z); if(hs > 2.2){ v.x *= 2.2 / hs; v.z *= 2.2 / hs; }
+  }
+  if(!p.fly && !inWater && !gliding && !climbing && inScaffold(p.pos)){   // scaffolding: jump to climb, sneak to go down
+    if(key('Space') || (xrActive && readButtons('right')?.[4]?.pressed)) v.y = 3.4;
+    else if(scaffSneak()) v.y = Math.max(v.y, -2.4);
+    const hs = Math.hypot(v.x, v.z); if(hs > 3){ v.x *= 3 / hs; v.z *= 3 / hs; }
   }
   const sx0 = p.pos.x, sz0 = p.pos.z, fallV = v.y, wasGround = p.onGround;
   stepEntity(p, dt);
@@ -9340,6 +9438,7 @@ document.addEventListener('pointerlockchange', () => {
     if(dead) deathEl.style.display = 'flex';
     else if(chestOpen) document.getElementById('chestui').style.display = 'flex';
     else if(tradeOpen) document.getElementById('trade').style.display = 'flex';
+    else if(loomOpen && loomEl) loomEl.style.display = 'flex';
     else if(craftOpen) craftEl.style.display = 'flex';
     else if(inGame) pauseEl.style.display = 'flex';
     else if(createOpen) document.getElementById('createw').style.display = 'flex';
@@ -15979,6 +16078,7 @@ function useBrush(hit){
 }
 function useSpecial(o, d, hit, eh){
   const held = heldId();
+  if(useDecorations(hit, eh, held)) return true;
   if(useBrush(hit)) return true;
   if(useLeadsAndTags(hit, eh, held, mode === 'survival')) return true;
   if(eh && (!hit || eh.t < hit.t) && !eh.e.puppet && (feedVillager(eh.e) || cureZombie(eh.e))) return true;
@@ -16902,6 +17002,7 @@ function rayEntity(o, d, max){
   for(const e of skeletons) check(e);
   for(const e of creepers) check(e);
   for(const e of spiders) check(e);
+  for(const e of armourStands) if(e.dim === dim) check(e);
   for(const e of villagers) check(e);
   for(const e of golems) check(e);
   for(const e of endermen) check(e);
@@ -17004,6 +17105,7 @@ function punchEntity(e){
     return;
   }
   if(e.kind === 'sbullet'){ popSBullet(e); return; }
+  if(e.kind === 'stand'){ hitStand(e); return; }
   if(e.kind === 'shulker'){ hurtShulker(e, heldDamage()); damageTool(['sword', 'axe']); return; }
   if(e.kind === 'fireball'){ deflectFireball(e); return; }
   if(e.kind === 'sea'){ hurtSea(e, heldDamage()); damageTool(['sword', 'axe']); return; }
@@ -17824,6 +17926,7 @@ function mpBroadcast(msg, except){
 // dynamic per-block state (composter, cauldron, flower pot, item frame) shared between players
 function mpState(kind, k, v){ if(netApplying || !conns.length) return; mpBroadcast({ t: 'bstate', kind, k, v }); }
 function applyBState(kind, k, v){
+  if(kind === 'deco'){ if(v) decoState.set(k, v); else decoState.delete(k); const q = String(k).split(':')[1].split(',').map(Number); rebuild(chunkAt(q[0] >> 4, q[2] >> 4)); return; }
   const p = String(k).split(',').map(Number), x = p[0] | 0, z = p[2] | 0;
   if(kind === 'comp'){ if(v) composters.set(k, v); else composters.delete(k); }
   else if(kind === 'cauld'){ if(v) cauldrons.set(k, v); else cauldrons.delete(k); }
@@ -17925,7 +18028,7 @@ function setupConn(c){
                        : 'Connected! Close this menu and play together.');
     hapticPulse(null, 0.6, 80);
     if(voiceOn) placeVoiceCall(c.peer);
-    if(isHost) c.send(JSON.stringify({ t: 'world', seed: SEED, gen: GEN_V, oldland: oldLandKeys, parts: [...partState], edits, fluid:[...fluidLevels], doors:[...doorState], comp:[...composters], cauld:[...cauldrons], pots:[...pottedPlants], frames:[...frameItems].filter(([,e]) => e && e.item), jukes:[...jukes].map(([k, j]) => [k, j.disc]), tod: timeOfDay }));
+    if(isHost) c.send(JSON.stringify({ t: 'world', seed: SEED, gen: GEN_V, oldland: oldLandKeys, parts: [...partState], edits, fluid:[...fluidLevels], doors:[...doorState], comp:[...composters], cauld:[...cauldrons], pots:[...pottedPlants],deco:[...decoState], frames:[...frameItems].filter(([,e]) => e && e.item), jukes:[...jukes].map(([k, j]) => [k, j.disc]), tod: timeOfDay }));
   });
   c.on('data', d => { try { onNet(c, typeof d === 'string' ? JSON.parse(d) : d); } catch(e){} });
   c.on('close', () => {
@@ -17963,6 +18066,7 @@ function onNet(c, m){
     if(Array.isArray(m.comp))for(const [k,v] of m.comp)composters.set(k,v);
     if(Array.isArray(m.cauld))for(const [k,v] of m.cauld)cauldrons.set(k,v);
     if(Array.isArray(m.pots))for(const [k,v] of m.pots)pottedPlants.set(k,v);
+    if(Array.isArray(m.deco))for(const [k,v] of m.deco)decoState.set(k,v);
     if(Array.isArray(m.frames))for(const [k,v] of m.frames)if(v&&v.item)frameItems.set(k,v);
     if(Array.isArray(m.jukes))for(const [k,d] of m.jukes)if(!jukes.has(k)&&AC){const q=k.split(',').map(Number);startJuke(k,q[0],q[1],q[2],d);}
     if(typeof m.tod==='number')timeOfDay=((m.tod%1)+1)%1;
@@ -18817,6 +18921,7 @@ function placeDoor(x,y,z){
 }
 function consumePlacedItem(){
   fillPlacedBox(survInv[sel]);
+  decoPlaced(survInv[sel]);
   if(mode!=='survival')return;
   const item=survInv[sel];item.count--;
   if(item.count<=0){item.id=0;item.count=0;item.dur=0;}
@@ -19114,6 +19219,8 @@ function mechChanged(x, y, z, oldId, id){
   }
   if(MACH_FACED.has(id) && !mechMoving && !netApplying && !rsParts.has(key)) rsSetPart(x, y, z, { face: placeFace(id), on: false, ext: false });
   if(id === SHULKER_BOX && !mechMoving) lastBoxKey = x + ',' + y + ',' + z;
+  if(id >= 5514 && id <= 5564 && !mechMoving && !netApplying && !(oldId >= 5514 && oldId <= 5564)) lastDecoKey = [x, y, z];
+  if(oldId !== id && oldId !== SCAFFOLD && !isSolid(id) && !mechMoving && getBlock(x, y + 1, z) === SCAFFOLD) setTimeout(() => scaffoldCollapse(x, y, z), 0);   // pull out what holds it up and it falls
   if(id === DAYLIGHT && !rsParts.has(key)) rsSetPart(x, y, z, { s: 0, on: false });
   observeAt(x, y, z);
 }
@@ -19520,6 +19627,400 @@ function updateSpyglass(){
       renderer.xr.enabled = xrOn; spyMesh.visible = true;
     }
   } catch(err){ if(spyMesh) spyMesh.visible = false; }
+}
+/* ---- decorations: candles, banners and the loom, decorated pots, scaffolding, armour stands ---- */
+RECIPES.push(
+  { out: [CANDLE0, 1], in: [[STRING, 1], [HONEYCOMB, 1]] },
+  ...COLORS.map((c, i) => ({ out: [CANDLE0 + 1 + i, 1], in: [[CANDLE0, 1], [DYE[i], 1]] })),
+  ...COLORS.map((c, i) => ({ out: [BANNER0 + i, 1], in: [[WOOL16[i], 6], [STICK, 1]], st: 'table' })),
+  { out: [DECO_POT, 1], in: [[BRICK, 4]], st: 'table' },
+  { out: [SCAFFOLD, 6], in: [[BAMBOO, 6], [STRING, 1]], st: 'table' },
+  { out: [ARMOR_STAND, 1], in: [[STICK, 6], [SLAB_STONE, 1]], st: 'table' });
+const decoState = (() => { try { return new Map(JSON.parse(localStorage.getItem(SAVE_KEY + '-deco')) || []); } catch(e){ return new Map(); } })();
+const decoKey = (x, y, z) => dim + ':' + x + ',' + y + ',' + z;
+let decoDirty = false, decoSaveT = 0, lastDecoKey = null;
+function setDeco(x, y, z, v){
+  const k = decoKey(x, y, z);
+  if(v) decoState.set(k, v); else decoState.delete(k);
+  decoDirty = true; mpState('deco', k, v || 0); rebuild(chunkAt(x >> 4, z >> 4));
+}
+const CANDLE_SPOTS = [[[0.5, 0.5, 0.375]], [[0.375, 0.5, 0.375], [0.625, 0.47, 0.3]], [[0.5, 0.375, 0.375], [0.36, 0.6, 0.3], [0.64, 0.6, 0.25]],
+  [[0.38, 0.38, 0.375], [0.62, 0.4, 0.3], [0.4, 0.62, 0.3], [0.62, 0.62, 0.25]]];
+const BAN_DIRS = [[0, 1], [0, -1], [1, 0], [-1, 0]];
+// what a stack carries (patterns, sherds): in survival on the stack; in creative, kept per hotbar slot
+const creativeExtra = [];
+function heldExtra(item){ if(mode === 'survival') return item && item.ench; const c = creativeExtra[sel]; return c && c.id === heldId() ? c.ench : null; }
+function pushBoxTiles(B, tiles, x0, y0, z0, x1, y1, z1, ll){            // pushBox with a tile per face: +z -z +x -x +y -y
+  const faces = [
+    { s: 0.72, c: [[x0,y0,z1],[x1,y0,z1],[x0,y1,z1],[x1,y1,z1]] }, { s: 0.72, c: [[x1,y0,z0],[x0,y0,z0],[x1,y1,z0],[x0,y1,z0]] },
+    { s: 0.85, c: [[x1,y0,z1],[x1,y0,z0],[x1,y1,z1],[x1,y1,z0]] }, { s: 0.85, c: [[x0,y0,z0],[x0,y0,z1],[x0,y1,z0],[x0,y1,z1]] },
+    { s: 1.00, c: [[x0,y1,z1],[x1,y1,z1],[x0,y1,z0],[x1,y1,z0]] }, { s: 0.55, c: [[x0,y0,z0],[x1,y0,z0],[x0,y0,z1],[x1,y0,z1]] }];
+  const uvs = [[0,0],[1,0],[0,1],[1,1]];
+  faces.forEach((f, fi) => {
+    const base = B.pos.length / 3, l = ll * f.s;
+    for(let i = 0; i < 4; i++){ B.pos.push(f.c[i][0], f.c[i][1], f.c[i][2]); tileUV(B, tiles[fi], uvs[i][0], uvs[i][1]); B.col.push(l, l, l); }
+    B.idx.push(base, base + 1, base + 2, base + 2, base + 1, base + 3);
+  });
+}
+// placed: take what the stack carried
+function decoPlaced(item){
+  if(!lastDecoKey) return;
+  const [x, y, z] = lastDecoKey; lastDecoKey = null;
+  const id = getBlock(x, y, z), en = heldExtra(item);
+  if(isCandle(id)) setDeco(x, y, z, { n: 1 });
+  else if(id === DECO_POT) setDeco(x, y, z, { s: en && en._sherds ? en._sherds.slice(0, 4) : [-1, -1, -1, -1] });
+  else if(isBanner(id)) setDeco(x, y, z, bannerPlacement(x, y, z, en));
+}
+function bannerPlacement(x, y, z, en){
+  const r = aimNow(), h = raycast(r.o, r.d, REACH + 1);
+  let f = -1, wall = 0;
+  if(h && h.x === x && h.y === y && h.z === z && h.face[1] === 0){           // put against a wall: it hangs there
+    const fi = BAN_DIRS.findIndex(q => q[0] === h.face[0] && q[1] === h.face[2]);
+    if(fi >= 0 && isSolid(getBlock(x - h.face[0], y, z - h.face[2]))){ f = fi; wall = 1; }
+  }
+  if(f < 0){ const dx = player.pos.x - (x + 0.5), dz = player.pos.z - (z + 0.5); f = Math.abs(dx) > Math.abs(dz) ? (dx > 0 ? 2 : 3) : (dz > 0 ? 0 : 1); }   // on the ground: facing you
+  return { f, w: wall, p: en && en._pat ? en._pat.slice(0, 6) : [] };
+}
+function giveOrDrop(x, y, z, id, ench){
+  if(ench){ const e = survInv.find(q => !q.id || q.count <= 0); if(e){ e.id = id; e.count = 1; e.dur = 0; e.ench = ench; invDirty = true; renderHotbar(); return; } }
+  spawnDropAt(x + 0.5, y + 0.5, z + 0.5, id, 1);
+}
+function breakDeco(x, y, z, id){
+  const k = decoKey(x, y, z), st = decoState.get(k) || {};
+  if(decoState.delete(k)){ decoDirty = true; mpState('deco', k, 0); }
+  if(id === SCAFFOLD){ if(mode === 'survival') spawnDropAt(x + 0.5, y + 0.4, z + 0.5, SCAFFOLD, 1); setTimeout(() => scaffoldCollapse(x, y, z), 0); return true; }
+  if(mode !== 'survival') return true;
+  if(isCandle(id)){ spawnDropAt(x + 0.5, y + 0.3, z + 0.5, CANDLE0 + candleCol(id), Math.max(1, st.n || 1)); return true; }
+  if(id === DECO_POT){
+    if(st.it) spawnDropAt(x + 0.5, y + 0.5, z + 0.5, st.it[0], st.it[1]);                  // whatever was kept in it
+    giveOrDrop(x, y, z, DECO_POT, st.s && st.s.some(v => v >= 0) ? { _sherds: st.s } : undefined);
+    return true;
+  }
+  if(isBanner(id)){ giveOrDrop(x, y, z, id, st.p && st.p.length ? { _pat: st.p } : undefined); return true; }
+  return false;
+}
+// candles: add more of the same colour (up to four), light with flint and steel, snuff out by hand
+function useCandle(hit, held){
+  if(!hit || !isCandle(hit.id)) return false;
+  const st = decoState.get(decoKey(hit.x, hit.y, hit.z)) || { n: 1 }, col = candleCol(hit.id), lit = candleLit(hit.id), n = st.n || 1;
+  if(held === CANDLE0 + col && n < 4){
+    setDeco(hit.x, hit.y, hit.z, { n: n + 1 }); consumePlacedItem(); blockSfx(PLANK, 'place'); triggerViewSwing(); return true;
+  }
+  if(!lit && held === FLINTSTEEL){
+    setBlock(hit.x, hit.y, hit.z, CANDLE_LIT0 + col); playN({ f: 2400, type: 'highpass', dur: 0.12, vol: 0.12 }); triggerViewSwing(); return true;
+  }
+  if(lit){
+    setBlock(hit.x, hit.y, hit.z, CANDLE0 + col); burstRGB(hit.x + 0.5, hit.y + 0.5, hit.z + 0.5, 0.6, 0.6, 0.6, 5, 0.2);
+    playN({ f: 700, type: 'lowpass', dur: 0.15, vol: 0.06 }); triggerViewSwing(); return true;
+  }
+  return false;
+}
+// a decorated pot: put a sherd on the side you point at, or keep a stack of one kind of thing in it
+function usePot(hit, held){
+  if(!hit || hit.id !== DECO_POT) return false;
+  const k = decoKey(hit.x, hit.y, hit.z), st = Object.assign({ s: [-1, -1, -1, -1] }, decoState.get(k) || {});
+  if(held >= SHERD0 && held < SHERD0 + 8){
+    const fi = hit.face[2] === 1 ? 0 : hit.face[2] === -1 ? 1 : hit.face[0] === 1 ? 2 : hit.face[0] === -1 ? 3 : -1;
+    if(fi < 0){ flashName('Point at a side of the pot'); return true; }
+    const old = st.s[fi]; st.s = st.s.slice(); st.s[fi] = held - SHERD0;
+    if(mode === 'survival'){ consumePlacedItem(); if(old >= 0) addItem(SHERD0 + old); }
+    setDeco(hit.x, hit.y, hit.z, st); playN({ f: 600, type: 'bandpass', dur: 0.1, vol: 0.1 }); triggerViewSwing();
+    flashName(SHERD_NAMES[held - SHERD0] + ' pattern on the pot'); return true;
+  }
+  if(held && !(ITEMS[held] && (ITEMS[held].tool || ITEMS[held].armour))){
+    if(st.it && (st.it[0] !== held || st.it[1] >= 64)){ flashName('The pot is full'); return true; }
+    st.it = [held, (st.it ? st.it[1] : 0) + 1];
+    if(mode === 'survival') consumePlacedItem();
+    setDeco(hit.x, hit.y, hit.z, st); burstRGB(hit.x + 0.5, hit.y + 1, hit.z + 0.5, 0.6, 0.35, 0.25, 4, 0.3);
+    playN({ f: 420, type: 'bandpass', dur: 0.08, vol: 0.12 }); triggerViewSwing();
+    flashName('The pot holds ' + st.it[1] + ' ' + nameOf(held)); return true;
+  }
+  flashName(st.it ? 'The pot holds ' + st.it[1] + ' ' + nameOf(st.it[0]) : 'An empty Decorated Pot'); return true;
+}
+/* ---- scaffolding: up to six blocks out from a column that stands on something ---- */
+const inScaffold = p => { const x = Math.floor(p.x), z = Math.floor(p.z); return getBlock(x, Math.floor(p.y + 0.1), z) === SCAFFOLD || getBlock(x, Math.floor(p.y + 1), z) === SCAFFOLD; };
+const scaffSneak = () => key('ShiftLeft') || player.crouching || (xrActive && !!readButtons('right')?.[5]?.pressed);
+function scaffComponent(list){
+  const seen = new Map(), q = list.slice();
+  while(q.length && seen.size < 600){
+    const [a, b, c] = q.pop(), k = a + ',' + b + ',' + c;
+    if(seen.has(k) || getBlock(a, b, c) !== SCAFFOLD) continue;
+    seen.set(k, [a, b, c]);
+    for(const [dx, dy, dz] of [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]) q.push([a + dx, b + dy, c + dz]);
+  }
+  return seen;
+}
+function scaffDistances(cells){
+  const d = new Map(), byY = new Map();
+  for(const [k, p] of cells){ if(!byY.has(p[1])) byY.set(p[1], []); byY.get(p[1]).push([k, p]); }
+  for(const y of [...byY.keys()].sort((a, b) => a - b)){
+    const lvl = byY.get(y);
+    for(const [k, [x, , z]] of lvl){
+      const below = getBlock(x, y - 1, z), bk = x + ',' + (y - 1) + ',' + z;
+      d.set(k, below === SCAFFOLD ? (d.has(bk) ? d.get(bk) : 99) : (isSolid(below) || isPartial(below)) ? 0 : 99);
+    }
+    for(let pass = 0, ch = true; ch && pass < 12; pass++){
+      ch = false;
+      for(const [k, [x, , z]] of lvl) for(const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]){
+        const nk = (x + dx) + ',' + y + ',' + (z + dz);
+        if(d.has(nk) && d.get(nk) + 1 < d.get(k)){ d.set(k, d.get(nk) + 1); ch = true; }
+      }
+    }
+  }
+  return d;
+}
+function scaffoldCollapse(x, y, z){
+  const cells = scaffComponent([[x + 1, y, z], [x - 1, y, z], [x, y + 1, z], [x, y - 1, z], [x, y, z + 1], [x, y, z - 1]]);
+  if(!cells.size) return;
+  const d = scaffDistances(cells);
+  for(const [k, [a, b, c]] of cells) if(d.get(k) > 6){
+    setBlock(a, b, c, AIR); burst(a, b, c, 810);
+    if(mode === 'survival') spawnDropAt(a + 0.5, b + 0.4, c + 0.5, SCAFFOLD, 1);
+  }
+}
+function placeScaffold(hit){
+  if(!hit) return false;
+  let x = hit.x + hit.face[0], y = hit.y + hit.face[1], z = hit.z + hit.face[2];
+  if(hit.id === SCAFFOLD && hit.face[1] === 1){                    // on top of a column: it goes up to the top
+    x = hit.x; z = hit.z; y = hit.y + 1;
+    while(getBlock(x, y, z) === SCAFFOLD && y < HEIGHT - 1) y++;
+  }
+  const at = getBlock(x, y, z);
+  if(y < 1 || y >= HEIGHT || !(at === AIR || at === WATER || (isCross(at) && !isPlant(at)))) return true;
+  setBlock(x, y, z, SCAFFOLD);
+  const d = scaffDistances(scaffComponent([[x, y, z]])).get(x + ',' + y + ',' + z);
+  if(!(d <= 6)){ setBlock(x, y, z, at); flashName('Too far from anything to hold it up'); return true; }
+  blockSfx(PLANK, 'place'); triggerViewSwing(); consumePlacedItem();
+  return true;
+}
+/* ---- banners: patterns, the loom, and the cloth that hangs and sways ---- */
+const bannerMask = rows => (u, v) => { const mx = Math.floor((u - 0.1) / 0.8 * 8), my = Math.floor((v - 0.2) / 0.4 * 8); return mx >= 0 && mx < 8 && my >= 0 && my < 8 && rows[my][mx] === 'X'; };
+const BANNER_PATS = [
+  { n: 'Base', f: (u, v) => v > 2 / 3 }, { n: 'Chief', f: (u, v) => v < 1 / 3 },
+  { n: 'Pale', f: u => u > 0.35 && u < 0.65 }, { n: 'Fess', f: (u, v) => v > 0.38 && v < 0.62 },
+  { n: 'Pale Dexter', f: u => u < 1 / 3 }, { n: 'Pale Sinister', f: u => u > 2 / 3 },
+  { n: 'Bend', f: (u, v) => Math.abs(u - v) < 0.17 }, { n: 'Bend Sinister', f: (u, v) => Math.abs(1 - u - v) < 0.17 },
+  { n: 'Saltire', f: (u, v) => Math.abs(u - v) < 0.12 || Math.abs(1 - u - v) < 0.12 }, { n: 'Cross', f: (u, v) => Math.abs(u - 0.5) < 0.13 || Math.abs(v - 0.45) < 0.07 },
+  { n: 'Chevron', f: (u, v) => v > 1 - 0.38 * (1 - 2 * Math.abs(u - 0.5)) }, { n: 'Inverted Chevron', f: (u, v) => v < 0.38 * (1 - 2 * Math.abs(u - 0.5)) },
+  { n: 'Bordure', f: (u, v, x, y, W, H) => x < 2 || y < 2 || x >= W - 2 || y >= H - 2 }, { n: 'Roundel', f: (u, v) => Math.hypot(u - 0.5, (v - 0.45) * 2) < 0.28 },
+  { n: 'Lozenge', f: (u, v) => Math.abs(u - 0.5) + Math.abs(v - 0.45) * 2 < 0.36 }, { n: 'Per Pale', f: u => u < 0.5 }, { n: 'Per Fess', f: (u, v) => v < 0.5 },
+  { n: 'Paly', f: u => ((u * 6) | 0) % 2 === 0 }, { n: 'Barry', f: (u, v) => ((v * 10) | 0) % 2 === 0 }, { n: 'Gradient', f: (u, v) => Math.max(0, 1 - v * 1.1) },
+  { n: 'Creeper', f: bannerMask(['........', '.XX..XX.', '.XX..XX.', '...XX...', '..XXXX..', '..XXXX..', '..X..X..', '........']) },
+  { n: 'Skull', f: bannerMask(['.XXXXXX.', 'XXXXXXXX', 'X..XX..X', 'XXXXXXXX', '.XX..XX.', '.XXXXXX.', '..X.X.X.', '........']) },
+  { n: 'Flower', f: bannerMask(['...XX...', '..X..X..', 'XX.XX.XX', 'X.X..X.X', 'X.X..X.X', 'XX.XX.XX', '..X..X..', '...XX...']) },
+];
+function drawBanner(g, base, pats, W, H){
+  g.clearRect(0, 0, W, H);
+  const layer = (c, f) => { const [r, gg, b] = DYE_RGB[c]; for(let y = 0; y < H; y++) for(let x = 0; x < W; x++){ const a = f(x / W, y / H, x, y, W, H); if(a){ g.fillStyle = 'rgba(' + r + ',' + gg + ',' + b + ',' + (a === true ? 1 : a) + ')'; g.fillRect(x, y, 1, 1); } } };
+  layer(base, () => true);
+  for(const [p, c] of pats || []) if(BANNER_PATS[p]) layer(c, BANNER_PATS[p].f);
+}
+const bannerCloths = new Map(), clothGeo = new THREE.PlaneGeometry(0.875, 1.75).translate(0, -0.875, 0);
+let bannerSyncT = 0;
+function makeCloth(x, y, z, base, v, sig){
+  const cv = document.createElement('canvas'); cv.width = 20; cv.height = 40; drawBanner(cv.getContext('2d'), base, v.p, 20, 40);
+  const tex = new THREE.CanvasTexture(cv); tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter; tex.colorSpace = THREE.SRGBColorSpace;
+  const mat = new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide }); mat.userData.base = new THREE.Color(1, 1, 1); entMats.push(mat);
+  const mesh = new THREE.Mesh(clothGeo, mat), g = new THREE.Group(), [nx, nz] = BAN_DIRS[v.f | 0];
+  g.add(mesh);
+  if(v.w) g.position.set(x + 0.5 - nx * 0.44, y + 0.95, z + 0.5 - nz * 0.44);
+  else g.position.set(x + 0.5 + nx * 0.07, y + 1.86, z + 0.5 + nz * 0.07);
+  g.rotation.y = Math.atan2(nx, nz);
+  scene.add(g);
+  return { g, mesh, tex, mat, sig, ph: Math.random() * 6 };
+}
+function dropCloth(c){ scene.remove(c.g); c.tex.dispose(); c.mat.dispose(); const i = entMats.indexOf(c.mat); if(i >= 0) entMats.splice(i, 1); }
+function syncBanners(dt){
+  bannerSyncT -= dt;
+  if(bannerSyncT <= 0){
+    bannerSyncT = 0.4;
+    const seen = new Set();
+    for(const [k, v] of decoState){
+      if(!v || v.f == null) continue;
+      const ci = k.indexOf(':'); if(+k.slice(0, ci) !== dim) continue;
+      const [x, y, z] = k.slice(ci + 1).split(',').map(Number);
+      if(Math.abs(x - player.pos.x) > 96 || Math.abs(z - player.pos.z) > 96) continue;
+      const id = getBlock(x, y, z); if(!isBanner(id)) continue;
+      const sig = id + '|' + v.f + '|' + v.w + '|' + JSON.stringify(v.p || []);
+      seen.add(k);
+      const cur = bannerCloths.get(k);
+      if(cur && cur.sig === sig) continue;
+      if(cur) dropCloth(cur);
+      bannerCloths.set(k, makeCloth(x, y, z, id - BANNER0, v, sig));
+    }
+    for(const [k, c] of bannerCloths) if(!seen.has(k)){ dropCloth(c); bannerCloths.delete(k); }
+  }
+  const t = performance.now() / 1000;
+  for(const c of bannerCloths.values()) c.mesh.rotation.x = Math.sin(t * 1.3 + c.ph) * 0.06 + Math.sin(t * 2.9 + c.ph * 2) * 0.02;   // it stirs in the wind
+}
+// the loom: hold a banner, pick a dye and a pattern (a banner takes up to six)
+let loomOpen = false, loomDye = -1, loomEl = null;
+const heldBanner = () => isBanner(heldId()) ? heldId() : 0;
+function bannerPats(){ const x = heldExtra(mode === 'survival' ? survInv[sel] : null); return x && x._pat ? x._pat : []; }
+function setBannerPats(p){
+  if(mode === 'survival'){ const q = survInv[sel]; q.ench = Object.assign({}, q.ench || {}, { _pat: p }); invDirty = true; renderHotbar(); }
+  else creativeExtra[sel] = { id: heldId(), ench: { _pat: p } };
+}
+function loomDyes(){ return COLORS.map((c, i) => ({ i, n: mode === 'creative' ? 64 : invCount(DYE[i]) })).filter(q => q.n > 0); }
+function loomApply(p, c){
+  if(!heldBanner()){ flashName('Hold a banner to use the loom'); return false; }
+  const cur = bannerPats();
+  if(cur.length >= 6){ flashName('A banner holds six patterns at most'); return false; }
+  if(mode === 'survival'){ if(invCount(DYE[c]) < 1){ flashName('You need ' + COLORS[c] + ' Dye'); return false; } removeItems(DYE[c], 1); }
+  setBannerPats([...cur, [p, c]]);
+  playN({ f: 900, type: 'bandpass', dur: 0.12, vol: 0.08 }); playN({ f: 1500, type: 'highpass', dur: 0.06, vol: 0.05 });
+  return true;
+}
+function openLoom(){
+  if(xrActive){ openCraftVR('loom'); return; }
+  if(!loomEl){ loomEl = document.createElement('div'); loomEl.style.cssText = 'position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:30;background:rgba(0,0,0,.45);font-family:system-ui'; document.body.appendChild(loomEl); }
+  loomOpen = true; renderLoom(); loomEl.style.display = 'flex';
+  document.exitPointerLock(); if(TOUCH) locked = false;
+}
+function closeLoom(){ loomOpen = false; if(loomEl) loomEl.style.display = 'none'; uiClick(); renderer.domElement.requestPointerLock(); if(TOUCH) locked = true; }
+function renderLoom(){
+  const id = heldBanner(), dyes = loomDyes(), cur = bannerPats();
+  if(loomDye < 0 || !dyes.some(d => d.i === loomDye)) loomDye = dyes.length ? dyes[0].i : -1;
+  let h = '<div style="background:#c6c6c6;border:4px solid #383838;padding:16px;max-width:700px;width:92vw;max-height:88vh;overflow:auto;color:#222;box-sizing:border-box">';
+  h += '<div style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:20px">Loom</b><button data-close style="font-size:16px;padding:6px 14px">Done</button></div>';
+  if(!id) h += '<p>Hold a banner in your hand, then use the loom.</p>';
+  else {
+    h += '<div style="display:flex;gap:16px;margin:10px 0;align-items:center"><canvas data-prev width="20" height="40" style="width:60px;height:120px;image-rendering:pixelated;border:2px solid #555"></canvas><div>' + cur.length + ' of 6 patterns used.<br>Pick a dye colour, then a pattern.</div></div>';
+    h += '<div style="margin:6px 0">' + (dyes.length ? dyes.map(d => '<button data-dye="' + d.i + '" title="' + COLORS[d.i] + '" style="width:36px;height:36px;margin:2px;vertical-align:top;border:' + (d.i === loomDye ? '3px solid #fff' : '2px solid #444') + ';background:rgb(' + DYE_RGB[d.i].join(',') + ');color:#fff;text-shadow:0 0 3px #000;font-size:11px">' + (mode === 'survival' ? d.n : '') + '</button>').join('') : '<i>You have no dye.</i>') + '</div>';
+    h += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:6px">' + BANNER_PATS.map((P, i) => '<button data-pat="' + i + '" style="padding:4px;background:#8b8b8b;border:2px solid #454545;cursor:pointer"><canvas data-pc="' + i + '" width="20" height="40" style="width:30px;height:60px;image-rendering:pixelated"></canvas><div style="font-size:11px;color:#fff">' + P.n + '</div></button>').join('') + '</div>';
+  }
+  loomEl.innerHTML = h + '</div>';
+  loomEl.querySelector('[data-close]').onclick = closeLoom;
+  if(!id) return;
+  drawBanner(loomEl.querySelector('[data-prev]').getContext('2d'), id - BANNER0, cur, 20, 40);
+  loomEl.querySelectorAll('[data-pc]').forEach(cv => drawBanner(cv.getContext('2d'), id - BANNER0, [[+cv.dataset.pc, loomDye < 0 ? 15 : loomDye]], 20, 40));
+  loomEl.querySelectorAll('[data-dye]').forEach(b => b.onclick = () => { loomDye = +b.dataset.dye; uiClick(); renderLoom(); });
+  loomEl.querySelectorAll('[data-pat]').forEach(b => b.onclick = () => { if(loomDye >= 0 && loomApply(+b.dataset.pat, loomDye)) renderLoom(); });
+}
+function loomVRPanel(g, text, button){
+  const id = heldBanner(), dyes = loomDyes(), cur = bannerPats();
+  if(!id){ text('Hold a banner, then squeeze the grip on a loom.', 50, 250, 27, '#454545', 1330); return; }
+  if(loomDye < 0 || !dyes.some(d => d.i === loomDye)) loomDye = dyes.length ? dyes[0].i : -1;
+  g.imageSmoothingEnabled = false;
+  const pv = document.createElement('canvas'); pv.width = 20; pv.height = 40; drawBanner(pv.getContext('2d'), id - BANNER0, cur, 20, 40); g.drawImage(pv, 50, 190, 80, 160);
+  text(cur.length + ' of 6 patterns. Pick a dye, then a pattern.', 160, 205, 25, '#454545', 1200);
+  if(!dyes.length) text('You have no dye.', 160, 280, 24, '#8a2f2f');
+  dyes.forEach((d, k) => {
+    const x = 160 + k * 76;
+    button(x, 240, 66, 76, mode === 'survival' ? String(d.n) : '', () => { loomDye = d.i; }, true, d.i === loomDye);
+    g.fillStyle = 'rgb(' + DYE_RGB[d.i].join(',') + ')'; g.fillRect(x + 8, 246, 50, 24);
+  });
+  BANNER_PATS.forEach((P, i) => {
+    const x = 50 + (i % 8) * 170, y = 392 + ((i / 8) | 0) * 212;
+    button(x, y, 160, 200, '', () => { if(loomDye >= 0 && loomApply(i, loomDye)) vrMenuStatus = 'Added ' + P.n; }, loomDye >= 0);
+    const pc = document.createElement('canvas'); pc.width = 20; pc.height = 40; drawBanner(pc.getContext('2d'), id - BANNER0, [[i, loomDye < 0 ? 15 : loomDye]], 20, 40);
+    g.drawImage(pc, x + 55, y + 12, 50, 100); text(P.n, x + 10, y + 160, 20, '#222', 140);
+  });
+}
+/* ---- armour stands: dress one in armour and put something in its hand ---- */
+const armourStands = [];
+const standMats = { wood: entMat(0x9c7a4a), stone: entMat(0xa0a0a0) }, standArmourMats = new Map();
+function standArmourMat(c){ let m = standArmourMats.get(c); if(!m){ m = entMat(c); standArmourMats.set(c, m); } return m; }
+function saveStands(){ safeSet(SAVE_KEY + '-stands', JSON.stringify(armourStands.map(s => ({ x: s.pos.x, y: s.pos.y, z: s.pos.z, yaw: s.yaw, dim: s.dim, eq: s.eq, hand: s.hand })))); }
+function spawnStand(r){
+  const g = new THREE.Group(), W = standMats.wood;
+  box(0.7, 0.06, 0.7, standMats.stone, 0, 0.03, 0, g);                                         // the stone base
+  for(const sx of [-0.12, 0.12]) box(0.08, 0.72, 0.08, W, sx, 0.42, 0, g);                      // legs
+  box(0.46, 0.08, 0.1, W, 0, 0.78, 0, g);                                                       // hips
+  for(const sx of [-0.07, 0.07]) box(0.06, 0.62, 0.06, W, sx, 1.1, 0, g);                       // body
+  box(0.66, 0.1, 0.12, W, 0, 1.43, 0, g);                                                       // shoulders
+  for(const sx of [-0.3, 0.3]) box(0.08, 0.6, 0.08, W, sx, 1.1, 0, g);                          // arms
+  box(0.06, 0.3, 0.06, W, 0, 1.63, 0, g);                                                       // neck
+  const gear = new THREE.Group(); g.add(gear);
+  g.position.set(r.x, r.y, r.z); g.rotation.y = r.yaw; scene.add(g);
+  const s = { kind: 'stand', group: g, gear, pos: new THREE.Vector3(r.x, r.y, r.z), vel: new THREE.Vector3(), w: 0.35, h: 1.95, yaw: r.yaw, dim: r.dim | 0,
+    eq: r.eq || {}, hand: r.hand || null, hitT: 0, wob: 0, hp: 20 };
+  armourStands.push(s); dressStand(s);
+  return s;
+}
+function dressStand(s){
+  for(const c of [...s.gear.children]){ s.gear.remove(c); if(!c.userData.shared && c.geometry) c.geometry.dispose(); }
+  const M = it => standArmourMat((ITEMS[it.id] && ITEMS[it.id].armour && ITEMS[it.id].armour.color) || 0x888888), e = s.eq, G = s.gear;
+  if(e.helmet) box(0.52, 0.5, 0.52, M(e.helmet), 0, 1.78, 0, G);
+  if(e.chestplate){ const m = M(e.chestplate); box(0.56, 0.7, 0.34, m, 0, 1.12, 0, G); for(const sx of [-0.34, 0.34]) box(0.2, 0.42, 0.26, m, sx, 1.24, 0, G); }
+  if(e.leggings){ const m = M(e.leggings); box(0.5, 0.2, 0.3, m, 0, 0.8, 0, G); for(const sx of [-0.13, 0.13]) box(0.24, 0.55, 0.28, m, sx, 0.5, 0, G); }
+  if(e.boots){ const m = M(e.boots); for(const sx of [-0.13, 0.13]) box(0.26, 0.22, 0.32, m, sx, 0.17, -0.02, G); }
+  if(s.hand && s.hand.id){
+    const id = s.hand.id, mesh = new THREE.Mesh(dropGeo(id), ITEMS[id] ? matItemSolid : matO);
+    mesh.userData.shared = true; mesh.scale.setScalar(ITEMS[id] ? 1.1 : 0.5); mesh.position.set(0.3, 0.82, -0.14); mesh.rotation.set(-0.3, Math.PI / 2, 0); G.add(mesh);
+  }
+}
+function giveStack(it){
+  const e = survInv.find(q => !q.id || q.count <= 0);
+  if(!e){ spawnDropAt(player.pos.x, player.pos.y + 1, player.pos.z, it.id, 1); return; }
+  e.id = it.id; e.count = 1; e.dur = it.dur || (ITEMS[it.id] && ITEMS[it.id].tool ? TIER_DUR[ITEMS[it.id].tool.tier - 1] : 0); e.ench = it.ench || undefined;
+  invDirty = true; renderHotbar();
+}
+function useStand(s, held){
+  const q = mode === 'survival' ? survInv[sel] : null, info = ITEMS[held] && ITEMS[held].armour;
+  const take = () => { if(!q) return; q.count--; if(q.count <= 0){ q.id = 0; q.count = 0; q.dur = 0; q.ench = undefined; } invDirty = true; renderHotbar(); };
+  if(info && ARMOUR_SLOTS.includes(info.slot)){                   // armour goes on (what was there comes back to you)
+    const old = s.eq[info.slot];
+    s.eq[info.slot] = { id: held, ench: q && q.ench || null };
+    take(); if(old && q) giveStack(old);
+  } else if(held){                                                // anything else goes in its hand
+    const old = s.hand;
+    s.hand = { id: held, ench: q && q.ench || null, dur: q && q.dur || 0 };
+    take(); if(old && q) giveStack(old);
+  } else {                                                        // an empty hand takes things back: its hand first, then head to toe
+    const slot = s.hand ? 'hand' : ARMOUR_SLOTS.find(k => s.eq[k]);
+    if(!slot){ flashName('Armour Stand - use armour or an item on it'); return true; }
+    const it = slot === 'hand' ? s.hand : s.eq[slot];
+    if(slot === 'hand') s.hand = null; else delete s.eq[slot];
+    if(mode === 'survival') giveStack(it);
+  }
+  dressStand(s); saveStands(); playN({ f: 520, type: 'bandpass', dur: 0.1, vol: 0.12 }); triggerViewSwing();
+  return true;
+}
+function placeStand(hit){
+  if(!hit || hit.face[1] !== 1){ flashName('Put it on top of a block'); return true; }
+  const x = hit.x + 0.5, y = hit.y + 1, z = hit.z + 0.5;
+  if(isSolid(getBlock(hit.x, hit.y + 1, hit.z)) || isSolid(getBlock(hit.x, hit.y + 2, hit.z))) return true;
+  const yaw = Math.round(Math.atan2(-(player.pos.x - x), -(player.pos.z - z)) / (Math.PI / 4)) * (Math.PI / 4);   // it faces you
+  spawnStand({ x, y, z, yaw, dim, eq: {}, hand: null }); saveStands();
+  consumePlacedItem(); blockSfx(PLANK, 'place'); triggerViewSwing();
+  return true;
+}
+// hit it twice quickly and it breaks (once in creative)
+function hitStand(s){
+  const now = performance.now() / 1000;
+  if(mode === 'creative' || now - s.hitT < 0.6){ breakStand(s); return; }
+  s.hitT = now; s.wob = 0.4; playN({ f: 500, type: 'bandpass', dur: 0.08, vol: 0.12 });
+}
+function breakStand(s){
+  const i = armourStands.indexOf(s); if(i < 0) return;
+  armourStands.splice(i, 1); scene.remove(s.group);
+  burstRGB(s.pos.x, s.pos.y + 1, s.pos.z, 0.6, 0.47, 0.3, 12);
+  playN({ f: 300, type: 'lowpass', dur: 0.15, vol: 0.14 });
+  if(mode === 'survival'){
+    spawnDropAt(s.pos.x, s.pos.y + 0.5, s.pos.z, ARMOR_STAND, 1);
+    for(const it of [s.hand, ...ARMOUR_SLOTS.map(k => s.eq[k])]) if(it && it.id) giveStack(it);
+  }
+  saveStands();
+}
+(() => { try { for(const r of JSON.parse(localStorage.getItem(SAVE_KEY + '-stands')) || []) spawnStand(r); } catch(e){} })();
+function useDecorations(hit, eh, held){
+  if(eh && eh.e.kind === 'stand' && (!hit || eh.t < hit.t)) return useStand(eh.e, held);
+  if(held === ARMOR_STAND) return placeStand(hit);
+  if(!hit) return false;
+  if(hit.id === LOOM && (isBanner(held) || !held)){ if(held) openLoom(); else flashName('Hold a banner to use the loom'); return true; }
+  if(useCandle(hit, held) || usePot(hit, held)) return true;
+  if(held === SCAFFOLD) return placeScaffold(hit);
+  return false;
+}
+function updateDeco(dt){
+  syncBanners(dt);
+  for(const s of armourStands){
+    s.group.visible = s.dim === dim;
+    if(s.wob > 0){ s.wob = Math.max(0, s.wob - dt); s.group.rotation.z = Math.sin(s.wob * 40) * s.wob * 0.25; }
+  }
+  decoSaveT -= dt;
+  if(decoDirty && decoSaveT <= 0){ decoSaveT = 1; decoDirty = false; safeSet(SAVE_KEY + '-deco', JSON.stringify([...decoState])); }
 }
 // a shulker box keeps what's in it: broken, it goes into your pack full; placed, it's full again
 let lastBoxKey = null;
@@ -20260,6 +20761,7 @@ function breakBlock(x, y, z, id){
     if(e && e.item && mode === 'survival') spawnDropAt(x + 0.5, y + 0.5, z + 0.5, e.item, 1);
     frameItems.delete(x + ',' + y + ',' + z); saveFrames();
   }
+  if(isDecoBlock(id) && breakDeco(x, y, z, id)) return;
   if(id === SHULKER_BOX){ breakShulkerBox(x, y, z); return; }
   if(isContainerBlock(id) || id===HOPPER){
     const key = id===HOPPER?'hopper:'+dim+':'+x+','+y+','+z:x + ',' + y + ',' + z;
@@ -20484,7 +20986,7 @@ const creativeItems = [GRASS, DIRT, STONE, LOG, PLANK, GLASS, TORCH, BRICK, GLOW
 // creative palette always includes everything (auto-updates as blocks are added).
 const ALL_CREATIVE = (() => {
   const out = [];
-  for(const id of Object.keys(BLOCKS).map(Number)){ if(id !== WATER && id !== PORTAL && id !== DOORTOP && id !== RS_TORCH_OFF && id !== RS_WIRE && id !== LAMP_ON && id !== 626 && !(id > CAKE && id <= POTATO3)) out.push(id); }
+  for(const id of Object.keys(BLOCKS).map(Number)){ if(!BLOCKS[id].hidden && id !== WATER && id !== PORTAL && id !== DOORTOP && id !== RS_TORCH_OFF && id !== RS_WIRE && id !== LAMP_ON && id !== 626 && !(id > CAKE && id <= POTATO3)) out.push(id); }
   for(const k in ITEMS){ const id = +k; if(!!ITEMS[id] && !ITEMS[id].hidden) out.push(id); }
   return out;
 })();
@@ -20492,7 +20994,7 @@ const ALL_CREATIVE = (() => {
 const CAT_NAMES = ['Building', 'Nature', 'Ores & Minerals', 'Decoration', 'Utility', 'Tools', 'Combat', 'Food', 'Misc'];
 const _oreBlocks = new Set([RAW_IRON_BLOCK, RAW_GOLD_BLOCK, RAW_COPPER_BLOCK, COALO, IRONO, GOLDO, DIAMO, EMERO, COPPERO, REDSTONE_ORE, LAPIS_ORE, QUARTZ_ORE, DEBRIS, ...Object.keys(DEEP_BASE).map(Number)]);
 const _matItems = new Set([BOOK, ENCHANTED_BOOK, TRIAL_KEY, BREEZE_ROD, WIND_CHARGE, HEAVY_CORE, NETHER_STAR, TOTEM, GLOW_INK_SAC, ARMADILLO_SCUTE, PHANTOM_MEMBRANE, ...DYE, COCOA, RESIN_CLUMP, RESIN_BRICK, ECHO_SHARD, HEART_OF_SEA, NAUTILUS, PRISMARINE_SHARD, PRISMARINE_CRYSTALS, INK_SAC, RAW_IRON, RAW_GOLD, RAW_COPPER, REDSTONE, LAPIS, COALI, IRONI, GOLDI, DIAMI, COPPERI, EMERALD, NETHERITE, QUARTZ, AMETHYST_SHARD, GNUGGET, NSCRAP, STICK, STRING, LEATHER, FEATHER, GUNPOWDER, BLAZEROD, BLAZEPOWDER, GHASTTEAR, MAGMACREAM, ENDERPEARL, SLIMEBALL, BONE, BONE_MEAL, HONEYCOMB, PAPER]);
-const _decoBlocks = new Set([...CARPET, SEA_LANTERN, TORCH, SOUL_TORCH, PAINTING, FRAME, FLOWERPOT, LANTERN, JACK_O_LANTERN, CARVED_PUMPKIN, GLOWB, CAMPFIRE]);
+const _decoBlocks = new Set([...CARPET, ...Array.from({ length: 52 }, (_, i) => 5514 + i), ARMOR_STAND, SEA_LANTERN, TORCH, SOUL_TORCH, PAINTING, FRAME, FLOWERPOT, LANTERN, JACK_O_LANTERN, CARVED_PUMPKIN, GLOWB, CAMPFIRE]);
 const _utilBlocks = new Set([AQ_CONDUIT, REPEATER, LEVER, BUTTON_STONE, BUTTON_WOOD, PLATE_STONE, PLATE_WOOD, RS_TORCH, LAMP, CHEST, CRAFTT, FURN, BREWING, BARREL, ENDERCHEST, COMPOSTER, GRINDSTONE, NOTEBLOCK, JUKEBOX, ANVIL, SMITHING, CAULDRON, LADDER, FENCE, GATE, GATE_OPEN, BED, BEDHEAD, LIGHTNINGROD, TNT, BOOKSHELF, ENCH_TABLE]);
 const _natureBlocks = new Set([PALE_MOSS, PALE_MOSS_CARPET, PALE_HANGING_MOSS, EYEBLOSSOM_C, PALE_GRASS, CREAKING_HEART, SCULK, SCULK_SENSOR, SCULK_SHRIEKER, SCULK_CATALYST, MYCELIUM, MUSH_STEM, RED_MUSH_BLOCK, BROWN_MUSH_BLOCK, ...OCEAN_PLANTS, ...CORAL_BLOCKS, DEAD_CORALB, ICE, SPONGE, WET_SPONGE, GRASS, DIRT, SAND, REDSAND, GRAVEL, SNOW, PODZOL, CACTUS, DEADBUSH, MUSHROOMR, MUSHROOMB, TGRASSB, POPPYB, DANDB]);
 function itemCat(id){
@@ -20923,6 +21425,7 @@ function buildCraftPanel(){
   if(mode==='creative') tabDefs.push(['tp','Teleport']);
   tabDefs.push(['guide','Guide'],['mp','Play Together'],['help','Controls']);
   if(vrMenuTab==='enchant') tabDefs.push(['enchant','Enchant']);
+  if(vrMenuTab==='loom') tabDefs.push(['loom','Loom']);
   if(dead) tabDefs.length = 0;                 // dead players get one decision, not a menu
   const tabStep=Math.floor(1025/tabDefs.length), tabW=tabStep-14;
   tabDefs.forEach(([tab,label],i)=>{
@@ -21106,6 +21609,8 @@ function buildCraftPanel(){
       text('key one in with the pointer - no keyboard needed.',50,454,24,'#454545',1330);
       text(mpStatusText,50,520,24,'#454545',1330);
     }
+  } else if(vrMenuTab==='loom'){
+    loomVRPanel(g, text, button);
   } else if(vrMenuTab==='trade'){
     const tv=tradeVillager;
     if(!tv){
@@ -25205,6 +25710,7 @@ function animate(){
     updateStormWorld(dt);
     updateShots(dt);
     updateArchery(dt);
+    updateDeco(dt);
     if(bowCd > 0) bowCd -= dt;
     if(levT > 0) levT -= dt;
     updateDrops(dt);
@@ -25578,6 +26084,7 @@ window.__bc = {
   COMPARATOR, TARGET, TRIPWIRE_HOOK, TRIPWIRE, DAYLIGHT, containerSignal, tripAt, hitTarget, updateRedstoneReaders, placeRSAt: (x, y, z, id, hit) => placeRS(x, y, z, id, hit),
   bowState: () => ({ bowDraw, crossLoad, crossWait }), startBowDraw, fireBow, useCrossbow, fireCrossbow, finishCrossLoad, updateArchery, bowPower, skelShoot, rocketBlast, makeBowModel, setBowPull,
   CROSSBOW, CROSSBOW_ARROW, CROSSBOW_ROCKET, BOW, ARROW_I,
+  DECO: { decoKey, setDeco, decoPlaced, useCandle, usePot, CANDLE0, CANDLE_LIT0, BANNER0, DECO_POT, SCAFFOLD, ARMOR_STAND, LOOM, decoState, useDecorations, armourStands, spawnStand, openLoom, closeLoom, loomApply, scaffDistances, scaffComponent, placeScaffold, breakDeco, BANNER_PATS, drawBanner, bannerCloths, updateDeco, hitStand, inScaffold, setBannerPats },
   NAME_TAG, LEAD, COMPASS, CLOCK, SPYGLASS, SHULKER_BOX, nameMob, playerLeads, useLeadsAndTags, drawDial, breakShulkerBox,
   PISTON, STICKY_PISTON, PISTON_HEAD, STICKY_HEAD, DISPENSER, DROPPER, OBSERVER, pistonAct, dispense, observeAt, machineTile, rsPartAt: (x, y, z) => rsPart(x, y, z), rsSetPartAt: (x, y, z, p) => rsSetPart(x, y, z, p), chestSlotsAt: k => chestSlots(k),
   TRIM0, TRIM_NAMES, TRIM_MATS, trimOf, POT_MODS, eL, effSpeedMul, useSmithing, stackName, updateArmourModel,
