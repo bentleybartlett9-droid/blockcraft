@@ -2538,6 +2538,7 @@ const COMPARATOR = 5508, TARGET = 5509, TRIPWIRE_HOOK = 5510, TRIPWIRE = 5511, D
 BLOCKS[COMPARATOR] = { name: 'Redstone Comparator', all: 741 }; BLOCKS[TARGET] = { name: 'Target', all: 737 };
 BLOCKS[TRIPWIRE_HOOK] = { name: 'Tripwire Hook', all: 742 }; BLOCKS[TRIPWIRE] = { name: 'Tripwire', all: 743 };
 BLOCKS[DAYLIGHT] = { name: 'Daylight Detector', top: 739, bottom: 740, side: 740 };
+const LOOM = 5513; BLOCKS[LOOM] = { name: 'Loom', top: 745, bottom: 745, side: 744 };
 
 /* Everyday things from Minecraft: name tags, leads, the compass, the clock,
    the spyglass, and shulker boxes that keep what's in them when broken. */
@@ -3180,6 +3181,7 @@ const RECIPES = [
   { out: [OBSERVER, 1], in: [[ANY_COBBLE, 6], [REDSTONE, 2], [QUARTZ, 1]], st: 'table' },
   { out: [COMPASS, 1], in: [[IRONI, 4], [REDSTONE, 1]], st: 'table' },
   { out: [COMPARATOR, 1], in: [[RS_TORCH, 3], [QUARTZ, 1], [STONE, 3]], st: 'table' },
+  { out: [LOOM, 1], in: [[STRING, 2], [ANY_PLANK, 2]], st: 'table' },
   { out: [TARGET, 1], in: [[REDSTONE, 4], [4086, 1]], st: 'table' },
   { out: [TRIPWIRE_HOOK, 2], in: [[IRONI, 1], [STICK, 1], [ANY_PLANK, 1]], st: 'table' },
   { out: [DAYLIGHT, 1], in: [[GLASS, 3], [QUARTZ, 3], [SLAB_WOOD, 3]], st: 'table' },
@@ -5849,6 +5851,8 @@ scene.fog = new THREE.Fog(0x87b5e5, RD * 16 * 0.55, RD * 16 * 0.95);
     copy(341, 741); rect(741, 7, 11, 2, 2, '#d8d8d8');                   // the comparator: a repeater's slab with a third torch
     cr(742, 'rgba(0,0,0,0)'); { const [ox, oy] = at(742); g.clearRect(ox, oy, 16, 16); } rect(742, 6, 2, 4, 12, '#8a6a3e'); rect(742, 5, 3, 6, 3, '#c8c8c8'); rect(742, 7, 4, 2, 1, '#555');   // tripwire hook
     cr(743, 'rgba(0,0,0,0)'); { const [ox, oy] = at(743); g.clearRect(ox, oy, 16, 16); } rect(743, 0, 7, 16, 2, '#e8e8e8'); }
+  copy(PL, 744); rect(744, 2, 3, 12, 8, '#d8d0c0'); for(let i = 0; i < 6; i++) rect(744, 3 + i * 2, 3, 1, 8, '#b0a898');   // the loom: warp threads on a frame
+  copy(PL, 745); rect(745, 3, 3, 10, 10, '#e2dacb'); rect(745, 3, 7, 10, 1, '#9a8a70');
   rect(735, 0, 6, 16, 2, '#5c3a6a'); rect(736, 3, 3, 10, 10, '#a576ae'); rect(736, 6, 6, 4, 4, '#5c3a6a');   // shulker box: lid seam, and its top
 }
 const tex = new THREE.CanvasTexture(atlas);
@@ -12521,8 +12525,9 @@ function updateRaid(dt){
 }
 // the Hero of the Village trades for less
 function tradeIn(t){
-  if(!(effects.hero > 0) || !tradeVillager || tradeVillager.kind !== 'villager') return t.in;
-  return t.in.map(([id, n]) => [id, id === EMERALD ? Math.max(1, Math.ceil(n * 0.7)) : n]);
+  if(!tradeVillager || tradeVillager.kind !== 'villager') return t.in;
+  const k = (effects.hero > 0 ? 0.7 : 1) * (tradeVillager.cured ? 0.5 : 1);   // the Hero of the Village, and a villager you cured, give you a better price
+  return k === 1 ? t.in : t.in.map(([id, n]) => [id, id === EMERALD ? Math.max(1, Math.ceil(n * k)) : n]);
 }
 /* The Totem of Undying: carry one in your hotbar and, instead of dying, you
    are brought back with half a heart, Regeneration and Fire Resistance. */
@@ -14423,9 +14428,47 @@ const VIL_PROF = [
       {in:[[PAPER,24]],out:[EMERALD,1]}, {in:[[EMERALD,1]],out:[MAP,1]},
       {in:[[EMERALD,8]],out:[TRIAL_MAP,1]}, {in:[[EMERALD,14]],out:[MANSION_MAP,1]}, {in:[[EMERALD,6]],out:[COMPASS,1]}, {in:[[EMERALD,20]],out:[NAME_TAG,1]} ]},
   { id:'cleric', name:'Cleric', robe:0x7a4a9c, badge:0xe2c85a, hat:0, voice:230, trades:[
-      {in:[[GOLDO,3]],out:[EMERALD,1]},
-      {in:[[EMERALD,2]],out:[GLOWB,4]}, {in:[[EMERALD,6]],out:[DIAMI,1]} ]},
+      {in:[[GOLDO,3]],out:[EMERALD,1]}, {in:[[EMERALD,1]],out:[REDSTONE,2]},
+      {in:[[EMERALD,2]],out:[GLOWB,4]}, {in:[[ROTTEN,32]],out:[EMERALD,1]},
+      {in:[[EMERALD,4]],out:[ENDERPEARL,1]}, {in:[[EMERALD,6]],out:[DIAMI,1]} ]},
+  { id:'armorer', name:'Armorer', robe:0x3a3a42, badge:0x7a7a86, hat:0, voice:180, trades:[
+      {in:[[COALI,15]],out:[EMERALD,1]}, {in:[[EMERALD,5]],out:[204,1]},
+      {in:[[IRONI,4]],out:[EMERALD,1]}, {in:[[EMERALD,9]],out:[205,1]},
+      {in:[[DIAMI,1]],out:[EMERALD,1]}, {in:[[EMERALD,13]],out:[208,1]},
+      {in:[[EMERALD,20]],out:[209,1]}, {in:[[EMERALD,15]],out:[210,1]} ]},
+  { id:'fisherman', name:'Fisherman', robe:0x4a6a8a, badge:0x2a4a6a, hat:0x8a7a4a, voice:205, trades:[
+      {in:[[STRING,20]],out:[EMERALD,1]}, {in:[[COALI,10]],out:[EMERALD,1]},
+      {in:[[COD,15]],out:[EMERALD,1]}, {in:[[EMERALD,1]],out:[COOKED_COD,6]},
+      {in:[[SALMON,13]],out:[EMERALD,1]}, {in:[[EMERALD,3]],out:[ROD,1]},
+      {in:[[EMERALD,2]],out:[CAMPFIRE,1]} ]},
+  { id:'fletcher', name:'Fletcher', robe:0x8a7a5a, badge:0xc0a060, hat:0, voice:215, trades:[
+      {in:[[STICK,32]],out:[EMERALD,1]}, {in:[[EMERALD,1]],out:[ARROW_I,16]},
+      {in:[[GRAVEL,10]],out:[EMERALD,1]}, {in:[[EMERALD,2]],out:[BOW,1]},
+      {in:[[STRING,14]],out:[EMERALD,1]}, {in:[[FEATHER,24]],out:[EMERALD,1]},
+      {in:[[EMERALD,3],[ARROW_I,5]],out:['tipped',5]} ]},
+  { id:'mason', name:'Mason', robe:0x6a5a4a, badge:0x9a8a7a, hat:0, voice:185, trades:[
+      {in:[[CLAY,10]],out:[EMERALD,1]}, {in:[[EMERALD,1]],out:[BRICK,10]},
+      {in:[[STONE,20]],out:[EMERALD,1]}, {in:[[EMERALD,1]],out:[CHISELED_STONE,4]},
+      {in:[[QUARTZ,12]],out:[EMERALD,1]}, {in:[[EMERALD,1]],out:[TERRACOTTA,1]} ]},
+  { id:'weaponsmith', name:'Weaponsmith', robe:0x3a3a42, badge:0xa03a2a, hat:0, voice:175, trades:[
+      {in:[[COALI,15]],out:[EMERALD,1]}, {in:[[EMERALD,3]],out:[IAXE,1]},
+      {in:[[IRONI,4]],out:[EMERALD,1]}, {in:[[EMERALD,2]],out:[ISWORD,1]},
+      {in:[[DIAMI,1]],out:[EMERALD,1]}, {in:[[EMERALD,12]],out:[DSWORD,1]},
+      {in:[[EMERALD,17]],out:[DAXE,1]} ]},
+  { id:'leatherworker', name:'Leatherworker', robe:0x8a5a3a, badge:0x5a3a2a, hat:0, voice:195, trades:[
+      {in:[[LEATHER,6]],out:[EMERALD,1]}, {in:[[EMERALD,3]],out:[200,1]},
+      {in:[[EMERALD,5]],out:[201,1]}, {in:[[EMERALD,4]],out:[203,1]},
+      {in:[[TURTLE_SCUTE,4]],out:[EMERALD,1]}, {in:[[EMERALD,6]],out:[SADDLE,1]} ]},
+  { id:'shepherd', name:'Shepherd', robe:0xe0dccf, badge:0x8a6a4a, hat:0, voice:225, trades:[
+      {in:[[WHITEWOOL,18]],out:[EMERALD,1]}, {in:[[EMERALD,2]],out:[SHEARS,1]},
+      {in:[[DYE[15],12]],out:[EMERALD,1]}, {in:[[EMERALD,1]],out:['wool',1]},
+      {in:[[EMERALD,1]],out:['carpet',4]}, {in:[[EMERALD,3]],out:[BED,1]} ]},
 ];
+// a villager with no job yet: it takes the first free workstation it finds
+const NO_JOB = { id: 'none', name: 'Villager', robe: 0x7a5a3a, badge: 0x6a4a2a, hat: 0, voice: 200, trades: [] };
+const WORKSTATION = { farmer: COMPOSTER, librarian: 4093, toolsmith: SMITHING, butcher: 4088, cleric: BREWING, cartographer: 4091, armorer: 4089,
+  fisherman: BARREL, fletcher: 4092, mason: 4090, weaponsmith: GRINDSTONE, leatherworker: CAULDRON, shepherd: LOOM };
+const VIL_LEVELS = ['Novice', 'Apprentice', 'Journeyman', 'Expert', 'Master'], VIL_XP = [0, 10, 70, 150, 250];
 const profMatCache = {};
 function profMats(prof){
   if(!profMatCache[prof.id]) profMatCache[prof.id] = {
@@ -14437,7 +14480,7 @@ function profMats(prof){
 const profByBuilding = t => t === 'blacksmith' ? 'toolsmith' : t === 'library' ? 'librarian'
                           : t === 'farm' ? 'farmer' : t === 'inn' ? 'butcher' : null;
 function spawnVillager(x, y, z, hx, hz, profId){
-  const prof = VIL_PROF.find(p => p.id === profId) || VIL_PROF[Math.floor(Math.random()*VIL_PROF.length)];
+  const prof = profId === 'none' ? NO_JOB : VIL_PROF.find(p => p.id === profId) || VIL_PROF[Math.floor(Math.random()*VIL_PROF.length)];
   const M = profMats(prof);
   const g = new THREE.Group();
   const legs = [];
@@ -14456,8 +14499,8 @@ function spawnVillager(x, y, z, hx, hz, profId){
     w: 0.35, h: 1.9, hp: 20,
     yaw: Math.random() * Math.PI * 2, speed: 0, t: 1, flee: 0,
     hmT: 3 + Math.random() * 4, onGround: false, anim: Math.random() * 9,
-    home: [hx, hz], prof, restock: 0,
-    trades: pickTrades(prof),
+    home: [hx, hz], prof, restock: 120 + Math.random() * 60, level: 1, xp: 0,
+    trades: offersFor(prof, 1),
   });
 }
 /* trading */
@@ -14488,6 +14531,21 @@ function pickTrades(prof){
     picks.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
   return picks.map(t => t.book ? bookTrade() : t);
 }
+// a villager's offers: two more unlock with each level it reaches, and each sells out until it restocks
+function offersFor(prof, lvl, only){
+  const out = [];
+  ((prof && prof.trades) || []).forEach((t, i) => {
+    const tier = Math.min(5, (i >> 1) + 1);
+    if(tier > lvl || (only && tier !== lvl)) return;
+    let o = t.book ? bookTrade() : Object.assign({}, t);
+    if(o.out[0] === 'tipped') o.out = [TIPPED0 + ((Math.random() * POT_BASE_N) | 0), o.out[1]];
+    else if(o.out[0] === 'wool') o.out = [WOOL16[(Math.random() * 16) | 0], o.out[1]];
+    else if(o.out[0] === 'carpet') o.out = [CARPET[(Math.random() * 16) | 0], o.out[1]];
+    o.tier = tier; o.uses = 0; o.max = o.ench ? 3 : 12;
+    out.push(o);
+  });
+  return out;
+}
 function bookTrade(){                                              // a librarian's enchanted book: dearer the better it is
   const ench = randomBookEnch(true), [k, lv] = Object.entries(ench)[0];
   const cost = Math.min(64, 2 + 3 * lv * (ENCH[k].max > 1 ? 5 / ENCH[k].max : 3) + (ENCH[k].treasure ? 10 : 0) + ((Math.random() * 6) | 0));
@@ -14495,6 +14553,7 @@ function bookTrade(){                                              // a libraria
 }
 let tradeVillager = null;
 function tradeOk(t){
+  if((t.uses | 0) >= (t.max || 1e9)) return false;
   return tradeIn(t).every(([id, n]) => invCount(id) >= n) &&
          (ITEMS[t.out[0]] && ITEMS[t.out[0]].tool
            ? survInv.some(s => !s.id || s.count === 0)
@@ -14506,6 +14565,8 @@ function doTrade(i){
   for(const [id, n] of tradeIn(t)) removeItems(id, n);
   if(t.ench){ if(!giveEnchBook(Object.assign({}, t.ench))) spawnDropAt(player.pos.x, player.pos.y + 1, player.pos.z, BOOK, 1); }
   else for(let k = 0; k < t.out[1]; k++) addItem(t.out[0], true);
+  t.uses = (t.uses | 0) + 1;
+  if(tradeVillager.kind === 'villager') vilGainXP(tradeVillager, 3 + 2 * (t.tier || 1));
   renderHotbar();
   renderTrade();
   tone(520 * jr(0.1), 780, 0.08, 'sine', 0.14);
@@ -14517,6 +14578,7 @@ function renderTrade(){
   const list = document.getElementById('tradelist');
   list.innerHTML = '';
   if(!tradeVillager) return;
+  if(tradeVillager.kind === 'villager'){ const head = document.createElement('div'); head.className = 'rcost'; head.textContent = vilTitle(tradeVillager); list.appendChild(head); }
   tradeVillager.trades.forEach((t, i) => {
     const row = document.createElement('div');
     row.className = 'recipe';
@@ -14531,7 +14593,7 @@ function renderTrade(){
     cost.textContent = 'costs ' + tradeIn(t).map(([id, n]) => n + ' ' + nameOf(id) + ' (' + invCount(id) + ')').join(' + ');
     const btn = document.createElement('button');
     btn.className = 'mcbtn';
-    btn.textContent = 'Trade';
+    btn.textContent = (t.uses | 0) >= (t.max || 1e9) ? 'Sold out' : 'Trade';
     btn.disabled = !tradeOk(t);
     btn.addEventListener('click', () => doTrade(i));
     row.append(icon, name, cost, btn);
@@ -14539,6 +14601,7 @@ function renderTrade(){
   });
 }
 function openTrade(vg){
+  if(!canTradeWith(vg)) return;
   tradeOpen = true;
   tradeVillager = vg;
   renderTrade();
@@ -14641,14 +14704,16 @@ function updateVillagerSpawns(dt){
     villagerSpawned.add(v.key);
     // one resident per plot, and their trade wheel matches the building they work in
     const plots = v.houses.slice(0, 6);
-    for(const hs of plots){
-      const sx = hs.x + 0.5 + (Math.random() - 0.5) * 3;
-      const sz = hs.z + 0.5 + (Math.random() - 0.5) * 3;
+    plots.forEach((hs, pi) => {
+      const vid = v.key + ':' + pi, r = vilSave[vid];
+      if(r && r.gone) return;                                            // killed: a village doesn't magic them back
+      const sx = r ? r.x : hs.x + 0.5 + (Math.random() - 0.5) * 3;
+      const sz = r ? r.z : hs.z + 0.5 + (Math.random() - 0.5) * 3;
       const gy = findSurfaceY(Math.floor(sx), Math.floor(sz));
       const sy = (gy >= 0 ? gy : Math.max(terrainHeight(Math.floor(sx), Math.floor(sz)), hs.y)) + 1.1;
-      spawnVillager(sx, sy, sz, hs.x, hs.z, profByBuilding(hs.type));
-      villagers[villagers.length - 1].plaza = [v.cx, v.cz];
-    }
+      spawnVillager(sx, sy, sz, hs.x, hs.z, r ? r.prof : profByBuilding(hs.type) || 'none');
+      const e = villagers[villagers.length - 1]; e.plaza = [v.cx, v.cz]; e.vid = vid; applyVil(e, r);
+    });
   }
 }
 function farmerWork(e,dt){
@@ -14669,7 +14734,7 @@ function updateVillagers(dt){
     const night = daylightOf(timeOfDay) < 0.3;
     // trades slowly restock, the way a MC villager refreshes its offers
     e.restock -= dt;
-    if(e.restock <= 0){ e.restock = 90 + Math.random() * 60; e.trades = pickTrades(e.prof); }
+    if(e.restock <= 0){ e.restock = 150 + Math.random() * 90; if(e.trades) for(const t of e.trades) t.uses = 0; }   // restocked
     // a hostile within sight sends them running for their door, even before being hit
     const threat = hostilesNear(e.pos, 12);
     if(threat && e.flee <= 0) e.flee = 2.2;
@@ -15582,6 +15647,7 @@ function useSpecial(o, d, hit, eh){
   const held = heldId();
   if(useBrush(hit)) return true;
   if(useLeadsAndTags(hit, eh, held, mode === 'survival')) return true;
+  if(eh && (!hit || eh.t < hit.t) && !eh.e.puppet && (feedVillager(eh.e) || cureZombie(eh.e))) return true;
   if(hit && hit.id === VAULT && (!eh || hit.t <= eh.t)){ openVault(hit.x, hit.y, hit.z); triggerViewSwing(); return true; }
   if(hit && hit.id === BEACON && (!eh || hit.t <= eh.t) && !(held && !ITEMS[held] && player.crouching)){ cycleBeacon(hit.x, hit.y, hit.z); triggerViewSwing(); return true; }
   if(eh && eh.e.kind === 'animal' && (eh.e.type === 'wolf' || eh.e.type === 'cat') && !eh.e.puppet && (!hit || eh.t < hit.t) && useOnWolf(eh.e)){ triggerViewSwing(); return true; }
@@ -18849,6 +18915,162 @@ function dispense(x, y, z){
   spit();
 }
 
+
+/* ---- village life, as in Minecraft ----
+   Villagers are kept with the world: their jobs, levels and deals. A villager
+   with no job takes a free workstation near it (a lectern makes a librarian, a
+   composter a farmer...), and loses it again if the station goes before it has
+   traded. Feed two villagers (bread, or carrots, potatoes or beetroots) and,
+   if there's a free bed, they have a baby. A zombie villager weakened by a
+   potion and given a golden apple is cured - and trades cheap ever after. */
+const vilSave = (() => { try { return JSON.parse(localStorage.getItem(SAVE_KEY + '-villagers')) || {}; } catch(e){ return {}; } })();
+let vilDirty = false, vilSaveT = 0, vilLifeT = 0;
+const vilTitle = e => (e.baby > 0 ? 'Baby villager' : e.prof.name + ' - ' + VIL_LEVELS[(e.level || 1) - 1]) + (e.level < 5 && !(e.baby > 0) ? '  (' + (e.xp | 0) + '/' + VIL_XP[e.level] + ' xp)' : '') + (e.cured ? '  - cured: half price' : '');
+function canTradeWith(e){
+  if(e.kind !== 'villager') return true;
+  if(e.baby > 0 || e.prof.id === 'none'){ villagerVoice(e, 'no'); flashName(e.baby > 0 ? 'A baby villager has nothing to trade' : 'This villager has no job yet - put a workstation near it'); return false; }
+  return true;
+}
+function vilRecord(e){
+  if(!e.vid) e.vid = 'b' + Date.now().toString(36) + ((Math.random() * 1e6) | 0).toString(36);
+  const r = vilSave[e.vid] || (vilSave[e.vid] = {});
+  Object.assign(r, { prof: e.prof.id, level: e.level || 1, xp: e.xp | 0, trades: e.trades, x: e.pos.x, y: e.pos.y, z: e.pos.z, dim, home: e.home, baby: e.baby || 0, cured: !!e.cured, station: e.station || null });
+  vilDirty = true; return r;
+}
+function applyVil(e, r){
+  if(!r) return;
+  e.level = r.level || 1; e.xp = r.xp | 0; if(r.trades && r.trades.length) e.trades = r.trades; e.cured = !!r.cured; e.station = r.station || null;
+  if(r.baby > 0) vilMakeBaby(e, r.baby);
+}
+function vilMakeBaby(e, t){ e.baby = t; e.h = 1.0; e.w = 0.22; e.group.scale.setScalar(0.55); }
+function vilGainXP(e, n){
+  e.xp = (e.xp | 0) + n;
+  while(e.level < 5 && e.xp >= VIL_XP[e.level]){
+    e.level++;
+    e.trades = (e.trades || []).concat(offersFor(e.prof, e.level, true));
+    for(let i = 0; i < 16; i++) burstRGB(e.pos.x + (Math.random() - 0.5), e.pos.y + 1 + Math.random(), e.pos.z + (Math.random() - 0.5), 0.3, 0.95, 0.3, 1, 0.3);
+    tone(600, 900, 0.2, 'triangle', 0.08); tone(900, 1300, 0.2, 'triangle', 0.06, 0.12);
+    flashName(e.prof.name + ' is now ' + VIL_LEVELS[e.level - 1]);
+  }
+  vilRecord(e);
+}
+// swap a villager's job (its looks change with it); a new job starts at Novice
+function changeProf(e, profId, station){
+  const i = villagers.indexOf(e); if(i < 0) return e;
+  spawnVillager(e.pos.x, e.pos.y, e.pos.z, e.home[0], e.home[1], profId);
+  const n = villagers[villagers.length - 1];
+  n.vid = e.vid; n.plaza = e.plaza; n.yaw = e.yaw; n.cured = e.cured; n.station = station || null; n.food = e.food || 0;
+  if(e.nameTag) nameMob(n, e.nameTag, true);
+  removeEnt(villagers, villagers.indexOf(e));
+  for(let k = 0; k < 12; k++) burstRGB(n.pos.x + (Math.random() - 0.5), n.pos.y + 1.2 + Math.random() * 0.6, n.pos.z + (Math.random() - 0.5), 0.3, 0.95, 0.3, 1, 0.3);
+  vilRecord(n);
+  return n;
+}
+function findStation(e){
+  const claimed = new Set(villagers.map(v => v.station).filter(Boolean));
+  const bx = Math.floor(e.pos.x), by = Math.floor(e.pos.y), bz = Math.floor(e.pos.z);
+  let best = null, bd = 1e9;
+  for(let dy = -2; dy <= 3; dy++) for(let dz = -12; dz <= 12; dz++) for(let dx = -12; dx <= 12; dx++){
+    const id = getBlock(bx + dx, by + dy, bz + dz);
+    if(id === AIR) continue;
+    const job = Object.keys(WORKSTATION).find(k => WORKSTATION[k] === id);
+    if(!job) continue;
+    const key = (bx + dx) + ',' + (by + dy) + ',' + (bz + dz), d = dx * dx + dz * dz + dy * dy;
+    if(!claimed.has(key) && d < bd){ bd = d; best = { job, key }; }
+  }
+  return best;
+}
+// feeding a villager: enough food and it's willing to have a family
+const VIL_FOOD = { [BREAD]: 1, [CARROT]: 0.25, [POTATO]: 0.25, [BEETROOT]: 0.25 };
+function feedVillager(e){
+  const f = VIL_FOOD[heldId()];
+  if(f === undefined || e.kind !== 'villager' || e.baby > 0) return false;
+  consumePlacedItem();
+  e.food = Math.min(6, (e.food || 0) + f);
+  villagerVoice(e, e.food >= 3 ? 'trade' : 'idle');
+  if(e.food >= 3) for(let i = 0; i < 5; i++) burstRGB(e.pos.x + (Math.random() - 0.5) * 0.6, e.pos.y + 2 + Math.random() * 0.3, e.pos.z + (Math.random() - 0.5) * 0.6, 1, 0.3, 0.4, 1, 0.1);
+  flashName(e.food >= 3 ? 'The villager is willing' : 'The villager eats');
+  triggerViewSwing();
+  return true;
+}
+function bedsNear(x, y, z){
+  let n = 0;
+  for(let dy = -4; dy <= 5; dy++) for(let dz = -20; dz <= 20; dz++) for(let dx = -20; dx <= 20; dx++) if(getBlock(Math.floor(x) + dx, Math.floor(y) + dy, Math.floor(z) + dz) === BEDHEAD) n++;
+  return n;
+}
+let bedWarnT = 0;
+function vilBreed(){
+  const ready = villagers.filter(v => (v.food || 0) >= 3 && !(v.baby > 0));
+  for(let i = 0; i < ready.length; i++) for(let j = i + 1; j < ready.length; j++){
+    const a = ready[i], b = ready[j];
+    if(a.pos.distanceTo(b.pos) > 6) continue;
+    const mid = a.pos.clone().add(b.pos).multiplyScalar(0.5);
+    const beds = bedsNear(mid.x, mid.y, mid.z), folk = villagers.filter(v => v.pos.distanceTo(mid) < 32).length;
+    if(beds <= folk){ if(bedWarnT <= 0 && player.pos.distanceTo(mid) < 24){ bedWarnT = 20; flashName('The villagers need a free bed to have a baby'); } continue; }
+    a.food -= 3; b.food -= 3;
+    spawnVillager(mid.x, mid.y + 0.1, mid.z, a.home[0], a.home[1], 'none');
+    const kid = villagers[villagers.length - 1]; kid.plaza = a.plaza; vilMakeBaby(kid, 1200); vilRecord(kid);
+    for(let k = 0; k < 10; k++) burstRGB(mid.x + (Math.random() - 0.5), mid.y + 1.5 + Math.random() * 0.6, mid.z + (Math.random() - 0.5), 1, 0.3, 0.4, 1, 0.2);
+    villagerVoice(a, 'trade'); flashName('A baby villager is born');
+    return;
+  }
+}
+// zombie villagers: weakness first, then a golden apple, and in a little while they're villagers again
+function cureZombie(z){
+  if(heldId() !== GOLDEN_APPLE || z.kind !== 'zombie' || !z.zv) return false;
+  if(!(z.weakT > 0)){ flashName('It needs to be weakened first - a splash potion of Weakness'); return true; }
+  if(z.curing > 0) return true;
+  consumePlacedItem(); z.curing = 6;
+  playN({ f: 300, type: 'lowpass', dur: 0.8, vol: 0.25 }); flashName('The zombie villager starts to shake...');
+  triggerViewSwing();
+  return true;
+}
+let knownVillagers = new Map();
+function updateVillagerLife(dt){
+  bedWarnT -= dt;
+  // curing
+  for(let i = zombies.length - 1; i >= 0; i--){
+    const z = zombies[i];
+    if(z.weakT > 0) z.weakT -= dt;
+    if(!(z.curing > 0)) continue;
+    z.curing -= dt; z.vel.x = z.vel.z = 0;
+    if(Math.random() < dt * 12) burstRGB(z.pos.x, z.pos.y + 1.2, z.pos.z, 0.9, 0.2, 0.2, 1, 0.5);
+    if(z.curing <= 0){
+      const p = z.pos.clone(); removeEnt(zombies, i);
+      spawnVillager(p.x, p.y + 0.05, p.z, Math.floor(p.x), Math.floor(p.z));
+      const v = villagers[villagers.length - 1]; v.cured = true; vilRecord(v);
+      for(let k = 0; k < 20; k++) burstRGB(p.x + (Math.random() - 0.5), p.y + 1 + Math.random(), p.z + (Math.random() - 0.5), 0.3, 0.95, 0.3, 1, 0.3);
+      tone(500, 900, 0.3, 'triangle', 0.08); flashName('Cured! This villager will trade at half price'); grantAdv('cure');
+    }
+  }
+  // babies grow up
+  for(const v of villagers) if(v.baby > 0){
+    v.baby -= dt; v.speed = v.speed ? Math.max(v.speed, 2) : v.speed;
+    if(v.baby <= 0){ v.baby = 0; v.h = 1.9; v.w = 0.35; v.group.scale.setScalar(1); vilRecord(v); }
+  }
+  if((vilLifeT -= dt) <= 0){
+    vilLifeT = 3;
+    for(const v of [...villagers]){
+      if(v.baby > 0) continue;
+      if(v.prof.id === 'none'){ const st = findStation(v); if(st){ const n = changeProf(v, st.job, st.key); flashName('A villager became a ' + n.prof.name); } continue; }
+      if(v.station){ const [sx, sy, sz] = v.station.split(',').map(Number); if(getBlock(sx, sy, sz) !== WORKSTATION[v.prof.id] && !(v.xp > 0)) changeProf(v, 'none'); }   // its station's gone, and it never traded: jobless again
+    }
+    vilBreed();
+    // who's here: record where they are; one that vanished close by has died
+    const now = new Map();
+    for(const v of villagers){ if(!v.vid) vilRecord(v); now.set(v.vid, v); const r = vilSave[v.vid]; if(r){ r.x = v.pos.x; r.y = v.pos.y; r.z = v.pos.z; r.baby = v.baby || 0; } }
+    for(const [vid, v] of knownVillagers) if(!now.has(vid) && vilSave[vid] && v.pos.distanceTo(player.pos) < 110){ vilSave[vid].gone = true; vilDirty = true; }
+    knownVillagers = now;
+    // villagers born here (not a village's own) come back when you do
+    for(const [vid, r] of Object.entries(vilSave)){
+      if(r.gone || !vid.startsWith('b') || now.has(vid) || r.dim !== dim || Math.hypot(r.x - player.pos.x, r.z - player.pos.z) > 80) continue;
+      const c = chunks.get((Math.floor(r.x) >> 4) + ',' + (Math.floor(r.z) >> 4)); if(!c || !c.built) continue;
+      spawnVillager(r.x, r.y + 0.05, r.z, r.home ? r.home[0] : r.x, r.home ? r.home[1] : r.z, r.prof);
+      const v = villagers[villagers.length - 1]; v.vid = vid; applyVil(v, r); knownVillagers.set(vid, v);
+    }
+  }
+  if(vilDirty && (vilSaveT -= dt) <= 0){ vilSaveT = 5; vilDirty = false; for(const v of villagers) if(v.vid && vilSave[v.vid]){ vilSave[v.vid].trades = v.trades; vilSave[v.vid].level = v.level; vilSave[v.vid].xp = v.xp | 0; } safeSet(SAVE_KEY + '-villagers', JSON.stringify(vilSave)); }
+}
 /* ---- name tags, leads, the compass, the clock, the spyglass, shulker boxes ---- */
 const PET_NAMES = ['Biscuit', 'Pickles', 'Nugget', 'Mochi', 'Pebble', 'Dusty', 'Maple', 'Clover', 'Rusty', 'Waffles', 'Bean', 'Ziggy', 'Luna', 'Toast', 'Muffin',
   'Noodle', 'Sprout', 'Pip', 'Ginger', 'Tofu', 'Shadow', 'Captain', 'Duke', 'Bubbles', 'Coco', 'Pumpkin', 'Sparky', 'Fern', 'Sir Oinks', 'Nibbles'];
@@ -20548,24 +20770,24 @@ function buildCraftPanel(){
     if(!tv){
       text('No villager here. Point at a villager and squeeze the right grip to trade.',50,250,27,'#454545',1330);
     } else {
-      text('TRADING  -  point + trigger a deal to accept it',35,190,27,'#454545');
-      tv.trades.forEach((t,i)=>{
-        const y=232+i*152;
-        g.fillStyle='#b9b9b9';g.fillRect(35,y-14,1365,132);
-        g.strokeStyle='#8f8f8f';g.lineWidth=2;g.strokeRect(35,y-14,1365,132);
-        icon(t.out[0],58,y+14,74);
-        text((t.ench?stackName({id:t.out[0],ench:t.ench}):nameOf(t.out[0]))+(t.out[1]>1?'  x'+t.out[1]:''),156,y+30,30,undefined,1200);
+      text(tv.kind==='villager'?'TRADING  -  '+vilTitle(tv):'TRADING  -  point + trigger a deal to accept it',35,190,27,'#454545',1360);
+      tv.trades.slice(0,6).forEach((t,i)=>{
+        const y=226+i*78;
+        g.fillStyle='#b9b9b9';g.fillRect(35,y-8,1365,72);
+        g.strokeStyle='#8f8f8f';g.lineWidth=2;g.strokeRect(35,y-8,1365,72);
+        icon(t.out[0],50,y-2,58);
+        text((t.ench?stackName({id:t.out[0],ench:t.ench}):nameOf(t.out[0]))+(t.out[1]>1?'  x'+t.out[1]:''),124,y+20,25,undefined,900);
         const have=tradeIn(t).every(([id,n])=>invCount(id)>=n);
         text('costs '+tradeIn(t).map(([id,n])=>n+' '+nameOf(id)+' ('+invCount(id)+')').join(' + '),
-             156,y+74,24,have?'#28572d':'#8a2f2f',880);
-        const ok=tradeOk(t);
-        button(1078,y+18,300,66,ok?'Trade':'Need more',()=>{
+             124,y+50,20,have?'#28572d':'#8a2f2f',900);
+        const ok=tradeOk(t),sold=(t.uses|0)>=(t.max||1e9);
+        button(1100,y,280,56,sold?'Sold out':ok?'Trade':'Need more',()=>{
           doTrade(i);
           vrMenuStatus='Traded for '+nameOf(t.out[0]);
           buildCraftPanel();
         },ok);
       });
-      text('Emeralds are the village currency - sell goods to earn them.',35,690,23,'#454545');
+      text('Emeralds are the village currency. Trading teaches a villager: new deals unlock as it levels up.',35,708,21,'#454545',1360);
     }
   } else {
     const lines=['X (left controller): open / close inventory','Point RIGHT controller + trigger: select menu buttons','Inventory: select backpack item, then a hotbar slot to equip','Crafting: select recipe, then Craft or Craft & equip','Right grip: place / use / eat food / fill or pour bucket','Swing equipped tools into blocks, or hold right trigger to mine','Wrist: point + trigger on a slot to equip; Inventory opens all items','A: jump / swim up / fly up • B: swim down / fly down / close menu','Left stick click: sprint / flight boost • Right stick click: flight • Y: crouch'];
@@ -20831,6 +21053,7 @@ function vrTryPlace(){
     if(healGolem(eh.e)){ hapticPulse('right', 0.6, 60); return; }
   }
   if(eh && (eh.e.kind === 'villager' || eh.e.trader) && (!hit || eh.t < hit.t) && mode === 'survival'){
+    if(!canTradeWith(eh.e)) return;
     tradeVillager = eh.e;                    // the DOM trade panel is invisible in a headset,
     tone(220 * jr(0.15), 170, 0.25, 'sawtooth', 0.1);
     hapticPulse('right', 0.5, 45);
@@ -21799,6 +22022,7 @@ function potionOnMob(m, P, scale){
     if((P.fx === 'harm') !== und) hurtAny(m, Math.max(1, 6 * (P.amp || 1) * scale));
     else m.hp += 4 * (P.amp || 1) * scale;
   } else if(P.fx === 'poison' && !und) mobPoison.set(m, Math.max(mobPoison.get(m) || 0, Math.min(12, P.t * scale)));
+  else if(P.fx === 'weak') m.weakT = Math.max(m.weakT || 0, 90 * scale);   // weakened: a zombie villager can now be cured
 }
 const POT_TARGETS = () => [zombies, skeletons, spiders, creepers, endermen, netherMobs, animals];
 const potClouds = [], potMats = new Map();
@@ -24431,6 +24655,7 @@ const ADVANCEMENTS = [
   { ch: 'Overworld', id: 'breed', title: 'The Parrots and the Bats', how: 'Feed two animals their favourite food (wheat for cows and sheep, carrots for pigs, seeds for chickens) and watch.', icon: WHEATITEM, check: () => false },
   { ch: 'Overworld', id: 'trident', title: 'A Throwaway Joke', how: 'Get a trident from a drowned (they rise out of deep water at night) and throw it at something.', icon: TRIDENT, check: () => false },
   { ch: 'Overworld', id: 'juke', title: 'Sound of Music', how: 'Craft a jukebox (8 planks, 1 diamond) and play a music disc from a dungeon chest or a creeper.', icon: JUKEBOX, check: () => false },
+  { ch: 'Overworld', id: 'cure', title: 'Zombie Doctor', how: 'Weaken a zombie villager with a splash potion of Weakness, then give it a golden apple.', icon: GOLDEN_APPLE, check: () => false },
   { ch: 'Overworld', id: 'trim', title: 'Crafting a New Look', how: 'Find an armour trim template in a structure, then hold a piece of armour at a smithing table with the template and a trim material (an ingot, gem or shard) in your pack.', icon: TRIM0, check: () => false },
   { ch: 'Overworld', id: 'brush', title: 'Respecting the Remnants', how: 'Craft a brush (a feather, a copper ingot and a stick) and brush suspicious sand or gravel - at a desert well, or down in trail ruins.', icon: BRUSH, check: () => false },
   { ch: 'Overworld', id: 'pot', title: 'Green Thumb', how: 'Pot a plant in a flower pot (3 bricks).', icon: FLOWERPOT, check: () => false },
@@ -24627,6 +24852,7 @@ function animate(){
   updateXPOrbs(dt);
   if(inGame) updatePotions(dt);
   if(inGame) updatePlayerLeads();
+  if(inGame) updateVillagerLife(dt);
   if(inGame) updateRedstoneReaders(dt);
   updateSpyglass();
   updateFishing(dt);
@@ -24970,6 +25196,7 @@ window.__bc = {
   playerSees, updatePale, paleState: () => ({ blossomOpen, paleHere }),
   potInfo, POT_KINDS, SPLASH0, LINGER0, TIPPED0, potionBurst, potClouds, applyPotion, potionOnMob, effectsNow2: () => effects,
   biomeVariant, builtNear, VARIANTS, SUNFLOWER, BAMBOO,
+  LOOM, villagers, vilSave, vilGainXP, changeProf, findStation, feedVillager, vilBreed, cureZombie, offersFor, WORKSTATION, updateVillagerLife,
   COMPARATOR, TARGET, TRIPWIRE_HOOK, TRIPWIRE, DAYLIGHT, containerSignal, tripAt, hitTarget, updateRedstoneReaders, placeRSAt: (x, y, z, id, hit) => placeRS(x, y, z, id, hit),
   NAME_TAG, LEAD, COMPASS, CLOCK, SPYGLASS, SHULKER_BOX, nameMob, playerLeads, useLeadsAndTags, drawDial, breakShulkerBox,
   PISTON, STICKY_PISTON, PISTON_HEAD, STICKY_HEAD, DISPENSER, DROPPER, OBSERVER, pistonAct, dispense, observeAt, machineTile, rsPartAt: (x, y, z) => rsPart(x, y, z), rsSetPartAt: (x, y, z, p) => rsSetPart(x, y, z, p), chestSlotsAt: k => chestSlots(k),
