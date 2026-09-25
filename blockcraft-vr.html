@@ -2531,6 +2531,14 @@ const isPistonHead = id => id === PISTON_HEAD || id === STICKY_HEAD;
 const isContainerBlock = id => id === CHEST || id === COPPER_CHEST || id === BARREL || id === DISPENSER || id === DROPPER || id === SHULKER_BOX;
 let mechReady = false, mechMoving = false;
 
+/* More redstone, as in Minecraft: the comparator (compare / subtract, and it
+   reads how full a chest is), the target block (hit it with an arrow), tripwire
+   hooks with string between them, and the daylight detector. */
+const COMPARATOR = 5508, TARGET = 5509, TRIPWIRE_HOOK = 5510, TRIPWIRE = 5511, DAYLIGHT = 5512;
+BLOCKS[COMPARATOR] = { name: 'Redstone Comparator', all: 741 }; BLOCKS[TARGET] = { name: 'Target', all: 737 };
+BLOCKS[TRIPWIRE_HOOK] = { name: 'Tripwire Hook', all: 742 }; BLOCKS[TRIPWIRE] = { name: 'Tripwire', all: 743 };
+BLOCKS[DAYLIGHT] = { name: 'Daylight Detector', top: 739, bottom: 740, side: 740 };
+
 /* Everyday things from Minecraft: name tags, leads, the compass, the clock,
    the spyglass, and shulker boxes that keep what's in them when broken. */
 const NAME_TAG = 5600, LEAD = 5601, COMPASS = 5602, CLOCK = 5603, SPYGLASS = 5604, SHULKER_BOX = 5507;
@@ -2979,7 +2987,7 @@ const isPlant  = id => isSapling(id) || FLORA_IDS.has(id) || id === TGRASSB || i
                        id === MUSHROOMR || id === MUSHROOMB || id === EYEBLOSSOM_C || id === EYEBLOSSOM_O ||
                        id === WHEAT0 || id === WHEAT1 || id === WHEAT2 || id === WHEAT3 || (id >= CARROT0 && id <= POTATO3) || FARM_CROP_BLOCKS.has(id) || CAVE_PLANTS.has(id) || NETHER_PLANTS.has(id);
 const isCross  = id => id === PALE_HANGING_MOSS || OCEAN_PLANTS.has(id) || id === AQ_CONDUIT || id === RS_TORCH || id === RS_TORCH_OFF || id===GLOWCRYSTAL || isPlant(id) || id === TORCH || id === COBWEB || id === IRONBARS || CAVE_CROSS.has(id) || NETHER_CROSS.has(id);
-const isFlat   = id => CARPETS.has(id) || id === PALE_MOSS_CARPET || (id >= LEVER && id <= PLATE_WOOD) || id === RS_WIRE || id === REPEATER || id === BED || id === BEDHEAD || id === RAIL || id === SNOW_LAYER || id === LADDER || id === PAINTING || id === FRAME || id === FLOWERPOT || isCake(id) || id === LANTERN || id === CAMPFIRE;   // thin plate on the ground (or, for a ladder, on a wall)
+const isFlat   = id => id === COMPARATOR || id === TRIPWIRE || id === TRIPWIRE_HOOK || CARPETS.has(id) || id === PALE_MOSS_CARPET || (id >= LEVER && id <= PLATE_WOOD) || id === RS_WIRE || id === REPEATER || id === BED || id === BEDHEAD || id === RAIL || id === SNOW_LAYER || id === LADDER || id === PAINTING || id === FRAME || id === FLOWERPOT || isCake(id) || id === LANTERN || id === CAMPFIRE;   // thin plate on the ground (or, for a ladder, on a wall)
 const isSlab   = id => SLABS.has(id) || id === SLAB_STONE || id === SLAB_WOOD || id === SLAB_BRICK || id === SLAB_SAND || id === SLAB_NBRICK;
 const isStair  = id => STAIRS.has(id) || id === STAIR_STONE || id === STAIR_WOOD || id === STAIR_BRICK || id === STAIR_SAND || id === STAIR_NBRICK;
 const isPartial = id => isSlab(id) || isStair(id);   // custom-geometry, non-full blocks
@@ -3017,7 +3025,7 @@ function faceVisible(b, n){
   if(b === GLASS) return n === WATER;
   return !isOpaque(n);
 }
-const dropOf = id => id===PISTON_HEAD?PISTON:id===STICKY_HEAD?STICKY_PISTON:id===CREAKING_HEART_ON?CREAKING_HEART:id===PALE_GRASS?DIRT:id===EYEBLOSSOM_O?EYEBLOSSOM_C:id===MYCELIUM?DIRT:id===SEA_LANTERN?PRISMARINE_CRYSTALS:CORALB_SET.has(id)?DEAD_CORALB:id===RS_WIRE?REDSTONE:id===RS_TORCH_OFF?RS_TORCH:id===LAMP_ON?LAMP:DEEP_BASE[id] ? dropOf(DEEP_BASE[id]) : id===IRONO?RAW_IRON:id===GOLDO?RAW_GOLD:id===COPPERO?RAW_COPPER:id===REDSTONE_ORE?REDSTONE:id===LAPIS_ORE?LAPIS:id===STONE?COBBLE:id===BEDHEAD?BED:id===BEEHIVE_FULL?BEEHIVE:id===GATE_OPEN?GATE:id===SKYGRASS?STORMSTONE:id===VOLTITE_ORE?VOLTITE:id===CONDUIT_LIT?CONDUIT:id===CHORUS_PLANT?CHORUS_FRUIT:id===ANCHOR_LIT?ANCHOR:id===CRIM_NYL||id===WARP_NYL?NETHERRACK:id===QUARTZ_ORE?QUARTZ:id===NGOLD_ORE?GNUGGET:id===GILDED?(Math.random()<.1?GNUGGET:GILDED):id===SNOWY_GRASS?DIRT:id===GLOWVINE?BERRIES:id===AMETHYST_C||id===BUDDING?AMETHYST_SHARD:id===DRIP_DOWN?DRIP_UP:id===BERRYBUSH?BERRIES:id===CRYSTALORE||id===GLOWCRYSTAL?CRYSTALSHARD:id === GRASS || id === SAVGRASS || id === FARMLAND ? DIRT : id === COALO ? COALI : id === DIAMO ? DIAMI :
+const dropOf = id => id===TRIPWIRE?STRING:id===PISTON_HEAD?PISTON:id===STICKY_HEAD?STICKY_PISTON:id===CREAKING_HEART_ON?CREAKING_HEART:id===PALE_GRASS?DIRT:id===EYEBLOSSOM_O?EYEBLOSSOM_C:id===MYCELIUM?DIRT:id===SEA_LANTERN?PRISMARINE_CRYSTALS:CORALB_SET.has(id)?DEAD_CORALB:id===RS_WIRE?REDSTONE:id===RS_TORCH_OFF?RS_TORCH:id===LAMP_ON?LAMP:DEEP_BASE[id] ? dropOf(DEEP_BASE[id]) : id===IRONO?RAW_IRON:id===GOLDO?RAW_GOLD:id===COPPERO?RAW_COPPER:id===REDSTONE_ORE?REDSTONE:id===LAPIS_ORE?LAPIS:id===STONE?COBBLE:id===BEDHEAD?BED:id===BEEHIVE_FULL?BEEHIVE:id===GATE_OPEN?GATE:id===SKYGRASS?STORMSTONE:id===VOLTITE_ORE?VOLTITE:id===CONDUIT_LIT?CONDUIT:id===CHORUS_PLANT?CHORUS_FRUIT:id===ANCHOR_LIT?ANCHOR:id===CRIM_NYL||id===WARP_NYL?NETHERRACK:id===QUARTZ_ORE?QUARTZ:id===NGOLD_ORE?GNUGGET:id===GILDED?(Math.random()<.1?GNUGGET:GILDED):id===SNOWY_GRASS?DIRT:id===GLOWVINE?BERRIES:id===AMETHYST_C||id===BUDDING?AMETHYST_SHARD:id===DRIP_DOWN?DRIP_UP:id===BERRYBUSH?BERRIES:id===CRYSTALORE||id===GLOWCRYSTAL?CRYSTALSHARD:id === GRASS || id === SAVGRASS || id === FARMLAND ? DIRT : id === COALO ? COALI : id === DIAMO ? DIAMI :
                      id === EMERO ? EMERALD : id === DEADBUSH ? STICK : id;
 function toolClassOf(id){
   if(MC_WOOD_BLOCKS.has(id)) return 'axe';
@@ -3080,7 +3088,7 @@ function handTime(id){
   if(PART_BASE[id] !== undefined) return handTime(PART_BASE[id]);
   if(WALL_BASE[id] !== undefined) return handTime(WALL_BASE[id]);
   if(FENCES.has(id)) return 2.0;
-  if((id >= LEVER && id <= RS_WIRE) || id === REPEATER) return 0.05;       // redstone bits snap off
+  if((id >= LEVER && id <= RS_WIRE) || id === REPEATER || id === COMPARATOR || id === TRIPWIRE || id === TRIPWIRE_HOOK) return 0.05;       // redstone bits snap off
   if(id === LAMP || id === LAMP_ON) return 0.45;
   if(DEEP_BASE[id]) return handTime(DEEP_BASE[id]) * 1.5;   // deepslate ores are harder, as in Minecraft
   if(id === CLOUD) return 0.35;
@@ -3171,6 +3179,10 @@ const RECIPES = [
   { out: [DROPPER, 1], in: [[ANY_COBBLE, 7], [REDSTONE, 1]], st: 'table' },
   { out: [OBSERVER, 1], in: [[ANY_COBBLE, 6], [REDSTONE, 2], [QUARTZ, 1]], st: 'table' },
   { out: [COMPASS, 1], in: [[IRONI, 4], [REDSTONE, 1]], st: 'table' },
+  { out: [COMPARATOR, 1], in: [[RS_TORCH, 3], [QUARTZ, 1], [STONE, 3]], st: 'table' },
+  { out: [TARGET, 1], in: [[REDSTONE, 4], [4086, 1]], st: 'table' },
+  { out: [TRIPWIRE_HOOK, 2], in: [[IRONI, 1], [STICK, 1], [ANY_PLANK, 1]], st: 'table' },
+  { out: [DAYLIGHT, 1], in: [[GLASS, 3], [QUARTZ, 3], [SLAB_WOOD, 3]], st: 'table' },
   { out: [CLOCK, 1], in: [[GOLDI, 4], [REDSTONE, 1]], st: 'table' },
   { out: [SPYGLASS, 1], in: [[COPPERI, 2], [AMETHYST_SHARD, 1]], st: 'table' },
   { out: [LEAD, 2], in: [[STRING, 4], [SLIMEBALL, 1]], st: 'table' },
@@ -5830,6 +5842,13 @@ scene.fog = new THREE.Fog(0x87b5e5, RD * 16 * 0.55, RD * 16 * 0.95);
   copy(CB, MT.obsOn); rect(MT.obsOn, 6, 6, 4, 4, '#ff2a2a'); rect(MT.obsOn, 7, 7, 1, 1, '#ffb0b0');
   copy(CB, MT.obsSide); rect(MT.obsSide, 7, 2, 2, 12, '#707070'); rect(MT.obsSide, 5, 4, 6, 2, '#707070');
   for(const t of [735, 736]){ const [ox, oy] = at(t); g.clearRect(ox, oy, 16, 16); for(let y = 0; y < 16; y++) for(let x = 0; x < 16; x++){ g.fillStyle = (x * 3 + y * 5) % 7 === 0 ? '#7a4e8a' : '#94629e'; g.fillRect(ox + x, oy + y, 1, 1); } }
+  { const cr = (t, bg) => { const [ox, oy] = at(t); g.clearRect(ox, oy, 16, 16); g.fillStyle = bg; g.fillRect(ox, oy, 16, 16); };
+    cr(737, '#e8dccc'); for(const [r, c] of [[7, '#c8201c'], [5, '#e8dccc'], [3, '#c8201c'], [1.4, '#e8dccc']]){ const [ox, oy] = at(737); g.fillStyle = c; g.beginPath(); g.arc(ox + 8, oy + 8, r, 0, 7); g.fill(); }   // target rings
+    copy(tileFor(GLASS, 0), 739); rect(739, 0, 0, 16, 16, 'rgba(60,50,40,0.35)'); for(const x of [2, 9]) for(const y of [2, 9]) rect(739, x, y, 5, 5, '#3a5f8a');   // daylight panels
+    copy(PL, 740); rect(740, 0, 0, 16, 9, 'rgba(0,0,0,0)');
+    copy(341, 741); rect(741, 7, 11, 2, 2, '#d8d8d8');                   // the comparator: a repeater's slab with a third torch
+    cr(742, 'rgba(0,0,0,0)'); { const [ox, oy] = at(742); g.clearRect(ox, oy, 16, 16); } rect(742, 6, 2, 4, 12, '#8a6a3e'); rect(742, 5, 3, 6, 3, '#c8c8c8'); rect(742, 7, 4, 2, 1, '#555');   // tripwire hook
+    cr(743, 'rgba(0,0,0,0)'); { const [ox, oy] = at(743); g.clearRect(ox, oy, 16, 16); } rect(743, 0, 7, 16, 2, '#e8e8e8'); }
   rect(735, 0, 6, 16, 2, '#5c3a6a'); rect(736, 3, 3, 10, 10, '#a576ae'); rect(736, 6, 6, 4, 4, '#5c3a6a');   // shulker box: lid seam, and its top
 }
 const tex = new THREE.CanvasTexture(atlas);
@@ -8501,6 +8520,31 @@ function* buildChunkSteps(c,reuseLight=false){
       const nlC = light ? sampleLight(light, lx, y, lz) : 15, llC = 0.2 + (nlC / 15) * 0.8, bite = (b - CAKE) * 0.2;
       pushBox(O, 261, lx + 0.0625 + bite, y, lz + 0.0625, lx + 0.9375, y + 0.4, lz + 0.9375, llC);
       pushBox(O, 262, lx + 0.0625 + bite, y + 0.4, lz + 0.0625, lx + 0.9375, y + 0.5, lz + 0.9375, llC);
+      continue;
+    }
+    if(b === COMPARATOR){                                   // a slab, two torches at the back, and one in front that lights for subtract
+      const part = rsParts.get(dim + ':' + (wx0 + lx) + ',' + y + ',' + (wz0 + lz)) || { face: 2 }, f = RS_DIRS[part.face | 0];
+      const llP = light ? 0.2 + (sampleLight(light, lx, y, lz) / 15) * 0.8 : 1, lit = (part.out | 0) > 0 ? Math.max(llP, 0.85) : llP * 0.35;
+      pushBox(O, T.STONE, lx, y, lz, lx + 1, y + 0.125, lz + 1, llP);
+      const px = f[2], pz = -f[0];
+      const torch = (u, v, h, on) => { const cx = 0.5 + f[0] * u + px * v, cz = 0.5 + f[2] * u + pz * v;
+        pushBox(O, 334, lx + cx - 0.06, y + 0.125, lz + cz - 0.06, lx + cx + 0.06, y + h, lz + cz + 0.06, llP);
+        pushBox(O, 337, lx + cx - 0.07, y + h, lz + cz - 0.07, lx + cx + 0.07, y + h + 0.1, lz + cz + 0.07, on); };
+      torch(-0.3, 0.25, 0.32, lit); torch(-0.3, -0.25, 0.32, lit); torch(0.3, 0, 0.22, part.mode === 'subtract' ? Math.max(llP, 0.85) : llP * 0.35);
+      continue;
+    }
+    if(b === TRIPWIRE_HOOK || b === TRIPWIRE){
+      const wx = wx0 + lx, wz = wz0 + lz, part = rsParts.get(dim + ':' + wx + ',' + y + ',' + wz) || { face: 2 }, llT = light ? 0.2 + (sampleLight(light, lx, y, lz) / 15) * 0.8 : 1;
+      if(b === TRIPWIRE){
+        const alongX = [-1, 1].some(d => { const n = getBlock(wx + d, y, wz); return n === TRIPWIRE || n === TRIPWIRE_HOOK; });
+        if(alongX) pushBox(O, tileFor(WHITEWOOL, 0), lx, y + 0.1, lz + 0.47, lx + 1, y + 0.13, lz + 0.53, llT);
+        else pushBox(O, tileFor(WHITEWOOL, 0), lx + 0.47, y + 0.1, lz, lx + 0.53, y + 0.13, lz + 1, llT);
+      } else {
+        const d = RS_DIRS[part.face | 0], cx = 0.5 + d[0] * 0.42, cz = 0.5 + d[2] * 0.42;
+        pushBox(O, tileFor(PLANK, 0), lx + cx - 0.08, y + 0.2, lz + cz - 0.08, lx + cx + 0.08, y + 0.8, lz + cz + 0.08, llT);   // the post against the wall
+        const rx = 0.5 + d[0] * 0.18, rz = 0.5 + d[2] * 0.18;
+        pushBox(O, tileFor(IRONB, 0), lx + rx - 0.1, y + (part.on ? 0.3 : 0.42), lz + rz - 0.1, lx + rx + 0.1, y + (part.on ? 0.42 : 0.56), lz + rz + 0.1, llT);   // the hook, pulled down when tripped
+      }
       continue;
     }
     if(b === REPEATER){                                     // a stone slab with two torches; the front one sits where the delay puts it
@@ -15381,6 +15425,7 @@ function updateShots(dt){
       scene.remove(s.mesh); shots.splice(i, 1); continue;
     }
     if(bh || getBlock(Math.floor(s.pos.x), Math.floor(s.pos.y), Math.floor(s.pos.z)) === IRONBARS){
+      if(bh && bh.id === TARGET) hitTarget(bh.x, bh.y, bh.z);
       if(s.kind === 'arrow'){
         if(bh && bh.id === CONDUIT) armConduit(bh.x, bh.y, bh.z);   // a shot can arm a spire
         s.stuck = true; s.age = 0;
@@ -18446,8 +18491,8 @@ const RS_TICK = 100;                                                     // one 
 const rsKey = (x, y, z) => dim + ':' + x + ',' + y + ',' + z;
 const RS_DIRS = [[0,-1,0],[0,1,0],[-1,0,0],[1,0,0],[0,0,-1],[0,0,1]];   // what a part is fixed to (or a repeater faces): 0 floor, 1 ceiling, 2-5 sides
 const RS_H = [[1,0],[-1,0],[0,1],[0,-1]];                               // pairs 0/1 and 2/3 are opposites
-const isRSSourceGen = id => (id >= LEVER && id <= RS_TORCH) || id === REDSTONE_BLOCK;   // power everything around them
-const isRSSource = id => isRSSourceGen(id) || id === REPEATER;
+const isRSSourceGen = id => (id >= LEVER && id <= RS_TORCH) || id === REDSTONE_BLOCK || id === TARGET || id === DAYLIGHT || id === TRIPWIRE_HOOK;   // power everything around them
+const isRSSource = id => isRSSourceGen(id) || id === REPEATER || id === COMPARATOR;
 const isRSConsumer = id => isDoor(id) || id === TRAPDOOR || id === GATE || id === GATE_OPEN || id === LAMP || id === LAMP_ON || id === TNT || id === NOTEBLOCK || id === PISTON || id === STICKY_PISTON || id === DISPENSER || id === DROPPER;
 const isRSAny = id => isRSSource(id) || id === RS_TORCH_OFF || id === RS_WIRE || isRSConsumer(id) || id === OBSERVER;
 const rsPart = (x, y, z) => rsParts.get(rsKey(x, y, z));
@@ -18464,8 +18509,8 @@ function rsSchedule(key, ms, fn){ if(!rsTicks.has(key)) rsTicks.set(key, { at: D
 // Does dust here join the neighbour that way? (only other redstone parts; a repeater only along its line)
 function rsJoins(x, y, z, dx, dz){
   const n = getBlock(x + dx, y, z + dz);
-  if(n === RS_WIRE || (n >= LEVER && n <= RS_TORCH_OFF) || n === REDSTONE_BLOCK) return true;
-  if(n === REPEATER){ const d = RS_DIRS[rsFace(x + dx, y, z + dz)]; return (d[0] === dx && d[2] === dz) || (d[0] === -dx && d[2] === -dz); }
+  if(n === RS_WIRE || (n >= LEVER && n <= RS_TORCH_OFF) || n === REDSTONE_BLOCK || n === TARGET || n === DAYLIGHT || n === TRIPWIRE_HOOK) return true;
+  if(n === REPEATER || n === COMPARATOR){ const d = RS_DIRS[rsFace(x + dx, y, z + dz)]; return (d[0] === dx && d[2] === dz) || (d[0] === -dx && d[2] === -dz); }
   if(!isSolid(getBlock(x, y + 1, z)) && getBlock(x + dx, y + 1, z + dz) === RS_WIRE) return true;   // up a step
   if(!isSolid(n) && getBlock(x + dx, y - 1, z + dz) === RS_WIRE) return true;                      // down a step
   return false;
@@ -18493,12 +18538,13 @@ function rsSolve(ox, oy, oz){
   }
   const idAt = (x, y, z) => { const n = nodes.get(K(x, y, z)); return n ? n[3] : getBlock(x, y, z); };
   // 2) strongly powered blocks, and the cells repeaters push power into
-  const strong = new Set(), repOut = new Set();
+  const strong = new Set(), repOut = new Set(), compOut = new Map();
   for(const [, [x, y, z, id]] of nodes){
-    if((id === LEVER || id === BUTTON_STONE || id === BUTTON_WOOD) && rsOn(x, y, z, id)){ const f = RS_DIRS[rsFace(x, y, z)]; strong.add(K(x + f[0], y + f[1], z + f[2])); }
+    if((id === LEVER || id === BUTTON_STONE || id === BUTTON_WOOD || id === TRIPWIRE_HOOK) && rsOn(x, y, z, id)){ const f = RS_DIRS[rsFace(x, y, z)]; strong.add(K(x + f[0], y + f[1], z + f[2])); }
     else if((id === PLATE_STONE || id === PLATE_WOOD) && rsOn(x, y, z, id)) strong.add(K(x, y - 1, z));
     else if(id === RS_TORCH) strong.add(K(x, y + 1, z));
     else if(id === REPEATER && rsOn(x, y, z, id)){ const f = RS_DIRS[rsFace(x, y, z)], fk = K(x + f[0], y, z + f[2]); repOut.add(fk); if(isSolid(idAt(x + f[0], y, z + f[2]))) strong.add(fk); }
+    else if(id === COMPARATOR){ const cp = rsPart(x, y, z); if(cp && (cp.out | 0) > 0){ const f = RS_DIRS[cp.face | 0], fk = K(x + f[0], y, z + f[2]); compOut.set(fk, Math.max(compOut.get(fk) || 0, cp.out)); if(isSolid(idAt(x + f[0], y, z + f[2]))) strong.add(fk); } }
     else if(id === OBSERVER && rsOn(x, y, z, id)){ const f = RS_DIRS[rsFace(x, y, z)], bx = x - f[0], by = y - f[1], bz = z - f[2], bk = K(bx, by, bz); repOut.add(bk); if(isSolid(idAt(bx, by, bz))) strong.add(bk); }   // out of its back
   }
   // a torch never powers the block it hangs on
@@ -18507,14 +18553,14 @@ function rsSolve(ox, oy, oz){
   const pw = new Map(), wq = [];
   for(const [k, [x, y, z, id]] of nodes){
     if(id !== RS_WIRE) continue;
-    let src = repOut.has(k);
+    let lvl = repOut.has(k) ? 15 : compOut.get(k) || 0;                 // a comparator hands on just its own strength
     for(const [dx, dy, dz] of RS_DIRS){
-      if(src) break;
+      if(lvl >= 15) break;
       const nx = x + dx, ny = y + dy, nz = z + dz, nid = idAt(nx, ny, nz);
-      if(isRSSourceGen(nid) && rsOn(nx, ny, nz, nid)) src = true;
-      else if(strong.has(K(nx, ny, nz))) src = true;
+      if(isRSSourceGen(nid) && rsOn(nx, ny, nz, nid)) lvl = Math.max(lvl, nid === DAYLIGHT ? ((rsPart(nx, ny, nz) || {}).s | 0) : 15);
+      else if(strong.has(K(nx, ny, nz))) lvl = 15;
     }
-    if(src){ pw.set(k, 15); wq.push([x, y, z, 15]); }
+    if(lvl > 0){ pw.set(k, lvl); wq.push([x, y, z, lvl]); }
   }
   for(let h = 0; h < wq.length; h++){
     const [x, y, z, pv] = wq[h]; if(pv <= 1) continue;
@@ -18535,6 +18581,7 @@ function rsSolve(ox, oy, oz){
     RS_H.forEach(([dx, dz], i) => { if(pts[i]) weak.add(K(x + dx, y, z + dz)); });
   }
   for(const k of repOut) weak.add(k);
+  for(const [k, v] of compOut) if(v > 0) weak.add(k);
   const poweredAt = (x, y, z) => {
     const k = K(x, y, z);
     if(strong.has(k) || weak.has(k)) return true;
@@ -18551,10 +18598,26 @@ function rsSolve(ox, oy, oz){
       const f = RS_DIRS[rsFace(x, y, z)], ak = K(x + f[0], y + f[1], z + f[2]);
       const want = (strong.has(ak) || weak.has(ak) || rsIsBurnt(x, y, z)) ? RS_TORCH_OFF : RS_TORCH;
       if(want !== id) rsSchedule('t' + k, RS_TICK, () => { const cur = getBlock(x, y, z); if((cur === RS_TORCH || cur === RS_TORCH_OFF) && cur !== want){ setBlock(x, y, z, want); rsTorchFlip(x, y, z); rsNotify(x, y, z); } });
+    } else if(id === COMPARATOR){
+      // the rear signal (or how full the container behind is) against the strongest from either side
+      const part = rsPart(x, y, z) || { face: 2 }, f = RS_DIRS[part.face | 0];
+      const sig = (cx, cz) => { const ck = K(cx, y, cz), cid = idAt(cx, y, cz);
+        if(cid === RS_WIRE) return pw.get(ck) || 0;
+        if(isRSSourceGen(cid) && rsOn(cx, y, cz, cid)) return cid === DAYLIGHT ? ((rsPart(cx, y, cz) || {}).s | 0) : 15;
+        if(cid === REPEATER) return rsOn(cx, y, cz, cid) ? 15 : 0;
+        if(cid === COMPARATOR) return (rsPart(cx, y, cz) || {}).out | 0;
+        return strong.has(ck) ? 15 : 0; };
+      const bx = x - f[0], bz = z - f[2];
+      let rear = containerSignal(bx, y, bz);
+      if(rear < 0) rear = isSolid(idAt(bx, y, bz)) && !strong.has(K(bx, y, bz)) ? Math.max(0, containerSignal(bx - f[0], y, bz - f[2])) : sig(bx, bz);
+      const side = Math.max(sig(x + f[2], z - f[0]), sig(x - f[2], z + f[0]));
+      const out = part.mode === 'subtract' ? Math.max(0, rear - side) : rear >= side ? rear : 0;
+      if(out !== (part.out | 0)) rsSchedule('c' + k, RS_TICK, () => { const pp = rsPart(x, y, z); if(pp && getBlock(x, y, z) === COMPARATOR && (pp.out | 0) !== out){ pp.out = out; pp.on = out > 0; rsSetPart(x, y, z, pp); } });
     } else if(id === REPEATER){
       const part = rsPart(x, y, z) || { face: 2, delay: 1 }, f = RS_DIRS[part.face | 0], bx = x - f[0], bz = z - f[2], bk = K(bx, y, bz), bid = idAt(bx, y, bz);
       const input = strong.has(bk) || (isSolid(bid) && weak.has(bk)) || (bid === RS_WIRE && (pw.get(bk) || 0) > 0)
-                 || (isRSSourceGen(bid) && rsOn(bx, y, bz, bid)) || (bid === REPEATER && rsOn(bx, y, bz, bid) && rsFace(bx, y, bz) === (part.face | 0));
+                 || (isRSSourceGen(bid) && rsOn(bx, y, bz, bid)) || (bid === REPEATER && rsOn(bx, y, bz, bid) && rsFace(bx, y, bz) === (part.face | 0))
+                 || (bid === COMPARATOR && ((rsPart(bx, y, bz) || {}).out | 0) > 0);
       if(input !== !!part.on) rsSchedule('r' + k, RS_TICK * (part.delay || 1), () => { const pp = rsPart(x, y, z); if(pp && getBlock(x, y, z) === REPEATER && !!pp.on !== input){ pp.on = input; rsSetPart(x, y, z, pp); } });
     }
   }
@@ -18578,6 +18641,59 @@ function rsSolve(ox, oy, oz){
   for(const ck of remesh){ const [cx, cz] = ck.split(',').map(Number); rebuild(chunkAt(cx, cz)); }
 }
 
+
+// how full a container is, 0-15 (-1: not a container), as a comparator reads it
+function containerSignal(x, y, z){
+  const id = getBlock(x, y, z);
+  if(!isContainerBlock(id) && id !== HOPPER) return -1;
+  const sl = chests[id === HOPPER ? 'hopper:' + dim + ':' + x + ',' + y + ',' + z : x + ',' + y + ',' + z];
+  if(!sl || !sl.length) return 0;
+  let f = 0; for(const q of sl) if(q.id && q.count > 0) f += q.count / (ITEMS[q.id] && ITEMS[q.id].tool ? 1 : 64);
+  return f > 0 ? Math.floor(1 + f / sl.length * 14) : 0;
+}
+// a tripwire: something in the string, and the hooks at both ends (facing each other) switch on
+function tripAt(x, y, z){
+  for(const [ax, az] of [[1, 0], [0, 1]]){
+    const ends = [];
+    for(const sg of [1, -1]){
+      let n = 1;
+      while(n <= 40 && getBlock(x + ax * sg * n, y, z + az * sg * n) === TRIPWIRE) n++;
+      const hx = x + ax * sg * n, hz = z + az * sg * n;
+      if(getBlock(hx, y, hz) === TRIPWIRE_HOOK) ends.push([hx, y, hz]);
+    }
+    if(ends.length < 2) continue;
+    for(const [hx, hy, hz] of ends){
+      const p = rsPart(hx, hy, hz) || { face: 2 };
+      const was = p.on; p.on = true; p.until = Date.now() + 10 * RS_TICK;
+      if(!was){ rsSetPart(hx, hy, hz, p); playN({ f: 1300, type: 'bandpass', dur: 0.04, vol: 0.14 }); } else rsParts.set(rsKey(hx, hy, hz), p);
+    }
+    return;
+  }
+}
+// an arrow (or anything thrown) that hits a target block powers it for a moment
+function hitTarget(x, y, z){
+  if(getBlock(x, y, z) !== TARGET) return;
+  const p = rsPart(x, y, z) || {}; p.on = true; p.until = Date.now() + 10 * RS_TICK;
+  rsSetPart(x, y, z, p); burstRGB(x + 0.5, y + 0.5, z + 0.5, 0.9, 0.2, 0.2, 8, 0.8); tone(700, 1000, 0.1, 'triangle', 0.06);
+}
+// now and then: daylight detectors read the sky, comparators re-read their containers
+let rsPollT = 0;
+function updateRedstoneReaders(dt){
+  if((rsPollT -= dt) > 0) return;
+  rsPollT = 0.5;
+  const pre = dim + ':';
+  for(const [k, part] of rsParts){
+    if(!k.startsWith(pre)) continue;
+    const [x, y, z] = k.slice(pre.length).split(',').map(Number);
+    if(Math.abs(x - player.pos.x) > 96 || Math.abs(z - player.pos.z) > 96) continue;
+    const id = getBlock(x, y, z);
+    if(id === COMPARATOR) rsNotify(x, y, z);
+    else if(id === DAYLIGHT){
+      const sv = dim === 0 && skyExposed(x, y + 1, z) ? Math.round(daylightOf(timeOfDay) * 15 * (1 - 0.3 * rainAmt)) : 0;
+      if((part.s | 0) !== sv){ part.s = sv; part.on = sv > 0; rsSetPart(x, y, z, part); }
+    }
+  }
+}
 /* ---- the machines' workings ---- */
 MC_TRANSPARENT_BLOCKS.add(PISTON_HEAD); MC_TRANSPARENT_BLOCKS.add(STICKY_HEAD);   // a head doesn't hide what's behind it
 // which way a machine faces when you put it down: toward you (an observer looks away, at what you clicked)
@@ -18607,6 +18723,7 @@ function mechChanged(x, y, z, oldId, id){
   }
   if(MACH_FACED.has(id) && !mechMoving && !netApplying && !rsParts.has(key)) rsSetPart(x, y, z, { face: placeFace(id), on: false, ext: false });
   if(id === SHULKER_BOX && !mechMoving) lastBoxKey = x + ',' + y + ',' + z;
+  if(id === DAYLIGHT && !rsParts.has(key)) rsSetPart(x, y, z, { s: 0, on: false });
   observeAt(x, y, z);
 }
 // an observer watching (x, y, z) sees it change and gives a short pulse out of its back
@@ -18888,17 +19005,18 @@ function placeRS(x, y, z, id, hit){
   const cur = getBlock(x, y, z);
   if(!(cur === AIR || isCross(cur)) || cur === RS_TORCH || cur === RS_TORCH_OFF) return true;
   const clicked = RS_DIRS.findIndex(([dx, dy, dz]) => dx === -hit.face[0] && dy === -hit.face[1] && dz === -hit.face[2]);
-  const floorOnly = id === RS_WIRE || id === PLATE_STONE || id === PLATE_WOOD || id === REPEATER;
+  const floorOnly = id === RS_WIRE || id === PLATE_STONE || id === PLATE_WOOD || id === REPEATER || id === COMPARATOR || id === TRIPWIRE;
   let face = floorOnly ? 0 : clicked;
   if(id === RS_TORCH && face === 1) face = 0;                          // no torches hanging from ceilings
   if(face < 0) return true;
   const [ax, ay, az] = RS_DIRS[face];
-  if(!isSolid(getBlock(x + ax, y + ay, z + az))){ flashName(floorOnly ? 'Place it on top of a solid block' : 'It needs a solid block to fix to'); return true; }
+  if(id === TRIPWIRE_HOOK && face < 2){ flashName('A tripwire hook goes on the side of a block'); return true; }
+  if(id !== TRIPWIRE && !isSolid(getBlock(x + ax, y + ay, z + az))){ flashName(floorOnly ? 'Place it on top of a solid block' : 'It needs a solid block to fix to'); return true; }
   setBlock(x, y, z, id);
-  if(id === REPEATER){
+  if(id === REPEATER || id === COMPARATOR){
     // it faces away from you: the signal runs from your side to the far side
     const fx = -Math.sin(player.yaw), fz = -Math.cos(player.yaw);
-    rsSetPart(x, y, z, { face: Math.abs(fx) > Math.abs(fz) ? (fx > 0 ? 3 : 2) : (fz > 0 ? 5 : 4), delay: 1, on: false });
+    rsSetPart(x, y, z, Object.assign({ face: Math.abs(fx) > Math.abs(fz) ? (fx > 0 ? 3 : 2) : (fz > 0 ? 5 : 4), on: false }, id === COMPARATOR ? { mode: 'compare', out: 0 } : { delay: 1 }));
   } else if(id !== RS_WIRE) rsSetPart(x, y, z, { face, on: false });
   else rsNotify(x, y, z);
   blockSfx(STONE, 'place'); triggerViewSwing(); consumePlacedItem();
@@ -18919,6 +19037,11 @@ function useRS(hit){
     triggerViewSwing();
     return true;
   }
+  if(hit.id === COMPARATOR){
+    const part = Object.assign({ face: 2, out: 0 }, rsPart(hit.x, hit.y, hit.z)); part.mode = part.mode === 'subtract' ? 'compare' : 'subtract';
+    rsSetPart(hit.x, hit.y, hit.z, part); flashName(part.mode === 'subtract' ? 'Subtract mode' : 'Compare mode'); playN({ f: 1100, type: 'bandpass', dur: 0.03, vol: 0.12 }); triggerViewSwing();
+    return true;
+  }
   if(hit.id === REPEATER){
     const part = Object.assign({ face: 2, delay: 1 }, rsPart(hit.x, hit.y, hit.z)); part.delay = (part.delay % 4) + 1;
     rsSetPart(hit.x, hit.y, hit.z, part); flashName('Delay: ' + part.delay + ' tick' + (part.delay > 1 ? 's' : '')); playN({ f: 1000, type: 'bandpass', dur: 0.03, vol: 0.12 }); triggerViewSwing();
@@ -18932,8 +19055,8 @@ function rsBroke(x, y, z, id){
   if(rsParts.delete(k) | rsPower.delete(k)) rsDirty = true;
   for(let f = 0; f < 6; f++){
     const [dx, dy, dz] = RS_DIRS[f], nx = x - dx, ny = y - dy, nz = z - dz, n = getBlock(nx, ny, nz);
-    if(!((n >= LEVER && n <= RS_WIRE) || n === REPEATER)) continue;
-    const pf = n === RS_WIRE || n === PLATE_STONE || n === PLATE_WOOD || n === REPEATER ? 0 : rsFace(nx, ny, nz);
+    if(!((n >= LEVER && n <= RS_WIRE) || n === REPEATER || n === COMPARATOR || n === TRIPWIRE_HOOK)) continue;
+    const pf = n === RS_WIRE || n === PLATE_STONE || n === PLATE_WOOD || n === REPEATER || n === COMPARATOR ? 0 : rsFace(nx, ny, nz);
     if(pf !== f) continue;
     setBlock(nx, ny, nz, AIR); rsParts.delete(rsKey(nx, ny, nz)); rsPower.delete(rsKey(nx, ny, nz)); rsDirty = true;
     if(mode === 'survival') spawnDropAt(nx + 0.5, ny + 0.3, nz + 0.5, dropOf(n), 1);
@@ -18958,6 +19081,7 @@ function updateRedstone(dt){
     for(const [k, part] of rsParts){
       if(!k.startsWith(pre)) continue;
       const [x, y, z] = k.slice(pre.length).split(',').map(Number), id = getBlock(x, y, z);
+      if(id === TRIPWIRE){ if(bodies.some(b => Math.floor(b.x) === x && Math.floor(b.z) === z && b.y > y - 0.6 && b.y < y + 1)) tripAt(x, y, z); continue; }
       if(id !== PLATE_STONE && id !== PLATE_WOOD) continue;
       if(Math.abs(x + 0.5 - player.pos.x) > 64 || Math.abs(z + 0.5 - player.pos.z) > 64) continue;
       const on = bodies.some(b => b.x > x && b.x < x + 1 && b.z > z && b.z < z + 1 && b.y >= y - 0.05 && b.y < y + 0.5)
@@ -19735,7 +19859,8 @@ function doPlace(){
   if(held===DOOR){placeDoor(x,y,z);return;}
   if(held===TRAPDOOR){placeTrap(x,y,z);return;}
   if(held===REDSTONE){placeRS(x,y,z,RS_WIRE,hit);return;}
-  if((held>=LEVER&&held<=RS_TORCH)||held===REPEATER){placeRS(x,y,z,held,hit);return;}
+  if((held>=LEVER&&held<=RS_TORCH)||held===REPEATER||held===COMPARATOR||held===TRIPWIRE_HOOK){placeRS(x,y,z,held,hit);return;}
+  if(held===STRING){placeRS(x,y,z,TRIPWIRE,hit);return;}
   if(held===BED){placeBed(x,y,z);return;}
   if(held===WITHER_SKULL){placeSkull(x,y,z);return;}if(held===LADDER){placeLadder(x,y,z,hit);return;}
   if(held===PAINTING){placeLadder(x,y,z,hit,PAINTING);return;}
@@ -20738,7 +20863,8 @@ function vrTryPlace(){
   if(held===DOOR){placeDoor(x,y,z);return;}
   if(held===TRAPDOOR){placeTrap(x,y,z);return;}
   if(held===REDSTONE){placeRS(x,y,z,RS_WIRE,hit);return;}
-  if((held>=LEVER&&held<=RS_TORCH)||held===REPEATER){placeRS(x,y,z,held,hit);return;}
+  if((held>=LEVER&&held<=RS_TORCH)||held===REPEATER||held===COMPARATOR||held===TRIPWIRE_HOOK){placeRS(x,y,z,held,hit);return;}
+  if(held===STRING){placeRS(x,y,z,TRIPWIRE,hit);return;}
   if(held===BED){placeBed(x,y,z);return;}
   if(held===WITHER_SKULL){placeSkull(x,y,z);return;}if(held===LADDER){placeLadder(x,y,z,hit);return;}
   if(held===PAINTING){placeLadder(x,y,z,hit,PAINTING);return;}
@@ -24501,6 +24627,7 @@ function animate(){
   updateXPOrbs(dt);
   if(inGame) updatePotions(dt);
   if(inGame) updatePlayerLeads();
+  if(inGame) updateRedstoneReaders(dt);
   updateSpyglass();
   updateFishing(dt);
   updateShield(dt);
@@ -24843,6 +24970,7 @@ window.__bc = {
   playerSees, updatePale, paleState: () => ({ blossomOpen, paleHere }),
   potInfo, POT_KINDS, SPLASH0, LINGER0, TIPPED0, potionBurst, potClouds, applyPotion, potionOnMob, effectsNow2: () => effects,
   biomeVariant, builtNear, VARIANTS, SUNFLOWER, BAMBOO,
+  COMPARATOR, TARGET, TRIPWIRE_HOOK, TRIPWIRE, DAYLIGHT, containerSignal, tripAt, hitTarget, updateRedstoneReaders, placeRSAt: (x, y, z, id, hit) => placeRS(x, y, z, id, hit),
   NAME_TAG, LEAD, COMPASS, CLOCK, SPYGLASS, SHULKER_BOX, nameMob, playerLeads, useLeadsAndTags, drawDial, breakShulkerBox,
   PISTON, STICKY_PISTON, PISTON_HEAD, STICKY_HEAD, DISPENSER, DROPPER, OBSERVER, pistonAct, dispense, observeAt, machineTile, rsPartAt: (x, y, z) => rsPart(x, y, z), rsSetPartAt: (x, y, z, p) => rsSetPart(x, y, z, p), chestSlotsAt: k => chestSlots(k),
   TRIM0, TRIM_NAMES, TRIM_MATS, trimOf, POT_MODS, eL, effSpeedMul, useSmithing, stackName, updateArmourModel,
