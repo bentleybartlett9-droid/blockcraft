@@ -21636,6 +21636,30 @@ function gorillaBoxes(id,x,y,z){
  if(isPartial(id))return partBoxes(id,x,y,z);
  return [[x,y,z,x+1,y+1,z+1]];
 }
+// Exact swept sphere against a box: rounded corners avoid phantom square palm catches.
+function gorillaRoundContact(a,delta,box,radius){
+ const av=[a.x,a.y,a.z],dv=[delta.x,delta.y,delta.z],cuts=[0,1];
+ for(let k=0;k<3;k++)if(Math.abs(dv[k])>1e-9)for(const edge of [box[k],box[k+3]]){const t=(edge-av[k])/dv[k];if(t>0&&t<1)cuts.push(t);}
+ cuts.sort((a,b)=>a-b);
+ for(let i=0;i<cuts.length-1;i++){
+  const lo=cuts[i],hi=cuts[i+1],mid=(lo+hi)*.5;let A=0,B=0,C=-radius*radius;
+  for(let k=0;k<3;k++){const v=av[k]+dv[k]*mid,edge=v<box[k]?box[k]:v>box[k+3]?box[k+3]:null;if(edge===null)continue;const d=av[k]-edge;A+=dv[k]*dv[k];B+=2*d*dv[k];C+=d*d;}
+  let t=lo;
+  if(A*lo*lo+B*lo+C>1e-10){const disc=B*B-4*A*C;if(A<1e-12||disc<0)continue;t=(-B-Math.sqrt(disc))/(2*A);if(t<lo-1e-8||t>hi+1e-8)continue;}
+  const center=a.clone().addScaledVector(delta,Math.max(0,t)),nearest=new THREE.Vector3(Math.max(box[0],Math.min(box[3],center.x)),Math.max(box[1],Math.min(box[4],center.y)),Math.max(box[2],Math.min(box[5],center.z)));
+  const n=center.clone().sub(nearest),distance=n.length();
+  if(distance<radius*.2)continue;n.divideScalar(distance);
+  if(delta.dot(n)>=-1e-7)continue;
+  return {t:Math.max(0,t),n,point:nearest.addScaledVector(n,radius+.002)};
+ }
+ return null;
+}
+function gorillaBlendPush(pushes){
+ const sum=new THREE.Vector3();let total=0,strongest=0;
+ for(const p of pushes){const strength=p.length();sum.add(p);total+=strength;strongest=Math.max(strongest,strength);}
+ // A resting palm contributes no braking; two equal pushes still cannot double speed.
+ return total>0?sum.multiplyScalar(strongest/total):sum;
+}
 function handSweep(a,b){
  const delta=b.clone().sub(a),len=delta.length();if(len<.00001||len>1.5)return null;
  const radius=GORILLA_PALM;let best=null,bestT=Infinity;
@@ -21652,15 +21676,9 @@ function handSweep(a,b){
     if(t0>enter){enter=t0;axis=k;sign=n;}exit=Math.min(exit,t1);
    }
    if(enter>exit||exit<0||enter>1||axis<0)continue;
-   // A hand newly touching the margin may start slightly inside the palm shell.
-   if(enter<0){
-    let depth=Infinity;axis=-1;
-    for(let k=0;k<3;k++)for(const n of [-1,1]){const gap=n<0?av[k]-(box[k]-radius):(box[k+3]+radius)-av[k];if(gap>=0&&gap<depth){depth=gap;axis=k;sign=n;}}
-    if(depth>radius*.8||axis<0||dv[axis]*sign>=-.00001)continue;enter=0;
-   }
-   if(enter>=bestT)continue;const normal=new THREE.Vector3();normal.setComponent(axis,sign);
-   const point=a.clone().addScaledVector(delta,enter);point.setComponent(axis,(sign<0?box[axis]-radius:box[axis+3]+radius)+sign*.002);
-   bestT=enter;best={id,n:normal,point,cell:[x,y,z]};
+   const contact=gorillaRoundContact(a,delta,box,radius);
+   if(!contact||contact.t>=bestT)continue;
+   bestT=contact.t;best={id,n:contact.n,point:contact.point,cell:[x,y,z]};
   }
  }
  return best;
@@ -21694,7 +21712,7 @@ function gorillaStep(dt){
  gYaw=xrRig.rotation.y;
  if(resetFrame){gorillaReset();player.vel.set(0,0,0);}
  if(gWasHolding&&gPrevDt>0&&!resetFrame)gorillaRemember(bodyDelta.clone().divideScalar(gPrevDt),gPrevDt);
- const impactSpeed=player.vel.y;const push=new THREE.Vector3();let holds=0,unsafe=resetFrame;
+ const impactSpeed=player.vel.y;const pushes=[];let holds=0,unsafe=resetFrame;
  [leftCtrl,rightCtrl].forEach((c,i)=>{
   const h=gHands[i],hand=i?'right':'left';h.tapT-=dt;h.releaseT=Math.max(0,h.releaseT-dt);
    const grip=controllerGrips[controllers.indexOf(c)],pose=renderer.xr.isPresenting&&grip?grip:c;
@@ -21721,7 +21739,7 @@ function gorillaStep(dt){
    const hit=handSweep(h.prev,cur);
    if(hit){h.anchor=hit.point;h.n=hit.n;h.cell=hit.cell;hapticPulse(hand,.3,20);if(h.tapT<=0){blockSfx(hit.id,'step');h.tapT=.15;}}
   }
-  if(h.anchor){push.add(gorillaPalmPush(h.anchor,cur,h.n));holds++;}
+  if(h.anchor){pushes.push(gorillaPalmPush(h.anchor,cur,h.n));holds++;}
    h.prev=cur;h.localPrev=local;
  });
  // A hard landing on the palms counts too; catching a wall still arrests a fall.
@@ -21731,7 +21749,7 @@ function gorillaStep(dt){
  }
  player.gorillaHold=holds>0;
  if(holds){
-  push.divideScalar(holds);const limit=Math.min(GORILLA_STEP,GORILLA_MAX*dt);if(push.length()>limit)push.setLength(limit);player.vel.copy(push).divideScalar(dt);
+  const push=gorillaBlendPush(pushes);const limit=Math.min(GORILLA_STEP,GORILLA_MAX*dt);if(push.length()>limit)push.setLength(limit);player.vel.copy(push).divideScalar(dt);
  }else if(gWasHolding){
   if(!unsafe)player.vel.copy(gorillaLaunch());else player.vel.set(0,0,0);
   gHist.length=0;
