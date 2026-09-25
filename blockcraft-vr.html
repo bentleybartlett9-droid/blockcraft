@@ -2545,6 +2545,10 @@ const LOOM = 5513; BLOCKS[LOOM] = { name: 'Loom', top: 745, bottom: 745, side: 7
 const NAME_TAG = 5600, LEAD = 5601, COMPASS = 5602, CLOCK = 5603, SPYGLASS = 5604, SHULKER_BOX = 5507;
 ITEMS[NAME_TAG] = { name: 'Name Tag', icon: 476 }; ITEMS[LEAD] = { name: 'Lead', icon: 477 }; ITEMS[COMPASS] = { name: 'Compass', icon: 478 };
 ITEMS[CLOCK] = { name: 'Clock', icon: 479 }; ITEMS[SPYGLASS] = { name: 'Spyglass', icon: 480 };
+// the crossbow: loading it swaps it for its loaded form, so the hotbar shows what's in it
+const CROSSBOW = 5605, CROSSBOW_ARROW = 5606, CROSSBOW_ROCKET = 5607;
+ITEMS[CROSSBOW] = { name: 'Crossbow', icon: 481 };
+ITEMS[CROSSBOW_ARROW] = { name: 'Crossbow (loaded)', icon: 482, hidden: true }; ITEMS[CROSSBOW_ROCKET] = { name: 'Crossbow (firework loaded)', icon: 483, hidden: true };
 BLOCKS[SHULKER_BOX] = { name: 'Shulker Box', top: 736, bottom: 736, side: 735 };
 
 /* Armour trims, as in Minecraft: smithing templates found in the world's
@@ -3187,6 +3191,7 @@ const RECIPES = [
   { out: [DAYLIGHT, 1], in: [[GLASS, 3], [QUARTZ, 3], [SLAB_WOOD, 3]], st: 'table' },
   { out: [CLOCK, 1], in: [[GOLDI, 4], [REDSTONE, 1]], st: 'table' },
   { out: [SPYGLASS, 1], in: [[COPPERI, 2], [AMETHYST_SHARD, 1]], st: 'table' },
+  { out: [CROSSBOW, 1], in: [[STICK, 3], [STRING, 2], [IRONI, 1], [TRIPWIRE_HOOK, 1]], st: 'table' },
   { out: [LEAD, 2], in: [[STRING, 4], [SLIMEBALL, 1]], st: 'table' },
   { out: [SHULKER_BOX, 1], in: [[SHULKER_SHELL, 2], [CHEST, 1]], st: 'table' },
   ...TRIM_NAMES.map((n, i) => ({ out: [TRIM0 + i, 2], in: [[TRIM0 + i, 1], [DIAMI, 7], [ANY_COBBLE, 1]], st: 'table' })),
@@ -3563,6 +3568,18 @@ itemAtlas.width = 128; itemAtlas.height = 1024;   // 512 icons
     const d = Math.hypot(x - 7.5, y - 7.5); if(d > 6.4) return null; if(d > 5.3) return [210, 170, 50];
     if(y < 8) return Math.hypot(x - 7.5, y - 4) < 1.6 ? [255, 230, 90] : [90, 150, 230];
     return Math.hypot(x - 7.5, y - 11) < 1.4 ? [230, 230, 240] : [30, 34, 70]; });
+  { const cb = (tile, load) => {                                        // crossbow
+      const P = new Map(), put = (x, y, c) => P.set(x + ',' + y, c);
+      const line = (x0, y0, x1, y1, c) => { const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0)); for(let i = 0; i <= n; i++) put(Math.round(x0 + (x1 - x0) * i / n), Math.round(y0 + (y1 - y0) * i / n), c); };
+      line(2, 13, 11, 4, [107, 74, 42]); line(3, 13, 12, 4, [138, 98, 58]);            // stock
+      line(6, 1, 14, 9, [120, 84, 50]); line(6, 2, 13, 9, [150, 108, 64]);              // the bow across it
+      put(10, 5, [176, 176, 182]); put(11, 5, [176, 176, 182]); put(10, 6, [140, 140, 146]);
+      const lx = load ? 6 : 9, ly = load ? 9 : 6;                                       // the string: drawn back when loaded
+      line(6, 1, lx, ly, [232, 232, 232]); line(14, 9, lx, ly, [232, 232, 232]);
+      if(load === 'a'){ line(5, 10, 12, 3, [205, 205, 210]); put(12, 3, [245, 245, 245]); put(13, 2, [245, 245, 245]); }
+      if(load === 'r'){ line(5, 10, 10, 5, [205, 55, 42]); line(6, 10, 11, 5, [170, 40, 30]); put(11, 4, [232, 222, 200]); }
+      px(tile, (x, y) => P.get(x + ',' + y) || null); };
+    cb(481, null); cb(482, 'a'); cb(483, 'r'); }
   px(480, (x, y) => {                                                   // spyglass
     const t = Math.abs((x - 2) - (13 - y)); if(t > 2 || x < 2 || x > 13) return null;
     if(x > 11) return [120, 200, 230]; return x % 4 === 0 ? [150, 90, 50] : [206, 120, 70]; });
@@ -9073,7 +9090,7 @@ function physics(dt){
   if(riding) return;                 // vehicle controls the player's position
   const inWater = isWet(getBlock(Math.floor(p.pos.x), Math.floor(p.pos.y + 0.2), Math.floor(p.pos.z)));
   const sprint = key('ShiftLeft') && !p.fly && key('KeyW') && !inWater;
-  const speed = (p.fly ? (key('ShiftRight') ? 26 : 16) : inWater ? 2.6 * (1 + 0.45 * armEnch('depth_strider')) : sprint ? 7.2 : 4.3) * (p.fly ? 1 : effSpeedMul());
+  const speed = (p.fly ? (key('ShiftRight') ? 26 : 16) : inWater ? 2.6 * (1 + 0.45 * armEnch('depth_strider')) : sprint ? 7.2 : 4.3) * (p.fly ? 1 : effSpeedMul() * archerySlow());
   if(!xrActive && !gliding){
     let fx = 0, fz = 0;
     if(key('KeyW')) fz -= 1; if(key('KeyS')) fz += 1;
@@ -9175,7 +9192,7 @@ function physics(dt){
   } else stepAcc = 1.7;
   bobAmt += (((p.onGround && hs > 0.5) ? 1 : 0) - bobAmt) * Math.min(1, dt * 8);
   bobT += dt * hs * 1.8;
-  const tf = spyZoom() ? 12 : sprint && hs > 3 ? 80 : 72;
+  const tf = spyZoom() ? 12 : bowDraw && !xrActive ? 72 - 14 * bowPower(bowDraw.t) : sprint && hs > 3 ? 80 : 72;
   fov += (tf - fov) * Math.min(1, dt * 8);
   if(Math.abs(camera.fov - fov) > 0.05){ camera.fov = fov; camera.updateProjectionMatrix(); }
 }
@@ -9209,9 +9226,9 @@ function combatHunt(e,range,dt){
  if(e.searchT>0&&e.lastSeen){if(e.pos.distanceTo(e.lastSeen)<1.1)e.searchT=0;else return {pos:e.lastSeen,searching:true};}
  return null;
 }
-function skeletonShotVelocity(s){
- const rules=difficultyRules(),origin=new THREE.Vector3(s.pos.x,s.pos.y+1.4,s.pos.z),flat=Math.hypot(player.pos.x-origin.x,player.pos.z-origin.z),speed=17,t=Math.max(.12,flat/speed);
- const lead=Math.min(.65,t),aim=player.pos.clone().addScaledVector(player.vel,lead);aim.y+=1.25;
+function skeletonShotVelocity(s,origin=new THREE.Vector3(s.pos.x,s.pos.y+1.4,s.pos.z),tp=player.pos,tv=player.vel,aimUp=1.25){
+ const rules=difficultyRules(),flat=Math.hypot(tp.x-origin.x,tp.z-origin.z),speed=24,t=Math.max(.1,flat/speed);
+ const lead=Math.min(.6,t),aim=tp.clone().addScaledVector(tv||new THREE.Vector3(),lead);aim.y+=aimUp;
  const spread=rules.spread,dx=aim.x-origin.x,dz=aim.z-origin.z,dl=Math.hypot(dx,dz)||1;
  return new THREE.Vector3(dx/dl*speed+(Math.random()-.5)*spread,(aim.y-origin.y+.5*18*t*t)/t+(Math.random()-.5)*spread,dz/dl*speed+(Math.random()-.5)*spread);
 }
@@ -10354,7 +10371,7 @@ function updateAnimals(dt){
 }
 function stepMob(e, dt, grav){
   const inW = isWet(getBlock(Math.floor(e.pos.x), Math.floor(e.pos.y + 0.2), Math.floor(e.pos.z)));
-  const tx = -Math.sin(e.yaw) * e.speed, tz = -Math.cos(e.yaw) * e.speed;
+  const tx = -Math.sin(e.yaw) * e.speed + Math.cos(e.yaw) * (e.strafe || 0), tz = -Math.cos(e.yaw) * e.speed - Math.sin(e.yaw) * (e.strafe || 0);
   const k = Math.min(1, dt * 8);
   e.vel.x += (tx - e.vel.x) * k;
   e.vel.z += (tz - e.vel.z) * k;
@@ -13540,7 +13557,7 @@ function killNether(e){
     case 'phantom': drop(PHANTOM_MEMBRANE, 0, 1); break;
     case 'parrot': drop(FEATHER, 1, 2); if(e.tamedP){ tamedParrots.splice(0, 1); saveParrots(); flashName('Your parrot died'); } break;
     case 'zoglin': drop(ROTTEN, 1, 3); break;
-    case 'pillager': drop(ARROW_I, 0, 2); if(e.raid) drop(EMERALD, 0, 1); break;
+    case 'pillager': drop(ARROW_I, 0, 2); if(Math.random() < 0.085) drop(CROSSBOW, 1, 1); if(e.raid) drop(EMERALD, 0, 1); break;
     case 'vindicator': drop(EMERALD, 0, 1); if(Math.random() < 0.085) drop(IAXE, 1, 1); break;
     case 'evoker': drop(TOTEM, 1, 1); drop(EMERALD, 0, 1); break;
     case 'ravager': drop(SADDLE, 1, 1); break;
@@ -13936,30 +13953,107 @@ function updateZombies(dt, daylight){
 }
 /* =========================== skeletons ============================== */
 const skeletons = [];
-const skelMats = { bone: entMat(0xdcdcd6), dark: entMat(0xa8a8a0), bow: entMat(0x8a6b3a) };
+const skelMats = { bone: entMat(0xdcdcd6), dark: entMat(0xa8a8a0), bow: entMat(0x8a6b3a), eye: entMat(0x1c1c1c) };
 const strayMats = { bone: entMat(0xb8c4c6), dark: entMat(0x8a9a9c), rag: entMat(0x6d8a92) };
 const boggedMats = { bone: entMat(0xb4b88f), dark: entMat(0x6f7a4c), moss: entMat(0x4e6b2c), cap: entMat(0x9a2a24) };
-function spawnSkeleton(x, y, z, variant){
+const helmMats = [null, entMat(0x8b5a2b), entMat(0xf3d34a), entMat(0x8f8f8f), entMat(0xd8d8d8)];   // leather, gold, chain, iron
+/* arrows you can see properly: a shaft, a stone head, white fletching */
+const arrowShaftMat = new THREE.MeshBasicMaterial({ color: 0x8a6b46 }), arrowHeadMat = new THREE.MeshBasicMaterial({ color: 0x9a9a9a }), arrowFinMat = new THREE.MeshBasicMaterial({ color: 0xf0f0f0 });
+const arrowParts = { shaft: new THREE.BoxGeometry(0.035, 0.035, 0.5), head: new THREE.BoxGeometry(0.065, 0.065, 0.09), finA: new THREE.BoxGeometry(0.012, 0.11, 0.13), finB: new THREE.BoxGeometry(0.11, 0.012, 0.13) };
+const arrowTipMats = new Map();
+function makeArrowMesh(tipCol){                  // points along +Z, the way lookAt turns it
   const g = new THREE.Group();
-  const legs = [], arms = [];
+  g.add(new THREE.Mesh(arrowParts.shaft, arrowShaftMat));
+  let hm = arrowHeadMat;
+  if(tipCol != null){ hm = arrowTipMats.get(tipCol); if(!hm){ hm = new THREE.MeshBasicMaterial({ color: tipCol }); arrowTipMats.set(tipCol, hm); } }
+  const h = new THREE.Mesh(arrowParts.head, hm); h.position.z = 0.27; g.add(h);
+  for(const fg of [arrowParts.finA, arrowParts.finB]){ const f = new THREE.Mesh(fg, arrowFinMat); f.position.z = -0.19; g.add(f); }
+  return g;
+}
+/* bows and crossbows as real models: a curved stave whose string pulls back, for skeletons and for you */
+const bowWoodMat = new THREE.MeshBasicMaterial({ color: 0x7a5230 }), bowStringMat = new THREE.MeshBasicMaterial({ color: 0xeeeeee }), ironBitMat = new THREE.MeshBasicMaterial({ color: 0xa8a8a8 });
+const rocketMat = new THREE.MeshBasicMaterial({ color: 0xc8392b }), rocketTipMat = new THREE.MeshBasicMaterial({ color: 0xe8e0d0 });
+const stringGeo = new THREE.BoxGeometry(0.014, 1, 0.014), _bY = new THREE.Vector3(0, 1, 0), _bA = new THREE.Vector3();
+function bowPart(g, w, h, d, m, x, y, z){ const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); b.position.set(x, y, z); g.add(b); return b; }
+function stringHalf(mesh, p, q){
+  _bA.copy(q).sub(p); const l = _bA.length() || 0.001;
+  mesh.position.copy(p).addScaledVector(_bA, 0.5); mesh.scale.set(1, l, 1);
+  mesh.quaternion.setFromUnitVectors(_bY, _bA.multiplyScalar(1 / l));
+}
+function makeRocketMesh(){ const g = new THREE.Group(); bowPart(g, 0.07, 0.07, 0.3, rocketMat, 0, 0, 0); bowPart(g, 0.045, 0.045, 0.07, rocketTipMat, 0, 0, 0.18); return g; }
+// aimed down -Z, stave upright, the archer behind it at +Z
+function makeBowModel(){
+  const g = new THREE.Group(), A = 0.45, L = 0.28;
+  bowPart(g, 0.055, 0.2, 0.055, bowWoodMat, 0, 0, 0);                                     // grip
+  bowPart(g, 0.045, L, 0.045, bowWoodMat, 0, 0.1 + L / 2 * Math.cos(A), L / 2 * Math.sin(A)).rotation.x = A;       // limbs, bent back
+  bowPart(g, 0.045, L, 0.045, bowWoodMat, 0, -0.1 - L / 2 * Math.cos(A), L / 2 * Math.sin(A)).rotation.x = -A;
+  const s1 = new THREE.Mesh(stringGeo, bowStringMat), s2 = new THREE.Mesh(stringGeo, bowStringMat); g.add(s1, s2);
+  const arrow = makeArrowMesh(); arrow.rotation.y = Math.PI; arrow.visible = false; g.add(arrow);
+  const TY = 0.1 + L * Math.cos(A), TZ = L * Math.sin(A);
+  g.userData.bow = { s1, s2, arrow, t1: new THREE.Vector3(0, TY, TZ), t2: new THREE.Vector3(0, -TY, TZ), k: -1, n: null };
+  setBowPull(g, 0, false);
+  return g;
+}
+function setBowPull(g, k, nocked){
+  const B = g.userData.bow; if(!B || (B.k === k && B.n === nocked)) return;
+  B.k = k; B.n = nocked;
+  const nock = new THREE.Vector3(0, 0, B.t1.z + k * 0.3);
+  stringHalf(B.s1, B.t1, nock); stringHalf(B.s2, B.t2, nock);
+  B.arrow.visible = !!nocked; B.arrow.position.set(0.03, 0, nock.z - 0.25);
+}
+function makeCrossbowModel(){
+  const g = new THREE.Group(), A = 0.35, L = 0.24;
+  bowPart(g, 0.06, 0.07, 0.46, bowWoodMat, 0, -0.02, 0.06);                               // stock
+  bowPart(g, 0.05, 0.13, 0.06, bowWoodMat, 0, -0.09, 0.17);                               // grip
+  bowPart(g, 0.08, 0.05, 0.08, ironBitMat, 0, 0.02, -0.16);                               // iron at the front
+  bowPart(g, L, 0.04, 0.04, bowWoodMat, L / 2 * Math.cos(A), 0.03, -0.15 + L / 2 * Math.sin(A)).rotation.y = -A;
+  bowPart(g, L, 0.04, 0.04, bowWoodMat, -L / 2 * Math.cos(A), 0.03, -0.15 + L / 2 * Math.sin(A)).rotation.y = A;
+  const s1 = new THREE.Mesh(stringGeo, bowStringMat), s2 = new THREE.Mesh(stringGeo, bowStringMat); g.add(s1, s2);
+  const bolt = makeArrowMesh(); bolt.rotation.y = Math.PI; bolt.scale.setScalar(0.8); bolt.position.set(0, 0.06, -0.06); g.add(bolt);
+  const rocket = makeRocketMesh(); rocket.rotation.y = Math.PI; rocket.position.set(0, 0.07, -0.08); g.add(rocket);
+  const TX = L * Math.cos(A), TZ = -0.15 + L * Math.sin(A);
+  g.userData.cross = { s1, s2, bolt, rocket, t1: new THREE.Vector3(TX, 0.03, TZ), t2: new THREE.Vector3(-TX, 0.03, TZ), k: -1, load: 0 };
+  setCrossLoad(g, 0, null);
+  return g;
+}
+function setCrossLoad(g, k, load){              // k: how far back the string is; load: 'a' a bolt, 'r' a rocket
+  const C = g.userData.cross; if(!C || (C.k === k && C.load === load)) return;
+  C.k = k; C.load = load;
+  const latch = new THREE.Vector3(0, 0.03, C.t1.z + k * 0.17);
+  stringHalf(C.s1, C.t1, latch); stringHalf(C.s2, C.t2, latch);
+  C.bolt.visible = load === 'a'; C.rocket.visible = load === 'r';
+}
+function spawnSkeleton(x, y, z, variant){
+  let helm = -1;
+  if(typeof variant === 'string' && variant.includes('#')){ const p = variant.split('#'); variant = p[0] || undefined; helm = +p[1] || 0; }
+  if(helm < 0){ const hc = difficulty === 'hard' ? 0.25 : difficulty === 'easy' ? 0.04 : 0.1; helm = Math.random() < hc ? 1 + ((Math.random() * 4) | 0) : 0; }   // some wear a helmet - and don't burn
+  const g = new THREE.Group();
+  const legs = [];
   const stray = variant === 'stray', bogged = variant === 'bogged', SM = stray ? strayMats : bogged ? boggedMats : skelMats;
-  box(0.5, 0.5, 0.5, SM.bone, 0, 1.7, 0, g);
-  box(0.4, 0.72, 0.18, SM.dark, 0, 1.09, 0, g);
-  if(stray){ box(0.46, 0.5, 0.24, SM.rag, 0, 1.2, 0, g); box(0.52, 0.12, 0.52, SM.rag, 0, 1.97, 0, g); }        // ragged, frost-bitten clothes and hood
-  if(bogged){ box(0.52, 0.2, 0.52, SM.moss, 0, 1.97, 0, g); for(const [mx, mz] of [[-0.14, 0.05], [0.16, -0.1]]){ box(0.06, 0.1, 0.06, entMat(0xe6dcc8), mx, 2.12, mz, g); box(0.18, 0.08, 0.18, SM.cap, mx, 2.2, mz, g); } }   // moss and mushrooms
-  for(const sx of [-0.3, 0.3])
-    arms.push(box(0.14, 0.14, 0.6, SM.bone, sx, 1.34, -0.26, g));
-  box(0.08, 0.7, 0.08, skelMats.bow, 0.3, 1.34, -0.58, g);       // bow held out front
-  for(const sx of [-0.12, 0.12])
-    legs.push(box(0.14, 0.72, 0.14, SM.bone, sx, 0.36, 0, g));
+  box(0.5, 0.5, 0.5, SM.bone, 0, 1.72, 0, g);                                              // skull
+  for(const ex of [-0.12, 0.12]) box(0.12, 0.09, 0.02, skelMats.eye, ex, 1.76, -0.255, g);  // hollow eyes
+  box(0.06, 0.07, 0.02, skelMats.eye, 0, 1.66, -0.255, g);                                   // nose
+  box(0.3, 0.035, 0.02, skelMats.eye, 0, 1.56, -0.255, g);                                   // the grin
+  box(0.1, 0.74, 0.1, SM.dark, 0, 1.1, 0, g);                                                // spine
+  for(const ry of [1.37, 1.25, 1.13]) box(0.42, 0.06, 0.2, SM.bone, 0, ry, 0, g);           // ribs
+  box(0.4, 0.1, 0.18, SM.bone, 0, 0.79, 0, g);                                               // pelvis
+  if(stray){ box(0.46, 0.5, 0.24, SM.rag, 0, 1.2, 0, g); box(0.52, 0.12, 0.52, SM.rag, 0, 1.99, 0, g); }        // ragged, frost-bitten clothes and hood
+  if(bogged){ box(0.52, 0.2, 0.52, SM.moss, 0, 1.99, 0, g); for(const [mx, mz] of [[-0.14, 0.05], [0.16, -0.1]]){ box(0.06, 0.1, 0.06, entMat(0xe6dcc8), mx, 2.14, mz, g); box(0.18, 0.08, 0.18, SM.cap, mx, 2.22, mz, g); } }   // moss and mushrooms
+  if(helm){ const hm = helmMats[helm]; box(0.56, 0.2, 0.56, hm, 0, 1.93, 0, g); box(0.56, 0.24, 0.08, hm, 0, 1.76, 0.25, g); for(const sx of [-0.27, 0.27]) box(0.04, 0.22, 0.5, hm, sx, 1.78, 0.02, g); }
+  // limbs hang from pivots so they swing from the shoulder and hip
+  const limb = (px, py, h) => { const p = new THREE.Group(); p.position.set(px, py, 0); g.add(p); box(0.12, h, 0.12, SM.bone, 0, -h / 2 + 0.04, 0, p); return p; };
+  const bowArm = limb(0.29, 1.42, 0.66), drawArm = limb(-0.29, 1.42, 0.66);
+  const bow = makeBowModel(); bow.rotation.x = -Math.PI / 2; bow.position.set(0, -0.58, 0); bow.scale.setScalar(0.85); bowArm.add(bow);
+  for(const sx of [-0.12, 0.12]) legs.push(limb(sx, 0.76, 0.76));
   scene.add(g);
   skeletons.push({
-    kind: 'skeleton', group: g, legs, arms, variant: variant || '', stray, bogged,
+    kind: 'skeleton', group: g, legs, arms: [bowArm, drawArm], bowArm, drawArm, bow, variant: variant || '', stray, bogged, helm,
     pos: new THREE.Vector3(x, y, z), vel: new THREE.Vector3(),
-    w: 0.3, h: 1.85, hp: Math.round((bogged ? 16 : 20) * depthThreatScale(y)),
-    yaw: Math.random() * Math.PI * 2, speed: 0, t: 0.5,
-    onGround: false, anim: Math.random() * 9,
-    atkCd: 1 + Math.random(), rattleT: 3 + Math.random() * 5, skyT: 0, exposed: false, fireT: 0,
+    w: 0.3, h: 1.9, hp: Math.round((bogged ? 16 : 20) * depthThreatScale(y)),
+    yaw: Math.random() * Math.PI * 2, speed: 0, strafe: 0, strafeDir: Math.random() < 0.5 ? 1 : -1, strafeT: 0, t: 0.5,
+    onGround: false, anim: Math.random() * 9, draw: 0, seenT: 0, aimK: 0,
+    power: difficulty === 'hard' && Math.random() < 0.3 ? 1 + ((Math.random() * 2) | 0) : 0,   // on hard some carry an enchanted bow
+    atkCd: 1 + Math.random(), rattleT: 3 + Math.random() * 5, skyT: 0, exposed: false, fireT: 0, foe: null, foeT: 0,
   });
 }
 function boneRattle(vol=.12,pos=player.pos){monsterCall({kind:'skeleton',pos},'idle');}
@@ -13972,19 +14066,66 @@ function killSkeleton(i){
   dropXP(s.pos.x, s.pos.y + 1, s.pos.z, 5);
   burstRGB(s.pos.x, s.pos.y + 1, s.pos.z, 0.88, 0.88, 0.82, 14);
   monsterCall(s,'die');
-  if(mode === 'survival' && Math.random() < 0.5) spawnDropAt(s.pos.x, s.pos.y + 0.5, s.pos.z, s.bogged ? MUSHROOMR : STICK);
-  if(mode === 'survival'){ const n = (Math.random() * 3) | 0; if(n) spawnDropAt(s.pos.x, s.pos.y + 0.6, s.pos.z, BONE, n); }
+  if(mode === 'survival'){                       // bones and arrows, as in Minecraft - and now and then its bow
+    const x = s.pos.x, y = s.pos.y + 0.6, z = s.pos.z;
+    const nb = (Math.random() * 3) | 0; if(nb) spawnDropAt(x, y, z, BONE, nb);
+    const na = (Math.random() * 3) | 0; if(na) spawnDropAt(x, y, z, ARROW_I, na);
+    if((s.stray || s.bogged) && Math.random() < 0.5) spawnDropAt(x, y, z, TIPPED0 + POT_KINDS.indexOf(s.stray ? POT_SLOWNESS : POT_POISON), 1);
+    if(s.bogged && Math.random() < 0.5) spawnDropAt(x, y, z, MUSHROOMR);
+    if(Math.random() < 0.085) spawnDropAt(x, y, z, BOW);
+  }
   removeEnt(skeletons, i);
+}
+function skelLook(s, x, z){ const dx = x - s.pos.x, dz = z - s.pos.z, l = Math.hypot(dx, dz) || 1; s.yaw = Math.atan2(-dx / l, -dz / l); return l; }
+// burning in the sun, a skeleton runs for shade: under leaves, a roof or an overhang
+function skelFindShade(s){
+  let best = null, bd = 1e9;
+  for(let k = 0; k < 12; k++){
+    const x = Math.floor(s.pos.x + (Math.random() - 0.5) * 16), z = Math.floor(s.pos.z + (Math.random() - 0.5) * 16);
+    for(let y = Math.floor(s.pos.y) + 2; y >= Math.floor(s.pos.y) - 3; y--){
+      if(!isSolid(getBlock(x, y - 1, z)) || isSolid(getBlock(x, y, z)) || isSolid(getBlock(x, y + 1, z))) continue;
+      if(skyExposed(x, y + 2, z)) break;
+      const d = Math.hypot(x + 0.5 - s.pos.x, z + 0.5 - s.pos.z);
+      if(d < bd){ bd = d; best = new THREE.Vector3(x + 0.5, y, z + 0.5); }
+      break;
+    }
+  }
+  return best;
+}
+function skelShoot(s, tgt){
+  const isP = tgt === player;
+  const o = new THREE.Vector3(s.pos.x - Math.sin(s.yaw) * 0.45, s.pos.y + 1.45, s.pos.z - Math.cos(s.yaw) * 0.45);
+  const v = skeletonShotVelocity(s, o, tgt.pos, tgt.vel, isP ? 1.25 : (tgt.h || 1.6) * 0.6);
+  spawnArrow(o.x, o.y, o.z, v.x, v.y, v.z, s);
+  const a = arrows[arrows.length - 1];
+  a.dmg = ({ peaceful: 1, easy: 2, normal: 3, hard: 4 }[difficulty] || 3) + ((Math.random() * 2) | 0) + (s.power || 0);
+  if(s.stray) a.fx = 'slowness';                 // a stray's arrows slow you
+  if(s.bogged) a.fx = 'poison';                  // a bogged's arrows poison you
+  nTone(s.pos, 700 * jr(0.12), 180, 0.09, 'sawtooth', 0.14); nNoise(s.pos, 1800, 0.06, 0.1);
+}
+function animSkeleton(s, dt, need, aiming){
+  s.aimK += ((aiming ? 1 : 0) - s.aimK) * Math.min(1, dt * 7);
+  const a = s.aimK, sp = Math.min(1, Math.hypot(s.vel.x, s.vel.z)), sw = Math.sin(s.anim * 3) * 0.55 * sp * (1 - a);
+  s.bowArm.rotation.set(0.35 * (1 - a) - sw + a * Math.PI / 2, 0, -0.22 * a);          // both arms come up to aim
+  s.drawArm.rotation.set(sw + a * (Math.PI / 2 - 0.05), 0, 0.32 * a);
+  setBowPull(s.bow, Math.round(Math.min(1, s.draw / need) * 10) / 10, s.draw > 0);
 }
 function updateSkeletons(dt, daylight){
   for(let i = skeletons.length - 1; i >= 0; i--){
     const s = skeletons[i];
     if(s.pos.distanceToSquared(player.pos) > 110 * 110 && !s.nameTag){ removeEnt(skeletons, i); continue; }
+    // the sun sets it alight - unless it wears a helmet, stands in water or it's raining
+    s.burning = false;
     if(daylight > 0.5){
       s.skyT -= dt;
-      if(s.skyT <= 0){ s.skyT = 0.5; s.exposed = skyExposed(Math.floor(s.pos.x), Math.ceil(s.pos.y + s.h), Math.floor(s.pos.z)); }
-      if(s.exposed){
-        s.hp -= 6 * dt;
+      if(s.skyT <= 0){
+        s.skyT = 0.5;
+        s.exposed = !s.helm && skyExposed(Math.floor(s.pos.x), Math.ceil(s.pos.y + s.h), Math.floor(s.pos.z));
+        s.wet = rainAmt > 0.3 || isWet(getBlock(Math.floor(s.pos.x), Math.floor(s.pos.y + 0.3), Math.floor(s.pos.z)));
+      }
+      if(s.exposed && !s.wet){
+        s.burning = true;
+        s.hp -= 2 * dt;                          // about ten seconds in full sun: time to run for shade
         s.fireT -= dt;
         if(s.fireT <= 0){
           s.fireT = 0.14;
@@ -13993,30 +14134,52 @@ function updateSkeletons(dt, daylight){
       }
     }
     if(s.hp <= 0){ killSkeleton(i); continue; }
-    const dx = player.pos.x - s.pos.x, dz = player.pos.z - s.pos.z;
-    const distP = Math.hypot(dx, dz);
-    s.atkCd -= dt;
-    const hunt=combatHunt(s,20,dt);
+    const distP = Math.hypot(player.pos.x - s.pos.x, player.pos.z - s.pos.z);
+    s.atkCd -= dt; s.foeT -= dt;
+    // shot by another skeleton? it shoots back
+    const foe = s.foe && s.foeT > 0 && s.foe.hp > 0 && skeletons.includes(s.foe) ? s.foe : null;
+    const hunt = foe || combatHunt(s, 20, dt);
+    const need = s.bogged ? 1.4 : difficulty === 'hard' ? 0.85 : 1.1;
+    let sees = false;
+    s.strafe = 0;
     if(hunt){
-      const hdx=hunt.pos.x-s.pos.x,hdz=hunt.pos.z-s.pos.z,hdist=Math.hypot(hdx,hdz),l=hdist||1;
-      s.yaw = Math.atan2(-hdx / l, -hdz / l);                     // face remembered or visible target
-      if(hdist > 13) s.speed = 2;
-      else if(hdist < 7 && hunt === player){ s.yaw += Math.PI; s.speed = 2; }
-      else s.speed = 0;
-      if(hunt === player && s.atkCd <= 0 && hdist <= 18){
-        s.atkCd = (s.bogged ? 3.5 : 2.1) + Math.random() * 0.6;      // the bogged draws slower
-        bowTwang();
-        const shot=skeletonShotVelocity(s);
-        spawnArrow(s.pos.x,s.pos.y+1.4,s.pos.z,shot.x,shot.y,shot.z);
-        if(s.stray) arrows[arrows.length - 1].fx = 'slowness';       // a stray's arrows slow you
-        if(s.bogged) arrows[arrows.length - 1].fx = 'poison';        // a bogged's arrows poison you
+      const tp = hunt.pos, hd = skelLook(s, tp.x, tp.z);
+      sees = !hunt.searching && hd < 20 && mobLineOfSight(new THREE.Vector3(s.pos.x, s.pos.y + 1.6, s.pos.z), new THREE.Vector3(tp.x, tp.y + (hunt === player ? 1.5 : 1.2), tp.z));
+      s.seenT = sees ? s.seenT + dt : 0;
+      if(!sees || hd > 14) s.speed = 2.2;                         // close the distance
+      else {
+        s.speed = hd < 5 ? -2.2 : 0;                              // too close: back away
+        if(s.seenT > 0.8){                                        // in range: circle side to side, the way Minecraft skeletons do
+          s.strafeT -= dt;
+          if(s.strafeT <= 0){ s.strafeT = 1; if(Math.random() < 0.3) s.strafeDir = -s.strafeDir; }
+          const sd = s.strafeDir, sx = Math.floor(s.pos.x + Math.cos(s.yaw) * sd * 0.8), sz = Math.floor(s.pos.z - Math.sin(s.yaw) * sd * 0.8), fy = Math.floor(s.pos.y);
+          if(!isSolid(getBlock(sx, fy - 1, sz)) && !isSolid(getBlock(sx, fy - 2, sz))) s.strafeDir = -sd;   // not off a ledge
+          else s.strafe = 1.5 * sd;
+        }
       }
+      if(sees && s.atkCd <= 0){
+        if(!s.draw) nNoise(s.pos, 420, 0.35, 0.05, 260);          // the bow creaks as it's drawn
+        s.draw += dt;
+        if(s.draw >= need){
+          skelShoot(s, hunt); s.draw = 0;
+          s.atkCd = (s.bogged ? 2.2 : difficulty === 'hard' ? 0.25 : difficulty === 'easy' ? 1.6 : 0.9) + Math.random() * 0.5;
+        }
+      } else if(!sees) s.draw = Math.max(0, s.draw - dt * 2);
     } else {
-      s.t -= dt;
-      if(s.t <= 0){
-        s.t = 1.5 + Math.random() * 3;
-        if(Math.random() < 0.4) s.speed = 0;
-        else { s.speed = 0.9; s.yaw = Math.random() * Math.PI * 2; }
+      s.draw = 0; s.seenT = 0;
+      if(s.burning){
+        s.shadeT = (s.shadeT || 0) - dt;
+        if(s.shadeT <= 0){ s.shadeT = 1.5; s.shade = skelFindShade(s); }
+        if(s.shade){ const l = skelLook(s, s.shade.x, s.shade.z); s.speed = l > 0.6 ? 2.6 : 0; }
+        else { s.t -= dt; if(s.t <= 0){ s.t = 1; s.yaw = Math.random() * Math.PI * 2; } s.speed = 2.4; }
+      } else {
+        s.shade = null;
+        s.t -= dt;
+        if(s.t <= 0){
+          s.t = 1.5 + Math.random() * 3;
+          if(Math.random() < 0.4) s.speed = 0;
+          else { s.speed = 0.9; s.yaw = Math.random() * Math.PI * 2; }
+        }
       }
     }
     s.rattleT -= dt;
@@ -14026,35 +14189,59 @@ function updateSkeletons(dt, daylight){
     }
     stepMob(s, dt, 26);
     animMob(s, dt);
+    animSkeleton(s, dt, need, sees || s.draw > 0);
   }
 }
-/* arrows */
+/* arrows loosed by mobs */
 const arrows = [];
 const arrowGeo = new THREE.BoxGeometry(0.06, 0.06, 0.55);
 const arrowMat = entMat(0x8a6b46);
-function spawnArrow(x, y, z, vx, vy, vz){
+const _aDir = new THREE.Vector3();
+function spawnArrow(x, y, z, vx, vy, vz, owner){
   if(arrows.length >= 40){ scene.remove(arrows[0].mesh); arrows.shift(); }
-  const mesh = new THREE.Mesh(arrowGeo, arrowMat);
+  const mesh = makeArrowMesh();
+  mesh.position.set(x, y, z);
   scene.add(mesh);
-  arrows.push({ mesh, pos: new THREE.Vector3(x, y, z), vel: new THREE.Vector3(vx, vy, vz), age: 0, stuck: 0 });
+  arrows.push({ mesh, pos: new THREE.Vector3(x, y, z), vel: new THREE.Vector3(vx, vy, vz), age: 0, stuck: 0, owner: owner || null });
+}
+// a skeleton's arrow hits whatever's in the way - another skeleton shot like that shoots back
+const MOB_ARROW_KINDS = new Set(['zombie', 'skeleton', 'creeper', 'spider', 'animal']);
+function arrowHitsMob(a, e){
+  hurtAny(e, a.dmg || 3);
+  const l = Math.hypot(a.vel.x, a.vel.z) || 1;
+  if(e.vel){ e.vel.x += a.vel.x / l * 3; e.vel.z += a.vel.z / l * 3; }
+  if(e.kind === 'skeleton' && e !== a.owner && a.owner && a.owner.kind === 'skeleton'){ e.foe = a.owner; e.foeT = 15; }
+  nNoise(e.pos, 500, 0.06, 0.1);
 }
 function updateArrows(dt){
   for(let i = arrows.length - 1; i >= 0; i--){
     const a = arrows[i];
     a.age += dt;
-    if(a.age > 8){ scene.remove(a.mesh); arrows.splice(i, 1); continue; }
     if(a.stuck > 0){
       a.stuck -= dt;
+      if(a.wob > 0){ a.wob -= dt; a.mesh.quaternion.copy(a.baseQ); a.mesh.rotateX(Math.sin(a.wob * 70) * a.wob * 0.5); }   // it quivers where it struck
       if(a.stuck <= 0){ scene.remove(a.mesh); arrows.splice(i, 1); }
       continue;
     }
+    if(a.age > 8){ scene.remove(a.mesh); arrows.splice(i, 1); continue; }
     a.vel.y -= (a.grav ?? 18) * dt;
+    if(isWet(getBlock(Math.floor(a.pos.x), Math.floor(a.pos.y), Math.floor(a.pos.z)))) a.vel.multiplyScalar(Math.max(0, 1 - 2.5 * dt));   // water drags it down
     const steps = 2;
     let hitSomething = false;
     for(let st = 0; st < steps && !hitSomething; st++){
-      a.pos.x += a.vel.x * dt / steps;
-      a.pos.y += a.vel.y * dt / steps;
-      a.pos.z += a.vel.z * dt / steps;
+      const sdt = dt / steps;
+      if(a.owner && !a.puppet){
+        const len = a.vel.length() * sdt;
+        _aDir.copy(a.vel).multiplyScalar(1 / (a.vel.length() || 1));
+        const eh = len > 0 ? rayEntity(a.pos, _aDir, len) : null;
+        if(eh && eh.e !== a.owner && MOB_ARROW_KINDS.has(eh.e.kind) && !eh.e.puppet && !eh.e.tamed){
+          arrowHitsMob(a, eh.e);
+          scene.remove(a.mesh); arrows.splice(i, 1); hitSomething = true; break;
+        }
+      }
+      a.pos.x += a.vel.x * sdt;
+      a.pos.y += a.vel.y * sdt;
+      a.pos.z += a.vel.z * sdt;
       // hit player?
       const p = player.pos;
       if(mode === 'survival' && !dead &&
@@ -14071,7 +14258,8 @@ function updateArrows(dt){
         break;
       }
       if(isSolid(getBlock(Math.floor(a.pos.x), Math.floor(a.pos.y), Math.floor(a.pos.z)))){
-        a.stuck = 1.2;
+        a.stuck = 10;                            // it stays stuck in the wall for a while
+        a.wob = 0.3; a.baseQ = a.mesh.quaternion.clone();
         playN({ f: 900 * jr(0.2), type: 'lowpass', dur: 0.05, vol: 0.12 });
         hitSomething = true;
       }
@@ -14445,7 +14633,7 @@ const VIL_PROF = [
       {in:[[STICK,32]],out:[EMERALD,1]}, {in:[[EMERALD,1]],out:[ARROW_I,16]},
       {in:[[GRAVEL,10]],out:[EMERALD,1]}, {in:[[EMERALD,2]],out:[BOW,1]},
       {in:[[STRING,14]],out:[EMERALD,1]}, {in:[[FEATHER,24]],out:[EMERALD,1]},
-      {in:[[EMERALD,3],[ARROW_I,5]],out:['tipped',5]} ]},
+      {in:[[EMERALD,3],[ARROW_I,5]],out:['tipped',5]}, {in:[[EMERALD,3]],out:[CROSSBOW,1]} ]},
   { id:'mason', name:'Mason', robe:0x6a5a4a, badge:0x9a8a7a, hat:0, voice:185, trades:[
       {in:[[CLAY,10]],out:[EMERALD,1]}, {in:[[EMERALD,1]],out:[BRICK,10]},
       {in:[[STONE,20]],out:[EMERALD,1]}, {in:[[EMERALD,1]],out:[CHISELED_STONE,4]},
@@ -15456,14 +15644,152 @@ function hitWith(e, dmg){
   forcedDamage = dmg;
   try { punchEntity(e); } finally { forcedDamage = 0; }
 }
-function launchShot(kind, o, d){
+function launchShot(kind, o, d, opt = {}){
   let mesh;
-  if(kind === 'arrow'){ mesh = new THREE.Mesh(arrowGeo, arrowMat); }
+  const pot = opt.pot ?? null;
+  if(kind === 'arrow') mesh = makeArrowMesh(pot != null ? new THREE.Color(POTIONS[POT_KINDS[pot]].col).getHex() : null);
+  else if(kind === 'rocket') mesh = makeRocketMesh();
   else { mesh = new THREE.Mesh(crystalGeo, kind === 'pearl' ? pearlMat : eyeMat); mesh.scale.setScalar(0.22); }
   const pos = o.clone().addScaledVector(d, 0.6);
   mesh.position.copy(pos); scene.add(mesh);
-  const speed = kind === 'arrow' ? 42 : 22;
-  shots.push({ kind, mesh, pos, vel: d.clone().normalize().multiplyScalar(speed), age: 0, power: kind === 'arrow' ? heldEnch('power') : 0, punch: kind === 'arrow' ? heldEnch('punch') : 0, flame: kind === 'arrow' ? heldEnch('flame') : 0 });
+  const f = opt.f ?? 1, ench = kind === 'arrow' && !opt.noEnch;
+  const speed = opt.speed || (kind === 'arrow' ? 50 * f : kind === 'rocket' ? 30 : 22);   // a full draw flies fastest
+  const s = { kind, mesh, pos, vel: d.clone().normalize().multiplyScalar(speed), age: 0, power: ench ? heldEnch('power') : 0, punch: ench ? heldEnch('punch') : 0, flame: ench ? heldEnch('flame') : 0,
+    pot, pickup: opt.pickup || 0, pierce: opt.pierce || 0, bolt: !!opt.bolt };
+  if(kind === 'arrow'){ let dmg = opt.dmg ?? 6 * f; if(s.power) dmg *= 1 + 0.25 * (s.power + 1); s.dmg = dmg; s.crit = !!opt.crit; }
+  shots.push(s);
+  return s;
+}
+/* ---- drawing a bow, loading a crossbow (as in Minecraft: hold to draw, let go to shoot) ---- */
+let bowDraw = null, crossLoad = null, crossWait = false, vmKick = 0;
+const bowPower = t => { const f = Math.min(1, t); return (f * f + 2 * f) / 3; };
+const useHeld = () => xrActive ? vrGripWas : mouseHeld[2];
+const archerySlow = () => bowDraw || crossLoad ? 0.35 : 1;
+function arrowStack(){ return survInv.find(q => (q.id === ARROW_I || (q.id >= TIPPED0 && q.id < TIPPED0 + POT_KINDS.length)) && q.count > 0); }
+function aimNow(){
+  if(xrActive && rightCtrl){ const r = ctrlOriginDir(rightCtrl); return { o: r.o.clone(), d: r.d.clone() }; }
+  camera.getWorldDirection(_dir); return { o: camera.position.clone(), d: _dir.clone() };
+}
+function startBowDraw(){
+  if(bowDraw || bowCd > 0) return;
+  if(mode === 'survival' && !arrowStack()){ flashName('You need arrows'); return; }
+  bowDraw = { t: 0 };
+  playN({ f: 380, type: 'bandpass', dur: 0.3, vol: 0.05, slide: 180 });          // the string creaks back
+}
+function fireBow(f){
+  let tip = null, pickup = 0;
+  if(mode === 'survival'){
+    const q = arrowStack(); if(!q) return false;
+    if(q.id !== ARROW_I) tip = q.id - TIPPED0;
+    if(!heldEnch('infinity') || tip !== null){ pickup = q.id; q.count--; if(q.count <= 0){ q.id = 0; q.count = 0; } invDirty = true; renderHotbar(); }
+  }
+  const { o, d } = aimNow();
+  launchShot('arrow', o, d, { f, pot: tip, pickup, crit: f >= 1 });                 // a full draw is a critical hit
+  bowTwang(); bowCd = 0.12; vmKick = 0.18;
+  if(xrActive) hapticPulse('right', 0.9, 60);
+  return true;
+}
+// a firework in the hotbar slot right of the crossbow is loaded instead of an arrow (like Minecraft's off hand)
+function crossWantsRocket(){
+  if(sel + 1 > 8) return false;
+  return mode === 'creative' ? creativeItems[sel + 1] === FIREWORK : survInv[sel + 1].count > 0 && survInv[sel + 1].id === FIREWORK;
+}
+function setHeldId(id){ if(mode === 'creative') creativeItems[sel] = id; else survInv[sel].id = id; invDirty = true; renderHotbar(); }
+function useCrossbow(held){
+  if(held !== CROSSBOW){ if(!crossWait) fireCrossbow(held); return; }
+  if(crossLoad || crossWait) return;
+  if(mode === 'survival' && !arrowStack() && !survInv.some(q => q.id === FIREWORK && q.count > 0)){ flashName('You need arrows or a firework rocket'); return; }
+  crossLoad = { t: 0, need: Math.max(0.25, 1.25 - 0.25 * heldEnch('quick_charge')), step: 0 };
+}
+function finishCrossLoad(){
+  let rocket = crossWantsRocket(), tip = null;
+  if(mode === 'survival'){
+    let q = rocket ? survInv[sel + 1] : arrowStack();
+    if(!q){ q = survInv.find(r => r.id === FIREWORK && r.count > 0); rocket = !!q; }
+    if(!q) return;
+    if(!rocket && q.id !== ARROW_I) tip = q.id - TIPPED0;
+    q.count--; if(q.count <= 0){ q.id = 0; q.count = 0; }
+    const c = survInv[sel]; c.ench = Object.assign({}, c.ench || {});
+    if(tip !== null) c.ench._bolt = tip; else delete c.ench._bolt;
+  }
+  setHeldId(rocket ? CROSSBOW_ROCKET : CROSSBOW_ARROW);
+  playN({ f: 1300, type: 'bandpass', dur: 0.06, vol: 0.14 }); tone(420, 260, 0.06, 'square', 0.08);   // click: it's cocked
+  if(xrActive) hapticPulse('right', 0.7, 50);
+}
+function fireCrossbow(held){
+  const { o, d } = aimNow(), c = mode === 'survival' ? survInv[sel] : null;
+  const tip = c && c.ench && c.ench._bolt != null ? c.ench._bolt : null;
+  const pierce = heldEnch('piercing');
+  for(const a of heldEnch('multishot') ? [0, -0.17, 0.17] : [0]){                   // Multishot: three at once
+    const dd = a ? d.clone().applyAxisAngle(_upY, a) : d;
+    if(held === CROSSBOW_ROCKET) launchShot('rocket', o, dd);
+    else launchShot('arrow', o, dd, { speed: 64, dmg: 9, pierce, pot: tip, bolt: true, noEnch: true,
+      pickup: mode === 'survival' && !a ? (tip !== null ? TIPPED0 + tip : ARROW_I) : 0 });
+  }
+  if(c && c.ench) delete c.ench._bolt;
+  setHeldId(CROSSBOW); crossWait = true; vmKick = 0.25;
+  playN({ f: 2600, type: 'highpass', dur: 0.08, vol: 0.2 }); tone(320, 90, 0.12, 'square', 0.1);
+  if(xrActive) hapticPulse('right', 1, 80);
+}
+function poseArchery(m, held){
+  if(m.userData.bow) setBowPull(m, bowDraw ? Math.round(bowPower(bowDraw.t) * 20) / 20 : 0, !!bowDraw);
+  else if(m.userData.cross) setCrossLoad(m, crossLoad ? Math.round(Math.min(1, crossLoad.t / crossLoad.need) * 20) / 20 : held !== CROSSBOW ? 1 : 0,
+    held === CROSSBOW_ARROW ? 'a' : held === CROSSBOW_ROCKET ? 'r' : null);
+}
+function updateArchery(dt){
+  const held = heldId(), down = inGame && !dead && useHeld();
+  if(!down) crossWait = false;
+  if(vmKick > 0) vmKick = Math.max(0, vmKick - dt);
+  if(bowDraw){
+    if(held !== BOW || dead || !inGame) bowDraw = null;
+    else if(down){
+      const b = bowDraw.t; bowDraw.t += dt;
+      if(xrActive && Math.floor(bowDraw.t * 8) !== Math.floor(b * 8)) hapticPulse('right', 0.08 + 0.3 * bowPower(bowDraw.t), 20);   // the string tightens in your hand
+      if(b < 1 && bowDraw.t >= 1){ playN({ f: 900, type: 'bandpass', dur: 0.04, vol: 0.06 }); if(xrActive) hapticPulse('right', 0.5, 30); }
+    } else { const f = bowPower(bowDraw.t); bowDraw = null; if(f >= 0.1) fireBow(f); }
+  }
+  if(crossLoad){
+    if(held !== CROSSBOW || dead || !inGame || !down) crossLoad = null;
+    else {
+      crossLoad.t += dt;
+      const st = Math.floor(crossLoad.t / crossLoad.need * 3);
+      if(st > crossLoad.step && st < 3){ crossLoad.step = st; playN({ f: 700 + st * 250, type: 'bandpass', dur: 0.05, vol: 0.09 }); if(xrActive) hapticPulse('right', 0.3, 25); }
+      if(crossLoad.t >= crossLoad.need){ crossLoad = null; crossWait = true; finishCrossLoad(); }
+    }
+  }
+  if(xrActive && vrTool) poseArchery(vrTool, held);
+}
+// a firework shot from a crossbow bursts where it hits, hurting everything close by
+function rocketBlast(at){
+  const cols = [[1, 0.3, 0.3], [0.3, 0.6, 1], [1, 0.9, 0.3], [0.5, 1, 0.5], [0.9, 0.4, 1]][(Math.random() * 5) | 0];
+  burstRGB(at.x, at.y, at.z, cols[0], cols[1], cols[2], 40, 2.5);
+  boomSfx(player.pos.distanceTo(at));
+  for(const list of [zombies, skeletons, spiders, creepers, endermen, netherMobs, animals]) for(const m of list.slice()){
+    if(!m.pos || m.tamed || m.puppet) continue;
+    const d = Math.hypot(m.pos.x - at.x, m.pos.y + (m.h || 1) / 2 - at.y, m.pos.z - at.z);
+    if(d < 3) hitWith(m, Math.max(2, Math.round(7 * (1 - d / 3) + 2)));
+  }
+  const pd = Math.hypot(player.pos.x - at.x, player.pos.y + 1 - at.y, player.pos.z - at.z);
+  if(pd < 2.5 && mode === 'survival') damage(Math.round(5 * (1 - pd / 2.5)) + 1);
+}
+function shotTrail(s, dt){
+  if(s.kind === 'rocket'){ burstRGB(s.pos.x, s.pos.y, s.pos.z, 1, 0.75, 0.3, 2, 0.15); return; }
+  if(isWet(getBlock(Math.floor(s.pos.x), Math.floor(s.pos.y), Math.floor(s.pos.z)))) s.vel.multiplyScalar(Math.max(0, 1 - 2.5 * dt));
+  if(s.crit && Math.random() < 0.7) burstRGB(s.pos.x, s.pos.y, s.pos.z, 0.95, 0.95, 1, 1, 0.08);   // a critical shot trails sparks
+  if(s.flame && Math.random() < 0.6) burstRGB(s.pos.x, s.pos.y, s.pos.z, 1, 0.5, 0.1, 1, 0.08);
+  if(s.pot != null && Math.random() < 0.4){ const c = new THREE.Color(POTIONS[POT_KINDS[s.pot]].col); burstRGB(s.pos.x, s.pos.y, s.pos.z, c.r, c.g, c.b, 1, 0.08); }
+}
+// an arrow in the ground quivers, then waits to be picked up again
+function stuckShot(s, dt){
+  if(s.wob > 0){ s.wob -= dt; s.mesh.quaternion.copy(s.baseQ); s.mesh.rotateX(Math.sin(s.wob * 70) * s.wob * 0.5); }
+  if(s.kind === 'arrow' && s.pickup && mode === 'survival' && !dead && s.age > 0.3){
+    const p = player.pos;
+    if(Math.abs(s.pos.x - p.x) < 1.3 && Math.abs(s.pos.z - p.z) < 1.3 && s.pos.y > p.y - 0.6 && s.pos.y < p.y + 2.4 && addItem(s.pickup)){
+      playN({ f: 1500 * jr(0.15), type: 'bandpass', dur: 0.05, vol: 0.12 });
+      return true;
+    }
+  }
+  return s.age > (s.pickup ? 60 : 12);
 }
 function updateShots(dt){
   for(let i = shots.length - 1; i >= 0; i--){
@@ -15471,20 +15797,25 @@ function updateShots(dt){
     s.age += dt;
     if(s.kind === 'eye'){ updateEye(s, dt); if(s.done){ scene.remove(s.mesh); shots.splice(i, 1); } continue; }
     if(s.kind === 'trident'){ if(updateTrident(s, dt)){ scene.remove(s.mesh); shots.splice(i, 1); } continue; }
-    if(s.stuck){ if(s.age > 12){ scene.remove(s.mesh); shots.splice(i, 1); } continue; }
-    s.vel.y -= (s.kind === 'arrow' ? 12 : 18) * dt;
+    if(s.stuck){ if(stuckShot(s, dt)){ scene.remove(s.mesh); shots.splice(i, 1); } continue; }
+    if(s.kind === 'rocket' && s.age > 1.6){ rocketBlast(s.pos.clone()); scene.remove(s.mesh); shots.splice(i, 1); continue; }
+    s.vel.y -= (s.kind === 'arrow' ? 12 : s.kind === 'rocket' ? 0 : 18) * dt;
     const step = s.vel.length() * dt, dir = s.vel.clone().normalize();
     // what it strikes first: a creature, or a block
-    const eh = rayEntity(s.pos, dir, step);
+    const eh0 = rayEntity(s.pos, dir, step), eh = eh0 && s.hitSet && s.hitSet.has(eh0.e) ? null : eh0;   // Piercing: don't hit the same one twice
     const bh = raycast(s.pos, dir, step);
     const gate = getBlock(Math.floor(s.pos.x), Math.floor(s.pos.y), Math.floor(s.pos.z)) === END_GATEWAY;
     if(s.kind === 'pearl' && gate){ scene.remove(s.mesh); shots.splice(i, 1); gatewayJump(); continue; }
     if(eh && (!bh || eh.t < bh.t)){
-      if(s.kind === 'arrow'){ arrowHitNow = true; hitWith(eh.e, Math.max(2, Math.round(s.vel.length() / 6)) + Math.round((s.power || 0) * 1.5));
+      if(s.kind === 'arrow'){ arrowHitNow = true;
+        let dm = s.dmg ?? 6; if(s.crit){ dm += Math.random() * (dm / 2 + 2); burstRGB(eh.e.pos.x, eh.e.pos.y + 1.2, eh.e.pos.z, 1, 1, 0.85, 10, 0.6); }
+        hitWith(eh.e, Math.max(1, Math.round(dm))); playN({ f: 420 * jr(0.15), type: 'lowpass', dur: 0.07, vol: 0.12 });
         if(s.punch && eh.e.vel){ const l2 = Math.hypot(s.vel.x, s.vel.z) || 1; eh.e.vel.x += s.vel.x / l2 * 5 * s.punch; eh.e.vel.z += s.vel.z / l2 * 5 * s.punch; }
         if(s.flame) igniteMob(eh.e, 5);
         if(s.pot != null){ const TP = POTIONS[POT_KINDS[s.pot]]; potionOnMob(eh.e, TP, TP.t ? 0.125 : 1); }
-        arrowHitNow = false; }
+        arrowHitNow = false;
+        if(s.pierce > 0){ s.pierce--; (s.hitSet || (s.hitSet = new Set())).add(eh.e); s.pos.addScaledVector(s.vel, dt); s.mesh.position.copy(s.pos); continue; } }
+      else if(s.kind === 'rocket') rocketBlast(s.pos.clone().addScaledVector(dir, eh.t));
       else if(s.kind === 'potion') potionBurst(s.pos.clone().addScaledVector(dir, eh.t), s.pot, s.linger);
       else pearlLand(s.pos.clone().addScaledVector(dir, eh.t));
       scene.remove(s.mesh); shots.splice(i, 1); continue;
@@ -15493,20 +15824,21 @@ function updateShots(dt){
       if(bh && bh.id === TARGET) hitTarget(bh.x, bh.y, bh.z);
       if(s.kind === 'arrow'){
         if(bh && bh.id === CONDUIT) armConduit(bh.x, bh.y, bh.z);   // a shot can arm a spire
+        if(s.flame && bh && bh.id === TNT) igniteTNT(bh.x, bh.y, bh.z);   // a flaming arrow sets off TNT
         s.stuck = true; s.age = 0;
         if(bh) s.pos.addScaledVector(dir, bh.t);
-        s.mesh.position.copy(s.pos);
+        s.mesh.position.copy(s.pos); s.wob = 0.3; s.baseQ = s.mesh.quaternion.clone();
         playN({ f: 900, type: 'bandpass', dur: 0.06, vol: 0.08 });
       } else {
         const at = bh ? new THREE.Vector3(bh.x + 0.5 + bh.face[0] * 0.8, bh.y + bh.face[1] + (bh.face[1] > 0 ? 0 : 0.2), bh.z + 0.5 + bh.face[2] * 0.8) : s.pos.clone();
-        if(s.kind === 'potion') potionBurst(at, s.pot, s.linger); else pearlLand(at);
+        if(s.kind === 'potion') potionBurst(at, s.pot, s.linger); else if(s.kind === 'rocket') rocketBlast(at); else pearlLand(at);
         scene.remove(s.mesh); shots.splice(i, 1);
       }
       continue;
     }
     s.pos.addScaledVector(s.vel, dt);
     s.mesh.position.copy(s.pos);
-    if(s.kind === 'arrow') s.mesh.lookAt(s.pos.clone().add(s.vel));
+    if(s.kind === 'arrow' || s.kind === 'rocket'){ s.mesh.lookAt(s.pos.clone().add(s.vel)); shotTrail(s, dt); }
     else if(s.kind !== 'potion' && Math.random() < 0.5) burstRGB(s.pos.x, s.pos.y, s.pos.z, 0.5, 0.2, 0.7, 1, 0.2);
     if(s.age > 15 || s.pos.y < -40){ scene.remove(s.mesh); shots.splice(i, 1); }
   }
@@ -15698,18 +16030,8 @@ function useSpecial(o, d, hit, eh){
     nNoise(player.pos, 1400, 0.3, 0.2, -600); triggerViewSwing();
     return true;
   }
-  if(held === BOW){
-    if(bowCd > 0) return true;
-    let tip = null;
-    if(survival){
-      const s = survInv.find(q => (q.id === ARROW_I || (q.id >= TIPPED0 && q.id < TIPPED0 + POT_KINDS.length)) && q.count > 0);
-      if(!s){ flashName('You need arrows'); return true; }
-      if(s.id !== ARROW_I) tip = s.id - TIPPED0;
-      if(!heldEnch('infinity') || tip !== null) s.count--; if(s.count <= 0){ s.id = 0; s.count = 0; } invDirty = true; renderHotbar();
-    }
-    bowCd = 0.55; launchShot('arrow', o, d); if(tip !== null) shots[shots.length - 1].pot = tip; bowTwang(); triggerViewSwing();
-    return true;
-  }
+  if(held === BOW){ startBowDraw(); return true; }                    // hold to draw, let go to loose
+  if(held >= CROSSBOW && held <= CROSSBOW_ROCKET){ useCrossbow(held); return true; }
   if(held === ENDERPEARL){ if(survival) consumePlacedItem(); launchShot('pearl', o, d); playN({ f: 700, type: 'bandpass', dur: 0.15, vol: 0.08 }); triggerViewSwing(); return true; }
   if(held === EYE_ENDER){ if(throwEye(o) && survival) consumePlacedItem(); triggerViewSwing(); return true; }
   if(held === FIREWORK){
@@ -18021,7 +18343,8 @@ function runMobWorld(dt, daylight){
 function mobExtra(kind, e){
   if(kind === 'animal') return e.type;
   if(kind==='spider')return e.crystal?1:e.cave?2:0;
-  if(kind === 'zombie' || kind === 'skeleton') return e.variant || '';
+  if(kind === 'skeleton') return (e.variant || '') + '#' + (e.helm || 0);
+  if(kind === 'zombie') return e.variant || '';
   if(kind === 'villager') return [e.prof && e.prof.id, e.home[0], e.home[1]];
   if(kind === 'golem') return [e.home[0], e.home[1]];
   if(kind === 'creeper') return e.fuse >= 0 ? 1 : 0;
@@ -18896,7 +19219,7 @@ function dispense(x, y, z){
   }
   const pi = potInfo(item);
   if(item === ARROW_I || (pi && pi.form === 'tipped')){
-    take(); launchShot('arrow', o, dv); if(pi) shots[shots.length - 1].pot = pi.k; bowTwang(); return;
+    take(); launchShot('arrow', o, dv, { noEnch: true, f: 0.8, pot: pi ? pi.k : null }); bowTwang(); return;
   }
   if(pi && (pi.form === 'splash' || pi.form === 'linger')){
     take(); launchShot('potion', o, dv); const sh = shots[shots.length - 1];
@@ -20160,7 +20483,7 @@ const creativeItems = [GRASS, DIRT, STONE, LOG, PLANK, GLASS, TORCH, BRICK, GLOW
 const ALL_CREATIVE = (() => {
   const out = [];
   for(const id of Object.keys(BLOCKS).map(Number)){ if(id !== WATER && id !== PORTAL && id !== DOORTOP && id !== RS_TORCH_OFF && id !== RS_WIRE && id !== LAMP_ON && id !== 626 && !(id > CAKE && id <= POTATO3)) out.push(id); }
-  for(const k in ITEMS){ const id = +k; if(!!ITEMS[id]) out.push(id); }
+  for(const k in ITEMS){ const id = +k; if(!!ITEMS[id] && !ITEMS[id].hidden) out.push(id); }
   return out;
 })();
 // ---- item categories (used to group the creative palette and the crafting list) ----
@@ -20352,6 +20675,7 @@ function buildViewModel(){
   vmId = id;
   if(vmMesh){ viewModel.remove(vmMesh); vmMesh = null; }
   if(!id) return;                    // empty hand
+  if(id === BOW || (id >= CROSSBOW && id <= CROSSBOW_ROCKET)){ vmMesh = id === BOW ? makeBowModel() : makeCrossbowModel(); vmMesh.scale.setScalar(id === BOW ? 0.5 : 0.55); viewModel.add(vmMesh); return; }
   const mat = !!ITEMS[id] ? matItemSolid : isCross(id) ? (id === TORCH || emitsLight(id) ? matGC : matC) : isLeaf(id)||isFenceish(id)?matLeaf:matO;
   vmMesh = new THREE.Mesh(dropGeo(id), mat);
   const tool = ITEMS[id] && ITEMS[id].tool;
@@ -20379,6 +20703,21 @@ function updateViewModel(dt){
   else vmSwing = 0;
   viewModel.position.set(restX, restY + vmSwing * -0.12, restZ + vmSwing * -0.06);
   viewModel.rotation.set(vmSwing * -0.9, 0, 0);
+  if(vmMesh && (vmMesh.userData.bow || vmMesh.userData.cross)) poseViewArchery(dt, restX, restY, restZ);
+}
+let vmAim = 0;
+function poseViewArchery(dt, restX, restY, restZ){
+  const held = heldId(), m = vmMesh, isBow = !!m.userData.bow, aiming = isBow ? !!bowDraw : !!crossLoad || held !== CROSSBOW;
+  vmAim += ((aiming ? 1 : 0) - vmAim) * Math.min(1, dt * 10);
+  const k = bowDraw ? bowPower(bowDraw.t) : 0, kick = vmKick > 0 ? Math.sin(vmKick / 0.25 * Math.PI) : 0, sh = k >= 1 ? (Math.random() - 0.5) * 0.004 : 0;
+  if(isBow){
+    viewModel.position.set(restX - 0.06 - 0.14 * vmAim + sh, restY + 0.1 + 0.04 * vmAim + sh, restZ - 0.15 + 0.05 * k + kick * 0.05);
+    viewModel.rotation.set(0.1 * (1 - vmAim), -0.4 * (1 - vmAim), 0.3 + 0.25 * (1 - vmAim));
+  } else {
+    viewModel.position.set(restX - 0.04 - 0.1 * vmAim, restY + 0.08 + 0.04 * vmAim + kick * 0.03, restZ + kick * 0.06);
+    viewModel.rotation.set(0.05 + kick * 0.3, -0.3 * (1 - vmAim), 0);
+  }
+  poseArchery(m, held);
 }
 
 /* ============================== VR (WebXR) ========================= */
@@ -20946,6 +21285,7 @@ function vrBuildTool(){
   vrToolId = id;
   if(vrTool){ rightCtrl.remove(vrTool); vrTool = null; }
   if(!id) return;
+  if(id === BOW || (id >= CROSSBOW && id <= CROSSBOW_ROCKET)){ vrTool = id === BOW ? makeBowModel() : makeCrossbowModel(); vrTool.scale.setScalar(id === BOW ? 0.75 : 0.9); vrTool.position.set(0, 0.01, -0.06); rightCtrl.add(vrTool); return; }
   const mat = !!ITEMS[id] ? matItemSolid : isCross(id) ? (id === TORCH || emitsLight(id) ? matGC : matC) : isLeaf(id)||isFenceish(id)?matLeaf:matO;
   vrTool = new THREE.Mesh(dropGeo(id), mat);
   const tool = ITEMS[id] && ITEMS[id].tool;
@@ -21454,7 +21794,7 @@ function updateVR(dt){
   if(sprintPressed&&!vrSprintWas)vrSprint=!vrSprint;
   vrSprintWas=sprintPressed;
   if(!stickEnabled)vrSprint=false;
-  const speed = (player.fly ? (vrSprint?26:16) : swimming?2.6:vrSprint?7.2:4.3) * (player.fly ? 1 : effSpeedMul());
+  const speed = (player.fly ? (vrSprint?26:16) : swimming?2.6:vrSprint?7.2:4.3) * (player.fly ? 1 : effSpeedMul() * archerySlow());
   const fwdX = -Math.sin(yaw), fwdZ = -Math.cos(yaw);
   const rgtX =  Math.cos(yaw), rgtZ = -Math.sin(yaw);
   const magnitude=Math.max(1,Math.hypot(dx,dz));
@@ -22368,7 +22708,7 @@ function renderXP(){
    treasures - found only as books in loot chests or bought from librarians. A
    book from the table carries its enchantment to an anvil, where it can be
    put on a tool, a weapon or armour, or two books joined. */
-const DURABLE = ['sword', 'axe', 'pick', 'shovel', 'hoe', 'rod', 'shield', 'shears', 'trident', 'bow', 'mace', 'armour', 'elytra'];
+const DURABLE = ['sword', 'axe', 'pick', 'shovel', 'hoe', 'rod', 'shield', 'shears', 'trident', 'bow', 'crossbow', 'mace', 'armour', 'elytra'];
 const ENCH = {
   sharpness:  { name: 'Sharpness', max: 5, on: ['sword', 'axe'], w: 10 },
   smite:      { name: 'Smite', max: 5, on: ['sword', 'axe'], w: 5 },
@@ -22386,6 +22726,9 @@ const ENCH = {
   punch:      { name: 'Punch', max: 2, on: ['bow'], w: 2 },
   flame:      { name: 'Flame', max: 1, on: ['bow'], w: 2 },
   infinity:   { name: 'Infinity', max: 1, on: ['bow'], w: 1 },
+  quick_charge: { name: 'Quick Charge', max: 3, on: ['crossbow'], w: 5 },
+  multishot:  { name: 'Multishot', max: 1, on: ['crossbow'], w: 2 },
+  piercing:   { name: 'Piercing', max: 4, on: ['crossbow'], w: 10 },
   loyalty:    { name: 'Loyalty', max: 3, on: ['trident'], w: 5 },
   impaling:   { name: 'Impaling', max: 5, on: ['trident'], w: 2 },
   riptide:    { name: 'Riptide', max: 3, on: ['trident'], w: 2 },
@@ -22429,6 +22772,7 @@ function enchKinds(id){
   const it = ITEMS[id];
   if(!it) return [];
   if(id === BOW) return ['bow'];
+  if(id >= 5605 && id <= 5607) return ['crossbow'];
   if(id === ELYTRA) return ['elytra'];
   if(it.tool) return [it.tool.type];
   if(it.armour) return ['armour', it.armour.slot];
@@ -24827,6 +25171,7 @@ function animate(){
     updateEndWorld(dt);
     updateStormWorld(dt);
     updateShots(dt);
+    updateArchery(dt);
     if(bowCd > 0) bowCd -= dt;
     if(levT > 0) levT -= dt;
     updateDrops(dt);
@@ -25198,6 +25543,8 @@ window.__bc = {
   biomeVariant, builtNear, VARIANTS, SUNFLOWER, BAMBOO,
   LOOM, villagers, vilSave, vilGainXP, changeProf, findStation, feedVillager, vilBreed, cureZombie, offersFor, WORKSTATION, updateVillagerLife,
   COMPARATOR, TARGET, TRIPWIRE_HOOK, TRIPWIRE, DAYLIGHT, containerSignal, tripAt, hitTarget, updateRedstoneReaders, placeRSAt: (x, y, z, id, hit) => placeRS(x, y, z, id, hit),
+  bowState: () => ({ bowDraw, crossLoad, crossWait }), startBowDraw, fireBow, useCrossbow, fireCrossbow, finishCrossLoad, updateArchery, bowPower, skelShoot, rocketBlast, makeBowModel, setBowPull,
+  CROSSBOW, CROSSBOW_ARROW, CROSSBOW_ROCKET, BOW, ARROW_I,
   NAME_TAG, LEAD, COMPASS, CLOCK, SPYGLASS, SHULKER_BOX, nameMob, playerLeads, useLeadsAndTags, drawDial, breakShulkerBox,
   PISTON, STICKY_PISTON, PISTON_HEAD, STICKY_HEAD, DISPENSER, DROPPER, OBSERVER, pistonAct, dispense, observeAt, machineTile, rsPartAt: (x, y, z) => rsPart(x, y, z), rsSetPartAt: (x, y, z, p) => rsSetPart(x, y, z, p), chestSlotsAt: k => chestSlots(k),
   TRIM0, TRIM_NAMES, TRIM_MATS, trimOf, POT_MODS, eL, effSpeedMul, useSmithing, stackName, updateArmourModel,
