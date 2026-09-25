@@ -9227,9 +9227,10 @@ function combatHunt(e,range,dt){
  return null;
 }
 function skeletonShotVelocity(s,origin=new THREE.Vector3(s.pos.x,s.pos.y+1.4,s.pos.z),tp=player.pos,tv=player.vel,aimUp=1.25){
- const rules=difficultyRules(),flat=Math.hypot(tp.x-origin.x,tp.z-origin.z),speed=24,t=Math.max(.1,flat/speed);
- const lead=Math.min(.6,t),aim=tp.clone().addScaledVector(tv||new THREE.Vector3(),lead);aim.y+=aimUp;
- const spread=rules.spread,dx=aim.x-origin.x,dz=aim.z-origin.z,dl=Math.hypot(dx,dz)||1;
+ // like Minecraft: aimed where you are now (keep moving and they miss), with a scatter that shrinks on harder difficulties
+ const flat=Math.hypot(tp.x-origin.x,tp.z-origin.z),speed=20,t=Math.max(.1,flat/speed);
+ const aim=tp.clone();aim.y+=aimUp;
+ const spread=({peaceful:5,easy:4.5,normal:3.2,hard:2})[difficulty]??3.2,dx=aim.x-origin.x,dz=aim.z-origin.z,dl=Math.hypot(dx,dz)||1;
  return new THREE.Vector3(dx/dl*speed+(Math.random()-.5)*spread,(aim.y-origin.y+.5*18*t*t)/t+(Math.random()-.5)*spread,dz/dl*speed+(Math.random()-.5)*spread);
 }
 function zombieDoorBreak(z,dt,active){
