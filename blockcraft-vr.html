@@ -9867,7 +9867,15 @@ function mobSkinTex(kind){
     else if(kind === 'bone') v = r < 0.06 ? 200 : 236 + r * 19;
     else if(kind === 'wool') v = 212 + c * 30 + r * 13;                                                          // tufts
     else if(kind === 'cloth') v = (y % 4 === 3 ? 212 : 236) + r * 16 + (c4 < 0.2 ? -14 : 0);                    // weave and wear
-    else v = r < 0.07 ? 208 : 232 + r * 23 + (c4 - 0.5) * 8;                                                       // hide, fur, skin
+    else if(kind === 'fur') v = 212 + hash(x, y >> 2, S + 3) * 34 + r * 10 - (hash(x, 99, S) < 0.2 ? 16 : 0);        // strands
+    else if(kind === 'hide') v = 216 + c4 * 30 + r * 12;                                                          // blotches
+    else if(kind === 'feather') v = ((y + (x >> 2)) % 3 === 0 ? 204 : 240) + r * 15;                              // rows of feathers
+    else if(kind === 'skin') v = 224 + c * 22 + r * 9;
+    else if(kind === 'rot') v = r < 0.06 ? 150 : [188, 214, 238, 255][Math.min(3, Math.floor(c * 3.3 + r * 0.7))];   // a zombie's mottled flesh
+    else if(kind === 'metal') v = (x % 8 === 0 || y % 8 === 0) ? 186 : r < 0.05 ? 198 : 234 + r * 21;              // plates and seams
+    else if(kind === 'scale') v = (y % 4 === 0 || (x + ((y >> 2) % 2) * 2) % 4 === 0) ? 194 : 236 + r * 19;
+    else if(kind === 'chitin') v = r < 0.12 ? 150 : 220 + c * 30;                                                 // bristles on a shell
+    else v = r < 0.08 ? 200 : 226 + r * 29 + (c4 - 0.5) * 12;                                                     // everything else: grain
     v = Math.max(0, Math.min(255, Math.round(v)));
     g.fillStyle = 'rgb(' + v + ',' + v + ',' + v + ')'; g.fillRect(x, y, 1, 1);
   }
@@ -25956,6 +25964,24 @@ btnVignette.addEventListener('click', () => {
   uiClick();
 });
 
+/* each creature's own pattern: fur, hide, feathers, scales, rotting skin, iron plates (eyes and noses stay plain) */
+(() => {
+  const keep = /eye|nose|pupil|mouth|tooth|teeth|hoof|claw|beak|iris|face|glow/i;
+  const set = (pal, kind) => { if(!pal) return; for(const [k, m] of Object.entries(pal)) if(m && m.userData && m.userData.skin === 'grain' && !keep.test(k)){ m.userData.skin = kind; if(mobSkinsOn){ m.map = mobSkinTex(kind); m.needsUpdate = true; } } };
+  set(pigMats, 'skin'); set(axoMats, 'skin'); set(vilMats, 'skin'); set(witchMats, 'cloth'); set(avMats, 'cloth');
+  set(cowMats, 'hide'); set(mooMats, 'hide');
+  set(chickMats, 'feather');
+  for(const p of [donkeyMats, muleMats, ocelotMats, pandaMats, bearMats, camelMats, snifferMats, horseMats, wolfMats, rabbitMats, rooMats, foxMats, llamaMats, goatMats, beeMats]) set(p, 'fur');
+  for(const p of Object.values(CAT_PALS)) set(p, 'fur');
+  for(const p of Object.values(FROG_PALS)) set(p, 'skin');
+  set(skelHorseMats, 'bone'); set(boggedMats, 'bone'); set(zomHorseMats, 'rot');
+  for(const p of [zMats, huskMats, zvMats, dMats]) set(p, 'rot');          // their skin (clothes are already cloth)
+  set(turtleMats, 'scale'); set(armaMats, 'scale');
+  set(spiderMats, 'chitin'); set(caveSpiderMats, 'chitin'); set(crawlerMats, 'chitin');
+  set(golemMats, 'metal');
+  set(sgMats, 'wool');
+  for(const [k, m] of Object.entries(vilMats)) if(/robe|arm/i.test(k) && m.userData.skin === 'skin'){ m.userData.skin = 'cloth'; if(mobSkinsOn){ m.map = mobSkinTex('cloth'); m.needsUpdate = true; } }   // villagers' robes are cloth
+})();
 /* mob textures on or off */
 const btnSkins = document.getElementById('btnSkins');
 btnSkins.textContent = 'Mob Textures: ' + (mobSkinsOn ? 'On' : 'Off');
