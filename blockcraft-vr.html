@@ -21665,12 +21665,25 @@ function handSweep(a,b){
  return best;
 }
 function gorillaRemember(v,dt){
- gHist.push({v:v.clone(),dt});let total=gHist.reduce((n,s)=>n+s.dt,0);
+   if(!Number.isFinite(dt)||dt<=0||dt>.06||![v.x,v.y,v.z].every(Number.isFinite))return;
+  gHist.push({v:v.clone(),dt});let total=gHist.reduce((n,s)=>n+s.dt,0);
  while(gHist.length&&total>GORILLA_MEMORY){const excess=total-GORILLA_MEMORY,first=gHist[0];if(first.dt<=excess){total-=first.dt;gHist.shift();}else{first.dt-=excess;break;}}
 }
 function gorillaLaunch(){
- const velocity=new THREE.Vector3();let time=0;for(const sample of gHist){velocity.addScaledVector(sample.v,sample.dt);time+=sample.dt;}
- if(time>0)velocity.multiplyScalar(GORILLA_THROW/time);if(velocity.length()<.25)velocity.set(0,0,0);if(velocity.length()>GORILLA_MAX)velocity.setLength(GORILLA_MAX);return velocity;
+  // Integrate exponential recency weights over each sample's duration, not frame count.
+  const velocity=new THREE.Vector3();let age=0,weight=0;
+  for(let i=gHist.length-1;i>=0;i--){const sample=gHist[i],w=Math.exp(-age/.06)-Math.exp(-(age+sample.dt)/.06);velocity.addScaledVector(sample.v,w);weight+=w;age+=sample.dt;}
+  if(weight>0)velocity.multiplyScalar(GORILLA_THROW/weight);
+  if(velocity.length()<.25)velocity.set(0,0,0);
+  if(velocity.length()>GORILLA_MAX)velocity.setLength(GORILLA_MAX);return velocity;
+}
+function gorillaPalmPush(anchor,cur,normal){
+  const correction=anchor.clone().sub(cur),inward=correction.dot(normal);
+  // A palm may push away from a face, but must never pull the body back into it.
+  if(inward<0)correction.addScaledVector(normal,-inward);
+  const length=correction.length();
+  if(length<=GORILLA_SETTLE)return correction.set(0,0,0);
+  return correction.multiplyScalar((length-GORILLA_SETTLE)/length);
 }
 function gorillaStep(dt){
  if(!Number.isFinite(dt)||dt<=0)return;
@@ -21696,7 +21709,7 @@ function gorillaStep(dt){
   }
   if(h.anchor){
    const id=getBlock(...h.cell),support=gorillaBoxes(id,...h.cell).some(box=>[0,1,2].every(k=>h.anchor.getComponent(k)>=box[k]-GORILLA_PALM-.01&&h.anchor.getComponent(k)<=box[k+3]+GORILLA_PALM+.01));
-   const separation=cur.clone().sub(h.anchor),gap=separation.dot(h.n),outSpeed=physicalDelta.dot(h.n)/dt;
+   const separation=cur.clone().sub(h.anchor),gap=separation.dot(h.n),outSpeed=physicalDelta.clone().applyQuaternion(xrRig.quaternion).dot(h.n)/dt;
    const sideways=separation.clone().addScaledVector(h.n,-gap).length();
    if(!support){unsafe=true;h.anchor=null;}
    // Resting on a surface is stable. Release only after a deliberate lift away; tiny
@@ -21707,7 +21720,7 @@ function gorillaStep(dt){
    const hit=handSweep(h.prev,cur);
    if(hit){h.anchor=hit.point;h.n=hit.n;h.cell=hit.cell;hapticPulse(hand,.3,20);if(h.tapT<=0){blockSfx(hit.id,'step');h.tapT=.15;}}
   }
-  if(h.anchor){const correction=h.anchor.clone().sub(cur);if(correction.length()>GORILLA_SETTLE)push.add(correction);holds++;}
+  if(h.anchor){push.add(gorillaPalmPush(h.anchor,cur,h.n));holds++;}
    h.prev=cur;h.localPrev=local;
  });
  // A hard landing on the palms counts too; catching a wall still arrests a fall.
