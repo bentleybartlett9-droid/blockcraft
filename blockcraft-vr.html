@@ -22586,9 +22586,9 @@ if(IS_VR || BUILD === 'auto'){
    biome maths as the world itself (so it matches what you'll find when you get there),
    a little each frame, in big merged tiles so the graphics card has few things to draw.
    Nothing out there is stored block by block, so it costs little memory. ---- */
-const LOD_TILE = 256, LOD_PC = [0, 16, 32, 64, 96, 128], LOD_VR = [0, 16, 24, 32, 48];
+const LOD_TILE = 256, LOD_PC = [0, 16, 32, 64, 96, 128], LOD_VR = [0, 16, 32, 48, 64];
 const readLod = (k, d) => { const v = parseInt(localStorage.getItem(k)); return isNaN(v) ? d : v; };
-let lodPC = readLod('blockcraft-lod', 64), lodVR = readLod('blockcraft-lod-vr', 0);
+let lodPC = readLod('blockcraft-lod', 64), lodVR = readLod('blockcraft-lod-vr', 32);
 const lodDist = () => dim !== 0 ? 0 : (xrActive || QUEST_DEVICE ? lodVR : lodPC);
 const lodTiles = new Map(), lodGroup = new THREE.Group(); scene.add(lodGroup);
 const lodHide = new THREE.Vector4();
@@ -22601,57 +22601,112 @@ lodMat.onBeforeCompile = sh => {                                        // hidde
   sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec2 vLodXZ;\nuniform vec4 uHide;')
     .replace('void main() {', 'void main() {\n  if(vLodXZ.x > uHide.x && vLodXZ.x < uHide.z && vLodXZ.y > uHide.y && vLodXZ.y < uHide.w) discard;');
 };
-const lin = h => { const c = new THREE.Color(h); return [c.r, c.g, c.b]; };
-const LOD_RGB = {}, LOD_LEAF = {};
-for(const [k, v] of Object.entries({ plains: 0x79ad48, forest: 0x5f9c3c, birch: 0x74aa4c, 'dark-forest': 0x44802f, 'pale-garden': 0x9aa39a, jungle: 0x48a02c,
-  taiga: 0x5a8a50, snowy: 0xe6ecf0, swamp: 0x5c7c3c, 'willow-marsh': 0x5e7e46, savanna: 0xa6a656, desert: 0xdacc9c, badlands: 0xbe6a3c, outback: 0xc6844c,
-  bushland: 0x9a9a54, amberfield: 0xc6a64c, frostvale: 0xdde6ee, duskhollow: 0x5c4c7c, 'mushroom-fields': 0x8c6c8c, 'cherry-grove': 0x8cbc5c, 'maple-woods': 0x7aa048,
-  meadow: 0x88be58, grove: 0xdde6ea, 'snowy-slopes': 0xeef2f6, 'frozen-peaks': 0xdce6f0, 'jagged-peaks': 0xe8eef2, 'stony-peaks': 0x8c8c8c,
-  beach: 0xded4a6, 'snowy-beach': 0xe6ecf0, 'stony-shore': 0x8c8c8c })) LOD_RGB[k] = lin(v);
-for(const [k, v] of Object.entries({ forest: 0x3f7a2c, birch: 0x5a8c3c, 'dark-forest': 0x2c5a22, 'pale-garden': 0x7c847c, jungle: 0x2e7a1e, taiga: 0x3a5c3a,
-  swamp: 0x4a6a2e, 'willow-marsh': 0x4a6a34, savanna: 0x6a7a36, 'cherry-grove': 0xe6a8c8, 'maple-woods': 0xc8683a, plains: 0x4a7e2e, meadow: 0x4a7e2e,
-  snowy: 0x3a5c3a, grove: 0x3a5c3a, duskhollow: 0x4a3a6a, jungle2: 0x2e7a1e })) LOD_LEAF[k] = lin(v);
-const LOD_TREES = { forest: 0.55, birch: 0.45, 'dark-forest': 0.8, 'pale-garden': 0.7, jungle: 0.8, taiga: 0.45, swamp: 0.3, 'willow-marsh': 0.3, savanna: 0.08,
-  'cherry-grove': 0.45, 'maple-woods': 0.55, plains: 0.03, meadow: 0.04, snowy: 0.12, grove: 0.35, duskhollow: 0.4 };
-const LOD_GRASS = lin(0x6fa84a), LOD_SNOW = lin(0xeef2f6), LOD_WATER = lin(0x3a64b8), LOD_WARM = lin(0x3a9ab8), LOD_COLD = lin(0x3a5aa0);
-function lodColumn(x, z){
-  const h = terrainHeight(x, z), bio = biomeAt(x, z), k = 0.93 + hash(x, z, 7713) * 0.1;
-  if(h < SEA){ const w = /warm/.test(bio) ? LOD_WARM : /frozen|cold/.test(bio) ? LOD_COLD : LOD_WATER; return [SEA + 0.9, w[0] * k, w[1] * k, w[2] * k]; }
-  let top = h + 1, c = h >= SNOW_H ? LOD_SNOW : (LOD_RGB[bio] || LOD_GRASS);
-  const tr = LOD_TREES[bio] || 0;
-  if(tr && h < SNOW_H && hash(x >> 2, z >> 2, 7711) < tr){ top += 4 + ((hash(x >> 2, z >> 2, 7712) * 3) | 0); c = LOD_LEAF[bio] || c; }   // tree cover
-  return [top, c[0] * k, c[1] * k, c[2] * k];
+// colours come from the real block textures: the average of each block's top face
+const lodTileCols = new Map();
+let lodAtlasPx = null;
+function lodTileRGB(t){
+  let c = lodTileCols.get(t); if(c) return c;
+  if(!lodAtlasPx) lodAtlasPx = atlas.getContext('2d').getImageData(0, 0, atlas.width, atlas.height).data;
+  const ox = (t % 8) * 16, oy = ((t / 8) | 0) * 16;
+  let r = 0, g = 0, b = 0, n = 0;
+  for(let y = 0; y < 16; y++) for(let x = 0; x < 16; x++){ const i = ((oy + y) * atlas.width + ox + x) * 4; if(lodAtlasPx[i + 3] < 128) continue; r += lodAtlasPx[i]; g += lodAtlasPx[i + 1]; b += lodAtlasPx[i + 2]; n++; }
+  const col = new THREE.Color().setRGB(n ? r / n / 255 : 0.5, n ? g / n / 255 : 0.5, n ? b / n / 255 : 0.5, THREE.SRGBColorSpace);
+  c = [col.r, col.g, col.b]; lodTileCols.set(t, c); return c;
 }
+const lodBlockRGB = id => lodTileRGB(tileFor(id, 3));
+// the block on top, the way the world generator picks it (simplified)
+function lodTop(bio, x, z, h){
+  if(h >= SNOW_H && !MOUNTAIN_BIOMES.has(bio)) return SNOW;
+  if(MOUNTAIN_BIOMES.has(bio)) return mountainSurface(bio, x, h, z, h, false);
+  if(bio === 'pale-garden') return PALE_GRASS;
+  if(bio === 'mushroom-fields') return MYCELIUM;
+  if(bio === 'badlands') return terraBand(h - YS);
+  if(bio === 'outback') return REDSAND;
+  if(bio === 'amberfield') return AMBERGRASS;
+  if(bio === 'frostvale') return FROSTGRASS;
+  if(bio === 'duskhollow') return DUSKGRASS;
+  if(bio === 'desert' || /beach/.test(bio)) return SAND;
+  if(bio === 'stony-shore') return STONE;
+  if(bio === 'snowy') return SNOWY_GRASS;
+  if(bio === 'savanna' || bio === 'bushland') return SAVGRASS;
+  if(bio === 'taiga') return taigaFloor(x, z);
+  return GRASS;
+}
+const LOD_LEAVES = { forest: LEAVES, plains: LEAVES, meadow: LEAVES, savanna: LEAVES, birch: LEAVES, swamp: LEAVES, jungle: LEAVES, 'dark-forest': DARK_LEAVES,
+  'pale-garden': PALE_LEAVES, taiga: SPRUCELEAVES, snowy: SPRUCELEAVES, grove: SPRUCELEAVES, 'cherry-grove': CHERRYLEAVES, 'maple-woods': MAPLELEAVES,
+  'willow-marsh': WILLOWLEAVES, duskhollow: DUSKLEAVES, frostvale: RIMELEAVES, amberfield: SUNLEAVES, outback: GUMLEAVES, bushland: GUMLEAVES };
+const LOD_TREES = { forest: 0.5, birch: 0.45, 'dark-forest': 0.75, 'pale-garden': 0.65, jungle: 0.75, taiga: 0.45, swamp: 0.3, 'willow-marsh': 0.3, savanna: 0.07,
+  'cherry-grove': 0.4, 'maple-woods': 0.5, plains: 0.03, meadow: 0.04, snowy: 0.12, grove: 0.35, duskhollow: 0.4, frostvale: 0.3, amberfield: 0.1, bushland: 0.12, outback: 0.04 };
+// one column of distant land: [top y, r, g, b, tree cover 0..1, is water]
+function lodColumn(x, z){
+  const h = terrainHeight(x, z), bio = biomeAt(x, z), k = 0.95 + hash(x, z, 7713) * 0.08;
+  if(h < SEA){ const w = lodBlockRGB(WATER), t = /warm/.test(bio) ? 1.1 : /frozen|cold/.test(bio) ? 0.85 : 1; return [SEA + 0.88, w[0] * k, w[1] * k * t, w[2] * k * t, 0, 1]; }
+  const v = biomeVariant(x, z), vg = v ? variantGround(v, x, z, h, h) : 0;          // variants: snowy taiga, old growth, bamboo...
+  const c = lodBlockRGB(vg || lodTop(bio, x, z, h));
+  const tr = h < SNOW_H ? (LOD_TREES[bio] || 0) : 0;
+  let lc = tr ? lodTileRGB(tileFor(LOD_LEAVES[bio] || LEAVES, 3)) : c;
+  if(tr && (v === 'snowy-taiga' || bio === 'snowy')){ const sn = lodBlockRGB(SNOW); lc = [lc[0] * 0.45 + sn[0] * 0.55, lc[1] * 0.45 + sn[1] * 0.55, lc[2] * 0.45 + sn[2] * 0.55]; }   // snow on the trees
+  return [h + 1, c[0] * k, c[1] * k, c[2] * k, tr, 0, lc[0], lc[1], lc[2]];
+}
+// a pixel grain at one texel per block, like block textures; mipmapped so it doesn't shimmer far off
+const lodGrain = (() => {
+  const cv = document.createElement('canvas'); cv.width = cv.height = 16; const g = cv.getContext('2d');
+  for(let y = 0; y < 16; y++) for(let x = 0; x < 16; x++){ const v = Math.round(214 + hash(x, y, 4411) * 41); g.fillStyle = 'rgb(' + v + ',' + v + ',' + v + ')'; g.fillRect(x, y, 1, 1); }
+  const t = new THREE.CanvasTexture(cv); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.magFilter = THREE.NearestFilter; t.minFilter = THREE.LinearMipmapLinearFilter;
+  t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
+})();
+lodMat.map = lodGrain; lodMat.side = THREE.FrontSide; lodMat.needsUpdate = true;
 function* buildLodTile(tx, tz, step){
   const n = LOD_TILE / step, W = n + 2, x0 = tx * LOD_TILE, z0 = tz * LOD_TILE;
-  const H = new Float32Array(W * W), C = new Float32Array(W * W * 3);
+  const H = new Float32Array(W * W), C = new Float32Array(W * W * 3), T = new Float32Array(W * W), L = new Float32Array(W * W * 3), WAT = new Uint8Array(W * W);
   for(let j = 0; j < W; j++){
     for(let i = 0; i < W; i++){
       const q = lodColumn(x0 + (i - 1) * step + (step >> 1), z0 + (j - 1) * step + (step >> 1)), k = j * W + i;
-      H[k] = q[0] - 0.2; C[k * 3] = q[1]; C[k * 3 + 1] = q[2]; C[k * 3 + 2] = q[3];
+      H[k] = q[0]; C[k * 3] = q[1]; C[k * 3 + 1] = q[2]; C[k * 3 + 2] = q[3]; T[k] = q[4]; WAT[k] = q[5];
+      if(q[4]){ L[k * 3] = q[6]; L[k * 3 + 1] = q[7]; L[k * 3 + 2] = q[8]; }
     }
     yield;
   }
-  const pos = [], col = [], idx = [];
-  const quad = (ax, ay, az, bx, by, bz, cx, cy, cz, dx, dy, dz, r, g, b) => {
+  // steep ground shows bare stone, as the generator does; forests show as tree clumps (near) or leafy colour (far)
+  const stone = lodBlockRGB(STONE), dirt = lodBlockRGB(DIRT);
+  const Hs = new Float32Array(H);
+  for(let j = 1; j <= n; j++) for(let i = 1; i <= n; i++){
+    const k = j * W + i; if(WAT[k]) continue;
+    const slope = Math.max(Math.abs(H[k] - H[k + 1]), Math.abs(H[k] - H[k - 1]), Math.abs(H[k] - H[k + W]), Math.abs(H[k] - H[k - W])) / step;
+    if(slope > 0.9 && H[k] < SNOW_H){ const m = Math.min(1, (slope - 0.9) * 2); for(let c = 0; c < 3; c++) C[k * 3 + c] = C[k * 3 + c] * (1 - m) + stone[c] * m; }
+    if(T[k]){
+      const x = x0 + (i - 1) * step, z = z0 + (j - 1) * step;
+      if(step <= 4 && hash(x >> 2, z >> 2, 7711) < T[k] * 0.55){ Hs[k] = H[k] + 4 + ((hash(x >> 2, z >> 2, 7712) * 3) | 0); for(let c = 0; c < 3; c++) C[k * 3 + c] = L[k * 3 + c] * (0.9 + hash(x, z, 7714) * 0.15); }
+      else { const m = Math.min(0.85, T[k] * (step <= 4 ? 0.35 : 0.9)); for(let c = 0; c < 3; c++) C[k * 3 + c] = C[k * 3 + c] * (1 - m) + L[k * 3 + c] * m; }
+    }
+  }
+  const pos = [], col = [], uv = [], idx = [];
+  const quad = (p, uvs, r, g, b) => {
     const o = pos.length / 3;
-    pos.push(ax, ay, az, bx, by, bz, cx, cy, cz, dx, dy, dz);
+    pos.push(...p); uv.push(...uvs);
     col.push(r, g, b, r, g, b, r, g, b, r, g, b);
     idx.push(o, o + 1, o + 2, o + 2, o + 1, o + 3);
   };
+  const U = 1 / 16;                                                                            // one texel per block
   for(let j = 1; j <= n; j++) for(let i = 1; i <= n; i++){
-    const k = j * W + i, h = H[k], x = x0 + (i - 1) * step, z = z0 + (j - 1) * step, X = x + step, Z = z + step;
+    const k = j * W + i, h = Hs[k], x = x0 + (i - 1) * step, z = z0 + (j - 1) * step, X = x + step, Z = z + step;
     const r = C[k * 3], g = C[k * 3 + 1], b = C[k * 3 + 2];
-    quad(x, h, z, x, h, Z, X, h, z, X, h, Z, r, g, b);                                   // the top
-    const s1 = 0.8, s2 = 0.68;                                                           // and a side down to any lower neighbour
-    let o = H[k + 1]; if(o < h) quad(X, o, z, X, o, Z, X, h, z, X, h, Z, r * s1, g * s1, b * s1);
-    o = H[k - 1];     if(o < h) quad(x, o, z, x, o, Z, x, h, z, x, h, Z, r * s1, g * s1, b * s1);
-    o = H[k + W];     if(o < h) quad(x, o, Z, X, o, Z, x, h, Z, X, h, Z, r * s2, g * s2, b * s2);
-    o = H[k - W];     if(o < h) quad(x, o, z, X, o, z, x, h, z, X, h, z, r * s2, g * s2, b * s2);
+    quad([x, h, z, x, h, Z, X, h, z, X, h, Z], [x * U, z * U, x * U, Z * U, X * U, z * U, X * U, Z * U], r, g, b);   // the top
+    // sides down to any lower neighbour: dirt below grass, leaf colour on tree clumps
+    const side = (o, sh, pts, uvs) => {
+      if(o >= h) return;
+      const leafy = Hs[k] > H[k] + 0.5, sc = leafy || WAT[k] ? [r, g, b] : H[k] >= SNOW_H ? [r, g, b] : dirt;
+      quad(pts, uvs, sc[0] * sh, sc[1] * sh, sc[2] * sh);
+    };
+    let o = Hs[k + 1]; side(o, 0.8, [X, o, Z, X, o, z, X, h, Z, X, h, z], [Z * U, o * U, z * U, o * U, Z * U, h * U, z * U, h * U]);
+    o = Hs[k - 1];     side(o, 0.8, [x, o, z, x, o, Z, x, h, z, x, h, Z], [z * U, o * U, Z * U, o * U, z * U, h * U, Z * U, h * U]);
+    o = Hs[k + W];     side(o, 0.68, [x, o, Z, X, o, Z, x, h, Z, X, h, Z], [x * U, o * U, X * U, o * U, x * U, h * U, X * U, h * U]);
+    o = Hs[k - W];     side(o, 0.68, [X, o, z, x, o, z, X, h, z, x, h, z], [X * U, o * U, x * U, o * U, X * U, h * U, x * U, h * U]);
   }
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
   geo.setIndex(pos.length / 3 > 65535 ? new THREE.Uint32BufferAttribute(idx, 1) : new THREE.Uint16BufferAttribute(idx, 1));
   geo.computeBoundingSphere();
   return geo;
@@ -22696,7 +22751,7 @@ function updateLod(dt){
         const d = Math.max(0, Math.hypot((tx + 0.5) * LOD_TILE - px, (tz + 0.5) * LOD_TILE - pz) - LOD_TILE * 0.71);
         if(d > L) continue;
         if(tx * LOD_TILE >= lodHide.x && (tx + 1) * LOD_TILE <= lodHide.z && tz * LOD_TILE >= lodHide.y && (tz + 1) * LOD_TILE <= lodHide.w) continue;
-        want.set(tx + ',' + tz, { tx, tz, d, step: d < 640 ? 8 : d < 1280 ? 16 : 32 });
+        want.set(tx + ',' + tz, { tx, tz, d, step: xrActive ? (d < 380 ? 8 : d < 900 ? 16 : 32) : (d < 380 ? 4 : d < 900 ? 8 : d < 1700 ? 16 : 32) });   // coarser in a headset, to spare the Quest
       }
     for(const k of [...lodTiles.keys()]) if(!want.has(k)) dropLodTile(k);
     lodQueue = [...want.entries()].filter(([k, w]) => { const t = lodTiles.get(k); return !t || t.step !== w.step; }).map(e => e[1]).sort((a, b) => a.d - b.d);
