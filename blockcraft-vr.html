@@ -10310,19 +10310,18 @@ function updateAnimalSpawns(dt){
   if(h < 0 || h <= SEA + 1) return;
   const ground = getBlock(x, h, z);
   const hillBiome = biomeAt(x, z);
-  if(h >= SEA + 30 && hillBiome !== 'meadow' && hillBiome !== 'grove'){   // high mountains belong to the goats
+  if(h >= SEA + 30 && hillBiome !== 'meadow' && hillBiome !== 'grove' && (Math.random() < 0.5 || ground === STONE || ground === PACKEDICE || ground === CALCITE)){   // goats on the heights (farm animals graze there too)
     if(ground === STONE || ground === SNOW || ground === GRASS || ground === PACKEDICE || ground === CALCITE || ground === SNOWY_GRASS) spawnAnimal('goat', x + 0.5, h + 1.05, z + 0.5);
     return;
   }
-  if(h >= SNOW_H && hillBiome !== 'grove') return;
   if(ground !== GRASS && ground !== SAVGRASS && ground !== SAND && ground !== SNOW && ground !== SNOWY_GRASS &&
      ground !== AMBERGRASS && ground !== FROSTGRASS && ground !== DUSKGRASS && ground !== MYCELIUM &&
      ground !== REDSAND && ground !== PODZOL && ground !== TERRACOTTA &&
      ground !== TERRA_ORANGE && ground !== TERRA_PALE) return;
   const bio = biomeAt(x, z);
   let pool;
-  if(bio==='pale-garden')return;                    // the Pale Garden is silent: nothing lives there
-  if(bio==='mushroom-fields')pool=['mooshroom'];
+  if(bio==='pale-garden')pool=[];
+  else if(bio==='mushroom-fields')pool=['mooshroom'];
   else if(bio==='meadow')pool=['sheep','sheep','rabbit','horse','cow','donkey'];
   else if(bio==='beach')pool=['turtle','turtle','turtle'];
   else if(bio==='swamp'||bio==='willow-marsh')pool=['frog','frog','frog','cow','sheep'];
@@ -10344,13 +10343,14 @@ function updateAnimalSpawns(dt){
   else if(bio === 'savanna') pool = ['horse', 'horse', 'donkey', 'armadillo', 'cow', 'chicken', 'sheep'];
   else if(bio === 'plains')  pool = ['sheep', 'sheep', 'sheep', 'horse', 'donkey', 'pig', 'cow', 'chicken', 'rabbit', 'cat'];
   else                       pool = ['sheep', 'sheep', 'pig', 'cow', 'chicken'];
+  pool = pool.concat(['sheep', 'cow', 'pig', 'chicken']);   // the four farm animals live in every overworld biome
   if(Math.random()<.15&&bio!=='mushroom-fields')pool=FANTASY;
   const pick = pool[Math.floor(Math.random() * pool.length)];
   // farm animals arrive in little herds, and some are babies
   const HERD = { sheep: [1, 4], cow: [1, 4], chicken: [2, 5], pig: [1, 3], rabbit: [1, 3], horse: [1, 2], goat: [1, 2], llama: [1, 3] };
   const spawnOne = (sx, sz) => {
     const sh = findSurfaceY(sx, sz);
-    if(sh <= SEA + 1 || sh >= SNOW_H) return;
+    if(sh <= SEA + 1) return;
     spawnAnimal(pick, sx + 0.5, sh + 1.05, sz + 0.5);
   };
   spawnOne(x, z);
@@ -10362,7 +10362,7 @@ function updateAnimalSpawns(dt){
       const babies = 1 + ((Math.random() * 2) | 0);
       for(let f = 0; f < babies && animals.length < 24; f++){
         const bx = x + ((Math.random() * 5) | 0) - 2, bz = z + ((Math.random() * 5) | 0) - 2, bh = findSurfaceY(bx, bz);
-        if(bh <= SEA + 1 || bh >= SNOW_H) continue;
+        if(bh <= SEA + 1) continue;
         spawnAnimal(pick, bx + 0.5, bh + 1.05, bz + 0.5);
         const e = animals[animals.length - 1]; if(e && e.type === pick) makeBaby(e, BABY_TIME);
       }
@@ -21926,8 +21926,10 @@ function updateVRSwingMining(dt){
     const path=tip.clone().sub(vrSwingPrevWorld),length=path.length();
     if(length>.001){
       const dir=path.normalize(),reach=length+.08,eh=combat?rayEntity(vrSwingPrevWorld,dir,reach):null,bh=raycast(vrSwingPrevWorld,dir,reach);
+      // blocks only take a swing while you hold the trigger - walking (or Gorilla Arms) moves your hands without mining everything nearby
+      const mining=vrSelectHeld||!!readButtons('right')?.[0]?.pressed;
       if(eh&&(!bh||eh.t<bh.t)&&applyVRSwingEntity(eh.e,speed,tool))vrSwingCd=combat.cooldown;
-      else if(applyVRSwingHit(bh,speed))vrSwingCd=.12;
+      else if(mining&&!player.gorillaHold&&applyVRSwingHit(bh,speed))vrSwingCd=.12;
     }
   }
   vrSwingPrevWorld=tip;vrSwingPrevLocal=local;
@@ -26155,7 +26157,7 @@ window.__bc = {
   COMPARATOR, TARGET, TRIPWIRE_HOOK, TRIPWIRE, DAYLIGHT, containerSignal, tripAt, hitTarget, updateRedstoneReaders, placeRSAt: (x, y, z, id, hit) => placeRS(x, y, z, id, hit),
   bowState: () => ({ bowDraw, crossLoad, crossWait }), startBowDraw, fireBow, useCrossbow, fireCrossbow, finishCrossLoad, updateArchery, bowPower, skelShoot, rocketBlast, makeBowModel, setBowPull,
   CROSSBOW, CROSSBOW_ARROW, CROSSBOW_ROCKET, BOW, ARROW_I,
-  setMobSkins, mobSkinTex,
+  setMobSkins, mobSkinTex, updateAnimalSpawns,
   DECO: { decoKey, setDeco, decoPlaced, useCandle, usePot, CANDLE0, CANDLE_LIT0, BANNER0, DECO_POT, SCAFFOLD, ARMOR_STAND, LOOM, decoState, useDecorations, armourStands, spawnStand, openLoom, closeLoom, loomApply, scaffDistances, scaffComponent, placeScaffold, breakDeco, BANNER_PATS, drawBanner, bannerCloths, updateDeco, hitStand, inScaffold, setBannerPats },
   NAME_TAG, LEAD, COMPASS, CLOCK, SPYGLASS, SHULKER_BOX, nameMob, playerLeads, useLeadsAndTags, drawDial, breakShulkerBox,
   PISTON, STICKY_PISTON, PISTON_HEAD, STICKY_HEAD, DISPENSER, DROPPER, OBSERVER, pistonAct, dispense, observeAt, machineTile, rsPartAt: (x, y, z) => rsPart(x, y, z), rsSetPartAt: (x, y, z, p) => rsSetPart(x, y, z, p), chestSlotsAt: k => chestSlots(k),
