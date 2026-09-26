@@ -281,7 +281,7 @@
 import * as THREE from 'three';
 
 /* Build target: 'desktop' | 'mobile' | 'vr' | 'auto'. Set per distributed file. */
-const BUILD = 'vr';
+const BUILD = /[?&]pc(&|=|$)/.test(location.search) ? 'desktop' : 'vr';   // add ?pc to the link for keyboard-and-mouse controls (for testing on a computer)
 const IS_DESKTOP = BUILD === 'desktop';
 const IS_MOBILE  = BUILD === 'mobile';
 const IS_VR      = BUILD === 'vr';
@@ -350,7 +350,7 @@ const IS_VR      = BUILD === 'vr';
 const CHUNK = 16, SEA0 = 66;     // sea level of the classic (pre-deep) world
 const WORLD_LIFT = 40;          // how far this build raised terrain vs the old 96-tall world
 const QUEST_DEVICE=/Quest|Oculus/i.test(navigator.userAgent);
-const VR_RD_MAX = 10, PC_RD_MAX = 12;   // how far out chunks load (more chunks, more work - especially for a Quest)
+const VR_RD_MAX = 10, PC_RD_MAX = 32;   // how far out chunks load (more chunks, more work - especially for a Quest)
 let RD = Math.min(PC_RD_MAX, Math.max(2, parseInt(localStorage.getItem(QUEST_DEVICE?'blockcraft-vr-rd':'blockcraft-rd')) || (QUEST_DEVICE?3:5)));
 function finishSteps(it){let r;do{r=it.next();}while(!r.done);return r.value;}
 const REACH = 5.5;
@@ -26163,7 +26163,7 @@ window.__bc = {
   COMPARATOR, TARGET, TRIPWIRE_HOOK, TRIPWIRE, DAYLIGHT, containerSignal, tripAt, hitTarget, updateRedstoneReaders, placeRSAt: (x, y, z, id, hit) => placeRS(x, y, z, id, hit),
   bowState: () => ({ bowDraw, crossLoad, crossWait }), startBowDraw, fireBow, useCrossbow, fireCrossbow, finishCrossLoad, updateArchery, bowPower, skelShoot, rocketBlast, makeBowModel, setBowPull,
   CROSSBOW, CROSSBOW_ARROW, CROSSBOW_ROCKET, BOW, ARROW_I,
-  setMobSkins, mobSkinTex, updateAnimalSpawns,
+  setMobSkins, mobSkinTex, updateAnimalSpawns, BUILD,
   DECO: { decoKey, setDeco, decoPlaced, useCandle, usePot, CANDLE0, CANDLE_LIT0, BANNER0, DECO_POT, SCAFFOLD, ARMOR_STAND, LOOM, decoState, useDecorations, armourStands, spawnStand, openLoom, closeLoom, loomApply, scaffDistances, scaffComponent, placeScaffold, breakDeco, BANNER_PATS, drawBanner, bannerCloths, updateDeco, hitStand, inScaffold, setBannerPats },
   NAME_TAG, LEAD, COMPASS, CLOCK, SPYGLASS, SHULKER_BOX, nameMob, playerLeads, useLeadsAndTags, drawDial, breakShulkerBox,
   PISTON, STICKY_PISTON, PISTON_HEAD, STICKY_HEAD, DISPENSER, DROPPER, OBSERVER, pistonAct, dispense, observeAt, machineTile, rsPartAt: (x, y, z) => rsPart(x, y, z), rsSetPartAt: (x, y, z, p) => rsSetPart(x, y, z, p), chestSlotsAt: k => chestSlots(k),
