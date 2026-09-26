@@ -350,7 +350,8 @@ const IS_VR      = BUILD === 'vr';
 const CHUNK = 16, SEA0 = 66;     // sea level of the classic (pre-deep) world
 const WORLD_LIFT = 40;          // how far this build raised terrain vs the old 96-tall world
 const QUEST_DEVICE=/Quest|Oculus/i.test(navigator.userAgent);
-let RD = Math.min(7, Math.max(2, parseInt(localStorage.getItem(QUEST_DEVICE?'blockcraft-vr-rd':'blockcraft-rd')) || (QUEST_DEVICE?3:5)));
+const VR_RD_MAX = 10, PC_RD_MAX = 12;   // how far out chunks load (more chunks, more work - especially for a Quest)
+let RD = Math.min(PC_RD_MAX, Math.max(2, parseInt(localStorage.getItem(QUEST_DEVICE?'blockcraft-vr-rd':'blockcraft-rd')) || (QUEST_DEVICE?3:5)));
 function finishSteps(it){let r;do{r=it.next();}while(!r.done);return r.value;}
 const REACH = 5.5;
 const DAY_LENGTH = 480, DAY_SECS = 720, NIGHT_SECS = 480;   // 12-minute day, 8-minute night
@@ -21689,7 +21690,12 @@ function buildCraftPanel(){
       vrMenuStatus=vrMoveMode==='gorilla'?'Gorilla arms on: plant, push, and lift away to launch. Hand movement only.':'Gorilla arms off: the stick walks again.';
       buildCraftPanel();
     },true,gorilla);
-    text(gorilla?'Plant, push, lift away. The joystick cannot move you.':'Arm movement off; use the left stick to walk.',600,647,23,'#454545',800);
+    text(gorilla?'Plant, push, lift away. The joystick cannot move you.':'Arm movement off; use the left stick to walk.',600,647,23,'#454545',470);
+    button(1090,612,310,70,'Render distance: '+RD,()=>{
+      cycleRenderDistance();
+      vrMenuStatus='Render distance '+RD+(RD>=8?' - very far: expect lag and slow loading on a Quest':RD>=5?' - see further, but it may lag on a Quest 2':RD<=2?' - short, but smoothest':'');
+      buildCraftPanel();
+    });
   }
   text('HOTBAR — select a slot to hold its item',35,726,23,'#454545');
   for(let i=0;i<9;i++)slot(i,35+i*152,755);
@@ -22489,7 +22495,7 @@ function updateVR(dt){
 
 renderer.xr.addEventListener('sessionstart', () => {
   xrActive = true;
-  RD=Math.min(4,Math.max(2,parseInt(localStorage.getItem('blockcraft-vr-rd'))||3));
+  RD=Math.min(VR_RD_MAX,Math.max(2,parseInt(localStorage.getItem('blockcraft-vr-rd'))||3));
   curPC=null;applySkyForDim();btnRender.textContent='Render Distance: '+RD;
   renderer.xr.setFoveation(1);
   vrSprint=vrSprintWas=false;
@@ -22508,7 +22514,7 @@ renderer.xr.addEventListener('sessionstart', () => {
 renderer.xr.addEventListener('sessionend', () => {
   xrActive = false;
   player.h = 1.9;
-  RD=Math.min(7,Math.max(2,parseInt(localStorage.getItem(QUEST_DEVICE?'blockcraft-vr-rd':'blockcraft-rd'))||(QUEST_DEVICE?3:5)));curPC=null;applySkyForDim();btnRender.textContent='Render Distance: '+RD;
+  RD=Math.min(PC_RD_MAX,Math.max(2,parseInt(localStorage.getItem(QUEST_DEVICE?'blockcraft-vr-rd':'blockcraft-rd'))||(QUEST_DEVICE?3:5)));curPC=null;applySkyForDim();btnRender.textContent='Render Distance: '+RD;
   vrSelectHeld = vrTrigWas = vrGripWas = false; resetMine(); gorillaReset();
   player.crouchDrop = 0; player.crouching = false;
   xrRig.visible = false;
@@ -25946,15 +25952,15 @@ document.getElementById('btnMusic').addEventListener('click', () => toggleMusic(
 /* render distance setting */
 const btnRender = document.getElementById('btnRender');
 btnRender.textContent = 'Render Distance: ' + RD;
-btnRender.addEventListener('click', () => {
-  const vr=xrActive||QUEST_DEVICE;RD=RD>=(vr?4:7)?2:RD+1;
+function cycleRenderDistance(){
+  const vr=xrActive||QUEST_DEVICE;RD=RD>=(vr?VR_RD_MAX:PC_RD_MAX)?2:RD+1;
   localStorage.setItem(vr?'blockcraft-vr-rd':'blockcraft-rd', String(RD));
   scene.fog.near = RD * 16 * 0.55;
   scene.fog.far = RD * 16 * 0.95;
   curPC = null;                                   // force chunk set rebuild
   btnRender.textContent = 'Render Distance: ' + RD;
-  uiClick();
-});
+}
+btnRender.addEventListener('click', () => { cycleRenderDistance(); uiClick(); });
 
 /* VR comfort vignette toggle */
 const btnVignette = document.getElementById('btnVignette');
