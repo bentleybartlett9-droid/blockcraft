@@ -180,6 +180,7 @@
   <button class="mcbtn" id="btnSwitch">Switch to Creative</button>
   <button class="mcbtn" id="btnMusic">Music: On</button>
   <button class="mcbtn" id="btnRender">Render Distance: 5</button>
+  <button class="mcbtn" id="btnLod">Distant Terrain: Off</button>
   <button class="mcbtn" id="btnVignette">VR Comfort: On</button>
   <button class="mcbtn" id="btnSkins">Mob Textures: On</button>
   <button class="mcbtn" id="btnMove">VR Gorilla Arms: Off</button>
@@ -351,6 +352,7 @@ const CHUNK = 16, SEA0 = 66;     // sea level of the classic (pre-deep) world
 const WORLD_LIFT = 40;          // how far this build raised terrain vs the old 96-tall world
 const QUEST_DEVICE=/Quest|Oculus/i.test(navigator.userAgent);
 const VR_RD_MAX = 10, PC_RD_MAX = 32;   // how far out chunks load (more chunks, more work - especially for a Quest)
+let FOGR = 0;   // how many chunks out the fog reaches: the render distance, or the distant terrain when that's further
 let RD = Math.min(PC_RD_MAX, Math.max(2, parseInt(localStorage.getItem(QUEST_DEVICE?'blockcraft-vr-rd':'blockcraft-rd')) || (QUEST_DEVICE?3:5)));
 function finishSteps(it){let r;do{r=it.next();}while(!r.done);return r.value;}
 const REACH = 5.5;
@@ -5853,7 +5855,7 @@ addEventListener('resize', () => {
   renderer.setSize(innerWidth, innerHeight);
 });
 const DAYSKY = new THREE.Color(0x87b5e5), NIGHT = new THREE.Color(0x0a0f26), skyCol = new THREE.Color(), _stormCol = new THREE.Color();
-scene.fog = new THREE.Fog(0x87b5e5, RD * 16 * 0.55, RD * 16 * 0.95);
+scene.fog = new THREE.Fog(0x87b5e5, Math.max(RD, FOGR) * 16 * 0.55, Math.max(RD, FOGR) * 16 * 0.95);
 
 { // deepslate ores: copy the deepslate tile, then lift the ore lumps off each plain ore tile
   // (ore pixels are the coloured or dark ones; plain stone is a mid grey)
@@ -20492,16 +20494,16 @@ function applySkyForDim(){
   if(dim === 1){
     scene.fog.color.setHex(0x3a1512);
     scene.background && scene.background.setHex && scene.background.setHex(0x3a1512);
-    scene.fog.near = RD * 16 * 0.25; scene.fog.far = RD * 16 * 0.7;   // thick nether haze
+    scene.fog.near = Math.max(RD, FOGR) * 16 * 0.25; scene.fog.far = Math.max(RD, FOGR) * 16 * 0.7;   // thick nether haze
   } else if(dim === 2){
     scene.fog.color.setHex(0x0d0716);
     scene.background && scene.background.setHex && scene.background.setHex(0x0d0716);
-    scene.fog.near = RD * 16 * 0.5; scene.fog.far = RD * 16 * 1.1;    // deep End void
+    scene.fog.near = Math.max(RD, FOGR) * 16 * 0.5; scene.fog.far = Math.max(RD, FOGR) * 16 * 1.1;    // deep End void
   } else if(dim === 3){
     scene.fog.color.setHex(0x3a4452);
-    scene.fog.near = RD * 16 * 0.3; scene.fog.far = RD * 16 * 0.85;    // driving rain
+    scene.fog.near = Math.max(RD, FOGR) * 16 * 0.3; scene.fog.far = Math.max(RD, FOGR) * 16 * 0.85;    // driving rain
   } else {
-    scene.fog.near = RD * 16 * 0.55; scene.fog.far = RD * 16 * 0.95;
+    scene.fog.near = Math.max(RD, FOGR) * 16 * 0.55; scene.fog.far = Math.max(RD, FOGR) * 16 * 0.95;
   }
 }
 
@@ -21691,7 +21693,12 @@ function buildCraftPanel(){
       buildCraftPanel();
     },true,gorilla);
     text(gorilla?'Plant, push, lift away. The joystick cannot move you.':'Arm movement off; use the left stick to walk.',600,647,23,'#454545',470);
-    button(1090,612,310,70,'Render distance: '+RD,()=>{
+    button(1250,612,150,70,'Far: '+(lodVR||'Off'),()=>{
+      cycleLod(); lodFogWas=-1; refreshFogRange();
+      vrMenuStatus='Distant terrain '+(lodVR?lodVR+' chunks - low-detail land beyond your render distance':'off');
+      buildCraftPanel();
+    });
+    button(1090,612,150,70,'Chunks: '+RD,()=>{
       cycleRenderDistance();
       vrMenuStatus='Render distance '+RD+(RD>=8?' - very far: expect lag and slow loading on a Quest':RD>=5?' - see further, but it may lag on a Quest 2':RD<=2?' - short, but smoothest':'');
       buildCraftPanel();
@@ -22573,6 +22580,149 @@ if(IS_VR || BUILD === 'auto'){
   }
 }
 
+
+/* ---- distant terrain: a low-detail, blocky view of the land far beyond the loaded
+   chunks, like Minecraft's Distant Horizons mod. It is built from the same height and
+   biome maths as the world itself (so it matches what you'll find when you get there),
+   a little each frame, in big merged tiles so the graphics card has few things to draw.
+   Nothing out there is stored block by block, so it costs little memory. ---- */
+const LOD_TILE = 256, LOD_PC = [0, 16, 32, 64, 96, 128], LOD_VR = [0, 16, 24, 32, 48];
+const readLod = (k, d) => { const v = parseInt(localStorage.getItem(k)); return isNaN(v) ? d : v; };
+let lodPC = readLod('blockcraft-lod', 64), lodVR = readLod('blockcraft-lod-vr', 0);
+const lodDist = () => dim !== 0 ? 0 : (xrActive || QUEST_DEVICE ? lodVR : lodPC);
+const lodTiles = new Map(), lodGroup = new THREE.Group(); scene.add(lodGroup);
+const lodHide = new THREE.Vector4();
+const lodMat = new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide });
+lodMat.userData.base = new THREE.Color(1, 1, 1); entMats.push(lodMat);   // dims at night with everything else
+lodMat.onBeforeCompile = sh => {                                        // hidden wherever real chunks are loaded
+  sh.uniforms.uHide = { value: lodHide };
+  sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec2 vLodXZ;')
+    .replace('#include <begin_vertex>', '#include <begin_vertex>\nvLodXZ = (modelMatrix * vec4(position, 1.0)).xz;');
+  sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec2 vLodXZ;\nuniform vec4 uHide;')
+    .replace('void main() {', 'void main() {\n  if(vLodXZ.x > uHide.x && vLodXZ.x < uHide.z && vLodXZ.y > uHide.y && vLodXZ.y < uHide.w) discard;');
+};
+const lin = h => { const c = new THREE.Color(h); return [c.r, c.g, c.b]; };
+const LOD_RGB = {}, LOD_LEAF = {};
+for(const [k, v] of Object.entries({ plains: 0x79ad48, forest: 0x5f9c3c, birch: 0x74aa4c, 'dark-forest': 0x44802f, 'pale-garden': 0x9aa39a, jungle: 0x48a02c,
+  taiga: 0x5a8a50, snowy: 0xe6ecf0, swamp: 0x5c7c3c, 'willow-marsh': 0x5e7e46, savanna: 0xa6a656, desert: 0xdacc9c, badlands: 0xbe6a3c, outback: 0xc6844c,
+  bushland: 0x9a9a54, amberfield: 0xc6a64c, frostvale: 0xdde6ee, duskhollow: 0x5c4c7c, 'mushroom-fields': 0x8c6c8c, 'cherry-grove': 0x8cbc5c, 'maple-woods': 0x7aa048,
+  meadow: 0x88be58, grove: 0xdde6ea, 'snowy-slopes': 0xeef2f6, 'frozen-peaks': 0xdce6f0, 'jagged-peaks': 0xe8eef2, 'stony-peaks': 0x8c8c8c,
+  beach: 0xded4a6, 'snowy-beach': 0xe6ecf0, 'stony-shore': 0x8c8c8c })) LOD_RGB[k] = lin(v);
+for(const [k, v] of Object.entries({ forest: 0x3f7a2c, birch: 0x5a8c3c, 'dark-forest': 0x2c5a22, 'pale-garden': 0x7c847c, jungle: 0x2e7a1e, taiga: 0x3a5c3a,
+  swamp: 0x4a6a2e, 'willow-marsh': 0x4a6a34, savanna: 0x6a7a36, 'cherry-grove': 0xe6a8c8, 'maple-woods': 0xc8683a, plains: 0x4a7e2e, meadow: 0x4a7e2e,
+  snowy: 0x3a5c3a, grove: 0x3a5c3a, duskhollow: 0x4a3a6a, jungle2: 0x2e7a1e })) LOD_LEAF[k] = lin(v);
+const LOD_TREES = { forest: 0.55, birch: 0.45, 'dark-forest': 0.8, 'pale-garden': 0.7, jungle: 0.8, taiga: 0.45, swamp: 0.3, 'willow-marsh': 0.3, savanna: 0.08,
+  'cherry-grove': 0.45, 'maple-woods': 0.55, plains: 0.03, meadow: 0.04, snowy: 0.12, grove: 0.35, duskhollow: 0.4 };
+const LOD_GRASS = lin(0x6fa84a), LOD_SNOW = lin(0xeef2f6), LOD_WATER = lin(0x3a64b8), LOD_WARM = lin(0x3a9ab8), LOD_COLD = lin(0x3a5aa0);
+function lodColumn(x, z){
+  const h = terrainHeight(x, z), bio = biomeAt(x, z), k = 0.93 + hash(x, z, 7713) * 0.1;
+  if(h < SEA){ const w = /warm/.test(bio) ? LOD_WARM : /frozen|cold/.test(bio) ? LOD_COLD : LOD_WATER; return [SEA + 0.9, w[0] * k, w[1] * k, w[2] * k]; }
+  let top = h + 1, c = h >= SNOW_H ? LOD_SNOW : (LOD_RGB[bio] || LOD_GRASS);
+  const tr = LOD_TREES[bio] || 0;
+  if(tr && h < SNOW_H && hash(x >> 2, z >> 2, 7711) < tr){ top += 4 + ((hash(x >> 2, z >> 2, 7712) * 3) | 0); c = LOD_LEAF[bio] || c; }   // tree cover
+  return [top, c[0] * k, c[1] * k, c[2] * k];
+}
+function* buildLodTile(tx, tz, step){
+  const n = LOD_TILE / step, W = n + 2, x0 = tx * LOD_TILE, z0 = tz * LOD_TILE;
+  const H = new Float32Array(W * W), C = new Float32Array(W * W * 3);
+  for(let j = 0; j < W; j++){
+    for(let i = 0; i < W; i++){
+      const q = lodColumn(x0 + (i - 1) * step + (step >> 1), z0 + (j - 1) * step + (step >> 1)), k = j * W + i;
+      H[k] = q[0] - 0.2; C[k * 3] = q[1]; C[k * 3 + 1] = q[2]; C[k * 3 + 2] = q[3];
+    }
+    yield;
+  }
+  const pos = [], col = [], idx = [];
+  const quad = (ax, ay, az, bx, by, bz, cx, cy, cz, dx, dy, dz, r, g, b) => {
+    const o = pos.length / 3;
+    pos.push(ax, ay, az, bx, by, bz, cx, cy, cz, dx, dy, dz);
+    col.push(r, g, b, r, g, b, r, g, b, r, g, b);
+    idx.push(o, o + 1, o + 2, o + 2, o + 1, o + 3);
+  };
+  for(let j = 1; j <= n; j++) for(let i = 1; i <= n; i++){
+    const k = j * W + i, h = H[k], x = x0 + (i - 1) * step, z = z0 + (j - 1) * step, X = x + step, Z = z + step;
+    const r = C[k * 3], g = C[k * 3 + 1], b = C[k * 3 + 2];
+    quad(x, h, z, x, h, Z, X, h, z, X, h, Z, r, g, b);                                   // the top
+    const s1 = 0.8, s2 = 0.68;                                                           // and a side down to any lower neighbour
+    let o = H[k + 1]; if(o < h) quad(X, o, z, X, o, Z, X, h, z, X, h, Z, r * s1, g * s1, b * s1);
+    o = H[k - 1];     if(o < h) quad(x, o, z, x, o, Z, x, h, z, x, h, Z, r * s1, g * s1, b * s1);
+    o = H[k + W];     if(o < h) quad(x, o, Z, X, o, Z, x, h, Z, X, h, Z, r * s2, g * s2, b * s2);
+    o = H[k - W];     if(o < h) quad(x, o, z, X, o, z, x, h, z, X, h, z, r * s2, g * s2, b * s2);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  geo.setIndex(pos.length / 3 > 65535 ? new THREE.Uint32BufferAttribute(idx, 1) : new THREE.Uint16BufferAttribute(idx, 1));
+  geo.computeBoundingSphere();
+  return geo;
+}
+let lodQueue = [], lodJob = null, lodScanT = 0, lodFogWas = -1;
+let lodRingT = 0, lodPcx = 1e9, lodPcz = 1e9, lodR = 0;
+function dropLodTile(k){ const t = lodTiles.get(k); if(!t) return; lodGroup.remove(t.mesh); t.mesh.geometry.dispose(); lodTiles.delete(k); }
+function refreshFogRange(){
+  const L = lodDist();
+  FOGR = L > RD ? L : RD;
+  if(FOGR === lodFogWas) return;
+  lodFogWas = FOGR;
+  applySkyForDim();
+  camera.far = Math.max(420, FOGR * 16 * 1.15); camera.updateProjectionMatrix();
+}
+function updateLod(dt){
+  refreshFogRange();
+  const L = lodDist() * 16;
+  if(L <= RD * 16){ lodGroup.visible = false; if(lodTiles.size){ for(const k of [...lodTiles.keys()]) dropLodTile(k); lodQueue = []; lodJob = null; } return; }
+  lodGroup.visible = true;
+  // hide it only over the square of real chunks that have finished loading, so there's never a gap between the two
+  const pcx = Math.floor(player.pos.x / 16), pcz = Math.floor(player.pos.z / 16);
+  lodRingT -= dt;
+  if(lodRingT <= 0 || pcx !== lodPcx || pcz !== lodPcz){
+    lodRingT = 0.25; lodPcx = pcx; lodPcz = pcz;
+    let R = 0;
+    ring: for(let r = 1; r <= RD; r++){
+      for(let d = -r; d <= r; d++) for(const [cx, cz] of [[pcx + d, pcz - r], [pcx + d, pcz + r], [pcx - r, pcz + d], [pcx + r, pcz + d]]){
+        const c = chunks.get(cx + ',' + cz); if(!c || !c.built) break ring;
+      }
+      R = r;
+    }
+    lodR = R;
+  }
+  lodHide.set((pcx - lodR) * 16, (pcz - lodR) * 16, (pcx + lodR + 1) * 16, (pcz + lodR + 1) * 16);
+  lodScanT -= dt;
+  if(lodScanT <= 0){
+    lodScanT = 0.5;
+    const px = player.pos.x, pz = player.pos.z, want = new Map();
+    for(let tx = Math.floor((px - L) / LOD_TILE); tx <= Math.floor((px + L) / LOD_TILE); tx++)
+      for(let tz = Math.floor((pz - L) / LOD_TILE); tz <= Math.floor((pz + L) / LOD_TILE); tz++){
+        const d = Math.max(0, Math.hypot((tx + 0.5) * LOD_TILE - px, (tz + 0.5) * LOD_TILE - pz) - LOD_TILE * 0.71);
+        if(d > L) continue;
+        if(tx * LOD_TILE >= lodHide.x && (tx + 1) * LOD_TILE <= lodHide.z && tz * LOD_TILE >= lodHide.y && (tz + 1) * LOD_TILE <= lodHide.w) continue;
+        want.set(tx + ',' + tz, { tx, tz, d, step: d < 640 ? 8 : d < 1280 ? 16 : 32 });
+      }
+    for(const k of [...lodTiles.keys()]) if(!want.has(k)) dropLodTile(k);
+    lodQueue = [...want.entries()].filter(([k, w]) => { const t = lodTiles.get(k); return !t || t.step !== w.step; }).map(e => e[1]).sort((a, b) => a.d - b.d);
+    if(lodJob && !want.has(lodJob.w.tx + ',' + lodJob.w.tz)) lodJob = null;
+  }
+  // build a little each frame, within a small time budget, so the frame rate holds
+  const t0 = performance.now(), budget = xrActive ? 1.2 : 2.2;
+  while(performance.now() - t0 < budget){
+    if(!lodJob){ const w = lodQueue.shift(); if(!w) break; lodJob = { w, gen: buildLodTile(w.tx, w.tz, w.step) }; }
+    const r = lodJob.gen.next();
+    if(r.done){
+      const w = lodJob.w, k = w.tx + ',' + w.tz; lodJob = null;
+      dropLodTile(k);
+      const mesh = new THREE.Mesh(r.value, lodMat); mesh.renderOrder = -1;
+      lodGroup.add(mesh); lodTiles.set(k, { mesh, step: w.step });
+    }
+  }
+}
+function cycleLod(){
+  const vr = xrActive || QUEST_DEVICE, list = vr ? LOD_VR : LOD_PC, cur = vr ? lodVR : lodPC;
+  const next = list[(list.indexOf(cur) + 1) % list.length] ?? 0;
+  if(vr){ lodVR = next; localStorage.setItem('blockcraft-lod-vr', String(next)); } else { lodPC = next; localStorage.setItem('blockcraft-lod', String(next)); }
+  return next;
+}
+const lodLabel = () => { const v = xrActive || QUEST_DEVICE ? lodVR : lodPC; return v ? v + ' chunks' : 'Off'; };
+
 /* ============================ main loop ============================= */
 const hudEl = document.getElementById('hud');
 const tintEl = document.getElementById('watertint');
@@ -22755,8 +22905,8 @@ function updateWeather(dt){
   }
   // rain closes the view in: the distance fades into grey
   if(dim === 0 && rainAmt > 0.001){
-    scene.fog.near = RD * 16 * 0.55 * (1 - 0.55 * rainAmt);
-    scene.fog.far = RD * 16 * 0.95 * (1 - 0.3 * rainAmt);
+    scene.fog.near = Math.max(RD, FOGR) * 16 * 0.55 * (1 - 0.55 * rainAmt);
+    scene.fog.far = Math.max(RD, FOGR) * 16 * 0.95 * (1 - 0.3 * rainAmt);
   }
   // rain on the roof sounds softer than rain on your head
   const covered = precipTop(Math.floor(c.x), Math.floor(c.z)) > c.y + 1;
@@ -25763,6 +25913,7 @@ function animate(){
     updateStormWorld(dt);
     updateShots(dt);
     updateArchery(dt);
+    updateLod(dt);
     updateDeco(dt);
     if(bowCd > 0) bowCd -= dt;
     if(levT > 0) levT -= dt;
@@ -25813,7 +25964,7 @@ function animate(){
   if(dim === 1){
     b = 0.62;
     skyCol.copy(netherFogCol);
-    scene.fog.near = RD * 16 * 0.18; scene.fog.far = RD * 16 * netherFogFar;
+    scene.fog.near = Math.max(RD, FOGR) * 16 * 0.18; scene.fog.far = Math.max(RD, FOGR) * 16 * netherFogFar;
     renderer.setClearColor(skyCol);
     scene.fog.color.copy(skyCol);
   } else if(dim === 2){
@@ -25843,8 +25994,8 @@ function animate(){
   paleK += ((paleHere && dim === 0 ? 1 : 0) - paleK) * Math.min(1, dt * 0.8);
   if(paleK > 0.01){
     skyCol.lerp(PALE_FOG, 0.78 * paleK); renderer.setClearColor(skyCol); scene.fog.color.copy(skyCol);
-    scene.fog.near = RD * 16 * (0.55 - 0.5 * paleK); scene.fog.far = RD * 16 * (0.95 - 0.58 * paleK); paleWas = true;
-  } else if(paleWas){ paleWas = false; scene.fog.near = RD * 16 * 0.55; scene.fog.far = RD * 16 * 0.95; }
+    scene.fog.near = Math.max(RD, FOGR) * 16 * (0.55 - 0.5 * paleK); scene.fog.far = Math.max(RD, FOGR) * 16 * (0.95 - 0.58 * paleK); paleWas = true;
+  } else if(paleWas){ paleWas = false; scene.fog.near = Math.max(RD, FOGR) * 16 * 0.55; scene.fog.far = Math.max(RD, FOGR) * 16 * 0.95; }
   // deep underground, out of the sky's reach, the distance fades to black rather than to sky blue
   if(dim === 0){
     caveFogK += ((lightAtPlayer().sky < 5 && player.pos.y < SEA - 6 ? 1 : 0) - caveFogK) * Math.min(1, dt * 1.5);
@@ -25856,13 +26007,13 @@ function animate(){
     _waterFog.copy(WATER_FOG).multiplyScalar(dim === 0 ? 0.2 + 0.8 * Math.pow(daylight, 0.7) : 0.5);
     renderer.setClearColor(_waterFog); scene.fog.color.copy(_waterFog);
     scene.fog.near = 4; scene.fog.far = effects.conduit > 0 ? 110 : 52; eyeWasWet = true;
-  } else if(eyeWasWet){ eyeWasWet = false; scene.fog.near = RD * 16 * 0.55; scene.fog.far = RD * 16 * 0.95; }
+  } else if(eyeWasWet){ eyeWasWet = false; scene.fog.near = Math.max(RD, FOGR) * 16 * 0.55; scene.fog.far = Math.max(RD, FOGR) * 16 * 0.95; }
   if(effects.darkness > 0 && dim === 0){
     const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 1000 * 2.2);
     _waterFog.setRGB(0.01, 0.01, 0.015); renderer.setClearColor(_waterFog); scene.fog.color.copy(_waterFog);
     scene.fog.near = 1; scene.fog.far = 9 + 12 * pulse; darkWas = true;
     b *= 0.25 + 0.3 * pulse;
-  } else if(darkWas){ darkWas = false; scene.fog.near = RD * 16 * 0.55; scene.fog.far = RD * 16 * 0.95; }
+  } else if(darkWas){ darkWas = false; scene.fog.near = Math.max(RD, FOGR) * 16 * 0.55; scene.fog.far = Math.max(RD, FOGR) * 16 * 0.95; }
   matO.color.setScalar(b);
   matT.color.setScalar(b);
   matC.color.setScalar(b);
@@ -25955,11 +26106,13 @@ btnRender.textContent = 'Render Distance: ' + RD;
 function cycleRenderDistance(){
   const vr=xrActive||QUEST_DEVICE;RD=RD>=(vr?VR_RD_MAX:PC_RD_MAX)?2:RD+1;
   localStorage.setItem(vr?'blockcraft-vr-rd':'blockcraft-rd', String(RD));
-  scene.fog.near = RD * 16 * 0.55;
-  scene.fog.far = RD * 16 * 0.95;
   curPC = null;                                   // force chunk set rebuild
+  lodFogWas = -1; refreshFogRange();
   btnRender.textContent = 'Render Distance: ' + RD;
 }
+const btnLod = document.getElementById('btnLod');
+btnLod.textContent = 'Distant Terrain: ' + lodLabel();
+btnLod.addEventListener('click', () => { cycleLod(); lodFogWas = -1; refreshFogRange(); btnLod.textContent = 'Distant Terrain: ' + lodLabel(); uiClick(); });
 btnRender.addEventListener('click', () => { cycleRenderDistance(); uiClick(); });
 
 /* VR comfort vignette toggle */
@@ -26163,7 +26316,7 @@ window.__bc = {
   COMPARATOR, TARGET, TRIPWIRE_HOOK, TRIPWIRE, DAYLIGHT, containerSignal, tripAt, hitTarget, updateRedstoneReaders, placeRSAt: (x, y, z, id, hit) => placeRS(x, y, z, id, hit),
   bowState: () => ({ bowDraw, crossLoad, crossWait }), startBowDraw, fireBow, useCrossbow, fireCrossbow, finishCrossLoad, updateArchery, bowPower, skelShoot, rocketBlast, makeBowModel, setBowPull,
   CROSSBOW, CROSSBOW_ARROW, CROSSBOW_ROCKET, BOW, ARROW_I,
-  setMobSkins, mobSkinTex, updateAnimalSpawns, BUILD,
+  setMobSkins, mobSkinTex, updateAnimalSpawns, BUILD, lodTiles, updateLod, cycleLod, lodColumn, refreshFogRange,
   DECO: { decoKey, setDeco, decoPlaced, useCandle, usePot, CANDLE0, CANDLE_LIT0, BANNER0, DECO_POT, SCAFFOLD, ARMOR_STAND, LOOM, decoState, useDecorations, armourStands, spawnStand, openLoom, closeLoom, loomApply, scaffDistances, scaffComponent, placeScaffold, breakDeco, BANNER_PATS, drawBanner, bannerCloths, updateDeco, hitStand, inScaffold, setBannerPats },
   NAME_TAG, LEAD, COMPASS, CLOCK, SPYGLASS, SHULKER_BOX, nameMob, playerLeads, useLeadsAndTags, drawDial, breakShulkerBox,
   PISTON, STICKY_PISTON, PISTON_HEAD, STICKY_HEAD, DISPENSER, DROPPER, OBSERVER, pistonAct, dispense, observeAt, machineTile, rsPartAt: (x, y, z) => rsPart(x, y, z), rsSetPartAt: (x, y, z, p) => rsSetPart(x, y, z, p), chestSlotsAt: k => chestSlots(k),
